@@ -1,0 +1,94 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model ChannelsCampaign {
+  id               Int                   @id @default(autoincrement())
+  telegram_chat_id BigInt
+  topic            String                @db.VarChar(255)
+  target_audience  String?               @db.Text
+  status           String                @default("INITIALIZING") @db.VarChar(50)
+  created_at       DateTime              @default(now()) @db.DateTime(0)
+  updated_at       DateTime              @default(now()) @updatedAt @db.DateTime(0)
+  pipeline_jobs    VideoPipelineJobs[]
+
+  @@map("channels_campaign")
+}
+
+model VideoPipelineJobs {
+  id                  Int                  @id @default(autoincrement())
+  campaign_id         Int?
+  day_number          Int
+  scheduled_post_time DateTime             @db.DateTime(0)
+  
+  // Dữ liệu cấu trúc sinh ra bởi LLM
+  video_title_idea    String?              @db.VarChar(255)
+  hook_text_3s        String?              @db.Text
+  full_voice_script   String?              @db.Text
+  scenes_layout_json  String?              @db.LongText
+  seo_tags_metadata   Json?
+  
+  // Dữ liệu Media đầu ra
+  audio_file_path     String?              @db.VarChar(500)
+  video_output_path   String?              @db.VarChar(500)
+  
+  // Trạng thái điều phối dòng việc (State Machine)
+  pipeline_state      String               @default("QUEUED") @db.VarChar(50)
+  
+  retry_count         Int                  @default(0)
+  max_retries         Int                  @default(3)
+  error_log_trace     String?              @db.Text
+  created_at          DateTime             @default(now()) @db.DateTime(0)
+  updated_at          DateTime             @default(now()) @updatedAt @db.DateTime(0)
+
+  campaign            ChannelsCampaign?    @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  realtime_logs       ProcessRealtimeLogs[]
+  publish_targets     PublishTargets[]
+
+  @@index([pipeline_state], map: "idx_pipeline_state")
+  @@index([scheduled_post_time], map: "idx_scheduled_time")
+  @@map("video_pipeline_jobs")
+}
+
+model PublishTargets {
+  id                     Int                @id @default(autoincrement())
+  job_id                 Int
+  platform               String             @db.VarChar(30)
+  status                 String             @default("PENDING_APPROVAL") @db.VarChar(50)
+  scheduled_publish_time DateTime?          @db.DateTime(0)
+  external_video_id      String?            @db.VarChar(255)
+  external_url           String?            @db.VarChar(500)
+  privacy_status         String             @default("public") @db.VarChar(30)
+  title                  String?            @db.VarChar(255)
+  description            String?            @db.Text
+  tags                   Json?
+  error_log              String?            @db.Text
+  created_at             DateTime           @default(now()) @db.DateTime(0)
+  updated_at             DateTime           @default(now()) @updatedAt @db.DateTime(0)
+
+  job                    VideoPipelineJobs  @relation(fields: [job_id], references: [id], onDelete: Cascade)
+
+  @@index([job_id], map: "idx_publish_targets_job")
+  @@index([platform, status], map: "idx_publish_targets_platform_status")
+  @@index([scheduled_publish_time], map: "idx_publish_targets_scheduled")
+  @@map("publish_targets")
+}
+
+model ProcessRealtimeLogs {
+  id             Int                @id @default(autoincrement())
+  job_id         Int?
+  execution_step String             @db.VarChar(100)
+  status_level   String             @db.VarChar(20)
+  log_message    String             @db.Text
+  logged_at      DateTime           @default(now()) @db.DateTime(0)
+
+  job            VideoPipelineJobs? @relation(fields: [job_id], references: [id], onDelete: Cascade)
+
+  @@index([job_id], map: "idx_job_logs")
+  @@map("process_realtime_logs")
+}

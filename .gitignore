@@ -1,0 +1,45 @@
+# Node dependencies
+node_modules/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
+
+# TypeScript
+*.tsbuildinfo
+
+# Python dependencies
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+tmp_pip/
+orchestrator/.npm-cache/
+
+# Project specific paths (Sensitive session data & large media)
+worker/.env
+worker/chrome_profile/
+worker/chrome_profile_test/
+worker/temp_assets/
+worker/output_videos/
+orchestrator/.env
+orchestrator/scratch/
+*.bak
+
+# OS files
+.DS_Store
+Thumbs.db
+.git2/
+
+# Large media files
+*.mp4
+*.mp3
+*.m4a
+*.png
