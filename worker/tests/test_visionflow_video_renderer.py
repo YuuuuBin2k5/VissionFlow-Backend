@@ -11,7 +11,7 @@ def contract_with_effects(*effect_keys):
             "state": "locked",
             "tracks": [{
                 "track_type": "video",
-                "clips": [{"effects": [{"effect_key": key} for key in effect_keys]}, {}],
+                "clips": [{"timeline_start_ms": 0, "effects": [{"effect_key": key} for key in effect_keys], "keyframes": [{"property_key": "scale", "time_ms": 100, "value": {"value": 1.15}, "easing": "ease_out"}]}, {}],
             }],
         },
     )
@@ -28,6 +28,7 @@ class VisionFlowVideoRendererStylePlanTests(unittest.TestCase):
         self.assertEqual(["impact_shake", "caption_pop", "soft_glow", "motion_blur"], plan["composition_applied_effects"])
         self.assertEqual(["soft_glow", "motion_blur"], plan["composition_frame_effects"])
         self.assertEqual([], plan["composition_deferred_effects"])
+        self.assertEqual([{"time_ms": 100, "value": 1.15, "easing": "ease_out"}], plan["composition_keyframes"])
 
     def test_maps_cinematic_push_when_no_stronger_motion_preset_exists(self):
         plan = _style_plan(contract_with_effects("cinematic_push"))

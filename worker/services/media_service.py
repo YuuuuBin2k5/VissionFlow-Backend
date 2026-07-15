@@ -220,6 +220,42 @@ class MediaService:
 
         return clip.transform(render_effects)
 
+    def _apply_composition_scale_keyframes(self, clip, keyframes: list[dict], clip_start_seconds: float):
+        """Interpolate locked scale keyframes over a rendered scene clip."""
+        points = []
+        for item in keyframes:
+            if not isinstance(item, dict):
+                continue
+            try:
+                relative = float(item["time_ms"]) / 1000.0 - clip_start_seconds
+                scale = float(item["value"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if -0.05 <= relative <= float(clip.duration) + 0.05 and 0.5 <= scale <= 2.0:
+                points.append((relative, scale))
+        if not points:
+            return clip
+        points.sort()
+
+        def scale_at(time_seconds):
+            if time_seconds <= points[0][0]: return points[0][1]
+            if time_seconds >= points[-1][0]: return points[-1][1]
+            for (left_time, left_value), (right_time, right_value) in zip(points, points[1:]):
+                if left_time <= time_seconds <= right_time:
+                    progress = (time_seconds - left_time) / max(0.001, right_time - left_time)
+                    return left_value + (right_value - left_value) * progress
+            return 1.0
+
+        def transform_frame(get_frame, time_seconds):
+            frame = get_frame(time_seconds)
+            scale = scale_at(time_seconds)
+            if abs(scale - 1.0) < 0.002: return frame
+            height, width = frame.shape[:2]
+            resized = Image.fromarray(frame).resize((max(width, int(width * scale)), max(height, int(height * scale))), Image.Resampling.LANCZOS)
+            left, top = max(0, (resized.width - width) // 2), max(0, (resized.height - height) // 2)
+            return np.array(resized.crop((left, top, left + width, top + height)))
+        return clip.transform(transform_frame)
+
     def render_final_video(
         self,
         scenes_layout: list,
@@ -295,6 +331,9 @@ class MediaService:
             )
             clip = self._apply_composition_frame_effects(
                 clip, visual_style_plan.get("composition_frame_effects", [])
+            )
+            clip = self._apply_composition_scale_keyframes(
+                clip, visual_style_plan.get("composition_keyframes", []), current_time
             )
             video_clips.append(clip)
             current_time += duration
