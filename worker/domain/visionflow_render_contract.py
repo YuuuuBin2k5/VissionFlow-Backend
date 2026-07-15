@@ -17,6 +17,7 @@ class VisionFlowRenderContract:
     aspect_ratio: str
     voice_code: str
     visual_preset: str
+    composition: dict[str, Any]
     workspace_key: str
 
 
@@ -26,6 +27,7 @@ def build_visionflow_render_contract(
     intake: dict[str, Any],
     script: str,
     scenes: list[dict[str, Any]],
+    composition: dict[str, Any],
 ) -> VisionFlowRenderContract:
     payload = intake.get("input_payload", {})
     if not isinstance(payload, dict):
@@ -39,6 +41,8 @@ def build_visionflow_render_contract(
         raise ValueError("VisionFlow V1 only supports 9:16 rendering")
     if not script.strip() or not scenes:
         raise ValueError("render requires a script and storyboard scenes")
+    if composition.get("state") != "locked" or not isinstance(composition.get("tracks"), list):
+        raise ValueError("render requires a locked composition snapshot")
     return VisionFlowRenderContract(
         workflow_run_id=workflow_run_id,
         trace_id=trace_id,
@@ -49,5 +53,6 @@ def build_visionflow_render_contract(
         aspect_ratio="9:16",
         voice_code=str(payload.get("voice_code", "edge-nam-minh")),
         visual_preset=str(payload.get("visual_preset", "clean_explainer")),
+        composition=composition,
         workspace_key=f"visionflow/{workflow_run_id}/render",
     )

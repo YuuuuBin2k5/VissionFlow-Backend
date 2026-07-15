@@ -19,6 +19,7 @@ class ExecutionContextGateway(Protocol):
     def get_execution_context(
         self, workflow_run_id: str, *, trace_id: str | None = None
     ) -> dict[str, Any]: ...
+    def get_composition(self, workflow_run_id: str, *, trace_id: str | None = None) -> dict[str, Any]: ...
 
 
 class VisionFlowRenderDispatcher:
@@ -46,12 +47,14 @@ class VisionFlowRenderDispatcher:
 
         script = _required_script(steps.get("script"))
         scenes = _required_scenes(steps.get("storyboard"))
+        composition = self._control_plane.get_composition(workflow_run_id, trace_id=trace_id)
         contract = build_visionflow_render_contract(
             workflow_run_id,
             trace_id,
             intake,
             script,
             scenes,
+            composition,
         )
         return self._render_workflow.execute(contract)
 

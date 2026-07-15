@@ -12,6 +12,8 @@ class ControlPlane:
     def get_execution_context(self, workflow_run_id, *, trace_id=None):
         self.calls.append((workflow_run_id, trace_id))
         return self.context
+    def get_composition(self, workflow_run_id, *, trace_id=None):
+        return {"state": "locked", "tracks": [{"track_type": "video", "clips": []}]}
 
 
 class RenderWorkflow:
@@ -47,6 +49,7 @@ class VisionFlowRenderDispatcherTests(unittest.TestCase):
         self.assertEqual("run-1", workflow.contracts[0].workflow_run_id)
         self.assertEqual("b" * 32, workflow.contracts[0].trace_id)
         self.assertFalse(hasattr(workflow.contracts[0], "job_id"))
+        self.assertEqual("locked", workflow.contracts[0].composition["state"])
 
     def test_rejects_not_storyboarded_without_invoking_renderer(self):
         gateway = ControlPlane(context(state="SCRIPTED"))
