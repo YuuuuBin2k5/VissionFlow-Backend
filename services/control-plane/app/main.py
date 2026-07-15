@@ -15,7 +15,7 @@ if origins:
         CORSMiddleware,
         allow_origins=origins,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_methods=["GET", "POST", "PUT", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "X-Request-ID"],
     )
 app.include_router(system.router, prefix=settings.api_prefix)

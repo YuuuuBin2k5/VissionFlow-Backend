@@ -29,10 +29,15 @@ from app.domain.authorization import Permission
 from app.domain.workflow import WorkflowState
 from app.infrastructure.database import get_session
 from app.infrastructure.creative_draft_repository import SqlAlchemyCreativeDraftRepository
+from app.infrastructure.creative_document_repository import (
+    CreativeDocumentConflict,
+    CreativeDocumentSnapshot,
+    SqlAlchemyCreativeDocumentRepository,
+)
 from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
 from app.infrastructure.repositories import SqlAlchemyShortFormWorkflowRepository
 from app.infrastructure.workflow_progression_repository import SqlAlchemyWorkflowProgressionRepository
-from app.infrastructure.models import VideoProject, WorkflowRun, WorkflowStep
+from app.infrastructure.models import CreativeDocument, CreativeDocumentVersion, VideoProject, WorkflowRun, WorkflowStep
 from app.routers.auth import require_identity
 
 
@@ -91,6 +96,51 @@ class SaveCreativeDraftRequest(BaseModel):
     organization_id: uuid.UUID
     script: str = Field(min_length=40, max_length=50_000)
     scenes: list[CreativeSceneRequest] = Field(min_length=3, max_length=20)
+
+
+class CreativeDocumentSceneRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    narration: str = Field(min_length=1, max_length=5_000)
+    visual_prompt: str = Field(min_length=1, max_length=5_000)
+    duration_seconds: int = Field(ge=1, le=90)
+    transition: str = Field(default="cut", min_length=1, max_length=48)
+    caption: str | None = Field(default=None, max_length=2_000)
+
+
+class SaveCreativeDocumentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    organization_id: uuid.UUID
+    expected_revision: int = Field(ge=0)
+    script: str = Field(min_length=40, max_length=50_000)
+    scenes: list[CreativeDocumentSceneRequest] = Field(min_length=3, max_length=20)
+
+
+class LockCreativeDocumentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    organization_id: uuid.UUID
+    expected_revision: int = Field(ge=1)
+
+
+class CreativeDocumentSceneResponse(BaseModel):
+    id: uuid.UUID
+    position: int
+    narration: str
+    visual_prompt: str
+    duration_seconds: int
+    transition: str
+    caption: str | None
+
+
+class CreativeDocumentResponse(BaseModel):
+    document_id: uuid.UUID
+    workflow_run_id: uuid.UUID
+    revision: int
+    active_version_id: uuid.UUID | None
+    version_id: uuid.UUID
+    version: int
+    state: str
+    script: str
+    scenes: list[CreativeDocumentSceneResponse]
 
 
 class OpenManualApprovalRequest(BaseModel):
@@ -221,6 +271,111 @@ def save_creative_draft(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+def _creative_document_response(snapshot: CreativeDocumentSnapshot) -> CreativeDocumentResponse:
+    return CreativeDocumentResponse(
+        document_id=snapshot.document_id,
+        workflow_run_id=snapshot.workflow_run_id,
+        revision=snapshot.revision,
+        active_version_id=snapshot.active_version_id,
+        version_id=snapshot.version_id,
+        version=snapshot.version,
+        state=snapshot.state,
+        script=snapshot.script,
+        scenes=[
+            CreativeDocumentSceneResponse(
+                id=scene.id,
+                position=scene.position,
+                narration=scene.narration,
+                visual_prompt=scene.visual_prompt,
+                duration_seconds=scene.duration_seconds,
+                transition=scene.transition,
+                caption=scene.caption,
+            )
+            for scene in snapshot.scenes
+        ],
+    )
+
+
+@router.get("/workflows/{workflow_run_id}/creative-document", response_model=CreativeDocumentResponse)
+def get_creative_document(
+    workflow_run_id: uuid.UUID,
+    organization_id: uuid.UUID,
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> CreativeDocumentResponse:
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject, organization_id, Permission.WORKFLOW_VIEW
+        )
+        snapshot = SqlAlchemyCreativeDocumentRepository(session).read(organization_id, workflow_run_id)
+        if snapshot is None:
+            raise LookupError("Creative document not found")
+        return _creative_document_response(snapshot)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
+@router.put("/workflows/{workflow_run_id}/creative-document", response_model=CreativeDocumentResponse)
+def save_creative_document(
+    workflow_run_id: uuid.UUID,
+    request: SaveCreativeDocumentRequest,
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> CreativeDocumentResponse:
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject, request.organization_id, Permission.WORKFLOW_CREATE
+        )
+        snapshot = SqlAlchemyCreativeDocumentRepository(session).save(
+            organization_id=request.organization_id,
+            workflow_run_id=workflow_run_id,
+            expected_revision=request.expected_revision,
+            script=request.script.strip(),
+            scenes=[scene.model_dump() for scene in request.scenes],
+            actor_subject=identity.subject,
+        )
+        return _creative_document_response(snapshot)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except CreativeDocumentConflict as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
+@router.post("/workflows/{workflow_run_id}/creative-document/lock", response_model=CreativeDocumentResponse)
+def lock_creative_document(
+    workflow_run_id: uuid.UUID,
+    request: LockCreativeDocumentRequest,
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> CreativeDocumentResponse:
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject, request.organization_id, Permission.WORKFLOW_CREATE
+        )
+        snapshot = SqlAlchemyCreativeDocumentRepository(session).lock(
+            organization_id=request.organization_id,
+            workflow_run_id=workflow_run_id,
+            expected_revision=request.expected_revision,
+        )
+        return _creative_document_response(snapshot)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except CreativeDocumentConflict as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
 @router.post(
     "/workflows/{workflow_run_id}/transitions",
     response_model=WorkflowTransitionResponse,
@@ -295,6 +450,14 @@ def submit_workflow(
         )
         if workflow_run is None:
             raise LookupError("Workflow run not found")
+        creative_document = session.scalar(
+            select(CreativeDocument).where(CreativeDocument.workflow_run_id == workflow_run_id)
+        )
+        if creative_document is None or creative_document.active_version_id is None:
+            raise WorkflowStateConflict("Lock a creative document before submitting for render")
+        locked_version = session.get(CreativeDocumentVersion, creative_document.active_version_id)
+        if locked_version is None or locked_version.state != "locked":
+            raise WorkflowStateConflict("Lock a creative document before submitting for render")
         current_state = WorkflowState(workflow_run.state)
         if current_state == WorkflowState.QUEUED:
             return WorkflowTransitionResponse(workflow_run_id=workflow_run_id, state=current_state.value, changed=False)

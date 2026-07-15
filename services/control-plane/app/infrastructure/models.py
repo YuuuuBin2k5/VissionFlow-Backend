@@ -150,6 +150,51 @@ class WorkflowStep(Timestamped, Base):
     output_payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
 
+class CreativeDocument(Timestamped, Base):
+    """Mutable creative workspace; versions are the auditable render inputs."""
+
+    __tablename__ = "creative_documents"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workflow_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    active_version_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+
+
+class CreativeDocumentVersion(Base):
+    __tablename__ = "creative_document_versions"
+    __table_args__ = (UniqueConstraint("creative_document_id", "version", name="uq_creative_document_version"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    creative_document_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("creative_documents.id", ondelete="CASCADE"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    state: Mapped[str] = mapped_column(String(24), nullable=False, default="draft")
+    script: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str] = mapped_column(String(24), nullable=False, default="operator")
+    created_by_subject: Mapped[str] = mapped_column(String(512), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class CreativeScene(Timestamped, Base):
+    __tablename__ = "creative_scenes"
+    __table_args__ = (UniqueConstraint("creative_document_version_id", "position", name="uq_creative_scene_position"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    creative_document_version_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("creative_document_versions.id", ondelete="CASCADE"), nullable=False
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    narration: Mapped[str] = mapped_column(Text, nullable=False)
+    visual_prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    duration_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
+    transition: Mapped[str] = mapped_column(String(48), nullable=False, default="cut")
+    caption: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
 class PromptTemplate(Timestamped, Base):
     __tablename__ = "prompt_templates"
     __table_args__ = (UniqueConstraint("organization_id", "prompt_key", name="uq_prompt_template_key"),)
