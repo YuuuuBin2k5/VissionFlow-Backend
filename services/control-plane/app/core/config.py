@@ -16,6 +16,12 @@ def _require_postgres_url(name: str, value: str | None) -> str:
         raise ConfigurationError(f"{name} must use a PostgreSQL URL")
     if "sslmode=require" not in normalized:
         raise ConfigurationError(f"{name} must require TLS with sslmode=require")
+    # Neon presents standard PostgreSQL URLs. SQLAlchemy otherwise chooses the
+    # unavailable psycopg2 dialect for that scheme, while this service ships
+    # the modern `psycopg` driver. Keep the operator-facing URL conventional
+    # and select the installed driver at this infrastructure boundary.
+    if normalized.startswith("postgresql://"):
+        normalized = f"postgresql+psycopg://{normalized.removeprefix('postgresql://')}"
     return normalized
 
 

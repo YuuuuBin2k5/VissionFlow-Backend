@@ -22,6 +22,18 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings.app_env, "local")
         self.assertIsNotNone(settings.migration_database_url)
 
+    def test_normalizes_neon_standard_urls_to_the_installed_psycopg_driver(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"DATABASE_URL": "postgresql://app:secret@pooler.example/visionflow?sslmode=require"},
+            clear=True,
+        ):
+            settings = Settings.from_env()
+        self.assertEqual(
+            settings.database_url,
+            "postgresql+psycopg://app:secret@pooler.example/visionflow?sslmode=require",
+        )
+
     def test_rejects_mysql(self) -> None:
         with patch.dict(os.environ, {"DATABASE_URL": "mysql+pymysql://root:secret@localhost/app"}, clear=True):
             with self.assertRaises(ConfigurationError):
