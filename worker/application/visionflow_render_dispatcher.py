@@ -48,6 +48,7 @@ class VisionFlowRenderDispatcher:
         script = _required_script(steps.get("script"))
         scenes = _required_scenes(steps.get("storyboard"))
         composition = self._control_plane.get_composition(workflow_run_id, trace_id=trace_id)
+        scenes = _apply_locked_timeline(scenes, composition)
         contract = build_visionflow_render_contract(
             workflow_run_id,
             trace_id,
@@ -72,3 +73,40 @@ def _required_scenes(payload: object) -> list[dict[str, Any]]:
     if not all(isinstance(scene, dict) for scene in scenes):
         raise ValueError("storyboard scenes must be objects")
     return scenes
+
+
+def _apply_locked_timeline(scenes: list[dict[str, Any]], composition: dict[str, Any]) -> list[dict[str, Any]]:
+    """Materialize video-track order and trims from a locked composition.
+
+    The legacy renderer consumes one sequential list of scenes.  This adapter
+    keeps that boundary while making track ordering and clip duration an
+    actual render input instead of only editor metadata.
+    """
+    by_id = {
+        str(scene.get("scene_id") or scene.get("id")): scene
+        for scene in scenes
+        if str(scene.get("scene_id") or scene.get("id") or "").strip()
+    }
+    video_clips = [
+        clip for track in composition.get("tracks", []) if isinstance(track, dict) and track.get("track_type") == "video"
+        for clip in track.get("clips", []) if isinstance(clip, dict) and clip.get("source_type") == "scene"
+    ]
+    if not video_clips:
+        raise ValueError("locked composition has no video scene clips")
+    materialized: list[dict[str, Any]] = []
+    for clip in sorted(video_clips, key=lambda item: int(item.get("timeline_start_ms", 0))):
+        source_ref = str(clip.get("source_ref", ""))
+        scene = by_id.get(source_ref)
+        if scene is None:
+            raise ValueError(f"composition references unavailable scene '{source_ref}'")
+        duration_ms = clip.get("duration_ms")
+        if not isinstance(duration_ms, int) or not 1_000 <= duration_ms <= 90_000:
+            raise ValueError("composition video clip duration must be between 1 and 90 seconds")
+        materialized.append({
+            **scene,
+            "duration": duration_ms / 1000.0,
+            "composition_transform": clip.get("transform", {}),
+            "composition_effects": clip.get("effects", []),
+            "composition_keyframes": clip.get("keyframes", []),
+        })
+    return materialized

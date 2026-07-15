@@ -86,5 +86,6 @@ def _validate_generated(generated: dict[str, Any]) -> tuple[str, list[dict[str, 
         visual = str(scene.get("visual_search_keywords") or scene.get("visual_prompt") or "").strip()
         if not visual:
             raise ValueError(f"storyboard scene {index} is missing visual_search_keywords")
-        normalized.append({**scene, "visual_search_keywords": visual})
+        scene_id = str(scene.get("scene_id") or scene.get("id") or f"scene-{index}")
+        normalized.append({**scene, "scene_id": scene_id, "visual_search_keywords": visual, "duration": int(scene.get("duration") or scene.get("duration_seconds") or 5)})
     return script.strip(), normalized

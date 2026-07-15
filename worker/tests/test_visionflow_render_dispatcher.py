@@ -1,6 +1,6 @@
 import unittest
 
-from worker.application.visionflow_render_dispatcher import VisionFlowRenderDispatcher
+from worker.application.visionflow_render_dispatcher import VisionFlowRenderDispatcher, _apply_locked_timeline
 from worker.application.visionflow_render_workflow import RenderedArtifact
 
 
@@ -13,7 +13,7 @@ class ControlPlane:
         self.calls.append((workflow_run_id, trace_id))
         return self.context
     def get_composition(self, workflow_run_id, *, trace_id=None):
-        return {"state": "locked", "tracks": [{"track_type": "video", "clips": []}]}
+        return {"state": "locked", "tracks": [{"track_type": "video", "clips": [{"source_type": "scene", "source_ref": "scene-01", "timeline_start_ms": 0, "duration_ms": 5000}]}]}
 
 
 class RenderWorkflow:
@@ -69,6 +69,19 @@ class VisionFlowRenderDispatcherTests(unittest.TestCase):
             VisionFlowRenderDispatcher(ControlPlane(bad_context), workflow).dispatch("run-1", trace_id="b" * 32)
 
         self.assertEqual([], workflow.contracts)
+
+    def test_materializes_video_track_order_and_clip_duration(self):
+        scenes = [
+            {"scene_id": "a", "visual_search_keywords": "first"},
+            {"scene_id": "b", "visual_search_keywords": "second"},
+        ]
+        composition = {"tracks": [{"track_type": "video", "clips": [
+            {"source_type": "scene", "source_ref": "b", "timeline_start_ms": 0, "duration_ms": 9000},
+            {"source_type": "scene", "source_ref": "a", "timeline_start_ms": 9000, "duration_ms": 6000},
+        ]}]}
+        result = _apply_locked_timeline(scenes, composition)
+        self.assertEqual(["b", "a"], [scene["scene_id"] for scene in result])
+        self.assertEqual([9.0, 6.0], [scene["duration"] for scene in result])
 
 
 if __name__ == "__main__":
