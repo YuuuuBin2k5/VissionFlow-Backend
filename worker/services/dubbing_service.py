@@ -1,0 +1,915 @@
+import os
+import json
+import subprocess
+import asyncio
+from pathlib import Path
+from worker.services.llm_service import LLMService
+from worker.services.tts_service import TTSService
+from worker.services.lyric_transcription_service import LyricTranscriptionService
+from worker.config import DEFAULT_TTS_VOICE, BACKUP_TTS_VOICE
+
+class DubbingService:
+    _supports_force_style_cache = None
+
+    def __init__(self):
+        self.llm = LLMService()
+        self.transcription_service = LyricTranscriptionService()
+
+    def check_subtitles_supports_force_style(self) -> bool:
+        """Kiểm tra động xem FFmpeg hiện tại có hỗ trợ tham số force_style trong filter subtitles hay không"""
+        if DubbingService._supports_force_style_cache is not None:
+            return DubbingService._supports_force_style_cache
+
+        try:
+            cmd = ["ffmpeg", "-h", "filter=subtitles"]
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            if res.returncode != 0:
+                DubbingService._supports_force_style_cache = False
+            else:
+                DubbingService._supports_force_style_cache = "force_style" in res.stdout
+        except Exception as e:
+            print(f"[DubbingService Warning] Failed to check FFmpeg subtitles help: {e}")
+            DubbingService._supports_force_style_cache = False
+
+        return DubbingService._supports_force_style_cache
+
+    def get_media_duration(self, file_path: str) -> float:
+        """Sử dụng ffprobe để lấy độ dài file media (video/audio) tính bằng giây"""
+        try:
+            cmd = [
+                "ffprobe", "-v", "quiet", "-print_format", "json",
+                "-show_format", "-show_streams", file_path
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            data = json.loads(result.stdout)
+            return float(data.get("format", {}).get("duration", 0.0))
+        except Exception as e:
+            print(f"[DubbingService Warning] Failed to get duration for {file_path}: {e}")
+            return 0.0
+
+    async def transcribe_audio(self, audio_path: str, source_language: str = "auto", progress_callback=None) -> list:
+        """Sử dụng LyricTranscriptionService để chép thoại kèm timestamp"""
+        if progress_callback:
+            progress_callback("Đang phân tích và chép thoại bằng mô hình Whisper...")
+
+        # Nhờ lyric transcription service chạy Faster-Whisper hoặc OpenAI Whisper
+        timeline = self.transcription_service.transcribe_lyrics(audio_path, language=source_language)
+        return timeline
+
+    async def translate_timeline(self, timeline: list, progress_callback=None) -> list:
+        """Sử dụng Gemini AI để dịch câu thoại sát nghĩa chuẩn hoạt hình, có tối ưu hóa chia lô (batching) và gối đầu ngữ cảnh (context overlap) cho các video siêu dài."""
+        if progress_callback:
+            progress_callback("Đang tiến hành dịch thuật thông minh bằng Gemini 3.5-Flash...")
+
+        """
+        Dịch thuật kịch bản tự động bằng Gemini AI kết hợp phân vai hội thoại đa nhân vật (Speaker Diarization)
+        độ chính xác cao dựa trên phân tích ngữ cảnh ngữ nghĩa.
+        """
+        if not timeline:
+            return []
+
+        # Chia nhỏ timeline thành từng lô (batch) để xử lý tuần tự gối đầu bối cảnh
+        batch_size = 40
+        batches = [timeline[i:i + batch_size] for i in range(0, len(timeline), batch_size)]
+
+        translated_results = {}
+        identified_characters = set()  # Lưu giữ tên các nhân vật đã được nhận diện
+
+        for batch_idx, batch in enumerate(batches):
+            batch_start_idx = batch_idx * batch_size
+            if progress_callback:
+                progress_callback(f"Đang tiến hành dịch thuật & phân vai nhóm thoại {batch_idx + 1}/{len(batches)}...")
+
+            # Tạo ngữ cảnh gối đầu (Context Overlap) kèm thông tin định danh nhân vật đã biết
+            context_data = []
+            if batch_idx > 0:
+                prev_batch = batches[batch_idx - 1]
+                # Lấy 3 câu thoại cuối cùng đã dịch của nhóm trước
+                for prev_item in prev_batch[-3:]:
+                    prev_idx = timeline.index(prev_item)
+                    context_data.append({
+                        "original_text": prev_item["text"],
+                        "translated_text": translated_results.get(prev_idx, {}).get("translated_text", prev_item["text"]),
+                        "speaker_id": translated_results.get(prev_idx, {}).get("speaker_id", "SPEAKER_00"),
+                        "gender": translated_results.get(prev_idx, {}).get("gender", "female"),
+                        "age_group": translated_results.get(prev_idx, {}).get("age_group", "adult")
+                    })
+
+            # Chuẩn bị dữ liệu thoại cần dịch cho lô hiện tại
+            prompt_data = []
+            for item in batch:
+                idx = timeline.index(item)
+                duration = item["end"] - item["start"]
+                prompt_data.append({
+                    "id": idx,
+                    "text": item["text"],
+                    "duration_seconds": round(duration, 2)
+                })
+
+            # Xây dựng danh sách các nhân vật đã định danh để yêu cầu AI sử dụng nhất quán
+            known_chars_str = ", ".join(identified_characters) if identified_characters else "Chưa có (Hãy tự định danh)"
+
+            # Xây dựng prompt kèm cơ chế bối cảnh xưng hô và diarization
+            prompt = f"""
+Bạn là chuyên gia biên dịch kịch bản lồng tiếng hoạt hình và phim ảnh kỳ cựu.
+Nhiệm vụ của bạn là dịch các phân đoạn thoại sau sang tiếng Việt, đồng thời phân tích ngữ cảnh để chia vai (Speaker Diarization) cho từng câu nói.
+
+"""
+            if context_data:
+                prompt += f"""
+BỐI CẢNH HỘI THOẠI TRƯỚC ĐÓ (Chỉ dùng để tham khảo văn phong, cách xưng hô, KHÔNG dịch lại):
+{json.dumps(context_data, ensure_ascii=False, indent=2)}
+
+"""
+            prompt += f"""
+DANH SÁCH THOẠI CẦN DỊCH HÔM NAY (JSON):
+{json.dumps(prompt_data, ensure_ascii=False, indent=2)}
+
+DANH SÁCH NHÂN VẬT ĐÃ ĐƯỢC ĐỊNH DANH TRƯỚC ĐÓ (Hãy ưu tiên sử dụng nhất quán các tên này nếu là cùng một nhân vật):
+[{known_chars_str}]
+
+QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
+1. DỊCH VĂN CẢNH & KHỚP THỜI LƯỢNG SÚC TÍCH (LIP-SYNC, RHYTHM & COMPACT WORD LIMIT):
+   - Bản dịch tiếng Việt phải giữ trọn vẹn ý nghĩa, kịch tính, văn phong và cảm xúc của câu thoại gốc. KHÔNG được rút gọn thô bạo hoặc cắt xén câu thoại xuống còn 1-2 từ cộc lốc trừ khi bản gốc thực sự ngắn như thế.
+   - Bản dịch phải là 100% tiếng Việt thuần túy, tuyệt đối KHÔNG được để sót bất kỳ chữ Hán (chữ Trung Quốc), ký tự phiên âm, hoặc ký tự ngoại lai nào trong kết quả dịch. Tất cả các từ tiếng Trung (như "胆小", "欺负", "娇气", "台面") phải được chuyển ngữ hoàn toàn sang từ ngữ tiếng Việt điện ảnh tương đương tự nhiên nhất (ví dụ: "nhút nhát", "bắt nạt", "yểu điệu", "sân khấu/thể diện").
+   - RÀNG BUỘC ĐỘ DÀI TỪ VỰNG SÚC TÍCH: Tiếng Việt dịch ra phải cực kỳ súc tích, cô đọng, bỏ hết các từ đệm thừa thãi (nhé, nha, đấy, hoàn toàn, thực sự...) để đảm bảo tốc độ đọc tự nhiên khớp với thời lượng gốc của tiếng Trung (khoảng 2.0 đến 3.0 từ tiếng Việt cho mỗi 1 giây thời lượng). Điều này giúp giảm thiểu tối đa tải trọng co dãn Tempo của FFmpeg.
+   - KIẾN TRÚC HOOK NGƯỢC DÒNG (Contrarian Hook - 3 Giây Đầu): Nếu câu thoại đầu tiên là câu hook (0s - 3s), hãy dịch hoặc điều chỉnh câu nói này thành một lời khẳng định triệt lý mạnh mẽ, đi ngược lại suy nghĩ thông thường của đám đông hoặc đánh thẳng nỗi đau nhức nhối để kích thích tương tác bình luận. Tuyệt đối loại bỏ các từ mở đầu dông dài như "Bạn có biết", "Hôm nay mình...".
+   - CẤU TRÚC VÒNG LẶP VÔ TẬN (Seamless Loop): Tinh chỉnh câu thoại cuối cùng của video kết thúc lửng lơ bằng một vế câu mở sao cho khi nối liền mạch với câu Hook đầu tiên khi video lặp lại tạo thành một câu hoàn chỉnh, logic và cực kỳ mượt mà về mặt ngữ nghĩa.
+   - Ví dụ: Câu thoại dài 2.0 giây thì bản dịch nên có khoảng 4-6 từ. Câu dài 4.0 giây nên có khoảng 8-12 từ. Điều này đảm bảo câu thoại nghe tự nhiên, đầy đủ ý nghĩa và không bị trống rỗng hay quá dồn dập.
+2. XƯNG HÔ ĐÚNG NGỮ CẢNH PHIM ẢNH (DRAMATIC CONTEXT):
+   - Phân tích kỹ quan hệ giữa các nhân vật dựa trên bối cảnh để chọn đại từ xưng hô tiếng Việt phù hợp, nhất quán và đậm chất điện ảnh:
+     * Người lớn đối với trẻ em: Cô/Chú/Ta - Cháu/Con/Ngươi.
+     * Cảnh sát/Đội trưởng/Đồng đội: Đội trưởng/Tôi - Cậu/Mọi người/Đồng chí.
+     * Kẻ xấu và nạn nhân: Ta - Ngươi, Tao - Mày.
+     * Xưng hô thông thường lịch sự: Tôi - Bạn, Anh - Em.
+3. PHÂN VAI NHÂN VẬT (SPEAKER DIARIZATION):
+   - Phân tích ngữ cảnh câu thoại để gán thuộc tính nhân vật một cách nhất quán cho toàn bộ video:
+     * "speaker_id": Đặt tên viết hoa ngắn gọn định danh nhân vật nói câu này (ví dụ: MOTHER, DAUGHTER, CAPTAIN, BOY_A, BOY_B). Hãy giữ nguyên tên nhân vật đã có nếu trùng khớp đối thoại.
+     * "gender": Giới tính nhân vật, chỉ được chọn một trong hai nhãn: "male" hoặc "female".
+     * "age_group": Nhóm tuổi nhân vật, chỉ được chọn một trong hai nhãn: "child" (trẻ em/thiếu niên) hoặc "adult" (người lớn).
+4. Trả về ĐÚNG cấu trúc JSON array gồm các đối tượng có đầy đủ các trường: "id", "translated_text", "speaker_id", "gender", "age_group".
+5. Chỉ trả về chuỗi JSON hợp lệ, không viết thêm bất cứ văn bản giải thích hay ký tự markdown nào ngoài JSON.
+"""
+
+            # Cơ chế tự động thử lại (Retry Loop) lên tới 3 lần nếu xảy ra lỗi JSON hoặc sai số lượng phân đoạn
+            success_batch = False
+            last_error = ""
+            for attempt in range(3):
+                try:
+                    raw_response = self.llm.call_gemini_direct(prompt)
+                    cleaned = self.llm._clean_json_string(raw_response)
+                    parsed_list = json.loads(cleaned)
+
+                    # Xác thực cấu trúc đầu ra: Phải là list và có số lượng khớp với lô đầu vào
+                    if isinstance(parsed_list, list) and len(parsed_list) == len(batch):
+                        # Ghi nhận kết quả dịch và vai nhân vật
+                        for item in parsed_list:
+                            if "id" in item:
+                                s_id = item.get("speaker_id", "SPEAKER_00").strip().upper()
+                                # Thêm vào danh sách nhân vật đã biết
+                                identified_characters.add(s_id)
+                                translated_results[int(item["id"])] = {
+                                    "translated_text": item.get("translated_text", ""),
+                                    "speaker_id": s_id,
+                                    "gender": item.get("gender", "female").strip().lower(),
+                                    "age_group": item.get("age_group", "adult").strip().lower()
+                                }
+                        success_batch = True
+                        break
+                    else:
+                        last_error = f"Lô dịch {batch_idx + 1} có độ dài không khớp ({len(parsed_list) if isinstance(parsed_list, list) else 'not a list'} vs {len(batch)})."
+                        print(f"[DubbingService Warning] {last_error} Đang thử lại lần {attempt + 1}...")
+                except Exception as ex:
+                    last_error = str(ex)
+                    print(f"[DubbingService Warning] Lỗi dịch lô {batch_idx + 1} lần {attempt + 1}: {ex}. Đang thử lại...")
+                    await asyncio.sleep(1.0)
+
+            # Nếu thử lại cả 3 lần vẫn thất bại, ném lỗi rõ ràng thay vì dịch thô
+            if not success_batch:
+                raise RuntimeError(
+                    f"Không thể dịch phân đoạn thoại nhóm {batch_idx + 1}/{len(batches)} sang tiếng Việt.\n"
+                    f"Lý do lỗi: {last_error}\n"
+                    f"Vui lòng kiểm tra lại trạng thái hạn mức hạn mức API Key Gemini của bạn."
+                )
+
+        # Khớp lại tất cả các bản dịch và thông tin phân vai vào timeline gốc
+        for idx, item in enumerate(timeline):
+            res = translated_results.get(idx, {})
+            if isinstance(res, dict) and "translated_text" in res:
+                item["translated_text"] = res.get("translated_text", item["text"])
+                item["speaker_id"] = res.get("speaker_id", "SPEAKER_00")
+                item["gender"] = res.get("gender", "female")
+                item["age_group"] = res.get("age_group", "adult")
+            else:
+                item["translated_text"] = item["text"]
+                item["speaker_id"] = "SPEAKER_00"
+                item["gender"] = "female"
+                item["age_group"] = "adult"
+
+        return timeline
+
+    def merge_adjacent_segments(self, timeline: list, max_gap: float = 1.2, max_duration: float = 6.0) -> list:
+        """
+        Gộp các phân đoạn thoại gần nhau để:
+        1. Giảm số lượng gọi API Edge-TTS (tránh bị khóa IP/rate limit 429).
+        2. Tạo giọng đọc lồng tiếng liền mạch, tự nhiên và lưu loát hơn.
+        """
+        if not timeline:
+            return []
+
+        merged = []
+        current = dict(timeline[0]) # Sao chép để tránh sửa đổi bản gốc
+
+        for next_seg in timeline[1:]:
+            gap = next_seg["start"] - current["end"]
+            combined_duration = next_seg["end"] - current["start"]
+
+            # Gộp nếu khoảng nghỉ nhỏ hơn max_gap và tổng độ dài không vượt quá max_duration
+            if gap < max_gap and combined_duration <= max_duration:
+                current["text"] = f"{current['text'].strip()} {next_seg['text'].strip()}"
+                current["end"] = next_seg["end"]
+            else:
+                merged.append(current)
+                current = dict(next_seg)
+
+        merged.append(current)
+        print(f"[DubbingService] Merged timeline from {len(timeline)} segments down to {len(merged)} segments!")
+        return merged
+
+    def mix_wav_files_pure_python(self, dub_clips: list, output_path: str):
+        """
+        Hợp nhất các file WAV stereo 44100Hz 16-bit PCM bằng Python thuần
+        để không bị phụ thuộc vào bộ lọc 'adelay' của các phiên bản FFmpeg cũ.
+        """
+        import wave
+        import array
+
+        if not dub_clips:
+            # Nếu không có clip nào, tạo file wav im lặng ngắn 1s
+            with wave.open(output_path, 'wb') as wav_out:
+                wav_out.setnchannels(2)
+                wav_out.setsampwidth(2)
+                wav_out.setframerate(44100)
+                wav_out.writeframes(b'\x00' * 44100 * 4)
+            return
+
+        # 1. Tìm tổng thời lượng lớn nhất (tính bằng số mẫu/samples)
+        max_samples = 0
+        clips_data = []
+
+        for clip in dub_clips:
+            path = clip["path"]
+            start_ms = clip["start_ms"]
+
+            with wave.open(path, 'rb') as wav_in:
+                n_channels = wav_in.getnchannels()
+                sampwidth = wav_in.getsampwidth()
+                framerate = wav_in.getframerate()
+                n_frames = wav_in.getnframes()
+
+                # Đọc toàn bộ dữ liệu mẫu âm thanh
+                raw_frames = wav_in.readframes(n_frames)
+                # Chuyển thành mảng 16-bit signed short ('h')
+                samples = array.array('h', raw_frames)
+
+                # Quy đổi thời gian bắt đầu sang vị trí sample trong kênh stereo
+                start_frame = int(start_ms * framerate / 1000)
+                end_frame = start_frame + n_frames
+
+                if end_frame > max_samples:
+                    max_samples = end_frame
+
+                clips_data.append({
+                    "samples": samples,
+                    "start_frame": start_frame,
+                    "n_channels": n_channels
+                })
+
+        # 2. Khởi tạo mảng đích chứa toàn bộ mẫu âm thanh im lặng (zeros)
+        # Vì là stereo 16-bit, số lượng phần tử của array 'h' là max_samples * 2 (trái + phải)
+        target_samples = array.array('h', [0] * (max_samples * 2))
+
+        # 3. Phối trộn (Mix) từng clip vào mảng đích kèm cơ chế chống méo tiếng (clipping guard)
+        for clip in clips_data:
+            samples = clip["samples"]
+            start_frame = clip["start_frame"]
+            n_channels = clip["n_channels"]
+
+            # Nếu clip gốc là mono (1 kênh), cần nhân đôi thành stereo khi trộn
+            if n_channels == 1:
+                for i in range(len(samples)):
+                    frame_idx = start_frame + i
+                    target_left_idx = frame_idx * 2
+                    target_right_idx = frame_idx * 2 + 1
+
+                    if target_right_idx < len(target_samples):
+                        # Trộn kênh trái
+                        val_l = target_samples[target_left_idx] + samples[i]
+                        target_samples[target_left_idx] = max(-32768, min(32767, val_l))
+                        # Trộn kênh phải
+                        val_r = target_samples[target_right_idx] + samples[i]
+                        target_samples[target_right_idx] = max(-32768, min(32767, val_r))
+            else:
+                # Clip là stereo (2 kênh)
+                for i in range(len(samples)):
+                    target_idx = start_frame * 2 + i
+                    if target_idx < len(target_samples):
+                        val = target_samples[target_idx] + samples[i]
+                        target_samples[target_idx] = max(-32768, min(32767, val))
+
+        # 4. Ghi mảng phối trộn ra tệp tin WAV stereo 44100Hz 16-bit PCM mới
+        with wave.open(output_path, 'wb') as wav_out:
+            wav_out.setnchannels(2)
+            wav_out.setsampwidth(2)
+            wav_out.setframerate(44100)
+            wav_out.writeframes(target_samples.tobytes())
+
+        print(f"[DubbingService] Pure Python WAV Mixer: Successfully merged {len(dub_clips)} clips into '{output_path}'")
+
+    def apply_audio_ducking_pure_python(self, input_wav_path: str, output_wav_path: str, timeline: list):
+        """
+        Thực hiện Audio Ducking (dìm âm lượng nhạc nền gốc khi có tiếng thuyết minh) bằng Python thuần
+        để không bị phụ thuộc vào các tùy chọn và hàm toán học của bộ lọc 'volume' trong FFmpeg cũ.
+        Tích hợp thêm hiệu ứng Fade-in/Fade-out mượt mà dài 200ms để âm thanh nghe vô cùng tự nhiên.
+        """
+        import wave
+        import array
+
+        with wave.open(input_wav_path, 'rb') as wav_in:
+            n_channels = wav_in.getnchannels()
+            sampwidth = wav_in.getsampwidth()
+            framerate = wav_in.getframerate()
+            n_frames = wav_in.getnframes()
+
+            raw_frames = wav_in.readframes(n_frames)
+            samples = array.array('h', raw_frames)
+
+        total_frames = n_frames
+
+        # Khởi tạo mảng hệ số âm lượng cho từng khung hình (frame), mặc định là 1.0 (100% âm lượng)
+        volume_factors = [1.0] * total_frames
+
+        fade_duration_frames = int(0.20 * framerate) # Fade transition dài 200ms
+
+        for segment in timeline:
+            start_sec = max(0.0, segment["start"] - 0.25)
+            end_sec = segment["end"] + 0.25
+
+            start_frame = int(start_sec * framerate)
+            end_frame = int(end_sec * framerate)
+
+            # Giới hạn vị trí trong khung hình thực tế
+            start_frame = max(0, min(total_frames - 1, start_frame))
+            end_frame = max(0, min(total_frames - 1, end_frame))
+
+            # 1. Đoạn nói chính (Dìm xuống 15% âm lượng)
+            duck_start = min(total_frames - 1, start_frame + fade_duration_frames)
+            duck_end = max(0, end_frame - fade_duration_frames)
+
+            if duck_start < duck_end:
+                for f in range(duck_start, duck_end):
+                    volume_factors[f] = 0.15
+
+                # 2. Hiệu ứng Fade-out (Giảm dần từ 1.0 xuống 0.15) trước khi nói
+                for f in range(start_frame, duck_start):
+                    progress = (f - start_frame) / fade_duration_frames
+                    volume_factors[f] = min(volume_factors[f], 1.0 - (1.0 - 0.15) * progress)
+
+                # 3. Hiệu ứng Fade-in (Tăng dần từ 0.15 lên 1.0) sau khi nói xong
+                for f in range(duck_end, end_frame):
+                    progress = (f - duck_end) / fade_duration_frames
+                    volume_factors[f] = min(volume_factors[f], 0.15 + (1.0 - 0.15) * progress)
+            else:
+                # Nếu câu thoại quá ngắn, dìm đều xuống 15%
+                for f in range(start_frame, end_frame):
+                    volume_factors[f] = 0.15
+
+        # 4. Áp dụng các hệ số âm lượng vào các mẫu âm thanh thực tế
+        for f in range(total_frames):
+            factor = volume_factors[f]
+            if factor < 1.0:
+                for c in range(n_channels):
+                    sample_idx = f * n_channels + c
+                    if sample_idx < len(samples):
+                        val = int(samples[sample_idx] * factor)
+                        samples[sample_idx] = max(-32768, min(32767, val))
+
+        # 5. Ghi tệp WAV đã được dìm âm lượng
+        with wave.open(output_wav_path, 'wb') as wav_out:
+            wav_out.setnchannels(n_channels)
+            wav_out.setsampwidth(sampwidth)
+            wav_out.setframerate(framerate)
+            wav_out.writeframes(samples.tobytes())
+
+        print(f"[DubbingService] Pure Python Audio Ducking: Applied smooth ducking (15% vol) for {len(timeline)} segments on '{output_wav_path}'")
+
+    def format_srt_time(self, seconds: float) -> str:
+        """Quy đổi giây (float) sang định dạng thời gian của SRT (HH:MM:SS,mmm)"""
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        secs = int(seconds % 60)
+        millis = int(round((seconds - int(seconds)) * 1000))
+        if millis >= 1000:
+            millis -= 1000
+            secs += 1
+            if secs >= 60:
+                secs -= 60
+                minutes += 1
+                if minutes >= 60:
+                    minutes -= 60
+                    hours += 1
+        return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
+
+    def split_segment_text(self, text: str, start: float, end: float, max_words: int = 4, max_chars_per_line: int = 10) -> list:
+        """
+        Chia nhỏ một đoạn văn bản dài thành các phân cảnh phụ đề động (Kinetic Subtitles) ngắn gọn.
+        Mỗi frame hiển thị tối đa từ 3 đến 4 từ và không quá 2 dòng (tổng 20 ký tự), tự động phân bổ thời gian đều đặn.
+        """
+        try:
+            words = text.split()
+            if not words:
+                return []
+
+            duration = end - start
+            total_chars = len(text)
+            if total_chars == 0:
+                return []
+
+            chunks = []
+            current_chunk = []
+            current_len = 0
+
+            for word in words:
+                # Nếu thêm từ này vào mà vượt quá max_words hoặc quá dài, đóng chunk cũ lại
+                if len(current_chunk) >= max_words or current_len + len(word) + 1 > max_chars_per_line * 2:
+                    chunks.append(current_chunk)
+                    current_chunk = [word]
+                    current_len = len(word)
+                else:
+                    current_chunk.append(word)
+                    current_len += len(word) + 1
+            if current_chunk:
+                chunks.append(current_chunk)
+
+            # Phân bổ thời gian tỉ lệ thuận theo số lượng ký tự của mỗi chunk
+            sub_segments = []
+            current_start = start
+
+            for chunk in chunks:
+                chunk_text = " ".join(chunk)
+                chunk_chars = len(chunk_text)
+
+                # Tính thời lượng tương đối cho chunk này
+                chunk_dur = duration * (chunk_chars / total_chars)
+                chunk_dur = max(0.4, min(duration, chunk_dur))
+
+                chunk_end = current_start + chunk_dur
+                if chunk_end > end:
+                    chunk_end = end
+
+                # Định dạng ngắt dòng tự động nếu chunk có nhiều từ và dài hơn max_chars_per_line
+                formatted_text = chunk_text
+                if len(chunk_text) > max_chars_per_line:
+                    mid_index = len(chunk_text) // 2
+                    spaces = [i for i, c in enumerate(chunk_text) if c == ' ']
+                    if spaces:
+                        best_space = min(spaces, key=lambda x: abs(x - mid_index))
+                        formatted_text = chunk_text[:best_space] + "\n" + chunk_text[best_space+1:]
+
+                sub_segments.append({
+                    "start": current_start,
+                    "end": chunk_end,
+                    "text": formatted_text
+                })
+                current_start = chunk_end
+
+            if sub_segments:
+                sub_segments[-1]["end"] = end
+
+            return sub_segments
+        except Exception as e:
+            print(f"[DubbingService Warning] split_segment_text failed: {e}. Falling back to entire text.")
+            return [{"start": start, "end": end, "text": text}]
+
+    def generate_srt_file(self, timeline: list, srt_path: str):
+        """Tạo file phụ đề SRT từ danh sách timeline dịch thuật"""
+        try:
+            with open(srt_path, "w", encoding="utf-8") as f:
+                srt_index = 1
+                for segment in timeline:
+                    start = segment["start"]
+                    end = segment["end"]
+                    text = segment.get("translated_text", segment.get("text", "")).strip()
+
+                    # Tự động chia nhỏ các đoạn chữ dài thành các phụ đề ngắn gọn để tránh bị che khuất chủ thể
+                    # max_words=4 và max_chars_per_line=10 (tổng cộng tối đa 2 dòng = 20 ký tự)
+                    sub_segments = self.split_segment_text(text, start, end, max_words=4, max_chars_per_line=10)
+
+                    for sub in sub_segments:
+                        start_str = self.format_srt_time(sub["start"])
+                        end_str = self.format_srt_time(sub["end"])
+                        sub_text = sub["text"].strip()
+
+                        f.write(f"{srt_index}\n")
+                        f.write(f"{start_str} --> {end_str}\n")
+                        f.write(f"{sub_text}\n\n")
+                        srt_index += 1
+
+            print(f"[DubbingService] SRT Subtitle file generated successfully at: {srt_path}")
+        except Exception as e:
+            print(f"[DubbingService Warning] Failed to generate SRT file: {e}")
+
+    async def execute_dubbing_pipeline(self, video_path: str, output_path: str, voice_gender: str = "female", source_language: str = "auto", progress_callback=None, aspect_ratio: str = "original", burn_subtitles: bool = True, mute_original_audio: bool = False) -> tuple:
+        """Thực hiện toàn bộ 8 bước của pipeline lồng tiếng tự động miễn phí 100%"""
+        temp_dir = Path(os.path.dirname(output_path)) / f"dub_temp_{os.path.basename(video_path).split('.')[0]}"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        success = False
+
+        try:
+            # 1. Trích xuất âm thanh gốc
+            orig_audio_path = str(temp_dir / "original_audio.mp3")
+            if os.path.exists(orig_audio_path) and os.path.getsize(orig_audio_path) > 0:
+                print(f"[DubbingService] Reusing existing original audio extraction at: {orig_audio_path}")
+            else:
+                if progress_callback:
+                    progress_callback("Đang trích xuất âm thanh gốc từ video...")
+                cmd_extract = [
+                    "ffmpeg", "-y", "-i", video_path,
+                    "-vn", "-acodec", "libmp3lame", "-q:a", "2", orig_audio_path
+                ]
+                subprocess.run(cmd_extract, capture_output=True, check=True)
+
+            # 2. Nhận diện giọng nói gốc bằng Whisper
+            asr_cache_path = temp_dir / "asr_timeline.json"
+            if asr_cache_path.exists():
+                print(f"[DubbingService] Reusing cached ASR timeline: {asr_cache_path}")
+                with open(asr_cache_path, "r", encoding="utf-8") as f:
+                    timeline = json.load(f)
+            else:
+                timeline = await self.transcribe_audio(orig_audio_path, source_language, progress_callback)
+                if not timeline:
+                    print("[DubbingService Warning] Whisper không phát hiện bất kỳ giọng nói nào trong video nguồn. Chuyển sang chế độ remux tự động...")
+                    timeline = []
+                else:
+                    with open(asr_cache_path, "w", encoding="utf-8") as f:
+                        json.dump(timeline, f, ensure_ascii=False, indent=2)
+
+            # Cấu hình biến phòng vệ cho video câm (Silent Video Support)
+            is_silent_video = len(timeline) == 0
+            realized_timeline = timeline
+
+            if is_silent_video:
+                print("[DubbingService] Đang remux trực tiếp tệp âm thanh gốc (không lồng tiếng)...")
+                final_audio_path = orig_audio_path
+            else:
+                # Luôn gộp các phân đoạn sát nhau để tăng độ trôi chảy và tránh rate limit!
+                timeline = self.merge_adjacent_segments(timeline)
+
+                # 3. Dịch thuật thông minh qua Gemini
+                trans_cache_path = temp_dir / "translated_timeline.json"
+                use_cached_trans = False
+                if trans_cache_path.exists():
+                    print(f"[DubbingService] Reusing cached translated timeline: {trans_cache_path}")
+                    with open(trans_cache_path, "r", encoding="utf-8") as f:
+                        cached_trans = json.load(f)
+                    # Kiểm tra khớp độ dài của danh sách đã gộp để tránh lệch cache
+                    if len(cached_trans) == len(timeline):
+                        timeline = cached_trans
+                        use_cached_trans = True
+                    else:
+                        print("[DubbingService Warning] Cache length mismatch with merged timeline, re-translating...")
+
+                if not use_cached_trans:
+                    timeline = await self.translate_timeline(timeline, progress_callback)
+                    with open(trans_cache_path, "w", encoding="utf-8") as f:
+                        json.dump(timeline, f, ensure_ascii=False, indent=2)
+
+                # 4. Sinh tiếng lồng tiếng Việt bằng Edge-TTS & Tự động co dãn (Time-Stretch)
+                if progress_callback:
+                    progress_callback("Đang sinh các câu lồng tiếng Việt bằng Edge-TTS...")
+
+                tts_service = TTSService()
+
+                dub_clips = []
+                realized_timeline = []
+                accumulated_shift_ms = 0.0
+
+                for idx, segment in enumerate(timeline):
+                    txt = segment["translated_text"]
+                    original_start = segment["start"]
+                    original_end = segment["end"]
+                    original_duration = original_end - original_start
+
+                    original_start_ms = original_start * 1000.0
+                    original_duration_ms = original_duration * 1000.0
+
+                    # 1. KHỞI TẠO BIẾN TỊNH TIẾN ĐỘNG:
+                    # Thời điểm bắt đầu thực tế của câu thoại tiếp theo phải bằng:
+                    real_start_ms = original_start_ms + accumulated_shift_ms
+                    real_start_sec = real_start_ms / 1000.0
+
+                    # Trích xuất các nhãn phân vai nhân vật gán từ LLM
+                    speaker_id = segment.get("speaker_id", "SPEAKER_00")
+                    gender = segment.get("gender", "female")
+                    age_group = segment.get("age_group", "adult")
+
+                    # Tên file clip tạm thời
+                    raw_clip_path = str(temp_dir / f"clip_raw_{idx}.mp3")
+                    aligned_clip_path = str(temp_dir / f"clip_aligned_{idx}.wav")
+
+                    actual_duration = 0.0
+                    tempo = 1.0
+
+                    # Nếu file aligned đã được sinh và hợp lệ, tái sử dụng để tiết kiệm 100% tài nguyên và thời gian
+                    if os.path.exists(aligned_clip_path) and os.path.getsize(aligned_clip_path) > 0:
+                        print(f"[DubbingService] Reusing existing aligned audio clip {idx}: {aligned_clip_path}")
+                        actual_duration = self.get_media_duration(aligned_clip_path)
+                    else:
+                        # Gọi sinh âm thanh thô truyền động cấu hình giới tính/độ tuổi nhân vật
+                        await tts_service.generate_speech_with_timestamps(
+                            text=txt,
+                            output_audio_path=raw_clip_path,
+                            gender=gender,
+                            age_group=age_group
+                        )
+                        # Giãn cách 200ms giữa các câu nói để tránh bị rate limit từ chối dịch vụ
+                        await asyncio.sleep(0.2)
+
+                        # 2. KIỂM TRA CHẤT LƯỢNG FILE ÂM THANH (Audio Zero-Byte Guard):
+                        is_invalid_audio = not os.path.exists(raw_clip_path) or os.path.getsize(raw_clip_path) == 0
+
+                        if is_invalid_audio:
+                            print(f"[DubbingService Warning] TTS audio file is missing or 0-byte: {raw_clip_path}. Generating silence fallback of {original_duration:.3f}s.")
+                            # Ép hệ thống tự động sinh một file WAV chứa "âm thanh im lặng" (Silence Audio)
+                            cmd_silence = [
+                                "ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
+                                "-t", f"{original_duration:.3f}", "-acodec", "pcm_s16le", aligned_clip_path
+                            ]
+                            subprocess.run(cmd_silence, capture_output=True, check=True)
+                            actual_duration = original_duration
+                        else:
+                            # Kiểm tra độ dài âm thanh tiếng Việt thực tế
+                            actual_duration = self.get_media_duration(raw_clip_path)
+                            if actual_duration <= 0:
+                                actual_duration = original_duration
+
+                            # 2. TÍNH TOÁN TEMPO VÀ OVERFLOW THÔNG MINH
+                            tempo = actual_duration / original_duration
+                            tempo = max(0.85, min(1.35, tempo)) # Đặt biên giới hạn tốc độ đọc an toàn tối đa là 1.35
+
+                            # Xác định tỷ lệ điều tần (pitch shift) chuẩn nhân vật
+                            pitch_ratio = 1.0
+                            if gender == "female" and age_group == "child":
+                                pitch_ratio = 1.05
+                            elif gender == "male":
+                                if age_group == "child":
+                                    pitch_ratio = 1.04
+                                else:
+                                    pitch_ratio = 1.0  # Giữ nguyên giọng nam chính nguyên bản ấm áp
+
+                            # Chế tạo bộ lọc kép Single-Pass hợp nhất xử lý pitch và tempo
+                            filters = []
+                            if abs(pitch_ratio - 1.0) > 0.01:
+                                filters.append(f"asetrate=44100*{pitch_ratio:.3f}")
+                                filters.append(f"atempo={1.0/pitch_ratio:.3f}")
+                            if abs(tempo - 1.0) > 0.05 or len(filters) > 0:
+                                filters.append(f"atempo={tempo:.3f}")
+
+                            # Chạy FFmpeg để sinh file aligned với âm tần chuẩn
+                            filter_str = ",".join(filters)
+                            cmd_tempo = ["ffmpeg", "-y", "-i", raw_clip_path]
+                            if filter_str:
+                                cmd_tempo += ["-filter_complex", f"[0:a]{filter_str}[outa]", "-map", "[outa]"]
+                            cmd_tempo += ["-ac", "2", "-ar", "44100", aligned_clip_path]
+
+                            subprocess.run(cmd_tempo, capture_output=True, check=True)
+
+                            actual_duration = self.get_media_duration(aligned_clip_path)
+
+                    # Độ dài sau khi co dãn bằng FFmpeg thực tế
+                    compressed_duration_ms = actual_duration * 1000.0
+                    real_end_ms = real_start_ms + compressed_duration_ms
+                    real_end_sec = real_end_ms / 1000.0
+
+                    # Tính toán số mili-giây dư ra (overflow) và cộng dồn vào accumulated_shift_ms
+                    overflow_ms = compressed_duration_ms - original_duration_ms
+                    accumulated_shift_ms += overflow_ms
+
+                    # Trừ bớt/thu hồi accumulated_shift_ms nếu có khoảng nghỉ (gap) đến câu tiếp theo
+                    if idx < len(timeline) - 1:
+                        next_segment = timeline[idx + 1]
+                        next_original_start_ms = next_segment["start"] * 1000.0
+                        gap_ms = next_original_start_ms - (original_end * 1000.0)
+                        if gap_ms > 0:
+                            accumulated_shift_ms = max(0.0, accumulated_shift_ms - gap_ms)
+
+                    # Đảm bảo accumulated_shift_ms không bao giờ bị âm
+                    accumulated_shift_ms = max(0.0, accumulated_shift_ms)
+
+                    dub_clips.append({
+                        "path": aligned_clip_path,
+                        "start_ms": int(real_start_ms)
+                    })
+
+                    # 3. ĐỒNG BỘ ĐẦU RA CHO SRT VÀ AUDIO DUCKING
+                    realized_segment = dict(segment)
+                    realized_segment["start"] = real_start_sec
+                    realized_segment["end"] = real_end_sec
+                    realized_timeline.append(realized_segment)
+
+                    # LOGGING GIÁM SÁT DÒNG THỜI GIAN (Timeline Drift Logger)
+                    print(f"[DubbingService] Segment {idx} -> Original Duration: {original_duration_ms:.1f}ms | Real Duration: {compressed_duration_ms:.1f}ms | Current Accumulated Shift: {accumulated_shift_ms:.1f}ms")
+
+                # 5. Phối trộn tất cả các câu lồng tiếng bằng Python thuần
+                merged_vocal_path = str(temp_dir / "merged_vocals.wav")
+                self.mix_wav_files_pure_python(dub_clips, merged_vocal_path)
+
+                # 6. Audio Ducking nhạc nền gốc
+                if progress_callback:
+                    progress_callback("Đang thực hiện Audio Ducking lọc dìm nhạc nền nguyên bản...")
+
+                # Trích xuất file WAV stereo 44100Hz từ original_audio.mp3 trước khi xử lý
+                orig_audio_wav_path = str(temp_dir / "original_audio.wav")
+                cmd_conv = [
+                    "ffmpeg", "-y", "-i", orig_audio_path,
+                    "-ac", "2", "-ar", "44100", orig_audio_wav_path
+                ]
+                subprocess.run(cmd_conv, capture_output=True, check=True)
+
+                ducked_audio_path = str(temp_dir / "ducked_original_audio.wav")
+                # Sử dụng giải pháp dìm âm thanh cục bộ bằng Python để độc lập với bộ lọc volume của các bản FFmpeg cũ
+                self.apply_audio_ducking_pure_python(orig_audio_wav_path, ducked_audio_path, realized_timeline)
+
+                # 7. Trộn giọng lồng tiếng mới với âm lượng gốc đã dìm
+                if progress_callback:
+                    progress_callback("Đang pha trộn giọng thoại và nhạc nền...")
+
+                final_audio_path = str(temp_dir / "final_dubbed_audio.mp3")
+                if mute_original_audio:
+                    if progress_callback:
+                        progress_callback("Đang xuất âm thanh lồng tiếng thuần khiết (đã tắt nhạc nền bản quyền)...")
+                    cmd_mix = [
+                        "ffmpeg", "-y",
+                        "-i", merged_vocal_path,
+                        "-acodec", "libmp3lame", "-q:a", "2", final_audio_path
+                    ]
+                else:
+                    cmd_mix = [
+                        "ffmpeg", "-y",
+                        "-i", ducked_audio_path,
+                        "-i", merged_vocal_path,
+                        "-filter_complex", "[0:a][1:a]amix=inputs=2:duration=first[out]",
+                        "-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2", final_audio_path
+                    ]
+                subprocess.run(cmd_mix, capture_output=True, check=True)
+
+            # 8. Muxer: Đè âm thanh lồng tiếng mới vào video cũ không cần render lại hình ảnh (Giữ nguyên 100% chất lượng video)
+            if progress_callback:
+                progress_callback("Đang xuất video hoạt hình lồng tiếng Việt thành phẩm...")
+
+            srt_path = temp_dir / "subtitles.srt"
+            has_subtitles = False
+            if burn_subtitles and realized_timeline:
+                try:
+                    if progress_callback:
+                        progress_callback("Đang tự động biên soạn và tạo file phụ đề SRT tiếng Việt...")
+                    self.generate_srt_file(realized_timeline, str(srt_path))
+                    has_subtitles = os.path.exists(srt_path) and os.path.getsize(srt_path) > 0
+                except Exception as srt_err:
+                    print(f"[DubbingService Warning] Failed to write srt file: {srt_err}")
+
+            # Tạo file cấu hình fonts.conf trong thư mục tạm thời để giải quyết lỗi Fontconfig trên Windows
+            # Đăng ký thư mục fonts của hệ thống lẫn thư mục fonts dự án chứa Montserrat
+            from worker.config import FONTS_DIR
+            fonts_conf_path = temp_dir / "fonts.conf"
+            fonts_conf_content = f"""<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+    <dir>C:\\Windows\\Fonts</dir>
+    <dir>{FONTS_DIR.as_posix()}</dir>
+</fontconfig>
+"""
+            try:
+                with open(fonts_conf_path, "w", encoding="utf-8") as f:
+                    f.write(fonts_conf_content)
+            except Exception as fe:
+                print(f"[DubbingService Warning] Failed to write fonts.conf: {fe}")
+
+            # Sử dụng đường dẫn tương đối (relative path) từ thư mục làm việc hiện tại (CWD)
+            # để tránh ký tự hai chấm của tên ổ đĩa (ví dụ D:) trong bộ lọc subtitles của FFmpeg
+            try:
+                rel_srt_path = os.path.relpath(srt_path).replace("\\", "/")
+                escaped_srt = rel_srt_path.replace("'", "'\\''")
+            except Exception:
+                escaped_srt = str(srt_path).replace("\\", "/").replace(":", "\\:").replace("'", "'\\''")
+
+            # Cấu hình môi trường fontconfig truyền cho FFmpeg
+            env_copy = os.environ.copy()
+            env_copy["FONTCONFIG_FILE"] = str(fonts_conf_path)
+            env_copy["FONTCONFIG_PATH"] = str(temp_dir)
+            env_copy["FC_CONFIG_DIR"] = str(temp_dir)
+
+            # Kiểm tra động xem FFmpeg có hỗ trợ force_style hay không để tránh lỗi trên các phiên bản FFmpeg cũ
+            use_force_style = self.check_subtitles_supports_force_style()
+            if use_force_style:
+                if aspect_ratio == "vertical_blur":
+                    # Tối ưu phụ đề chuẩn Vietsub dùng font Montserrat, viền đen mịn không nền thô, lọt Safe Zone MarginV=300
+                    style_str = ":force_style='FontName=Montserrat,FontSize=40,Bold=1,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2,Shadow=1,MarginV=300'"
+                else:
+                    # Tối ưu cho màn ngang gốc dùng font Montserrat, viền đen mịn không nền thô, nâng MarginV=120
+                    style_str = ":force_style='FontName=Montserrat,FontSize=26,Bold=1,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2,Shadow=1,MarginV=120'"
+            else:
+                style_str = ""
+
+            if aspect_ratio == "vertical_blur":
+                if progress_callback:
+                    progress_callback("Đang chuyển đổi kích thước video sang Dọc 9:16 với viền mờ nghệ thuật (Blur Padding)...")
+
+                if has_subtitles:
+                    filter_complex_str = (
+                        "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:5,setsar=1[bg];"
+                        "[0:v]scale=1080:-1:force_original_aspect_ratio=decrease,setsar=1[fg];"
+                        f"[bg][fg]overlay=(W-w)/2:(H-h)/2[tempv];"
+                        f"[tempv]subtitles='{escaped_srt}'{style_str}[outv]"
+                    )
+                else:
+                    filter_complex_str = (
+                        "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:5,setsar=1[bg];"
+                        "[0:v]scale=1080:-1:force_original_aspect_ratio=decrease,setsar=1[fg];"
+                        "[bg][fg]overlay=(W-w)/2:(H-h)/2[outv]"
+                    )
+
+                cmd_mux = [
+                    "ffmpeg", "-y",
+                    "-i", video_path,
+                    "-i", final_audio_path,
+                    "-filter_complex", filter_complex_str,
+                    "-map", "[outv]",
+                    "-map", "1:a:0",
+                    "-c:v", "libx264", "-profile:v", "high", "-level:v", "4.2",
+                    "-pix_fmt", "yuv420p", "-b:v", "4M",
+                    "-c:a", "aac", "-strict", "-2",
+                    "-shortest", output_path
+                ]
+            else:
+                if has_subtitles:
+                    if progress_callback:
+                        progress_callback("Đang ghi cứng phụ đề tiếng Việt vào video gốc (re-encoding)...")
+                    cmd_mux = [
+                        "ffmpeg", "-y",
+                        "-i", video_path,
+                        "-i", final_audio_path,
+                        "-vf", f"subtitles='{escaped_srt}'{style_str}",
+                        "-map", "0:v:0",
+                        "-map", "1:a:0",
+                        "-c:v", "libx264", "-profile:v", "high", "-level:v", "4.2",
+                        "-pix_fmt", "yuv420p", "-b:v", "4M",
+                        "-c:a", "aac", "-strict", "-2",
+                        "-shortest", output_path
+                    ]
+                else:
+                    cmd_mux = [
+                        "ffmpeg", "-y",
+                        "-i", video_path,
+                        "-i", final_audio_path,
+                        "-map", "0:v:0",
+                        "-map", "1:a:0",
+                        "-c:v", "copy",
+                        "-c:a", "aac",
+                        "-strict", "-2",
+                        "-shortest", output_path
+                    ]
+
+            subprocess.run(cmd_mux, capture_output=True, check=True, env=env_copy)
+
+            if progress_callback:
+                progress_callback("Hoàn thành quy trình lồng tiếng AI chất lượng cao! 🎉")
+            success = True
+            return True, realized_timeline
+
+        except subprocess.CalledProcessError as cpe:
+            print(f"[DubbingService Fatal Error] Subprocess failed with exit code {cpe.returncode}")
+            print(f"Command run: {' '.join(cpe.cmd) if isinstance(cpe.cmd, list) else cpe.cmd}")
+            if cpe.stdout:
+                print(f"[Subprocess Stdout]:\n{cpe.stdout.decode(errors='ignore')}")
+            if cpe.stderr:
+                print(f"[Subprocess Stderr]:\n{cpe.stderr.decode(errors='ignore')}")
+            import traceback
+            traceback.print_exc()
+            return False, []
+        except Exception as e:
+            print(f"[DubbingService Fatal Error] Dubbing pipeline failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return False, []
+
+        finally:
+            # Dọn dẹp thư mục tạm VÔ ĐIỀU KIỆN — dù pipeline THÀNH CÔNG hay THẤT BẠI.
+            # Ngăn chặn tích tụ hàng trăm MB file WAV/MP3 thô sau mỗi lần crash.
+            import shutil
+            try:
+                if temp_dir.exists():
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+                    print(f"[DubbingService Cleanup] ✅ Đã xóa sạch thư mục tạm: {temp_dir}")
+            except Exception as cleanup_err:
+                print(f"[DubbingService Cleanup Warning] Không thể xóa thư mục tạm {temp_dir}: {cleanup_err}")

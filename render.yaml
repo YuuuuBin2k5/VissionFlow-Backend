@@ -1,0 +1,74 @@
+services:
+  - type: web
+    runtime: docker
+    name: visionflow-control-plane-staging
+    region: singapore
+    dockerfilePath: services/control-plane/Dockerfile
+    dockerCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+    preDeployCommand: python -m alembic upgrade head
+    maxShutdownDelaySeconds: 60
+    envVars:
+      - key: APP_ENV
+        value: staging
+      - key: API_PREFIX
+        value: /api/v1
+      - key: DATABASE_URL
+        sync: false
+      - key: MIGRATION_DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: VISIONFLOW_WEB_ORIGINS
+        value: https://vision-flow-console.vercel.app
+      - key: VISIONFLOW_AUTH_ISSUER
+        sync: false
+      - key: VISIONFLOW_AUTH_AUDIENCE
+        value: visionflow-control-plane
+      - key: VISIONFLOW_AUTH_KEY_ID
+        value: visionflow-2026-01
+      - key: VISIONFLOW_AUTH_PRIVATE_KEY_PEM_BASE64
+        sync: false
+      - key: VISIONFLOW_AUTH_ACCESS_TOKEN_TTL_SECONDS
+        value: "900"
+      - key: VISIONFLOW_AUTH_REFRESH_TOKEN_TTL_DAYS
+        value: "30"
+      - key: VISIONFLOW_WORKER_CLIENT_ID
+        sync: false
+      - key: VISIONFLOW_WORKER_CLIENT_SECRET
+        sync: false
+      - key: VISIONFLOW_WORKER_SUBJECT
+        value: service|visionflow-intelligence-worker
+  - type: worker
+    runtime: docker
+    name: visionflow-outbox-relay-staging
+    region: singapore
+    dockerfilePath: services/control-plane/Dockerfile
+    dockerCommand: python scripts/relay_outbox.py --limit 50
+    maxShutdownDelaySeconds: 60
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+  - type: worker
+    runtime: docker
+    name: visionflow-intelligence-worker-staging
+    region: singapore
+    dockerfilePath: worker/Dockerfile
+    maxShutdownDelaySeconds: 300
+    envVars:
+      - key: REDIS_URL
+        sync: false
+      - key: VISIONFLOW_CONTROL_PLANE_URL
+        sync: false
+      - key: VISIONFLOW_ORGANIZATION_ID
+        sync: false
+      - key: VISIONFLOW_TOKEN_URL
+        sync: false
+      - key: VISIONFLOW_WORKER_CLIENT_ID
+        sync: false
+      - key: VISIONFLOW_WORKER_CLIENT_SECRET
+        sync: false
+      - key: VISIONFLOW_AUTH_AUDIENCE
+        value: visionflow-control-plane

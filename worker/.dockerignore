@@ -1,0 +1,13 @@
+output_videos/
+temp_assets/
+chrome_profile*/
+venv/
+*.mp3
+*.mp4
+__pycache__/
+scratch/
+.git/
+.git2/
+.github/
+.gitignore
+.env
