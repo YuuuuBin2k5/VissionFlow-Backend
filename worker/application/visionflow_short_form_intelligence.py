@@ -30,6 +30,9 @@ class LegacyLlmShortFormGenerator:
         input_payload = intake.get("input_payload", {})
         if not isinstance(input_payload, dict):
             raise ValueError("intake input_payload must be an object")
+        creative_draft = input_payload.get("creative_draft")
+        if isinstance(creative_draft, dict) and isinstance(creative_draft.get("script"), str) and isinstance(creative_draft.get("scenes"), list):
+            return {"full_voice_script": creative_draft["script"], "scenes_layout_json": creative_draft["scenes"]}
         return LLMService().generate_video_details(
             day_number=1,
             topic=str(intake["brief"]),

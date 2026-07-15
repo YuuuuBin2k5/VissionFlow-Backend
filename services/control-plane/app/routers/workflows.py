@@ -23,10 +23,12 @@ from app.application.manual_approval import (
     ManualApproval,
     OpenManualApprovalCommand,
 )
+from app.application.save_creative_draft import SaveCreativeDraft, SaveCreativeDraftCommand
 from app.core.oidc import VerifiedIdentity
 from app.domain.authorization import Permission
 from app.domain.workflow import WorkflowState
 from app.infrastructure.database import get_session
+from app.infrastructure.creative_draft_repository import SqlAlchemyCreativeDraftRepository
 from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
 from app.infrastructure.repositories import SqlAlchemyShortFormWorkflowRepository
 from app.infrastructure.workflow_progression_repository import SqlAlchemyWorkflowProgressionRepository
@@ -74,6 +76,21 @@ class SubmitWorkflowRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     organization_id: uuid.UUID
+
+
+class CreativeSceneRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    scene_id: str = Field(min_length=1, max_length=64)
+    narration: str = Field(min_length=1, max_length=5_000)
+    visual_prompt: str = Field(min_length=1, max_length=5_000)
+    duration_seconds: int = Field(ge=1, le=90)
+
+
+class SaveCreativeDraftRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    organization_id: uuid.UUID
+    script: str = Field(min_length=40, max_length=50_000)
+    scenes: list[CreativeSceneRequest] = Field(min_length=3, max_length=20)
 
 
 class OpenManualApprovalRequest(BaseModel):
@@ -175,6 +192,33 @@ def create_short_form_workflow(
         state=result.state.value,
         created=result.created,
     )
+
+
+@router.put("/workflows/{workflow_run_id}/creative-draft", status_code=status.HTTP_204_NO_CONTENT)
+def save_creative_draft(
+    workflow_run_id: uuid.UUID,
+    request: SaveCreativeDraftRequest,
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> Response:
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject, request.organization_id, Permission.WORKFLOW_CREATE
+        )
+        SaveCreativeDraft(SqlAlchemyCreativeDraftRepository(session)).execute(
+            SaveCreativeDraftCommand(
+                organization_id=request.organization_id,
+                workflow_run_id=workflow_run_id,
+                creative_draft={"script": request.script.strip(), "scenes": [scene.model_dump() for scene in request.scenes]},
+            )
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow run not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(
