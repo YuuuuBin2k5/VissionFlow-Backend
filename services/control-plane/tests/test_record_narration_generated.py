@@ -11,6 +11,7 @@ from app.application.record_narration_generated import (
     RecordNarrationGeneratedCommand,
     SceneCommandPayload,
     NarrationResultSummary,
+    SourceMetadataPayload,
 )
 from app.domain.workflow import WorkflowState
 
@@ -54,7 +55,7 @@ class RecordNarrationGeneratedTests(unittest.TestCase):
             idempotency_key=self.valid_idempotency,
             script=self.valid_script,
             scenes=self.valid_scenes,
-            source_metadata={"model": "gpt-4"},
+            source_metadata=SourceMetadataPayload("google", "gemini-1.5-pro"),
         )
         result = self.use_case.execute(command)
         self.assertEqual(WorkflowState.SCRIPTED, result.state)
@@ -70,7 +71,7 @@ class RecordNarrationGeneratedTests(unittest.TestCase):
                     idempotency_key=self.valid_idempotency,
                     script="   ",
                     scenes=self.valid_scenes,
-                    source_metadata={},
+                    source_metadata=SourceMetadataPayload("google", "gemini-1.5-pro"),
                 )
             )
 
@@ -83,7 +84,7 @@ class RecordNarrationGeneratedTests(unittest.TestCase):
                     idempotency_key=self.valid_idempotency,
                     script="Too short script.",
                     scenes=self.valid_scenes,
-                    source_metadata={},
+                    source_metadata=SourceMetadataPayload("google", "gemini-1.5-pro"),
                 )
             )
 
@@ -96,7 +97,7 @@ class RecordNarrationGeneratedTests(unittest.TestCase):
                     idempotency_key=self.valid_idempotency,
                     script=self.valid_script,
                     scenes=[],
-                    source_metadata={},
+                    source_metadata=SourceMetadataPayload("google", "gemini-1.5-pro"),
                 )
             )
 
@@ -109,7 +110,7 @@ class RecordNarrationGeneratedTests(unittest.TestCase):
                     idempotency_key=self.valid_idempotency,
                     script=self.valid_script,
                     scenes=self.valid_scenes[:2],
-                    source_metadata={},
+                    source_metadata=SourceMetadataPayload("google", "gemini-1.5-pro"),
                 )
             )
 
@@ -127,7 +128,7 @@ class RecordNarrationGeneratedTests(unittest.TestCase):
                     idempotency_key=self.valid_idempotency,
                     script=self.valid_script,
                     scenes=invalid_scenes,
-                    source_metadata={},
+                    source_metadata=SourceMetadataPayload("google", "gemini-1.5-pro"),
                 )
             )
 
@@ -145,7 +146,7 @@ class RecordNarrationGeneratedTests(unittest.TestCase):
                     idempotency_key=self.valid_idempotency,
                     script=self.valid_script,
                     scenes=invalid_scenes,
-                    source_metadata={},
+                    source_metadata=SourceMetadataPayload("google", "gemini-1.5-pro"),
                 )
             )
 
@@ -158,7 +159,7 @@ class RecordNarrationGeneratedTests(unittest.TestCase):
                     idempotency_key="too_short",
                     script=self.valid_script,
                     scenes=self.valid_scenes,
-                    source_metadata={},
+                    source_metadata=SourceMetadataPayload("google", "gemini-1.5-pro"),
                 )
             )
 
@@ -171,7 +172,7 @@ class RecordNarrationGeneratedTests(unittest.TestCase):
                     idempotency_key=self.valid_idempotency,
                     script=self.valid_script,
                     scenes=self.valid_scenes,
-                    source_metadata={},
+                    source_metadata=SourceMetadataPayload("google", "gemini-1.5-pro"),
                     trace_id="invalid-trace-id",
                 )
             )

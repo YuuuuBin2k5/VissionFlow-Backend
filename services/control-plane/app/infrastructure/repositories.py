@@ -6,6 +6,10 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+import hashlib
+import json
+from dataclasses import asdict
+
 from app.application.create_short_form import (
     CreateShortFormCommand,
     IdempotencyKeyConflict as ShortFormIdempotencyKeyConflict,
@@ -26,6 +30,8 @@ from app.infrastructure.models import (
     CreativeDocumentVersion,
     CreativeScene,
     WorkflowStep,
+    CommandReceipt,
+    WorkflowAuditEvent,
 )
 
 
@@ -123,6 +129,11 @@ class SqlAlchemyNarrationResultRepository:
     ) -> NarrationResultSummary:
         try:
             return self._record_narration_result(command)
+        except IntegrityError as exc:
+            self._session.rollback()
+            raise IdempotencyKeyConflict(
+                "idempotency key is already associated with a different operation"
+            ) from exc
         except Exception:
             self._session.rollback()
             raise
@@ -130,6 +141,27 @@ class SqlAlchemyNarrationResultRepository:
     def _record_narration_result(
         self, command: RecordNarrationGeneratedCommand
     ) -> NarrationResultSummary:
+        # 1. Compute fingerprint
+        serialized_payload = {
+            "organization_id": str(command.organization_id),
+            "workflow_run_id": str(command.workflow_run_id),
+            "script": command.script,
+            "scenes": [
+                {
+                    "narration": scene.narration,
+                    "visual_prompt": scene.visual_prompt,
+                    "duration_seconds": scene.duration_seconds,
+                    "transition": scene.transition,
+                    "caption": scene.caption,
+                }
+                for scene in command.scenes
+            ],
+            "source_metadata": asdict(command.source_metadata),
+            "legacy_job_id": command.legacy_job_id,
+        }
+        fingerprint = hashlib.sha256(json.dumps(serialized_payload, sort_keys=True).encode("utf-8")).hexdigest()
+
+        # 2. Lock workflow run first to serialize concurrent requests on the same run
         workflow_run = self._session.scalar(
             select(WorkflowRun)
             .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
@@ -140,34 +172,31 @@ class SqlAlchemyNarrationResultRepository:
         if workflow_run is None:
             raise LookupError(f"workflow run '{command.workflow_run_id}' was not found")
 
-        workflow_step = self._session.scalar(
-            select(WorkflowStep)
-            .where(
-                WorkflowStep.workflow_run_id == workflow_run.id,
-                WorkflowStep.step_key == "script",
-            )
+        # 3. Check persistent idempotency store (command_receipts)
+        receipt = self._session.scalar(
+            select(CommandReceipt)
+            .where(CommandReceipt.idempotency_key == command.idempotency_key)
             .with_for_update()
         )
-
-        if workflow_step and workflow_step.output_payload and workflow_step.output_payload.get("idempotency_key") == command.idempotency_key:
-            self._session.rollback()
-            return NarrationResultSummary(
-                workflow_run_id=workflow_run.id,
-                state=WorkflowState(workflow_run.state),
-                changed=False,
-                version_id=uuid.UUID(workflow_step.output_payload["version_id"]),
-                version=workflow_step.output_payload["version"],
-            )
-
-        # Global uniqueness check for the step idempotency key
-        # Check if the key exists inside any step's output_payload JSONB
-        duplicate_step = self._session.scalar(
-            select(WorkflowStep).where(
-                WorkflowStep.output_payload["idempotency_key"].as_string() == command.idempotency_key
-            )
-        )
-        if duplicate_step and duplicate_step.workflow_run_id != command.workflow_run_id:
-            raise IdempotencyKeyConflict("idempotency key is already associated with a different workflow run")
+        if receipt:
+            if (
+                receipt.organization_id == command.organization_id
+                and receipt.workflow_run_id == command.workflow_run_id
+                and receipt.request_fingerprint == fingerprint
+            ):
+                self._session.rollback()
+                payload = receipt.result_payload
+                return NarrationResultSummary(
+                    workflow_run_id=uuid.UUID(payload["workflow_run_id"]),
+                    state=WorkflowState(payload["state"]),
+                    changed=False,
+                    version_id=uuid.UUID(payload["version_id"]),
+                    version=payload["version"],
+                )
+            else:
+                raise IdempotencyKeyConflict(
+                    "idempotency key is already associated with a different operation"
+                )
 
         current_state = WorkflowState(workflow_run.state)
         if current_state != WorkflowState.PLANNING:
@@ -175,9 +204,11 @@ class SqlAlchemyNarrationResultRepository:
                 f"workflow run '{workflow_run.id}' is '{current_state}', expected 'PLANNING'"
             )
 
+        # 4. Perform workflow transition
         require_transition(current_state, WorkflowState.SCRIPTED)
         workflow_run.state = WorkflowState.SCRIPTED.value
 
+        # 5. Look up or create CreativeDocument
         creative_document = self._session.scalar(
             select(CreativeDocument)
             .where(CreativeDocument.workflow_run_id == workflow_run.id)
@@ -219,11 +250,20 @@ class SqlAlchemyNarrationResultRepository:
         creative_document.revision = new_version_number
         creative_document.active_version_id = version.id
 
+        # 6. Upsert WorkflowStep
+        workflow_step = self._session.scalar(
+            select(WorkflowStep)
+            .where(
+                WorkflowStep.workflow_run_id == workflow_run.id,
+                WorkflowStep.step_key == "script",
+            )
+            .with_for_update()
+        )
         step_payload = {
             "idempotency_key": command.idempotency_key,
             "version_id": str(version.id),
             "version": new_version_number,
-            "source_metadata": command.source_metadata,
+            "source_metadata": asdict(command.source_metadata),
             "legacy_job_id": command.legacy_job_id,
         }
         if workflow_step is None:
@@ -240,6 +280,37 @@ class SqlAlchemyNarrationResultRepository:
             workflow_step.attempt_count += 1
             workflow_step.output_payload = step_payload
 
+        # 7. Write to WorkflowAuditEvent
+        self._session.add(
+            WorkflowAuditEvent(
+                organization_id=command.organization_id,
+                workflow_run_id=command.workflow_run_id,
+                action="complete_narration",
+                actor_subject=command.actor_subject,
+                target_version_id=version.id,
+                trace_id=command.trace_id,
+            )
+        )
+
+        # 8. Write to CommandReceipt
+        result_payload = {
+            "workflow_run_id": str(workflow_run.id),
+            "state": WorkflowState.SCRIPTED.value,
+            "version_id": str(version.id),
+            "version": new_version_number,
+        }
+        self._session.add(
+            CommandReceipt(
+                organization_id=command.organization_id,
+                operation_type="complete_narration",
+                idempotency_key=command.idempotency_key,
+                workflow_run_id=command.workflow_run_id,
+                request_fingerprint=fingerprint,
+                result_payload=result_payload,
+            )
+        )
+
+        # 9. Ghi OutboxEvent
         self._session.add(
             OutboxEvent(
                 aggregate_type="workflow_run",

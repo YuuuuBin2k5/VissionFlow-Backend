@@ -25,13 +25,21 @@ class SceneCommandPayload:
 
 
 @dataclass(frozen=True)
+class SourceMetadataPayload:
+    provider: str
+    model: str
+    model_version_config: str | None = None
+    source_run_ref: str | None = None
+
+
+@dataclass(frozen=True)
 class RecordNarrationGeneratedCommand:
     organization_id: uuid.UUID
     workflow_run_id: uuid.UUID
     idempotency_key: str
     script: str
     scenes: list[SceneCommandPayload]
-    source_metadata: dict[str, object]
+    source_metadata: SourceMetadataPayload
     trace_id: str = field(default_factory=lambda: uuid.uuid4().hex)
     legacy_job_id: str | None = None
     actor_subject: str = "worker:narration"

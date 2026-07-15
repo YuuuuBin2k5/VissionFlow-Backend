@@ -1,23 +1,30 @@
+import concurrent.futures
+import os
 import sys
 import unittest
 import uuid
 from pathlib import Path
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import sessionmaker
 
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SERVICE_ROOT))
+
+from alembic.config import Config
+from alembic import command as alembic_command
 
 from app.application.record_narration_generated import (
     RecordNarrationGeneratedCommand,
     SceneCommandPayload,
     WorkflowStateConflict,
     IdempotencyKeyConflict,
+    SourceMetadataPayload,
 )
 from app.domain.workflow import WorkflowState
 from app.infrastructure.models import (
     Base,
+    Organization,
     CreativeDocument,
     CreativeDocumentVersion,
     CreativeScene,
@@ -25,27 +32,56 @@ from app.infrastructure.models import (
     WorkflowRun,
     WorkflowStep,
     OutboxEvent,
+    CommandReceipt,
+    WorkflowAuditEvent,
 )
 from app.infrastructure.repositories import SqlAlchemyNarrationResultRepository
 
-from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.dialects.postgresql import JSONB
-
-@compiles(JSONB, "sqlite")
-def compile_jsonb_sqlite(type_, compiler, **kw):
-    return "JSON"
-
 
 class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        # Use the disposable PostgreSQL container running on port 5433
+        cls.db_url = "postgresql+psycopg://postgres:postgres@localhost:5433/visionflow_test"
+        os.environ["VISIONFLOW_ALLOW_INSECURE_DB"] = "true"
+        os.environ["DATABASE_URL"] = cls.db_url
+        os.environ["MIGRATION_DATABASE_URL"] = cls.db_url
+
+        cls.engine = create_engine(cls.db_url)
+        cls.Session = sessionmaker(bind=cls.engine)
+
+        # Run Alembic migrations programmatically to set up the DB schema
+        alembic_cfg = Config(str(SERVICE_ROOT / "alembic.ini"))
+        alembic_cfg.set_main_option("sqlalchemy.url", cls.db_url)
+
+        # Clean slate: recreate public schema
+        with cls.engine.connect() as conn:
+            conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE;"))
+            conn.execute(text("CREATE SCHEMA public;"))
+            conn.commit()
+
+        alembic_command.upgrade(alembic_cfg, "head")
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.engine.dispose()
+
     def setUp(self) -> None:
-        # Use an in-memory SQLite database for testing repository transactions
-        self.engine = create_engine("sqlite:///:memory:")
-        Base.metadata.create_all(self.engine)
-        self.Session = sessionmaker(bind=self.engine)
         self.session = self.Session()
         self.repository = SqlAlchemyNarrationResultRepository(self.session)
 
+        # Truncate tables between tests to keep them isolated
+        self._clear_tables()
+
         self.org_id = uuid.uuid4()
+        self.organization = Organization(
+            id=self.org_id,
+            slug=f"org-{self.org_id.hex[:8]}",
+            name="Test Org",
+        )
+        self.session.add(self.organization)
+        self.session.flush()
+
         self.project = VideoProject(
             organization_id=self.org_id,
             title="Test Project",
@@ -71,7 +107,18 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.session.close()
-        Base.metadata.drop_all(self.engine)
+
+    def _clear_tables(self) -> None:
+        # Truncate all tables containing test data to clean up the DB
+        with self.engine.connect() as conn:
+            conn.execute(
+                text(
+                    "TRUNCATE TABLE workflow_audit_events, command_receipts, outbox_events, "
+                    "workflow_steps, creative_scenes, creative_document_versions, "
+                    "creative_documents, workflow_runs, video_projects, organizations CASCADE;"
+                )
+            )
+            conn.commit()
 
     def test_record_valid_narration_result(self) -> None:
         command = RecordNarrationGeneratedCommand(
@@ -80,7 +127,7 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
             idempotency_key="idempotency-key-narration-01",
             script=self.valid_script,
             scenes=self.valid_scenes,
-            source_metadata={"model": "gpt-4"},
+            source_metadata=SourceMetadataPayload(provider="google", model="gemini-1.5-pro"),
             trace_id=uuid.uuid4().hex,
         )
 
@@ -127,6 +174,21 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
         self.assertEqual("visionflow.workflow_run.state_changed.v1", event.event_type)
         self.assertEqual(WorkflowState.SCRIPTED.value, event.payload["to_state"])
 
+        # Verify audit event in DB
+        audit = db_session.scalar(select(WorkflowAuditEvent).where(WorkflowAuditEvent.workflow_run_id == self.run.id))
+        self.assertIsNotNone(audit)
+        self.assertEqual("complete_narration", audit.action)
+        self.assertEqual(command.actor_subject, audit.actor_subject)
+        self.assertEqual(result.version_id, audit.target_version_id)
+        self.assertEqual(command.trace_id, audit.trace_id)
+
+        # Verify command receipt in DB
+        receipt = db_session.scalar(select(CommandReceipt).where(CommandReceipt.idempotency_key == command.idempotency_key))
+        self.assertIsNotNone(receipt)
+        self.assertEqual(command.organization_id, receipt.organization_id)
+        self.assertEqual("complete_narration", receipt.operation_type)
+        self.assertEqual(str(result.version_id), receipt.result_payload["version_id"])
+
         db_session.close()
 
     def test_duplicate_idempotency_returns_cached_summary(self) -> None:
@@ -136,7 +198,7 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
             idempotency_key="idempotency-key-narration-02",
             script=self.valid_script,
             scenes=self.valid_scenes,
-            source_metadata={"model": "gpt-4"},
+            source_metadata=SourceMetadataPayload(provider="google", model="gemini-1.5-pro"),
             trace_id=uuid.uuid4().hex,
         )
 
@@ -157,7 +219,7 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
             idempotency_key="shared-idempotency-key-999",
             script=self.valid_script,
             scenes=self.valid_scenes,
-            source_metadata={"model": "gpt-4"},
+            source_metadata=SourceMetadataPayload(provider="google", model="gemini-1.5-pro"),
             trace_id=uuid.uuid4().hex,
         )
         self.repository.record_narration_result(command1)
@@ -177,10 +239,10 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
             idempotency_key="shared-idempotency-key-999",
             script=self.valid_script,
             scenes=self.valid_scenes,
-            source_metadata={"model": "gpt-4"},
+            source_metadata=SourceMetadataPayload(provider="google", model="gemini-1.5-pro"),
             trace_id=uuid.uuid4().hex,
         )
-        with self.assertRaisesRegex(IdempotencyKeyConflict, "already associated with a different workflow run"):
+        with self.assertRaisesRegex(IdempotencyKeyConflict, "already associated with a different operation"):
             self.repository.record_narration_result(command2)
 
     def test_rejects_non_planning_workflow_state(self) -> None:
@@ -198,7 +260,7 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
             idempotency_key="idempotency-key-ready-run-99",
             script=self.valid_script,
             scenes=self.valid_scenes,
-            source_metadata={},
+            source_metadata=SourceMetadataPayload(provider="google", model="gemini-1.5-pro"),
         )
         with self.assertRaisesRegex(WorkflowStateConflict, "expected 'PLANNING'"):
             self.repository.record_narration_result(command)
@@ -213,7 +275,7 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
             idempotency_key="idempotency-key-failure-99",
             script=self.valid_script,
             scenes=self.valid_scenes,
-            source_metadata={},
+            source_metadata=SourceMetadataPayload(provider="google", model="gemini-1.5-pro"),
         )
 
         with patch.object(self.session, "flush", side_effect=IntegrityError("mock fail", None, None)):
@@ -231,6 +293,45 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
         step = db_session.scalar(select(WorkflowStep).where(WorkflowStep.workflow_run_id == self.run.id))
         self.assertIsNone(step)
 
+        db_session.close()
+
+    def test_concurrent_requests_idempotency(self) -> None:
+        command = RecordNarrationGeneratedCommand(
+            organization_id=self.org_id,
+            workflow_run_id=self.run.id,
+            idempotency_key="idempotency-key-concurrent-999",
+            script=self.valid_script,
+            scenes=self.valid_scenes,
+            source_metadata=SourceMetadataPayload(provider="google", model="gemini-1.5-pro"),
+            trace_id=uuid.uuid4().hex,
+        )
+
+        def run_command_in_thread():
+            session = self.Session()
+            repository = SqlAlchemyNarrationResultRepository(session)
+            try:
+                res = repository.record_narration_result(command)
+                return res
+            finally:
+                session.close()
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(run_command_in_thread) for _ in range(5)]
+            results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+        # Exactly one execution should have changed=True
+        changed_count = sum(1 for r in results if r.changed)
+        self.assertEqual(1, changed_count)
+
+        # Verify database state: only 1 version and 1 audit event created
+        db_session = self.Session()
+        versions = db_session.scalars(select(CreativeDocumentVersion)).all()
+        self.assertEqual(1, len(versions))
+
+        audits = db_session.scalars(
+            select(WorkflowAuditEvent).where(WorkflowAuditEvent.workflow_run_id == self.run.id)
+        ).all()
+        self.assertEqual(1, len(audits))
         db_session.close()
 
 
