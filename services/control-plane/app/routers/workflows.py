@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -34,6 +35,7 @@ from app.infrastructure.creative_document_repository import (
     CreativeDocumentSnapshot,
     SqlAlchemyCreativeDocumentRepository,
 )
+from app.infrastructure.composition_repository import CompositionConflict, SqlAlchemyCompositionRepository
 from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
 from app.infrastructure.repositories import SqlAlchemyShortFormWorkflowRepository
 from app.infrastructure.workflow_progression_repository import SqlAlchemyWorkflowProgressionRepository
@@ -116,6 +118,56 @@ class SaveCreativeDocumentRequest(BaseModel):
 
 
 class LockCreativeDocumentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    organization_id: uuid.UUID
+    expected_revision: int = Field(ge=1)
+
+
+class CompositionEffectRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    effect_key: str = Field(min_length=1, max_length=120)
+    config: dict[str, object] = Field(default_factory=dict)
+
+
+class CompositionKeyframeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    property_key: str = Field(min_length=1, max_length=96)
+    time_ms: int = Field(ge=0, le=3_600_000)
+    value: dict[str, object] = Field(default_factory=dict)
+    easing: str = Field(default="linear", min_length=1, max_length=48)
+
+
+class CompositionClipRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source_type: str = Field(min_length=1, max_length=32)
+    source_ref: str = Field(min_length=1, max_length=1024)
+    timeline_start_ms: int = Field(ge=0, le=3_600_000)
+    duration_ms: int = Field(ge=1, le=3_600_000)
+    trim_in_ms: int = Field(default=0, ge=0, le=3_600_000)
+    transform: dict[str, object] = Field(default_factory=dict)
+    effects: list[CompositionEffectRequest] = Field(default_factory=list, max_length=16)
+    keyframes: list[CompositionKeyframeRequest] = Field(default_factory=list, max_length=64)
+
+
+class CompositionTrackRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    track_type: str = Field(min_length=1, max_length=32)
+    name: str = Field(min_length=1, max_length=120)
+    muted: bool = False
+    locked: bool = False
+    clips: list[CompositionClipRequest] = Field(default_factory=list, max_length=100)
+
+
+class SaveCompositionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    organization_id: uuid.UUID
+    expected_revision: int = Field(ge=0)
+    aspect_ratio: str = Field(default="9:16", min_length=3, max_length=24)
+    canvas_config: dict[str, object] = Field(default_factory=dict)
+    tracks: list[CompositionTrackRequest] = Field(min_length=1, max_length=20)
+
+
+class LockCompositionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     organization_id: uuid.UUID
     expected_revision: int = Field(ge=1)
@@ -371,6 +423,62 @@ def lock_creative_document(
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except CreativeDocumentConflict as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
+@router.get("/workflows/{workflow_run_id}/composition", response_model=dict[str, Any])
+def get_composition(
+    workflow_run_id: uuid.UUID, organization_id: uuid.UUID,
+    identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session),
+) -> dict[str, Any]:
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.WORKFLOW_VIEW)
+        result = SqlAlchemyCompositionRepository(session).read(organization_id, workflow_run_id)
+        if result is None: raise LookupError("Composition not found")
+        return result
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.put("/workflows/{workflow_run_id}/composition", response_model=dict[str, Any])
+def save_composition(
+    workflow_run_id: uuid.UUID, request: SaveCompositionRequest,
+    identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session),
+) -> dict[str, Any]:
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, request.organization_id, Permission.WORKFLOW_CREATE)
+        return SqlAlchemyCompositionRepository(session).save(
+            organization_id=request.organization_id, workflow_run_id=workflow_run_id,
+            expected_revision=request.expected_revision, aspect_ratio=request.aspect_ratio,
+            canvas_config=request.canvas_config, tracks=[track.model_dump() for track in request.tracks], actor_subject=identity.subject,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except CompositionConflict as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
+@router.post("/workflows/{workflow_run_id}/composition/lock", response_model=dict[str, Any])
+def lock_composition(
+    workflow_run_id: uuid.UUID, request: LockCompositionRequest,
+    identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session),
+) -> dict[str, Any]:
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, request.organization_id, Permission.WORKFLOW_CREATE)
+        return SqlAlchemyCompositionRepository(session).lock(organization_id=request.organization_id, workflow_run_id=workflow_run_id, expected_revision=request.expected_revision)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except CompositionConflict as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc

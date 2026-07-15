@@ -195,6 +195,94 @@ class CreativeScene(Timestamped, Base):
     caption: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
+class CompositionDocument(Timestamped, Base):
+    """Timeline workspace associated with one workflow run."""
+
+    __tablename__ = "composition_documents"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workflow_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    active_version_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+
+
+class CompositionVersion(Base):
+    __tablename__ = "composition_versions"
+    __table_args__ = (UniqueConstraint("composition_document_id", "revision", name="uq_composition_revision"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    composition_document_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("composition_documents.id", ondelete="CASCADE"), nullable=False
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    state: Mapped[str] = mapped_column(String(24), nullable=False, default="draft")
+    aspect_ratio: Mapped[str] = mapped_column(String(24), nullable=False, default="9:16")
+    canvas_config: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_by_subject: Mapped[str] = mapped_column(String(512), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class CompositionTrack(Base):
+    __tablename__ = "composition_tracks"
+    __table_args__ = (UniqueConstraint("composition_version_id", "position", name="uq_composition_track_position"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    composition_version_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("composition_versions.id", ondelete="CASCADE"), nullable=False
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    track_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    muted: Mapped[bool] = mapped_column(nullable=False, default=False)
+    locked: Mapped[bool] = mapped_column(nullable=False, default=False)
+
+
+class CompositionClip(Base):
+    __tablename__ = "composition_clips"
+    __table_args__ = (UniqueConstraint("composition_track_id", "position", name="uq_composition_clip_position"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    composition_track_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("composition_tracks.id", ondelete="CASCADE"), nullable=False
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_ref: Mapped[str] = mapped_column(String(1024), nullable=False)
+    timeline_start_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    duration_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    trim_in_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    transform: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+
+
+class CompositionEffectInstance(Base):
+    __tablename__ = "composition_effect_instances"
+    __table_args__ = (UniqueConstraint("composition_clip_id", "position", name="uq_composition_effect_position"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    composition_clip_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("composition_clips.id", ondelete="CASCADE"), nullable=False
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    effect_key: Mapped[str] = mapped_column(String(120), nullable=False)
+    config: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+
+
+class CompositionKeyframe(Base):
+    __tablename__ = "composition_keyframes"
+    __table_args__ = (UniqueConstraint("composition_clip_id", "property_key", "time_ms", name="uq_composition_keyframe"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    composition_clip_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("composition_clips.id", ondelete="CASCADE"), nullable=False
+    )
+    property_key: Mapped[str] = mapped_column(String(96), nullable=False)
+    time_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    value: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    easing: Mapped[str] = mapped_column(String(48), nullable=False, default="linear")
+
+
 class PromptTemplate(Timestamped, Base):
     __tablename__ = "prompt_templates"
     __table_args__ = (UniqueConstraint("organization_id", "prompt_key", name="uq_prompt_template_key"),)
