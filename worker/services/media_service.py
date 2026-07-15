@@ -256,6 +256,34 @@ class MediaService:
             return np.array(resized.crop((left, top, left + width, top + height)))
         return clip.transform(transform_frame)
 
+    def _apply_composition_clip_transform(self, clip, transform: dict):
+        """Apply the persisted base transform for one timeline clip."""
+        if not isinstance(transform, dict):
+            return clip
+        try:
+            scale = min(2.0, max(0.5, float(transform.get("scale", 1))))
+            offset_x = min(1.0, max(-1.0, float(transform.get("x", 0))))
+            offset_y = min(1.0, max(-1.0, float(transform.get("y", 0))))
+            opacity = min(1.0, max(0.0, float(transform.get("opacity", 1))))
+        except (TypeError, ValueError):
+            return clip
+        if scale == 1 and offset_x == 0 and offset_y == 0 and opacity == 1:
+            return clip
+
+        def transform_frame(get_frame, time_seconds):
+            frame = get_frame(time_seconds)
+            height, width = frame.shape[:2]
+            image = Image.fromarray(frame)
+            resized = image.resize((max(width, int(width * scale)), max(height, int(height * scale))), Image.Resampling.LANCZOS)
+            max_left, max_top = max(0, resized.width - width), max(0, resized.height - height)
+            left = min(max_left, max(0, int(max_left / 2 + offset_x * max_left / 2)))
+            top = min(max_top, max(0, int(max_top / 2 + offset_y * max_top / 2)))
+            output = np.array(resized.crop((left, top, left + width, top + height)))
+            if opacity < 1:
+                output = (output.astype(np.float32) * opacity).clip(0, 255).astype(np.uint8)
+            return output
+        return clip.transform(transform_frame)
+
     def render_final_video(
         self,
         scenes_layout: list,
@@ -329,12 +357,12 @@ class MediaService:
                 cut_events=cut_events,
                 drop_events=drop_events,
             )
-            clip = self._apply_composition_frame_effects(
-                clip, visual_style_plan.get("composition_frame_effects", [])
-            )
+            clip_effects = [item.get("effect_key") for item in scene.get("composition_effects", []) if isinstance(item, dict)]
+            clip = self._apply_composition_frame_effects(clip, clip_effects)
             clip = self._apply_composition_scale_keyframes(
                 clip, visual_style_plan.get("composition_keyframes", []), current_time
             )
+            clip = self._apply_composition_clip_transform(clip, scene.get("composition_transform", {}))
             video_clips.append(clip)
             current_time += duration
 
