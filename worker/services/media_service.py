@@ -4,7 +4,7 @@ import json
 import random
 import numpy as np
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageChops
 
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from moviepy.video.VideoClip import ImageClip
@@ -196,6 +196,30 @@ class MediaService:
 
         return clip.transform(dynamic_scale_filter)
 
+    def _apply_composition_frame_effects(self, clip, frame_effects: list[str]):
+        """Apply persisted Composition Studio effects with real frame transforms."""
+        known = [effect for effect in frame_effects if effect in {"soft_glow", "motion_blur"}]
+        if not known:
+            return clip
+
+        def render_effects(get_frame, time_seconds):
+            frame = get_frame(time_seconds)
+            rgb = frame[..., :3]
+            if "motion_blur" in known:
+                previous = get_frame(max(0, time_seconds - 1 / 24))[..., :3]
+                earlier = get_frame(max(0, time_seconds - 2 / 24))[..., :3]
+                if previous.shape == rgb.shape and earlier.shape == rgb.shape:
+                    rgb = ((rgb.astype(np.float32) * 0.58) + (previous.astype(np.float32) * 0.28) + (earlier.astype(np.float32) * 0.14)).clip(0, 255).astype(np.uint8)
+            if "soft_glow" in known:
+                image = Image.fromarray(rgb)
+                glow = image.filter(ImageFilter.GaussianBlur(radius=8))
+                rgb = np.array(Image.blend(image, ImageChops.screen(image, glow), 0.22))
+            if frame.shape[-1] == 4:
+                return np.concatenate((rgb, frame[..., 3:4]), axis=-1)
+            return rgb
+
+        return clip.transform(render_effects)
+
     def render_final_video(
         self,
         scenes_layout: list,
@@ -268,6 +292,9 @@ class MediaService:
                 start_time=current_time,
                 cut_events=cut_events,
                 drop_events=drop_events,
+            )
+            clip = self._apply_composition_frame_effects(
+                clip, visual_style_plan.get("composition_frame_effects", [])
             )
             video_clips.append(clip)
             current_time += duration

@@ -51,16 +51,15 @@ def _style_plan(contract) -> dict:
     if caption_style:
         applied_effects.append("caption_pop")
 
-    deferred_effects = [
-        effect for effect in effects
-        if effect in {"soft_glow", "motion_blur"}
-    ]
+    frame_effects = [effect for effect in effects if effect in {"soft_glow", "motion_blur"}]
+    applied_effects.extend(frame_effects)
     plan = {
         "visual_preset": contract.visual_preset,
         "scene_motion": scene_motion,
         "composition_snapshot": contract.composition,
         "composition_applied_effects": applied_effects,
-        "composition_deferred_effects": deferred_effects,
+        "composition_frame_effects": frame_effects,
+        "composition_deferred_effects": [],
     }
     if caption_style:
         plan["caption_style"] = caption_style
