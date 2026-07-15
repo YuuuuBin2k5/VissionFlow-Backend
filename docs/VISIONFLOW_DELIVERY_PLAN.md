@@ -4,6 +4,8 @@
 
 All phases must comply with [VisionFlow Engineering Standards](VISIONFLOW_ENGINEERING_STANDARDS.md). A feature is not complete merely because its UI works.
 
+> Execution detail is maintained in the [Master Execution Playbook](VISIONFLOW_MASTER_EXECUTION_PLAYBOOK.md), [Agent Skills Catalog](VISIONFLOW_AGENT_SKILLS_CATALOG.md) and [Acceptance/Operations Runbook](VISIONFLOW_ACCEPTANCE_AND_OPERATIONS_RUNBOOK.md). Use those documents when assigning or accepting work; this file remains the concise roadmap.
+
 ## Delivery rules
 
 - The primary repository becomes **VisionFlow**. `AgentTiktok` is the current working name until the dirty worktree is reviewed and committed; do not rename the remote/repository folder during active development.
