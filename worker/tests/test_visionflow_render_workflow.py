@@ -48,6 +48,7 @@ def render_contract():
         {"title": "A vertical short", "input_payload": {"duration_seconds": 45, "aspect_ratio": "9:16"}},
         "A script suitable for rendering.",
         [{"scene_id": "scene-01", "visual_search_keywords": "city lights"}],
+        {"state": "locked", "tracks": []},
     )
 
 

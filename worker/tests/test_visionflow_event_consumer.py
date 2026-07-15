@@ -24,6 +24,9 @@ class RecordingControlPlane:
         self.calls.append((args, kwargs))
         return {"changed": True}
 
+    def get_creative_document(self, *args, **kwargs):
+        return {"state": "locked", "version_id": "creative-v1"}
+
 
 class RecordingIntelligence:
     def __init__(self):
@@ -64,7 +67,10 @@ class VisionFlowEventConsumerTests(unittest.TestCase):
         )
 
         self.assertEqual(1, consumer.consume_once(block_ms=1))
-        self.assertEqual(("run-1", {"brief": "A concise creator brief."}), intelligence.calls[0][0])
+        self.assertEqual(
+            ("run-1", {"brief": "A concise creator brief.", "creative_document": {"state": "locked", "version_id": "creative-v1"}}),
+            intelligence.calls[0][0],
+        )
         self.assertEqual("event-1", intelligence.calls[0][1]["event_id"])
         self.assertEqual([("visionflow.workflow-events.v1", "group", "1-0")], redis.acks)
 

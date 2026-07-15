@@ -26,6 +26,7 @@ class AssetPreparerTests(unittest.TestCase):
             contract = build_visionflow_render_contract(
                 "run-1", "a" * 32, {"input_payload": {}}, "a renderable script",
                 [{"visual_search_keywords": "rain portrait"}],
+                {"state": "locked", "tracks": []},
             )
             storage = Storage()
             prepared = VisionFlowAssetPreparer(Downloader(temporary), storage).prepare(contract)
