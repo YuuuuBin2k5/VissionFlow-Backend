@@ -19,6 +19,13 @@ from app.application.create_short_form import (
     CreateShortFormWorkflow,
     IdempotencyKeyConflict,
 )
+from app.application.record_narration_generated import (
+    RecordNarrationGenerated,
+    RecordNarrationGeneratedCommand,
+    SceneCommandPayload,
+    WorkflowStateConflict as NarrationWorkflowStateConflict,
+    IdempotencyKeyConflict as NarrationIdempotencyKeyConflict,
+)
 from app.application.manual_approval import (
     ApproveManualReviewCommand,
     ManualApproval,
@@ -37,7 +44,10 @@ from app.infrastructure.creative_document_repository import (
 )
 from app.infrastructure.composition_repository import CompositionConflict, SqlAlchemyCompositionRepository
 from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
-from app.infrastructure.repositories import SqlAlchemyShortFormWorkflowRepository
+from app.infrastructure.repositories import (
+    SqlAlchemyShortFormWorkflowRepository,
+    SqlAlchemyNarrationResultRepository,
+)
 from app.infrastructure.workflow_progression_repository import SqlAlchemyWorkflowProgressionRepository
 from app.infrastructure.models import CompositionDocument, CompositionVersion, CreativeDocument, CreativeDocumentVersion, VideoProject, WorkflowRun, WorkflowStep
 from app.routers.auth import require_identity
@@ -62,6 +72,33 @@ class WorkflowRunResponse(BaseModel):
     workflow_run_id: uuid.UUID
     state: str
     created: bool
+
+
+class RecordNarrationSceneRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    narration: str = Field(min_length=1, max_length=5_000)
+    visual_prompt: str = Field(min_length=1, max_length=5_000)
+    duration_seconds: int = Field(ge=1, le=90)
+    transition: str = Field(default="cut", min_length=1, max_length=48)
+    caption: str | None = Field(default=None, max_length=2_000)
+
+
+class RecordNarrationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    organization_id: uuid.UUID
+    idempotency_key: str = Field(min_length=16, max_length=128)
+    script: str = Field(min_length=40, max_length=50_000)
+    scenes: list[RecordNarrationSceneRequest] = Field(min_length=3, max_length=20)
+    source_metadata: dict[str, Any] = Field(default_factory=dict)
+    legacy_job_id: str | int | None = None
+
+
+class NarrationResultResponse(BaseModel):
+    workflow_run_id: uuid.UUID
+    state: str
+    changed: bool
+    version_id: uuid.UUID
+    version: int
 
 
 class AdvanceWorkflowRequest(BaseModel):
@@ -525,6 +562,63 @@ def advance_workflow(
         workflow_run_id=result.workflow_run_id,
         state=result.state.value,
         changed=result.changed,
+    )
+
+
+@router.post(
+    "/workflows/{workflow_run_id}/complete-narration",
+    response_model=NarrationResultResponse,
+    summary="Record worker AI narration generation and transition state",
+)
+def complete_narration(
+    workflow_run_id: uuid.UUID,
+    request: RecordNarrationRequest,
+    request_id: str | None = Header(default=None, alias="X-Request-ID", max_length=64),
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> NarrationResultResponse:
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject,
+            request.organization_id,
+            Permission.WORKFLOW_ADVANCE,
+        )
+        command = RecordNarrationGeneratedCommand(
+            organization_id=request.organization_id,
+            workflow_run_id=workflow_run_id,
+            idempotency_key=request.idempotency_key,
+            script=request.script,
+            scenes=[
+                SceneCommandPayload(
+                    narration=scene.narration,
+                    visual_prompt=scene.visual_prompt,
+                    duration_seconds=scene.duration_seconds,
+                    transition=scene.transition,
+                    caption=scene.caption,
+                )
+                for scene in request.scenes
+            ],
+            source_metadata=request.source_metadata,
+            legacy_job_id=str(request.legacy_job_id) if request.legacy_job_id is not None else None,
+            trace_id=_trace_id(request_id),
+            actor_subject=identity.subject,
+        )
+        result = RecordNarrationGenerated(SqlAlchemyNarrationResultRepository(session)).execute(command)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except (NarrationWorkflowStateConflict, NarrationIdempotencyKeyConflict) as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+    return NarrationResultResponse(
+        workflow_run_id=result.workflow_run_id,
+        state=result.state.value,
+        changed=result.changed,
+        version_id=result.version_id,
+        version=result.version,
     )
 
 
