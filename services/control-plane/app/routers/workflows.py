@@ -39,7 +39,7 @@ from app.infrastructure.composition_repository import CompositionConflict, SqlAl
 from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
 from app.infrastructure.repositories import SqlAlchemyShortFormWorkflowRepository
 from app.infrastructure.workflow_progression_repository import SqlAlchemyWorkflowProgressionRepository
-from app.infrastructure.models import CreativeDocument, CreativeDocumentVersion, VideoProject, WorkflowRun, WorkflowStep
+from app.infrastructure.models import CompositionDocument, CompositionVersion, CreativeDocument, CreativeDocumentVersion, VideoProject, WorkflowRun, WorkflowStep
 from app.routers.auth import require_identity
 
 
@@ -566,6 +566,14 @@ def submit_workflow(
         locked_version = session.get(CreativeDocumentVersion, creative_document.active_version_id)
         if locked_version is None or locked_version.state != "locked":
             raise WorkflowStateConflict("Lock a creative document before submitting for render")
+        composition_document = session.scalar(
+            select(CompositionDocument).where(CompositionDocument.workflow_run_id == workflow_run_id)
+        )
+        if composition_document is None or composition_document.active_version_id is None:
+            raise WorkflowStateConflict("Lock a composition before submitting for render")
+        locked_composition = session.get(CompositionVersion, composition_document.active_version_id)
+        if locked_composition is None or locked_composition.state != "locked":
+            raise WorkflowStateConflict("Lock a composition before submitting for render")
         current_state = WorkflowState(workflow_run.state)
         if current_state == WorkflowState.QUEUED:
             return WorkflowTransitionResponse(workflow_run_id=workflow_run_id, state=current_state.value, changed=False)
