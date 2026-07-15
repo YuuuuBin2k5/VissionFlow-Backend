@@ -39,7 +39,10 @@ class SqlAlchemyCreativeDocumentRepository:
         self._session = session
 
     def read(self, organization_id: uuid.UUID, workflow_run_id: uuid.UUID) -> CreativeDocumentSnapshot | None:
-        document = self._document_for_workflow(organization_id, workflow_run_id, lock=False)
+        # Reads are required by workers after QUEUED.  Editability is enforced
+        # only by save/lock, never by the read model used to render a locked
+        # version.
+        document = self._document_for_workflow(organization_id, workflow_run_id, lock=False, require_editable=False)
         if document is None:
             return None
         return self._snapshot(document)
@@ -55,7 +58,7 @@ class SqlAlchemyCreativeDocumentRepository:
         actor_subject: str,
     ) -> CreativeDocumentSnapshot:
         try:
-            document = self._document_for_workflow(organization_id, workflow_run_id, lock=True)
+            document = self._document_for_workflow(organization_id, workflow_run_id, lock=True, require_editable=True)
             if document is None:
                 document = CreativeDocument(workflow_run_id=workflow_run_id, revision=0)
                 self._session.add(document)
@@ -92,7 +95,7 @@ class SqlAlchemyCreativeDocumentRepository:
 
     def lock(self, *, organization_id: uuid.UUID, workflow_run_id: uuid.UUID, expected_revision: int) -> CreativeDocumentSnapshot:
         try:
-            document = self._document_for_workflow(organization_id, workflow_run_id, lock=True)
+            document = self._document_for_workflow(organization_id, workflow_run_id, lock=True, require_editable=True)
             if document is None or document.revision == 0:
                 raise LookupError("Creative document not found")
             if document.revision != expected_revision:
@@ -108,7 +111,9 @@ class SqlAlchemyCreativeDocumentRepository:
             self._session.rollback()
             raise
 
-    def _document_for_workflow(self, organization_id: uuid.UUID, workflow_run_id: uuid.UUID, *, lock: bool) -> CreativeDocument | None:
+    def _document_for_workflow(
+        self, organization_id: uuid.UUID, workflow_run_id: uuid.UUID, *, lock: bool, require_editable: bool
+    ) -> CreativeDocument | None:
         run_query = select(WorkflowRun).join(VideoProject, VideoProject.id == WorkflowRun.project_id).where(
             VideoProject.organization_id == organization_id, WorkflowRun.id == workflow_run_id
         )
@@ -117,7 +122,7 @@ class SqlAlchemyCreativeDocumentRepository:
         run = self._session.scalar(run_query)
         if run is None:
             raise LookupError("Workflow run not found")
-        if WorkflowState(run.state) not in {WorkflowState.DRAFT, WorkflowState.READY}:
+        if require_editable and WorkflowState(run.state) not in {WorkflowState.DRAFT, WorkflowState.READY}:
             raise ValueError("Creative document can only be edited before queueing")
         document_query = select(CreativeDocument).where(CreativeDocument.workflow_run_id == workflow_run_id)
         if lock:
