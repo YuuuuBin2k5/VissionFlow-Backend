@@ -31,6 +31,12 @@ class LegacyLlmShortFormGenerator:
         if not isinstance(input_payload, dict):
             raise ValueError("intake input_payload must be an object")
         creative_draft = input_payload.get("creative_draft")
+        creative_document = intake.get("creative_document")
+        if isinstance(creative_document, dict) and creative_document.get("state") == "locked":
+            script = creative_document.get("script")
+            scenes = creative_document.get("scenes")
+            if isinstance(script, str) and isinstance(scenes, list):
+                return {"full_voice_script": script, "scenes_layout_json": scenes}
         if isinstance(creative_draft, dict) and isinstance(creative_draft.get("script"), str) and isinstance(creative_draft.get("scenes"), list):
             return {"full_voice_script": creative_draft["script"], "scenes_layout_json": creative_draft["scenes"]}
         return LLMService().generate_video_details(
@@ -75,7 +81,10 @@ def _validate_generated(generated: dict[str, Any]) -> tuple[str, list[dict[str, 
         raise ValueError("generator must return between 3 and 20 storyboard scenes")
     normalized: list[dict[str, Any]] = []
     for index, scene in enumerate(scenes, start=1):
-        if not isinstance(scene, dict) or not str(scene.get("visual_search_keywords", "")).strip():
+        if not isinstance(scene, dict):
+            raise ValueError(f"storyboard scene {index} is invalid")
+        visual = str(scene.get("visual_search_keywords") or scene.get("visual_prompt") or "").strip()
+        if not visual:
             raise ValueError(f"storyboard scene {index} is missing visual_search_keywords")
-        normalized.append(scene)
+        normalized.append({**scene, "visual_search_keywords": visual})
     return script.strip(), normalized

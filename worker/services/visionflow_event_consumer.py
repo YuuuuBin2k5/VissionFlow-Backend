@@ -92,6 +92,10 @@ class VisionFlowEventConsumer:
         intake = payload.get("intake")
         if not isinstance(intake, dict) or not isinstance(intake.get("brief"), str) or not intake["brief"].strip():
             raise ValueError("QUEUED workflow event is missing its immutable intake envelope")
+        # Queue messages deliberately remain small. Fetch the locked creative
+        # snapshot at claim time so the worker renders exactly what the
+        # operator approved, never a mutable editor draft.
+        intake = {**intake, "creative_document": self._control_plane.get_creative_document(workflow_run_id, trace_id=fields.get("trace_id"))}
         self._intelligence.execute(
             workflow_run_id,
             intake,

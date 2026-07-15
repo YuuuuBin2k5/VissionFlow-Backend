@@ -120,6 +120,21 @@ class VisionFlowControlPlaneClient:
             raise VisionFlowControlPlaneError("Control Plane execution context response must be an object")
         return payload
 
+    def get_creative_document(self, workflow_run_id: str, *, trace_id: str | None = None) -> dict[str, Any]:
+        """Fetch the immutable operator-approved document through the API."""
+        response = self._http.get(
+            f"{self._settings.api_url}/workflows/{workflow_run_id}/creative-document",
+            params={"organization_id": self._settings.organization_id},
+            headers={"Authorization": f"Bearer {self._get_access_token()}", "X-Request-ID": trace_id or uuid.uuid4().hex},
+            timeout=(3, 20),
+        )
+        if response.status_code != 200:
+            raise VisionFlowControlPlaneError(f"Control Plane creative document failed with HTTP {response.status_code}: {_response_detail(response)}")
+        payload = response.json()
+        if not isinstance(payload, dict) or payload.get("state") != "locked":
+            raise VisionFlowControlPlaneError("Control Plane did not return a locked creative document")
+        return payload
+
     def _get_access_token(self) -> str:
         if self._access_token and time.monotonic() < self._access_token_expires_at:
             return self._access_token
