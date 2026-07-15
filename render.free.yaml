@@ -1,0 +1,48 @@
+# VisionFlow Free Preview profile.
+#
+# Render does not offer Free instances for Background Workers.  This blueprint
+# intentionally deploys only the Control Plane. Run relay_outbox.py and
+# consume_visionflow_events.py locally (or on a paid worker) for real renders.
+services:
+  - type: web
+    runtime: docker
+    name: visionflow-control-plane-free
+    region: singapore
+    plan: free
+    dockerfilePath: services/control-plane/Dockerfile
+    dockerCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+    preDeployCommand: python -m alembic upgrade head
+    envVars:
+      - key: APP_ENV
+        value: preview
+      - key: API_PREFIX
+        value: /api/v1
+      - key: DATABASE_URL
+        sync: false
+      - key: MIGRATION_DATABASE_URL
+        sync: false
+      # Use an external durable free Redis provider (for example, Upstash).
+      # Render Free Key Value is in-memory only and may lose queued work.
+      - key: REDIS_URL
+        sync: false
+      - key: VISIONFLOW_WEB_ORIGINS
+        value: https://vision-flow-console.vercel.app
+      - key: VISIONFLOW_AUTH_ISSUER
+        sync: false
+      - key: VISIONFLOW_AUTH_AUDIENCE
+        value: visionflow-control-plane
+      - key: VISIONFLOW_AUTH_KEY_ID
+        value: visionflow-preview-2026-01
+      - key: VISIONFLOW_AUTH_PRIVATE_KEY_PEM_BASE64
+        sync: false
+      - key: VISIONFLOW_AUTH_ACCESS_TOKEN_TTL_SECONDS
+        value: "900"
+      - key: VISIONFLOW_AUTH_REFRESH_TOKEN_TTL_DAYS
+        value: "14"
+      - key: VISIONFLOW_WORKER_CLIENT_ID
+        sync: false
+      - key: VISIONFLOW_WORKER_CLIENT_SECRET
+        sync: false
+      - key: VISIONFLOW_WORKER_SUBJECT
+        value: service|visionflow-intelligence-worker
