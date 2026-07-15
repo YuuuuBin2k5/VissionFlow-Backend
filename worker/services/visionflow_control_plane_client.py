@@ -149,6 +149,43 @@ class VisionFlowControlPlaneClient:
             raise VisionFlowControlPlaneError("Control Plane did not return a locked composition")
         return payload
 
+    def complete_narration(
+        self,
+        *,
+        workflow_run_id: str,
+        organization_id: str,
+        idempotency_key: str,
+        script: str,
+        scenes: list[dict[str, Any]],
+        source_metadata: dict[str, Any],
+        legacy_job_id: str | None = None,
+        trace_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Call complete-narration endpoint on the Control Plane."""
+        url = f"{self._settings.api_url}/workflows/{workflow_run_id}/complete-narration"
+        response = self._http.post(
+            url,
+            json={
+                "organization_id": organization_id,
+                "idempotency_key": idempotency_key,
+                "script": script,
+                "scenes": scenes,
+                "source_metadata": source_metadata,
+                "legacy_job_id": legacy_job_id,
+            },
+            headers={
+                "Authorization": f"Bearer {self._get_access_token()}",
+                "X-Request-ID": trace_id or uuid.uuid4().hex,
+            },
+            timeout=(3, 20),
+        )
+        if response.status_code not in (200, 201):
+            detail = _response_detail(response)
+            raise VisionFlowControlPlaneError(
+                f"Control Plane complete-narration failed with HTTP {response.status_code}: {detail}"
+            )
+        return response.json()
+
     def _get_access_token(self) -> str:
         if self._access_token and time.monotonic() < self._access_token_expires_at:
             return self._access_token

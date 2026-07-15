@@ -124,3 +124,52 @@ class VisionFlowWorkerSettingsTests(unittest.TestCase):
         self.assertEqual(settings.organization_id, http.calls[1]["params"]["organization_id"])
         self.assertEqual("Bearer service-access-token", http.calls[1]["headers"]["Authorization"])
         self.assertEqual("b" * 32, http.calls[1]["headers"]["X-Request-ID"])
+
+    def test_complete_narration_calls_endpoint(self) -> None:
+        settings = VisionFlowWorkerSettings(
+            api_url="https://visionflow.example.com/api/v1",
+            organization_id="00000000-0000-0000-0000-000000000001",
+            token_url="https://visionflow.example.com/api/v1/auth/token",
+            client_id="intelligence-worker",
+            client_secret="not-a-real-secret",
+            audience="visionflow-control-plane",
+        )
+        http = RecordingHttp()
+        client = VisionFlowControlPlaneClient(settings, http=http)
+
+        client.complete_narration(
+            workflow_run_id="00000000-0000-0000-0000-000000000002",
+            organization_id=settings.organization_id,
+            idempotency_key="idempotency-key-narration-01",
+            script="This is a valid narration script that is long enough.",
+            scenes=[
+                {"narration": "Scene 1", "visual_prompt": "Prompt 1", "duration_seconds": 5},
+                {"narration": "Scene 2", "visual_prompt": "Prompt 2", "duration_seconds": 10},
+                {"narration": "Scene 3", "visual_prompt": "Prompt 3", "duration_seconds": 15},
+            ],
+            source_metadata={
+                "provider": "google",
+                "model": "gemini-1.5-pro",
+            },
+            trace_id="c" * 32,
+        )
+
+        self.assertEqual(2, len(http.calls))
+        self.assertTrue(http.calls[1]["url"].endswith("/complete-narration"))
+        self.assertEqual(
+            "Bearer service-access-token",
+            http.calls[1]["headers"]["Authorization"],
+        )
+        self.assertEqual(
+            settings.organization_id,
+            http.calls[1]["json"]["organization_id"],
+        )
+        self.assertEqual(
+            "idempotency-key-narration-01",
+            http.calls[1]["json"]["idempotency_key"],
+        )
+        self.assertEqual(
+            "google",
+            http.calls[1]["json"]["source_metadata"]["provider"],
+        )
+

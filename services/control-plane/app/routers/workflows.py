@@ -4,6 +4,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -23,6 +24,7 @@ from app.application.record_narration_generated import (
     RecordNarrationGenerated,
     RecordNarrationGeneratedCommand,
     SceneCommandPayload,
+    SourceMetadataPayload,
     WorkflowStateConflict as NarrationWorkflowStateConflict,
     IdempotencyKeyConflict as NarrationIdempotencyKeyConflict,
 )
@@ -83,13 +85,21 @@ class RecordNarrationSceneRequest(BaseModel):
     caption: str | None = Field(default=None, max_length=2_000)
 
 
+class SourceMetadataRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    provider: str = Field(min_length=1, max_length=100)
+    model: str = Field(min_length=1, max_length=100)
+    model_version_config: str | None = Field(default=None, max_length=200)
+    source_run_ref: str | None = Field(default=None, max_length=500)
+
+
 class RecordNarrationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     organization_id: uuid.UUID
     idempotency_key: str = Field(min_length=16, max_length=128)
     script: str = Field(min_length=40, max_length=50_000)
     scenes: list[RecordNarrationSceneRequest] = Field(min_length=3, max_length=20)
-    source_metadata: dict[str, Any] = Field(default_factory=dict)
+    source_metadata: SourceMetadataRequest
     legacy_job_id: str | int | None = None
 
 
@@ -576,12 +586,13 @@ def complete_narration(
     request_id: str | None = Header(default=None, alias="X-Request-ID", max_length=64),
     identity: VerifiedIdentity = Depends(require_identity),
     session: Session = Depends(get_session),
-) -> NarrationResultResponse:
+) -> Any:
+    trace_id = _trace_id(request_id)
     try:
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
             identity.subject,
             request.organization_id,
-            Permission.WORKFLOW_ADVANCE,
+            Permission.WORKFLOW_NARRATION_COMPLETE,
         )
         command = RecordNarrationGeneratedCommand(
             organization_id=request.organization_id,
@@ -598,28 +609,84 @@ def complete_narration(
                 )
                 for scene in request.scenes
             ],
-            source_metadata=request.source_metadata,
+            source_metadata=SourceMetadataPayload(
+                provider=request.source_metadata.provider,
+                model=request.source_metadata.model,
+                model_version_config=request.source_metadata.model_version_config,
+                source_run_ref=request.source_metadata.source_run_ref,
+            ),
             legacy_job_id=str(request.legacy_job_id) if request.legacy_job_id is not None else None,
-            trace_id=_trace_id(request_id),
+            trace_id=trace_id,
             actor_subject=identity.subject,
         )
         result = RecordNarrationGenerated(SqlAlchemyNarrationResultRepository(session)).execute(command)
+        return NarrationResultResponse(
+            workflow_run_id=result.workflow_run_id,
+            state=result.state.value,
+            changed=result.changed,
+            version_id=result.version_id,
+            version=result.version,
+        )
     except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={
+                "code": "PERMISSION_DENIED",
+                "message": "Organization permission denied",
+                "trace_id": trace_id,
+                "detail": str(exc),
+            }
+        )
     except LookupError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    except (NarrationWorkflowStateConflict, NarrationIdempotencyKeyConflict) as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={
+                "code": "NOT_FOUND",
+                "message": str(exc),
+                "trace_id": trace_id,
+                "detail": None,
+            }
+        )
+    except NarrationWorkflowStateConflict as exc:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={
+                "code": "WORKFLOW_STATE_CONFLICT",
+                "message": str(exc),
+                "trace_id": trace_id,
+                "detail": None,
+            }
+        )
+    except NarrationIdempotencyKeyConflict as exc:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={
+                "code": "IDEMPOTENCY_KEY_CONFLICT",
+                "message": str(exc),
+                "trace_id": trace_id,
+                "detail": None,
+            }
+        )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
-
-    return NarrationResultResponse(
-        workflow_run_id=result.workflow_run_id,
-        state=result.state.value,
-        changed=result.changed,
-        version_id=result.version_id,
-        version=result.version,
-    )
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={
+                "code": "VALIDATION_ERROR",
+                "message": str(exc),
+                "trace_id": trace_id,
+                "detail": None,
+            }
+        )
+    except Exception as exc:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "code": "INTERNAL_SERVER_ERROR",
+                "message": "An unexpected error occurred",
+                "trace_id": trace_id,
+                "detail": None,
+            }
+        )
 
 
 @router.post(

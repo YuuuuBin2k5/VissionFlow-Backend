@@ -12,11 +12,13 @@ sys.path.insert(0, str(SERVICE_ROOT))
 
 from app.domain.workflow import WorkflowState
 from app.application.record_narration_generated import NarrationResultSummary
+from app.domain.authorization import Permission
 
 
 class NarrationResultApiTests(unittest.TestCase):
     environment = {
-        "DATABASE_URL": "postgresql+psycopg://placeholder:placeholder@localhost:5432/visionflow?sslmode=require"
+        "DATABASE_URL": "postgresql+psycopg://placeholder:placeholder@localhost:5432/visionflow?sslmode=require",
+        "VISIONFLOW_ALLOW_INSECURE_DB": "true",
     }
 
     def setUp(self) -> None:
@@ -31,7 +33,10 @@ class NarrationResultApiTests(unittest.TestCase):
                 {"narration": "Scene 2", "visual_prompt": "Prompt 2", "duration_seconds": 10},
                 {"narration": "Scene 3", "visual_prompt": "Prompt 3", "duration_seconds": 15},
             ],
-            "source_metadata": {"model": "gpt-4"},
+            "source_metadata": {
+                "provider": "openai",
+                "model": "gpt-4",
+            },
         }
 
     def _client(self) -> TestClient:
@@ -54,6 +59,9 @@ class NarrationResultApiTests(unittest.TestCase):
                 json=self.valid_payload,
             )
         self.assertEqual(401, response.status_code)
+        data = response.json()
+        self.assertEqual("UNAUTHORIZED", data["code"])
+        self.assertIn("trace_id", data)
 
     def test_complete_narration_calls_usecase_and_returns_summary(self) -> None:
         expected_summary = NarrationResultSummary(
@@ -81,7 +89,11 @@ class NarrationResultApiTests(unittest.TestCase):
         self.assertTrue(response.json()["changed"])
         self.assertEqual(str(expected_summary.version_id), response.json()["version_id"])
         self.assertEqual(1, response.json()["version"])
-        authorize.return_value.require.assert_called_once()
+        authorize.return_value.require.assert_called_once_with(
+            "oidc|worker",
+            self.organization_id,
+            Permission.WORKFLOW_NARRATION_COMPLETE,
+        )
 
     def test_maps_permission_error_to_403(self) -> None:
         with patch("app.routers.workflows.AuthorizeOrganization") as authorize:
@@ -92,6 +104,11 @@ class NarrationResultApiTests(unittest.TestCase):
                 json=self.valid_payload,
             )
         self.assertEqual(403, response.status_code)
+        data = response.json()
+        self.assertEqual("PERMISSION_DENIED", data["code"])
+        self.assertEqual("Organization permission denied", data["message"])
+        self.assertIn("trace_id", data)
+        self.assertEqual("Caller is not authorized", data["detail"])
 
     def test_maps_lookup_error_to_404(self) -> None:
         with patch("app.routers.workflows.AuthorizeOrganization"), patch(
@@ -106,6 +123,11 @@ class NarrationResultApiTests(unittest.TestCase):
                 json=self.valid_payload,
             )
         self.assertEqual(404, response.status_code)
+        data = response.json()
+        self.assertEqual("NOT_FOUND", data["code"])
+        self.assertEqual("Workflow run not found", data["message"])
+        self.assertIn("trace_id", data)
+        self.assertIsNone(data["detail"])
 
     def test_maps_state_conflict_to_409(self) -> None:
         from app.application.record_narration_generated import WorkflowStateConflict
@@ -121,6 +143,10 @@ class NarrationResultApiTests(unittest.TestCase):
                 json=self.valid_payload,
             )
         self.assertEqual(409, response.status_code)
+        data = response.json()
+        self.assertEqual("WORKFLOW_STATE_CONFLICT", data["code"])
+        self.assertEqual("expected PLANNING", data["message"])
+        self.assertIsNone(data["detail"])
 
     def test_maps_validation_error_to_422(self) -> None:
         invalid_payload = self.valid_payload.copy()
@@ -132,6 +158,29 @@ class NarrationResultApiTests(unittest.TestCase):
             json=invalid_payload,
         )
         self.assertEqual(422, response.status_code)
+        data = response.json()
+        self.assertEqual("VALIDATION_ERROR", data["code"])
+        self.assertIn("trace_id", data)
+
+    def test_maps_unexpected_error_to_500_safe(self) -> None:
+        with patch("app.routers.workflows.AuthorizeOrganization"), patch(
+            "app.routers.workflows.SqlAlchemyNarrationResultRepository"
+        ), patch(
+            "app.routers.workflows.RecordNarrationGenerated"
+        ) as use_case:
+            use_case.return_value.execute.side_effect = RuntimeError("database connection failure or disk crash")
+            response = self._client().post(
+                f"/api/v1/workflows/{self.workflow_run_id}/complete-narration",
+                headers={"Authorization": "Bearer service-token"},
+                json=self.valid_payload,
+            )
+        self.assertEqual(500, response.status_code)
+        data = response.json()
+        self.assertEqual("INTERNAL_SERVER_ERROR", data["code"])
+        self.assertEqual("An unexpected error occurred", data["message"])
+        # Do not leak RuntimeErrors or trace details in detail field
+        self.assertIsNone(data["detail"])
+        self.assertIn("trace_id", data)
 
 
 if __name__ == "__main__":
