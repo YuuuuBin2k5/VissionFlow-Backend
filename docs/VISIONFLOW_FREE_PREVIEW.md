@@ -29,13 +29,22 @@ Deploy Render from `render.free.yaml`, not `render.yaml`. Keep the existing
 
 ## Deploy API at zero cost
 
-1. Create a Render Blueprint using `render.free.yaml` and choose the **Free**
-   instance type.
+1. Create a Render Blueprint using `render.yaml` (or `render.free.yaml`) and
+   choose the **Free** instance type.
 2. Add the values documented in `VISIONFLOW_RENDER_DEPLOYMENT.md`, using a
    Neon pooled URL for `DATABASE_URL`, a Neon direct URL for
    `MIGRATION_DATABASE_URL`, and an Upstash Redis TLS URL for `REDIS_URL`.
 3. Set `VISIONFLOW_AUTH_ISSUER` to the Render HTTPS Control Plane URL.
-4. Deploy, confirm `/api/v1/health`, then bootstrap the organization and the
+4. Deploy and confirm `/api/v1/health`. Render Free cannot run migrations as a
+   pre-deploy step, so from your trusted local machine run:
+
+   ```powershell
+   Set-Location 'services/control-plane'
+   python -m alembic upgrade head
+   ```
+
+   The command needs both `DATABASE_URL` and `MIGRATION_DATABASE_URL` in its
+   environment. Then bootstrap the organization and the
    `service|visionflow-intelligence-worker` service membership.
 5. Configure Vercel with the deployed Control Plane API URL and organization
    UUID, then redeploy the Console.

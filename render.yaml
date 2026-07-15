@@ -10,7 +10,8 @@ services:
     dockerfilePath: services/control-plane/Dockerfile
     dockerCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/v1/health
-    preDeployCommand: python -m alembic upgrade head
+    # Render Free does not support preDeployCommand. Run the one-time Alembic
+    # migration from a trusted local machine before registering the first user.
     envVars:
       - key: APP_ENV
         value: preview
