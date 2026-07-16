@@ -95,7 +95,10 @@ def build_ffmpeg_command(executable: str, source_path: Path, layers: tuple[Resol
         filters.append(f"[{previous}][{overlay_label}]overlay=x='(W-w)*{x:.4f}':y='(H-h)*{y:.4f}':enable='between(t,{start:.3f},{end:.3f})'[{output_label}]")
         previous = output_label
     command.extend([
-        "-filter_complex", ";".join(filters), "-map", f"[{previous}]", "-map", "0:a?",
+        # MediaService always emits the voice/audio stream. Map it explicitly
+        # rather than relying on optional-map syntax unsupported by older
+        # FFmpeg builds used in some local validation environments.
+        "-filter_complex", ";".join(filters), "-map", f"[{previous}]", "-map", "0:a",
         "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-c:a", "copy",
         "-shortest", "-movflags", "+faststart", str(output_path),
     ])

@@ -35,7 +35,7 @@ class CompositionOverlayCompositorTests(unittest.TestCase):
         graph = command[command.index("-filter_complex") + 1]
         self.assertIn("between(t,0.500,3.000)", graph)
         self.assertIn("colorchannelmixer=aa=0.8000", graph)
-        self.assertEqual("0:a?", command[command.index("-map") + 3])
+        self.assertEqual("0:a", command[command.index("-map") + 3])
 
     def test_key_scope_is_enforced_by_materialization_boundary(self):
         with self.assertRaisesRegex(OverlayCompositingError, "workflow-scoped"):
