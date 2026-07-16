@@ -22,6 +22,7 @@ class ExecutionContextGateway(Protocol):
         self, workflow_run_id: str, *, trace_id: str | None = None
     ) -> dict[str, Any]: ...
     def get_composition(self, workflow_run_id: str, *, trace_id: str | None = None) -> dict[str, Any]: ...
+    def get_composition_render_plan(self, workflow_run_id: str, *, trace_id: str | None = None) -> dict[str, Any]: ...
     def open_manual_approval(self, workflow_run_id: str, *, trace_id: str | None = None) -> dict[str, Any]: ...
 
 
@@ -53,6 +54,8 @@ class VisionFlowRenderDispatcher:
         script = _required_script(steps.get("script"))
         scenes = _required_scenes(steps.get("storyboard"))
         composition = self._control_plane.get_composition(workflow_run_id, trace_id=trace_id)
+        authoritative_plan = self._control_plane.get_composition_render_plan(workflow_run_id, trace_id=trace_id)
+        authoritative_fingerprint = _validate_authoritative_render_plan(workflow_run_id, composition, authoritative_plan)
         scenes = _apply_locked_timeline(scenes, composition)
         contract = build_visionflow_render_contract(
             workflow_run_id,
@@ -61,6 +64,7 @@ class VisionFlowRenderDispatcher:
             script,
             scenes,
             composition,
+            authoritative_render_plan_fingerprint=authoritative_fingerprint,
         )
         artifact = self._render_workflow.execute(contract)
         if self._quality_assurance is not None:
@@ -126,3 +130,14 @@ def _apply_locked_timeline(scenes: list[dict[str, Any]], composition: dict[str, 
             "composition_keyframes": clip.get("keyframes", []),
         })
     return materialized
+
+
+def _validate_authoritative_render_plan(workflow_run_id: str, composition: dict[str, Any], plan: dict[str, Any]) -> str:
+    fingerprint = plan.get("fingerprint")
+    if not isinstance(fingerprint, str) or len(fingerprint) != 64:
+        raise ValueError("Control Plane render plan fingerprint is invalid")
+    if plan.get("workflow_run_id") != workflow_run_id:
+        raise ValueError("Control Plane render plan workflow does not match dispatch")
+    if plan.get("composition_version_id") != composition.get("version_id"):
+        raise ValueError("Control Plane render plan version does not match locked composition")
+    return fingerprint

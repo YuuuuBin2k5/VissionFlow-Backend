@@ -14,6 +14,8 @@ class ControlPlane:
         return self.context
     def get_composition(self, workflow_run_id, *, trace_id=None):
         return {"state": "locked", "version_id": "composition-version-1", "aspect_ratio": "9:16", "tracks": [{"track_type": "video", "name": "Visuals", "clips": [{"source_type": "scene", "source_ref": "scene-01", "timeline_start_ms": 0, "duration_ms": 5000}]}]}
+    def get_composition_render_plan(self, workflow_run_id, *, trace_id=None):
+        return {"workflow_run_id": workflow_run_id, "composition_version_id": "composition-version-1", "fingerprint": "c" * 64}
 
     def open_manual_approval(self, workflow_run_id, *, trace_id=None):
         self.calls.append(("approval", workflow_run_id, trace_id))
@@ -59,7 +61,7 @@ class VisionFlowRenderDispatcherTests(unittest.TestCase):
         self.assertEqual("b" * 32, workflow.contracts[0].trace_id)
         self.assertFalse(hasattr(workflow.contracts[0], "job_id"))
         self.assertEqual("composition-version-1", workflow.contracts[0].render_plan.composition_version_id)
-        self.assertEqual(64, len(workflow.contracts[0].render_plan_hash))
+        self.assertEqual("c" * 64, workflow.contracts[0].render_plan_hash)
 
     def test_rejects_not_storyboarded_without_invoking_renderer(self):
         gateway = ControlPlane(context(state="SCRIPTED"))

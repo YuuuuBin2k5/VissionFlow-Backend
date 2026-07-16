@@ -31,6 +31,8 @@ def build_visionflow_render_contract(
     script: str,
     scenes: list[dict[str, Any]],
     composition: dict[str, Any],
+    *,
+    authoritative_render_plan_fingerprint: str,
 ) -> VisionFlowRenderContract:
     payload = intake.get("input_payload", {})
     if not isinstance(payload, dict):
@@ -44,6 +46,8 @@ def build_visionflow_render_contract(
         raise ValueError("VisionFlow V1 only supports 9:16 rendering")
     if not script.strip() or not scenes:
         raise ValueError("render requires a script and storyboard scenes")
+    if len(authoritative_render_plan_fingerprint) != 64:
+        raise ValueError("authoritative render plan fingerprint must be a SHA-256 hex digest")
     render_plan = compile_composition_render_plan(workflow_run_id, composition)
     return VisionFlowRenderContract(
         workflow_run_id=workflow_run_id,
@@ -56,6 +60,6 @@ def build_visionflow_render_contract(
         voice_code=str(payload.get("voice_code", "edge-nam-minh")),
         visual_preset=str(payload.get("visual_preset", "clean_explainer")),
         render_plan=render_plan,
-        render_plan_hash=render_plan.plan_hash,
+        render_plan_hash=authoritative_render_plan_fingerprint,
         workspace_key=f"visionflow/{workflow_run_id}/render",
     )
