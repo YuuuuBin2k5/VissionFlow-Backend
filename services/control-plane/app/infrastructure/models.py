@@ -135,6 +135,9 @@ class WorkflowRun(Timestamped, Base):
     input_payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     failure_code: Mapped[str | None] = mapped_column(String(96), nullable=True)
     failure_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Added by migration 0008. Nullable: existing runs have no mapping yet.
+    # Unique constraint enforces 1-to-1 mapping with legacy MySQL job IDs.
+    legacy_job_id: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)
 
 
 class WorkflowStep(Timestamped, Base):

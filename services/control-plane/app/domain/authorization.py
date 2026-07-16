@@ -16,6 +16,9 @@ class Permission(StrEnum):
     WORKFLOW_VIEW = "workflow:view"
     WORKFLOW_ADVANCE = "workflow:advance"
     WORKFLOW_NARRATION_COMPLETE = "workflow:narration:complete"
+    # Scope granted only to the legacy intake/orchestrator service identity.
+    # Must NOT be granted to the narration worker or any human-facing role.
+    WORKFLOW_LEGACY_MAPPING_REGISTER = "workflow:legacy-mapping:register"
     PROMPT_MANAGE = "prompt:manage"
     PUBLISH_APPROVE = "publish:approve"
     PUBLISH_EXECUTE = "publish:execute"
@@ -29,6 +32,9 @@ ROLE_PERMISSIONS: dict[OrganizationRole, frozenset[Permission]] = {
             Permission.WORKFLOW_VIEW,
             Permission.WORKFLOW_ADVANCE,
             Permission.WORKFLOW_NARRATION_COMPLETE,
+            # Service role encompasses both worker and intake service identities;
+            # endpoint-level subject checks enforce the narrower separation.
+            Permission.WORKFLOW_LEGACY_MAPPING_REGISTER,
         }
     ),
     OrganizationRole.PRODUCER: frozenset({Permission.WORKFLOW_CREATE, Permission.WORKFLOW_VIEW}),

@@ -77,6 +77,7 @@ class NarrationAuthCapabilityTests(unittest.TestCase):
                 "provider": "google",
                 "model": "gemini-1.5-pro",
             },
+            "narration_attempt_id": "narration-test-attempt-1",
         }
 
     def _sign_token(self, subject: str, scopes: list[str] | None = None, session_id: str = "session-test") -> str:

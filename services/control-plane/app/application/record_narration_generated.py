@@ -15,6 +15,14 @@ class IdempotencyKeyConflict(RuntimeError):
     """Raised when a key belongs to a different workflow run."""
 
 
+class StaleNarrationAttempt(RuntimeError):
+    """Raised when the narration_attempt_id does not match the active script step attempt."""
+
+
+class ActiveNarrationAttemptMissing(RuntimeError):
+    """Raised when no active narration attempt exists for the workflow run (context GET)."""
+
+
 @dataclass(frozen=True)
 class SceneCommandPayload:
     narration: str
@@ -40,6 +48,9 @@ class RecordNarrationGeneratedCommand:
     script: str
     scenes: list[SceneCommandPayload]
     source_metadata: SourceMetadataPayload
+    # narration_attempt_id must be provided by the worker (obtained from context endpoint).
+    # Control Plane verifies this matches the active script step attempt before persisting.
+    narration_attempt_id: str
     trace_id: str = field(default_factory=lambda: uuid.uuid4().hex)
     legacy_job_id: str | None = None
     actor_subject: str = "worker:narration"
@@ -110,3 +121,9 @@ def _validate(command: RecordNarrationGeneratedCommand) -> None:
         raise ValueError("idempotency_key must be 128 characters or fewer")
     if len(command.trace_id) != 32:
         raise ValueError("trace_id must be a 32-character correlation identifier")
+
+    narration_attempt_id = command.narration_attempt_id.strip()
+    if not narration_attempt_id:
+        raise ValueError("narration_attempt_id must not be blank")
+    if len(narration_attempt_id) > 128:
+        raise ValueError("narration_attempt_id must be 128 characters or fewer")

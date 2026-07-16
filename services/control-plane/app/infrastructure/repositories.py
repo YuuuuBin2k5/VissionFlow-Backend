@@ -20,6 +20,7 @@ from app.application.record_narration_generated import (
     NarrationResultSummary,
     WorkflowStateConflict,
     IdempotencyKeyConflict,
+    StaleNarrationAttempt,
 )
 from app.domain.workflow import WorkflowState, require_transition
 from app.infrastructure.models import (
@@ -141,10 +142,11 @@ class SqlAlchemyNarrationResultRepository:
     def _record_narration_result(
         self, command: RecordNarrationGeneratedCommand
     ) -> NarrationResultSummary:
-        # 1. Compute fingerprint
+        # 1. Compute fingerprint — includes narration_attempt_id so stale retry fingerprints differ
         serialized_payload = {
             "organization_id": str(command.organization_id),
             "workflow_run_id": str(command.workflow_run_id),
+            "narration_attempt_id": command.narration_attempt_id,
             "script": command.script,
             "scenes": [
                 {
@@ -202,6 +204,27 @@ class SqlAlchemyNarrationResultRepository:
         if current_state != WorkflowState.PLANNING:
             raise WorkflowStateConflict(
                 f"workflow run '{workflow_run.id}' is '{current_state}', expected 'PLANNING'"
+            )
+
+        # 3b. Validate narration_attempt_id against authoritative WorkflowStep.attempt_count
+        script_step = self._session.scalar(
+            select(WorkflowStep)
+            .where(
+                WorkflowStep.workflow_run_id == workflow_run.id,
+                WorkflowStep.step_key == "script",
+            )
+            .with_for_update()
+        )
+        if script_step is None or script_step.attempt_count == 0:
+            from app.application.record_narration_generated import ActiveNarrationAttemptMissing
+            raise ActiveNarrationAttemptMissing(
+                f"workflow run '{workflow_run.id}' has no active narration attempt"
+            )
+        active_attempt_id = f"narration-{workflow_run.id}-attempt-{script_step.attempt_count}"
+        if command.narration_attempt_id != active_attempt_id:
+            raise StaleNarrationAttempt(
+                f"narration_attempt_id '{command.narration_attempt_id}' is stale; "
+                f"active attempt is '{active_attempt_id}'"
             )
 
         # 4. Perform workflow transition

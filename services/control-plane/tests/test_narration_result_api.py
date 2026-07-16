@@ -42,6 +42,7 @@ class NarrationResultApiTests(unittest.TestCase):
                 "provider": "openai",
                 "model": "gpt-4",
             },
+            "narration_attempt_id": "narration-test-attempt-1",
         }
 
     def _client(self) -> TestClient:

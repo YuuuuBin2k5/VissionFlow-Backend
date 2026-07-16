@@ -15,8 +15,10 @@ from alembic.config import Config
 from alembic import command as alembic_command
 
 from app.application.record_narration_generated import (
+    ActiveNarrationAttemptMissing,
     RecordNarrationGeneratedCommand,
     SceneCommandPayload,
+    StaleNarrationAttempt,
     WorkflowStateConflict,
     IdempotencyKeyConflict,
     SourceMetadataPayload,
@@ -96,6 +98,15 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
             idempotency_key="initial-run-creation-key-16-chars",
         )
         self.session.add(self.run)
+        self.session.flush()
+
+        self.step = WorkflowStep(
+            workflow_run_id=self.run.id,
+            step_key="script",
+            state=WorkflowState.PLANNING.value,
+            attempt_count=1,
+        )
+        self.session.add(self.step)
         self.session.commit()
 
         self.valid_scenes = [
@@ -128,6 +139,7 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
             script=self.valid_script,
             scenes=self.valid_scenes,
             source_metadata=SourceMetadataPayload(provider="google", model="gemini-1.5-pro"),
+            narration_attempt_id=f"narration-{self.run.id}-attempt-1",
             trace_id=uuid.uuid4().hex,
         )
 
@@ -166,6 +178,7 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
             )
         )
         self.assertIsNotNone(step)
+        # SCRIPTED step was updated from step_key="script" in DB
         self.assertEqual(WorkflowState.SCRIPTED.value, step.state)
         self.assertEqual("idempotency-key-narration-01", step.output_payload["idempotency_key"])
 
@@ -199,6 +212,7 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
             script=self.valid_script,
             scenes=self.valid_scenes,
             source_metadata=SourceMetadataPayload(provider="google", model="gemini-1.5-pro"),
+            narration_attempt_id=f"narration-{self.run.id}-attempt-1",
             trace_id=uuid.uuid4().hex,
         )
 
@@ -220,17 +234,26 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
             script=self.valid_script,
             scenes=self.valid_scenes,
             source_metadata=SourceMetadataPayload(provider="google", model="gemini-1.5-pro"),
+            narration_attempt_id=f"narration-{self.run.id}-attempt-1",
             trace_id=uuid.uuid4().hex,
         )
         self.repository.record_narration_result(command1)
 
-        # Create second workflow run
+        # Create second workflow run and step
         run2 = WorkflowRun(
             project_id=self.project.id,
             state=WorkflowState.PLANNING.value,
             idempotency_key="run-2-creation-key-16-chars",
         )
         self.session.add(run2)
+        self.session.flush()
+        step2 = WorkflowStep(
+            workflow_run_id=run2.id,
+            step_key="script",
+            state=WorkflowState.PLANNING.value,
+            attempt_count=1,
+        )
+        self.session.add(step2)
         self.session.commit()
 
         command2 = RecordNarrationGeneratedCommand(
@@ -240,6 +263,7 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
             script=self.valid_script,
             scenes=self.valid_scenes,
             source_metadata=SourceMetadataPayload(provider="google", model="gemini-1.5-pro"),
+            narration_attempt_id=f"narration-{run2.id}-attempt-1",
             trace_id=uuid.uuid4().hex,
         )
         with self.assertRaisesRegex(IdempotencyKeyConflict, "already associated with a different operation"):
@@ -252,6 +276,14 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
             idempotency_key="run-ready-creation-key-16-chars",
         )
         self.session.add(run2)
+        self.session.flush()
+        step2 = WorkflowStep(
+            workflow_run_id=run2.id,
+            step_key="script",
+            state=WorkflowState.READY.value,
+            attempt_count=1,
+        )
+        self.session.add(step2)
         self.session.commit()
 
         command = RecordNarrationGeneratedCommand(
@@ -261,6 +293,7 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
             script=self.valid_script,
             scenes=self.valid_scenes,
             source_metadata=SourceMetadataPayload(provider="google", model="gemini-1.5-pro"),
+            narration_attempt_id=f"narration-{run2.id}-attempt-1",
         )
         with self.assertRaisesRegex(WorkflowStateConflict, "expected 'PLANNING'"):
             self.repository.record_narration_result(command)
@@ -276,6 +309,7 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
             script=self.valid_script,
             scenes=self.valid_scenes,
             source_metadata=SourceMetadataPayload(provider="google", model="gemini-1.5-pro"),
+            narration_attempt_id=f"narration-{self.run.id}-attempt-1",
         )
 
         with patch.object(self.session, "flush", side_effect=IntegrityError("mock fail", None, None)):
@@ -290,8 +324,14 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
         doc = db_session.scalar(select(CreativeDocument).where(CreativeDocument.workflow_run_id == self.run.id))
         self.assertIsNone(doc)
 
-        step = db_session.scalar(select(WorkflowStep).where(WorkflowStep.workflow_run_id == self.run.id))
-        self.assertIsNone(step)
+        step = db_session.scalar(
+            select(WorkflowStep).where(
+                WorkflowStep.workflow_run_id == self.run.id,
+                WorkflowStep.step_key == "script",
+            )
+        )
+        # The step should remain PLANNING state since transaction rolled back
+        self.assertEqual(WorkflowState.PLANNING.value, step.state)
 
         db_session.close()
 
@@ -303,6 +343,7 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
             script=self.valid_script,
             scenes=self.valid_scenes,
             source_metadata=SourceMetadataPayload(provider="google", model="gemini-1.5-pro"),
+            narration_attempt_id=f"narration-{self.run.id}-attempt-1",
             trace_id=uuid.uuid4().hex,
         )
 
@@ -333,6 +374,37 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
         ).all()
         self.assertEqual(1, len(audits))
         db_session.close()
+
+    def test_rejects_stale_narration_attempt(self) -> None:
+        command = RecordNarrationGeneratedCommand(
+            organization_id=self.org_id,
+            workflow_run_id=self.run.id,
+            idempotency_key="idempotency-key-stale-attempt-99",
+            script=self.valid_script,
+            scenes=self.valid_scenes,
+            source_metadata=SourceMetadataPayload(provider="google", model="gemini-1.5-pro"),
+            narration_attempt_id=f"narration-{self.run.id}-attempt-999", # Wrong attempt_count!
+        )
+        with self.assertRaises(StaleNarrationAttempt):
+            self.repository.record_narration_result(command)
+
+    def test_rejects_missing_active_attempt(self) -> None:
+        # Delete step to simulate missing active attempt
+        self.session.delete(self.step)
+        self.session.commit()
+
+        command = RecordNarrationGeneratedCommand(
+            organization_id=self.org_id,
+            workflow_run_id=self.run.id,
+            idempotency_key="idempotency-key-missing-attempt-99",
+            script=self.valid_script,
+            scenes=self.valid_scenes,
+            source_metadata=SourceMetadataPayload(provider="google", model="gemini-1.5-pro"),
+            narration_attempt_id=f"narration-{self.run.id}-attempt-1",
+        )
+        from app.application.record_narration_generated import ActiveNarrationAttemptMissing
+        with self.assertRaises(ActiveNarrationAttemptMissing):
+            self.repository.record_narration_result(command)
 
 
 if __name__ == "__main__":

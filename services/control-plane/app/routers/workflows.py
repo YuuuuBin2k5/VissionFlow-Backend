@@ -23,12 +23,20 @@ from app.application.create_short_form import (
     IdempotencyKeyConflict,
 )
 from app.application.record_narration_generated import (
+    ActiveNarrationAttemptMissing,
     RecordNarrationGenerated,
     RecordNarrationGeneratedCommand,
     SceneCommandPayload,
     SourceMetadataPayload,
+    StaleNarrationAttempt,
     WorkflowStateConflict as NarrationWorkflowStateConflict,
     IdempotencyKeyConflict as NarrationIdempotencyKeyConflict,
+)
+from app.application.register_legacy_job_mapping import (
+    LegacyJobMappingConflict,
+    LegacyJobMappingResult,
+    RegisterLegacyJobMapping,
+    RegisterLegacyJobMappingCommand,
 )
 from app.application.manual_approval import (
     ApproveManualReviewCommand,
@@ -47,6 +55,7 @@ from app.infrastructure.creative_document_repository import (
     SqlAlchemyCreativeDocumentRepository,
 )
 from app.infrastructure.composition_repository import CompositionConflict, SqlAlchemyCompositionRepository
+from app.infrastructure.legacy_mapping_repository import SqlAlchemyLegacyMappingRepository
 from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
 from app.infrastructure.repositories import (
     SqlAlchemyShortFormWorkflowRepository,
@@ -102,7 +111,53 @@ class RecordNarrationRequest(BaseModel):
     script: str = Field(min_length=40, max_length=50_000)
     scenes: list[RecordNarrationSceneRequest] = Field(min_length=3, max_length=20)
     source_metadata: SourceMetadataRequest
+    # narration_attempt_id is required and must have been obtained from the
+    # context-by-job or execution-context endpoint before submitting results.
+    narration_attempt_id: str = Field(min_length=1, max_length=128)
     legacy_job_id: str | int | None = None
+
+
+class RegisterLegacyJobMappingRequest(BaseModel):
+    """Body for POST /workflows/{run_id}/legacy-job-mapping.
+
+    Must only be called by the legacy intake/orchestrator service identity.
+    The narration worker is explicitly excluded (subject + scope checks enforced).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    organization_id: uuid.UUID
+    legacy_source: str = Field(
+        min_length=1,
+        max_length=128,
+        description="Stable identifier for the legacy system producing the job (e.g. 'agentbot.orchestrator.v1')",
+    )
+    legacy_job_id: str = Field(
+        min_length=1,
+        max_length=64,
+        description="Normalized string representation of the MySQL video_pipeline_jobs PK",
+    )
+
+
+class RegisterLegacyJobMappingResponse(BaseModel):
+    workflow_run_id: uuid.UUID
+    legacy_job_id: str
+    registered: bool
+
+
+class NarrationAttemptContextResponse(BaseModel):
+    """Response for GET /workflows/execution-context-by-job/{legacy_job_id}.
+
+    Provides the active narration_attempt_id the worker must use in complete-narration.
+    Does NOT create or increment any attempt counter.
+    """
+
+    workflow_run_id: uuid.UUID
+    legacy_job_id: str
+    state: str
+    narration_attempt_id: str | None
+    has_active_attempt: bool
+
 
 
 class NarrationResultResponse(BaseModel):
@@ -627,6 +682,7 @@ def complete_narration(
                 model_version_config=request.source_metadata.model_version_config,
                 source_run_ref=request.source_metadata.source_run_ref,
             ),
+            narration_attempt_id=request.narration_attempt_id,
             legacy_job_id=str(request.legacy_job_id) if request.legacy_job_id is not None else None,
             trace_id=trace_id,
             actor_subject=identity.subject,
@@ -674,6 +730,26 @@ def complete_narration(
             status_code=status.HTTP_409_CONFLICT,
             content={
                 "code": "IDEMPOTENCY_KEY_CONFLICT",
+                "message": str(exc),
+                "trace_id": trace_id,
+                "detail": None,
+            }
+        )
+    except StaleNarrationAttempt as exc:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={
+                "code": "STALE_NARRATION_ATTEMPT",
+                "message": str(exc),
+                "trace_id": trace_id,
+                "detail": None,
+            }
+        )
+    except ActiveNarrationAttemptMissing as exc:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={
+                "code": "ACTIVE_NARRATION_ATTEMPT_MISSING",
                 "message": str(exc),
                 "trace_id": trace_id,
                 "detail": None,
@@ -878,6 +954,193 @@ def approve_manual_approval(
         workflow_run_id=result.workflow_run_id,
         state=result.state.value,
         changed=result.changed,
+    )
+
+
+@router.post(
+    "/workflows/{workflow_run_id}/legacy-job-mapping",
+    response_model=RegisterLegacyJobMappingResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Register a legacy MySQL job ID onto a workflow run (intake service only)",
+)
+def register_legacy_job_mapping(
+    workflow_run_id: uuid.UUID,
+    request: RegisterLegacyJobMappingRequest,
+    response: Response,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=16, max_length=128),
+    request_id: str | None = Header(default=None, alias="X-Request-ID", max_length=64),
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> RegisterLegacyJobMappingResponse:
+    """Intake/orchestrator service endpoint to bind a MySQL job ID to a workflow run.
+
+    Security invariants:
+    - Caller MUST carry scope `workflow:legacy-mapping:register`.
+    - Caller subject MUST match VISIONFLOW_INTAKE_SUBJECT env var.
+    - Narration worker (`VISIONFLOW_WORKER_SUBJECT`) MUST NOT be the caller.
+    - User-issued tokens MUST NOT reach this endpoint (no user role grants this scope).
+    """
+    trace_id = _trace_id(request_id)
+    try:
+        # 1. Scope enforcement — this scope is not granted to narration worker or users
+        if Permission.WORKFLOW_LEGACY_MAPPING_REGISTER not in identity.scopes:
+            raise PermissionError(
+                f"Token is missing required capability: {Permission.WORKFLOW_LEGACY_MAPPING_REGISTER}"
+            )
+
+        # 2. Subject enforcement — only the intake service may register mappings
+        intake_subject = os.getenv("VISIONFLOW_INTAKE_SUBJECT", "").strip()
+        if not intake_subject:
+            raise ConfigurationError("VISIONFLOW_INTAKE_SUBJECT must be configured")
+        worker_subject = os.getenv("VISIONFLOW_WORKER_SUBJECT", "").strip()
+        if identity.subject == worker_subject:
+            raise PermissionError(
+                "Narration worker identity may not register legacy job mappings"
+            )
+        if identity.subject != intake_subject:
+            raise PermissionError("Service subject mismatch for legacy mapping registration")
+
+        # 3. Organization membership + permission
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject,
+            request.organization_id,
+            Permission.WORKFLOW_LEGACY_MAPPING_REGISTER,
+        )
+
+        result = RegisterLegacyJobMapping(SqlAlchemyLegacyMappingRepository(session)).execute(
+            RegisterLegacyJobMappingCommand(
+                organization_id=request.organization_id,
+                workflow_run_id=workflow_run_id,
+                legacy_source=request.legacy_source,
+                legacy_job_id=request.legacy_job_id,
+                idempotency_key=idempotency_key,
+                actor_subject=identity.subject,
+                trace_id=trace_id,
+            )
+        )
+    except PermissionError as exc:
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"code": "PERMISSION_DENIED", "message": str(exc), "trace_id": trace_id},
+        )
+    except ConfigurationError:
+        raise
+    except LookupError as exc:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"code": "NOT_FOUND", "message": str(exc), "trace_id": trace_id},
+        )
+    except LegacyJobMappingConflict as exc:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"code": "LEGACY_JOB_MAPPING_CONFLICT", "message": str(exc), "trace_id": trace_id},
+        )
+    except IdempotencyKeyConflict as exc:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"code": "IDEMPOTENCY_KEY_CONFLICT", "message": str(exc), "trace_id": trace_id},
+        )
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={"code": "VALIDATION_ERROR", "message": str(exc), "trace_id": trace_id},
+        )
+
+    response.status_code = status.HTTP_200_OK if not result.registered else status.HTTP_201_CREATED
+    return RegisterLegacyJobMappingResponse(
+        workflow_run_id=result.workflow_run_id,
+        legacy_job_id=result.legacy_job_id,
+        registered=result.registered,
+    )
+
+
+@router.get(
+    "/workflows/execution-context-by-job/{legacy_job_id}",
+    response_model=NarrationAttemptContextResponse,
+    summary="Look up narration attempt context by legacy MySQL job ID (narration worker only)",
+)
+def get_execution_context_by_job(
+    legacy_job_id: str,
+    organization_id: uuid.UUID,
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> NarrationAttemptContextResponse:
+    """Context-lookup endpoint for the narration worker.
+
+    Security invariants:
+    - Caller MUST carry scope `workflow:narration:complete`.
+    - Caller subject MUST match VISIONFLOW_WORKER_SUBJECT.
+    - Intake service subject (VISIONFLOW_INTAKE_SUBJECT) MUST NOT be the caller.
+    - User tokens MUST NOT reach this endpoint.
+    - This endpoint does NOT create or increment any attempt counter.
+
+    NOTE: This endpoint is DISABLED in staging/production until the legacy orchestrator
+    integrates the mapping producer (VISIONFLOW_INTAKE_SUBJECT / botActions.ts outbox).
+    Rollout state: internal-only / CI tests only.
+    """
+    try:
+        # 1. Scope check — narration worker scope required
+        if Permission.WORKFLOW_NARRATION_COMPLETE not in identity.scopes:
+            raise PermissionError(
+                f"Token is missing required capability: {Permission.WORKFLOW_NARRATION_COMPLETE}"
+            )
+
+        # 2. Subject enforcement — only narration worker may call this
+        worker_subject = os.getenv("VISIONFLOW_WORKER_SUBJECT", "").strip()
+        if not worker_subject:
+            raise ConfigurationError("VISIONFLOW_WORKER_SUBJECT must be configured")
+        intake_subject = os.getenv("VISIONFLOW_INTAKE_SUBJECT", "").strip()
+        if identity.subject == intake_subject and intake_subject:
+            raise PermissionError(
+                "Legacy intake service identity may not call execution context lookup"
+            )
+        if identity.subject != worker_subject:
+            raise PermissionError("Service subject mismatch for execution context lookup")
+
+        # 3. Org-level permission (narration:complete grants workflow:view)
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject, organization_id, Permission.WORKFLOW_NARRATION_COMPLETE
+        )
+
+        # 4. Lookup WorkflowRun by legacy_job_id
+        run = session.scalar(
+            select(WorkflowRun)
+            .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
+            .where(
+                VideoProject.organization_id == organization_id,
+                WorkflowRun.legacy_job_id == legacy_job_id,
+            )
+        )
+        if run is None:
+            raise LookupError(
+                f"No workflow run found for legacy_job_id '{legacy_job_id}' in this organization"
+            )
+
+        # 5. Read active narration attempt from script WorkflowStep (read-only, no mutation)
+        script_step = session.scalar(
+            select(WorkflowStep).where(
+                WorkflowStep.workflow_run_id == run.id,
+                WorkflowStep.step_key == "script",
+            )
+        )
+        has_active_attempt = script_step is not None and script_step.attempt_count > 0
+        active_attempt_id: str | None = None
+        if has_active_attempt and script_step is not None:
+            active_attempt_id = f"narration-{run.id}-attempt-{script_step.attempt_count}"
+
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ConfigurationError:
+        raise
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return NarrationAttemptContextResponse(
+        workflow_run_id=run.id,
+        legacy_job_id=legacy_job_id,
+        state=run.state,
+        narration_attempt_id=active_attempt_id,
+        has_active_attempt=has_active_attempt,
     )
 
 

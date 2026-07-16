@@ -56,6 +56,7 @@ class RecordNarrationGeneratedTests(unittest.TestCase):
             script=self.valid_script,
             scenes=self.valid_scenes,
             source_metadata=SourceMetadataPayload("google", "gemini-1.5-pro"),
+            narration_attempt_id="narration-test-attempt-1",
         )
         result = self.use_case.execute(command)
         self.assertEqual(WorkflowState.SCRIPTED, result.state)
@@ -72,6 +73,7 @@ class RecordNarrationGeneratedTests(unittest.TestCase):
                     script="   ",
                     scenes=self.valid_scenes,
                     source_metadata=SourceMetadataPayload("google", "gemini-1.5-pro"),
+                    narration_attempt_id="narration-test-attempt-1",
                 )
             )
 
@@ -85,6 +87,7 @@ class RecordNarrationGeneratedTests(unittest.TestCase):
                     script="Too short script.",
                     scenes=self.valid_scenes,
                     source_metadata=SourceMetadataPayload("google", "gemini-1.5-pro"),
+                    narration_attempt_id="narration-test-attempt-1",
                 )
             )
 
@@ -98,6 +101,7 @@ class RecordNarrationGeneratedTests(unittest.TestCase):
                     script=self.valid_script,
                     scenes=[],
                     source_metadata=SourceMetadataPayload("google", "gemini-1.5-pro"),
+                    narration_attempt_id="narration-test-attempt-1",
                 )
             )
 
@@ -111,6 +115,7 @@ class RecordNarrationGeneratedTests(unittest.TestCase):
                     script=self.valid_script,
                     scenes=self.valid_scenes[:2],
                     source_metadata=SourceMetadataPayload("google", "gemini-1.5-pro"),
+                    narration_attempt_id="narration-test-attempt-1",
                 )
             )
 
@@ -129,6 +134,7 @@ class RecordNarrationGeneratedTests(unittest.TestCase):
                     script=self.valid_script,
                     scenes=invalid_scenes,
                     source_metadata=SourceMetadataPayload("google", "gemini-1.5-pro"),
+                    narration_attempt_id="narration-test-attempt-1",
                 )
             )
 
@@ -147,6 +153,7 @@ class RecordNarrationGeneratedTests(unittest.TestCase):
                     script=self.valid_script,
                     scenes=invalid_scenes,
                     source_metadata=SourceMetadataPayload("google", "gemini-1.5-pro"),
+                    narration_attempt_id="narration-test-attempt-1",
                 )
             )
 
@@ -160,6 +167,7 @@ class RecordNarrationGeneratedTests(unittest.TestCase):
                     script=self.valid_script,
                     scenes=self.valid_scenes,
                     source_metadata=SourceMetadataPayload("google", "gemini-1.5-pro"),
+                    narration_attempt_id="narration-test-attempt-1",
                 )
             )
 
@@ -173,7 +181,36 @@ class RecordNarrationGeneratedTests(unittest.TestCase):
                     script=self.valid_script,
                     scenes=self.valid_scenes,
                     source_metadata=SourceMetadataPayload("google", "gemini-1.5-pro"),
+                    narration_attempt_id="narration-test-attempt-1",
                     trace_id="invalid-trace-id",
+                )
+            )
+
+    def test_rejects_blank_narration_attempt_id(self) -> None:
+        with self.assertRaisesRegex(ValueError, "narration_attempt_id must not be blank"):
+            self.use_case.execute(
+                RecordNarrationGeneratedCommand(
+                    organization_id=self.org_id,
+                    workflow_run_id=self.run_id,
+                    idempotency_key=self.valid_idempotency,
+                    script=self.valid_script,
+                    scenes=self.valid_scenes,
+                    source_metadata=SourceMetadataPayload("google", "gemini-1.5-pro"),
+                    narration_attempt_id="   ",
+                )
+            )
+
+    def test_rejects_long_narration_attempt_id(self) -> None:
+        with self.assertRaisesRegex(ValueError, "narration_attempt_id must be 128 characters or fewer"):
+            self.use_case.execute(
+                RecordNarrationGeneratedCommand(
+                    organization_id=self.org_id,
+                    workflow_run_id=self.run_id,
+                    idempotency_key=self.valid_idempotency,
+                    script=self.valid_script,
+                    scenes=self.valid_scenes,
+                    source_metadata=SourceMetadataPayload("google", "gemini-1.5-pro"),
+                    narration_attempt_id="a" * 129,
                 )
             )
 
