@@ -7,6 +7,8 @@ on:
       - "orchestrator/prisma/**"
       - "orchestrator/package.json"
       - "orchestrator/package-lock.json"
+      - "orchestrator/Dockerfile.legacy-intake"
+      - "render.stream-b.staging.yaml"
       - ".github/workflows/visionflow-stream-b-ci.yml"
   push:
     branches: [production]
@@ -15,6 +17,8 @@ on:
       - "orchestrator/prisma/**"
       - "orchestrator/package.json"
       - "orchestrator/package-lock.json"
+      - "orchestrator/Dockerfile.legacy-intake"
+      - "render.stream-b.staging.yaml"
       - ".github/workflows/visionflow-stream-b-ci.yml"
   workflow_dispatch:
 
@@ -45,3 +49,6 @@ jobs:
         run: npx prisma validate --schema prisma/schema.prisma
       - name: Typecheck Stream B and Orchestrator
         run: npm run typecheck
+      - name: Build isolated intake image
+        working-directory: ${{ github.workspace }}
+        run: docker build --file orchestrator/Dockerfile.legacy-intake --tag visionflow-legacy-intake:ci orchestrator
