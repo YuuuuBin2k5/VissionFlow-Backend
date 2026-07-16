@@ -1,0 +1,47 @@
+name: VisionFlow Render CI
+
+on:
+  pull_request:
+    paths:
+      - "worker/domain/composition_render_plan.py"
+      - "worker/services/composition_*_compositor.py"
+      - "worker/services/visionflow_video_renderer.py"
+      - "worker/tests/test_composition_*.py"
+      - "worker/tests/test_visionflow_video_renderer.py"
+      - "worker/requirements.txt"
+      - "worker/Dockerfile"
+      - ".github/workflows/visionflow-render-ci.yml"
+  push:
+    branches: [production]
+    paths:
+      - "worker/domain/composition_render_plan.py"
+      - "worker/services/composition_*_compositor.py"
+      - "worker/services/visionflow_video_renderer.py"
+      - "worker/tests/test_composition_*.py"
+      - "worker/tests/test_visionflow_video_renderer.py"
+      - "worker/requirements.txt"
+      - "worker/Dockerfile"
+      - ".github/workflows/visionflow-render-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render-contract-and-compositor:
+    name: Render contract and FFmpeg compositor
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Build immutable worker image
+        run: docker build --file worker/Dockerfile --tag visionflow-worker:ci .
+      - name: Execute real FFmpeg composition gate inside worker image
+        run: >-
+          docker run --rm visionflow-worker:ci
+          python -m unittest
+          worker.tests.test_composition_compositor_integration
+          worker.tests.test_composition_overlay_compositor
+          worker.tests.test_composition_caption_compositor
+          worker.tests.test_composition_render_plan
+          worker.tests.test_visionflow_video_renderer
