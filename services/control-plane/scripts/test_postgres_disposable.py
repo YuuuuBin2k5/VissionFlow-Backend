@@ -102,6 +102,7 @@ def main() -> int:
     suite.addTests(loader.loadTestsFromName("tests.test_composition_snapshot_api"))
     suite.addTests(loader.loadTestsFromName("tests.test_render_plan"))
     suite.addTests(loader.loadTestsFromName("tests.test_review_artifact_api"))
+    suite.addTests(loader.loadTestsFromName("tests.test_publish_artifact_lineage"))
 
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)

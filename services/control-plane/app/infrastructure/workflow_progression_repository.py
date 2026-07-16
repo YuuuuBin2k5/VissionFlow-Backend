@@ -11,7 +11,7 @@ from app.application.advance_workflow import (
     WorkflowTransitionResult,
 )
 from app.domain.workflow import WorkflowState, require_transition
-from app.infrastructure.models import MediaAsset, OutboxEvent, VideoProject, WorkflowRun, WorkflowStep
+from app.infrastructure.models import MediaAsset, OutboxEvent, PublishApproval, VideoProject, WorkflowRun, WorkflowStep
 
 
 class SqlAlchemyWorkflowProgressionRepository:
@@ -78,6 +78,8 @@ class SqlAlchemyWorkflowProgressionRepository:
         workflow_run.state = command.target_state.value
         if command.target_state == WorkflowState.QA_PENDING:
             self._record_rendered_artifact(workflow_run, command)
+        if command.target_state == WorkflowState.APPROVED:
+            self._record_publish_approval(workflow_run, command)
         event_payload: dict[str, object] = {
             "workflow_run_id": str(workflow_run.id),
             "organization_id": str(command.organization_id),
@@ -102,6 +104,7 @@ class SqlAlchemyWorkflowProgressionRepository:
                 event_payload["render_plan"] = render_plan
         if command.target_state == WorkflowState.PUBLISHING:
             event_payload["publisher_connection_id"] = command.output_payload.get("publisher_connection_id")
+            event_payload["publish_artifact"] = self._approved_artifact_payload(workflow_run)
         self._session.add(
             OutboxEvent(
                 aggregate_type="workflow_run",
@@ -146,6 +149,59 @@ class SqlAlchemyWorkflowProgressionRepository:
                 checksum_sha256=checksum,
                 metadata_json={"render_plan_hash": fingerprint},
             )
+        )
+
+    def _record_publish_approval(self, workflow_run: WorkflowRun, command: AdvanceWorkflowCommand) -> None:
+        """Persist the exact final export accepted by the human approval boundary."""
+        asset = self._latest_final_export(workflow_run, command.organization_id)
+        if asset is None:
+            raise ValueError("APPROVED requires a persisted final export")
+        reviewer_subject = command.output_payload.get("reviewer_subject")
+        if not isinstance(reviewer_subject, str) or not reviewer_subject.strip():
+            raise ValueError("APPROVED requires a reviewer_subject")
+        note = command.output_payload.get("note")
+        if note is not None and not isinstance(note, str):
+            raise ValueError("APPROVED note must be a string")
+        self._session.add(
+            PublishApproval(
+                workflow_run_id=workflow_run.id,
+                export_asset_id=asset.id,
+                decision="approved",
+                reviewer_subject=reviewer_subject.strip(),
+                note=note,
+            )
+        )
+
+    def _approved_artifact_payload(self, workflow_run: WorkflowRun) -> dict[str, object]:
+        """Resolve publish input from the immutable approval record, never step JSON."""
+        approval = self._session.scalar(
+            select(PublishApproval)
+            .where(PublishApproval.workflow_run_id == workflow_run.id, PublishApproval.decision == "approved")
+            .with_for_update()
+        )
+        if approval is None:
+            raise WorkflowStateConflict("PUBLISHING requires an approved final export")
+        asset = self._session.get(MediaAsset, approval.export_asset_id)
+        if asset is None or asset.workflow_run_id != workflow_run.id:
+            raise WorkflowStateConflict("Approved final export is unavailable")
+        return {
+            "asset_id": str(asset.id),
+            "object_key": asset.object_key,
+            "content_type": asset.content_type,
+            "byte_size": asset.byte_size,
+            "checksum_sha256": asset.checksum_sha256,
+        }
+
+    def _latest_final_export(self, workflow_run: WorkflowRun, organization_id: uuid.UUID) -> MediaAsset | None:
+        return self._session.scalar(
+            select(MediaAsset)
+            .where(
+                MediaAsset.organization_id == organization_id,
+                MediaAsset.workflow_run_id == workflow_run.id,
+                MediaAsset.media_kind == "final_export",
+            )
+            .order_by(MediaAsset.created_at.desc())
+            .with_for_update()
         )
 
 
