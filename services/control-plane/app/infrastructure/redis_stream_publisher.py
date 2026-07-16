@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from redis import Redis
 
 from app.application.publish_outbox import PendingOutboxEvent
+from app.core.intake_signing import IntakeSigningSettings, sign
 
 
 @dataclass(frozen=True)
@@ -31,14 +32,24 @@ class RedisStreamEventPublisher:
         self._stream = stream
 
     def publish(self, event: PendingOutboxEvent) -> None:
-        self._client.xadd(
-            self._stream,
-            {
-                "event_id": str(event.id),
-                "event_type": event.event_type,
-                "aggregate_type": event.aggregate_type,
-                "aggregate_id": str(event.aggregate_id),
-                "trace_id": event.trace_id,
-                "payload": json.dumps(event.payload, separators=(",", ":"), sort_keys=True),
-            },
-        )
+        envelope: dict[str, object] = {
+            "event_id": str(event.id),
+            "event_type": event.event_type,
+            "aggregate_type": event.aggregate_type,
+            "aggregate_id": str(event.aggregate_id),
+            "trace_id": event.trace_id,
+            "payload": event.payload,
+        }
+        fields = {
+            "event_id": str(event.id),
+            "event_type": event.event_type,
+            "aggregate_type": event.aggregate_type,
+            "aggregate_id": str(event.aggregate_id),
+            "trace_id": event.trace_id,
+            "payload": json.dumps(event.payload, separators=(",", ":"), sort_keys=True),
+        }
+        if event.event_type == "visionflow.legacy_job.requested.v1":
+            settings = IntakeSigningSettings.from_env()
+            fields["signature_key_id"] = settings.key_id
+            fields["signature"] = sign(envelope, settings)
+        self._client.xadd(self._stream, fields)
