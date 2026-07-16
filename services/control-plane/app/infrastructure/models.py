@@ -142,6 +142,18 @@ class PublisherConnection(Timestamped, Base):
     connected_by_subject: Mapped[str] = mapped_column(String(512), nullable=False)
 
 
+class PublisherOAuthAttempt(Base):
+    __tablename__ = "publisher_oauth_attempts"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    state_digest: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    requested_by_subject: Mapped[str] = mapped_column(String(512), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
 class WorkflowRun(Timestamped, Base):
     __tablename__ = "workflow_runs"
 
