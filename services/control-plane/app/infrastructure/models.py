@@ -164,6 +164,10 @@ class PublicationAttempt(Timestamped, Base):
     state: Mapped[str] = mapped_column(String(32), nullable=False, default="requested")
     requested_by_subject: Mapped[str] = mapped_column(String(512), nullable=False)
     failure_code: Mapped[str | None] = mapped_column(String(96), nullable=True)
+    lease_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    external_video_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    external_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     __table_args__ = (UniqueConstraint("workflow_run_id", "attempt_number", name="uq_publication_attempt_number"),)
 
 

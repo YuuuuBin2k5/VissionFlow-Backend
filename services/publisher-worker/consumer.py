@@ -9,7 +9,7 @@ import argparse
 
 from redis import Redis
 
-from main import execute, record_failure
+from main import execute, execute_publication_attempt, record_failure, record_publication_attempt_failure
 
 
 STREAM = os.getenv("VISIONFLOW_EVENTS_STREAM", "visionflow.workflow-events.v1")
@@ -46,15 +46,23 @@ def main(*, once: bool = False) -> None:
 
 
 def _handle(fields: dict[str, str]) -> None:
-    if fields.get("event_type") != "visionflow.workflow_run.state_changed.v1":
-        return
     payload = json.loads(fields.get("payload", "{}"))
-    if not isinstance(payload, dict) or payload.get("to_state") != "PUBLISHING":
+    if not isinstance(payload, dict):
         return
-    workflow_run_id, organization_id = payload.get("workflow_run_id"), payload.get("organization_id")
-    if not isinstance(workflow_run_id, str) or not isinstance(organization_id, str):
-        raise ValueError("PUBLISHING event has no tenant-scoped workflow identifiers")
-    execute(workflow_run_id, organization_id)
+    event_type = fields.get("event_type")
+    if event_type == "visionflow.workflow_run.state_changed.v1":
+        if payload.get("to_state") != "PUBLISHING":
+            return
+        workflow_run_id, organization_id = payload.get("workflow_run_id"), payload.get("organization_id")
+        if not isinstance(workflow_run_id, str) or not isinstance(organization_id, str):
+            raise ValueError("PUBLISHING event has no tenant-scoped workflow identifiers")
+        execute(workflow_run_id, organization_id)
+        return
+    if event_type == "visionflow.publication_attempt.requested.v1":
+        attempt_id, organization_id = payload.get("publication_attempt_id"), payload.get("organization_id")
+        if not isinstance(attempt_id, str) or not isinstance(organization_id, str):
+            raise ValueError("Publication attempt event has no tenant-scoped identifiers")
+        execute_publication_attempt(attempt_id, organization_id)
 
 
 def _process(client: Redis, event_id: str, fields: dict[str, str]) -> None:
@@ -71,7 +79,13 @@ def _process(client: Redis, event_id: str, fields: dict[str, str]) -> None:
             payload = json.loads(fields.get("payload", "{}"))
             if isinstance(payload, dict):
                 workflow_run_id, organization_id = payload.get("workflow_run_id"), payload.get("organization_id")
-                if isinstance(workflow_run_id, str) and isinstance(organization_id, str):
+                attempt_id = payload.get("publication_attempt_id")
+                if isinstance(attempt_id, str) and isinstance(organization_id, str):
+                    try:
+                        record_publication_attempt_failure(attempt_id, organization_id, type(exc).__name__.upper())
+                    except Exception:
+                        pass
+                elif isinstance(workflow_run_id, str) and isinstance(organization_id, str):
                     # The publish step binds the connection server-side; an empty value is rejected safely.
                     try:
                         record_failure(workflow_run_id, organization_id, str(payload.get("publisher_connection_id", "")), type(exc).__name__.upper())

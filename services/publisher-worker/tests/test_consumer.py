@@ -25,6 +25,15 @@ class PublisherConsumerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "tenant-scoped"):
             consumer._handle({"event_type": "visionflow.workflow_run.state_changed.v1", "payload": '{"to_state":"PUBLISHING","workflow_run_id":"run-1"}'})
 
+    def test_executes_a_tenant_scoped_publication_attempt(self) -> None:
+        with patch("consumer.execute_publication_attempt") as execute_attempt:
+            consumer._handle({"event_type": "visionflow.publication_attempt.requested.v1", "payload": '{"publication_attempt_id":"attempt-1","organization_id":"org-1"}'})
+        execute_attempt.assert_called_once_with("attempt-1", "org-1")
+
+    def test_rejects_publication_attempt_without_organization(self) -> None:
+        with self.assertRaisesRegex(ValueError, "tenant-scoped"):
+            consumer._handle({"event_type": "visionflow.publication_attempt.requested.v1", "payload": '{"publication_attempt_id":"attempt-1"}'})
+
 
 if __name__ == "__main__":
     unittest.main()

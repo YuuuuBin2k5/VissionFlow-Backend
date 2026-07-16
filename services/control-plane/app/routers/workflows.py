@@ -125,8 +125,25 @@ class PublicationHistoryResponse(BaseModel):
     items: list[PublishedVideoResponse]
 
 
+class FailedPublicationResponse(ReviewQueueItemResponse):
+    failure_code: str | None
+
+
+class FailedPublicationQueueResponse(BaseModel):
+    items: list[FailedPublicationResponse]
+
+
 class PublicationAttemptResponse(BaseModel):
-    id: uuid.UUID; workflow_run_id: uuid.UUID; publisher_connection_id: uuid.UUID; attempt_number: int; state: str; failure_code: str | None
+    id: uuid.UUID; workflow_run_id: uuid.UUID; publisher_connection_id: uuid.UUID; attempt_number: int; state: str; failure_code: str | None; external_url: str | None = None; external_video_id: str | None = None
+
+
+class PublicationAttemptHistoryItem(PublicationAttemptResponse):
+    title: str
+    created_at: datetime
+
+
+class PublicationAttemptHistoryResponse(BaseModel):
+    items: list[PublicationAttemptHistoryItem]
 
 
 class CreatePublicationAttemptRequest(BaseModel):
@@ -1092,6 +1109,44 @@ def list_publication_history(organization_id: uuid.UUID, limit: int = Query(defa
     return PublicationHistoryResponse(items=[PublishedVideoResponse(workflow_run_id=workflow.id, project_id=project.id, title=project.title, state=workflow.state, created_at=workflow.created_at, external_url=str(step.output_payload.get("external_url", "")), external_video_id=str(step.output_payload.get("external_video_id", ""))) for workflow, project, step in rows if isinstance(step.output_payload, dict)])
 
 
+@router.get("/organizations/{organization_id}/failed-publications", response_model=FailedPublicationQueueResponse)
+def list_failed_publications(organization_id: uuid.UUID, limit: int = Query(default=50, ge=1, le=100), identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> FailedPublicationQueueResponse:
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.WORKFLOW_VIEW)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+    rows = session.execute(
+        select(WorkflowRun, VideoProject)
+        .join(VideoProject, WorkflowRun.project_id == VideoProject.id)
+        .where(VideoProject.organization_id == organization_id, WorkflowRun.state == WorkflowState.FAILED.value)
+        .order_by(WorkflowRun.created_at.desc())
+        .limit(limit)
+    ).all()
+    items: list[FailedPublicationResponse] = []
+    for workflow, project in rows:
+        failure = session.scalar(select(WorkflowStep).where(WorkflowStep.workflow_run_id == workflow.id, WorkflowStep.step_key == "failure"))
+        payload = failure.output_payload if failure and isinstance(failure.output_payload, dict) else {}
+        items.append(FailedPublicationResponse(workflow_run_id=workflow.id, project_id=project.id, title=project.title, state=workflow.state, created_at=workflow.created_at, failure_code=payload.get("failure_code") if isinstance(payload.get("failure_code"), str) else None))
+    return FailedPublicationQueueResponse(items=items)
+
+
+@router.get("/organizations/{organization_id}/publication-attempts", response_model=PublicationAttemptHistoryResponse)
+def list_publication_attempts(organization_id: uuid.UUID, limit: int = Query(default=100, ge=1, le=200), identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> PublicationAttemptHistoryResponse:
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.WORKFLOW_VIEW)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+    rows = session.execute(
+        select(PublicationAttempt, VideoProject)
+        .join(WorkflowRun, WorkflowRun.id == PublicationAttempt.workflow_run_id)
+        .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
+        .where(VideoProject.organization_id == organization_id)
+        .order_by(PublicationAttempt.created_at.desc())
+        .limit(limit)
+    ).all()
+    return PublicationAttemptHistoryResponse(items=[PublicationAttemptHistoryItem(id=attempt.id, workflow_run_id=attempt.workflow_run_id, publisher_connection_id=attempt.publisher_connection_id, attempt_number=attempt.attempt_number, state=attempt.state, failure_code=attempt.failure_code, external_url=attempt.external_url, external_video_id=attempt.external_video_id, title=project.title, created_at=attempt.created_at) for attempt, project in rows])
+
+
 @router.post("/workflows/{workflow_run_id}/publication-attempts", response_model=PublicationAttemptResponse)
 def create_publication_attempt(workflow_run_id: uuid.UUID, request: CreatePublicationAttemptRequest, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> PublicationAttemptResponse:
     try:
@@ -1105,7 +1160,7 @@ def create_publication_attempt(workflow_run_id: uuid.UUID, request: CreatePublic
         session.add(OutboxEvent(aggregate_type="publication_attempt", aggregate_id=attempt.id, event_type="visionflow.publication_attempt.requested.v1", payload={"publication_attempt_id": str(attempt.id), "workflow_run_id": str(workflow_run_id), "organization_id": str(request.organization_id), "publisher_connection_id": str(connection.id)}, trace_id=uuid.uuid4().hex)); session.commit()
     except PermissionError as exc: raise HTTPException(status_code=403, detail="Organization permission denied") from exc
     except LookupError as exc: raise HTTPException(status_code=404, detail="Failed publish handoff or active channel not found") from exc
-    return PublicationAttemptResponse(id=attempt.id, workflow_run_id=attempt.workflow_run_id, publisher_connection_id=attempt.publisher_connection_id, attempt_number=attempt.attempt_number, state=attempt.state, failure_code=attempt.failure_code)
+    return PublicationAttemptResponse(id=attempt.id, workflow_run_id=attempt.workflow_run_id, publisher_connection_id=attempt.publisher_connection_id, attempt_number=attempt.attempt_number, state=attempt.state, failure_code=attempt.failure_code, external_url=attempt.external_url, external_video_id=attempt.external_video_id)
 
 
 @router.get(

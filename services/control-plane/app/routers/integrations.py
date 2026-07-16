@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import uuid
+import hmac
+import secrets
 from os import getenv
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlencode
 
 import requests
@@ -26,7 +28,7 @@ from app.domain.workflow import WorkflowState
 from app.infrastructure.database import get_session
 from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
 from app.infrastructure.publisher_oauth_repository import PublisherOAuthAttemptRepository
-from app.infrastructure.models import PublisherConnection
+from app.infrastructure.models import PublicationAttempt, PublisherConnection
 from app.infrastructure.models import VideoProject, WorkflowRun, WorkflowStep
 from app.infrastructure.workflow_progression_repository import SqlAlchemyWorkflowProgressionRepository
 from app.infrastructure.overlay_uploads import PrivateObjectPreviewIssuer, OverlayUploadConfigurationError, OverlayUploadVerificationError
@@ -39,6 +41,11 @@ class PublisherConnectionResponse(BaseModel): id: uuid.UUID; provider: str; prov
 class YouTubePublishManifest(BaseModel): workflow_run_id: uuid.UUID; publisher_connection_id: uuid.UUID; title: str; description: str; artifact_download_url: str; artifact_expires_in_seconds: int; access_token: str; access_token_expires_in_seconds: int
 class CompleteYouTubePublishRequest(BaseModel): organization_id: uuid.UUID; publisher_connection_id: uuid.UUID; video_id: str; video_url: str
 class FailYouTubePublishRequest(BaseModel): organization_id: uuid.UUID; publisher_connection_id: uuid.UUID; failure_code: str
+class ClaimPublicationAttemptRequest(BaseModel): organization_id: uuid.UUID
+class YouTubePublicationAttemptManifest(YouTubePublishManifest): publication_attempt_id: uuid.UUID; attempt_number: int; lease_token: str
+class CompletePublicationAttemptRequest(BaseModel): organization_id: uuid.UUID; publisher_connection_id: uuid.UUID; lease_token: str; video_id: str; video_url: str
+class FailPublicationAttemptRequest(BaseModel): organization_id: uuid.UUID; publisher_connection_id: uuid.UUID; lease_token: str; failure_code: str
+class FailPublicationAttemptTerminalRequest(BaseModel): organization_id: uuid.UUID; failure_code: str
 
 @router.get("/publisher-connections", response_model=list[PublisherConnectionResponse])
 def list_publisher_connections(organization_id: uuid.UUID, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> list[PublisherConnectionResponse]:
@@ -116,23 +123,11 @@ def get_youtube_publish_manifest(workflow_run_id: uuid.UUID, organization_id: uu
         if workflow is None or workflow.state != WorkflowState.PUBLISHING.value:
             raise LookupError()
         publish = session.scalar(select(WorkflowStep).where(WorkflowStep.workflow_run_id == workflow_run_id, WorkflowStep.step_key == "publish"))
-        qa = session.scalar(select(WorkflowStep).where(WorkflowStep.workflow_run_id == workflow_run_id, WorkflowStep.step_key == "quality_assurance", WorkflowStep.state == WorkflowState.RENDERED.value))
         payload = publish.output_payload if publish and isinstance(publish.output_payload, dict) else {}
-        artifact = qa.output_payload.get("artifact") if qa and isinstance(qa.output_payload, dict) else None
         connection_id = payload.get("publisher_connection_id")
-        object_key = artifact.get("object_key") if isinstance(artifact, dict) else None
-        if not isinstance(connection_id, str) or not isinstance(object_key, str):
+        if not isinstance(connection_id, str):
             raise LookupError()
-        connection = session.scalar(select(PublisherConnection).where(PublisherConnection.id == uuid.UUID(connection_id), PublisherConnection.organization_id == organization_id, PublisherConnection.provider == "youtube", PublisherConnection.status == "active"))
-        if connection is None:
-            raise LookupError()
-        preview = PrivateObjectPreviewIssuer.from_env().issue_final_export(workflow_run_id=workflow_run_id, object_key=object_key)
-        import requests
-        token = YouTubeAccessTokenRefresher(requests, PublisherTokenCipher.from_env(), YouTubePublisherSettings.from_env()).refresh(connection.encrypted_refresh_token)
-        project = session.get(VideoProject, workflow.project_id)
-        if project is None:
-            raise LookupError()
-        return YouTubePublishManifest(workflow_run_id=workflow_run_id, publisher_connection_id=connection.id, title=project.title[:100], description=project.brief[:5000], artifact_download_url=preview.download_url, artifact_expires_in_seconds=preview.expires_in_seconds, access_token=token.value, access_token_expires_in_seconds=token.expires_in_seconds)
+        return _issue_youtube_manifest(session, workflow, organization_id, uuid.UUID(connection_id))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Publisher service identity is not authorized") from exc
     except (LookupError, ValueError) as exc:
@@ -141,6 +136,126 @@ def get_youtube_publish_manifest(workflow_run_id: uuid.UUID, organization_id: uu
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Publisher service is unavailable") from exc
     except OverlayUploadVerificationError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Publish artifact is invalid") from exc
+
+
+@router.post("/youtube/publication-attempts/{publication_attempt_id}/claim", response_model=YouTubePublicationAttemptManifest)
+def claim_youtube_publication_attempt(publication_attempt_id: uuid.UUID, request: ClaimPublicationAttemptRequest, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> YouTubePublicationAttemptManifest:
+    """Claim a durable retry before issuing its short-lived YouTube credentials."""
+    try:
+        _require_publisher_identity(identity)
+        attempt = _publication_attempt_for_update(session, publication_attempt_id, request.organization_id)
+        if attempt is None:
+            raise LookupError()
+        now = datetime.now(UTC)
+        if attempt.state == "succeeded":
+            raise _AttemptAlreadyFinalized()
+        if attempt.state == "failed":
+            raise _AttemptAlreadyFinalized()
+        if attempt.state == "claimed" and attempt.lease_expires_at is not None and attempt.lease_expires_at > now:
+            raise _AttemptLeaseActive()
+        if attempt.state not in {"requested", "claimed"}:
+            raise _AttemptAlreadyFinalized()
+        workflow = session.get(WorkflowRun, attempt.workflow_run_id)
+        if workflow is None or workflow.state != WorkflowState.FAILED.value:
+            raise LookupError()
+        attempt.state = "claimed"
+        attempt.lease_token = secrets.token_hex(32)
+        attempt.lease_expires_at = now + timedelta(minutes=2)
+        manifest = _issue_youtube_manifest(session, workflow, request.organization_id, attempt.publisher_connection_id)
+        session.commit()
+        return YouTubePublicationAttemptManifest(**manifest.model_dump(), publication_attempt_id=attempt.id, attempt_number=attempt.attempt_number, lease_token=attempt.lease_token)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Publisher service identity is not authorized") from exc
+    except _AttemptLeaseActive as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "PUBLICATION_ATTEMPT_LEASE_ACTIVE"}) from exc
+    except _AttemptAlreadyFinalized as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "PUBLICATION_ATTEMPT_ALREADY_FINALIZED"}) from exc
+    except (LookupError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Publication attempt not found") from exc
+    except (ConfigurationError, OverlayUploadConfigurationError) as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Publisher service is unavailable") from exc
+    except OverlayUploadVerificationError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Publish artifact is invalid") from exc
+
+
+@router.post("/youtube/publication-attempts/{publication_attempt_id}/complete")
+def complete_youtube_publication_attempt(publication_attempt_id: uuid.UUID, request: CompletePublicationAttemptRequest, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> dict[str, str]:
+    try:
+        _require_publisher_identity(identity)
+        if not request.video_id.strip() or not request.video_url.startswith("https://www.youtube.com/watch?v="):
+            raise ValueError()
+        attempt = _publication_attempt_for_update(session, publication_attempt_id, request.organization_id)
+        if attempt is None or attempt.publisher_connection_id != request.publisher_connection_id:
+            raise LookupError()
+        _require_attempt_lease(attempt, request.lease_token)
+        attempt.state = "succeeded"
+        attempt.external_video_id = request.video_id
+        attempt.external_url = request.video_url
+        attempt.failure_code = None
+        attempt.lease_token = None
+        attempt.lease_expires_at = None
+        session.commit()
+        return {"publication_attempt_id": str(attempt.id), "state": attempt.state, "external_url": request.video_url}
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Publisher service identity is not authorized") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Publication attempt not found") from exc
+    except _AttemptLeaseInvalid as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "PUBLICATION_ATTEMPT_LEASE_INVALID"}) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="YouTube publish result is invalid") from exc
+
+
+@router.post("/youtube/publication-attempts/{publication_attempt_id}/fail")
+def fail_youtube_publication_attempt(publication_attempt_id: uuid.UUID, request: FailPublicationAttemptRequest, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> dict[str, str]:
+    try:
+        _require_publisher_identity(identity)
+        _validate_failure_code(request.failure_code)
+        attempt = _publication_attempt_for_update(session, publication_attempt_id, request.organization_id)
+        if attempt is None or attempt.publisher_connection_id != request.publisher_connection_id:
+            raise LookupError()
+        _require_attempt_lease(attempt, request.lease_token)
+        attempt.state = "failed"
+        attempt.failure_code = request.failure_code
+        attempt.lease_token = None
+        attempt.lease_expires_at = None
+        session.commit()
+        return {"publication_attempt_id": str(attempt.id), "state": attempt.state}
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Publisher service identity is not authorized") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Publication attempt not found") from exc
+    except _AttemptLeaseInvalid as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "PUBLICATION_ATTEMPT_LEASE_INVALID"}) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Publisher failure result is invalid") from exc
+
+
+@router.post("/youtube/publication-attempts/{publication_attempt_id}/fail-terminal")
+def fail_youtube_publication_attempt_terminal(publication_attempt_id: uuid.UUID, request: FailPublicationAttemptTerminalRequest, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> dict[str, str]:
+    """Record a worker-exhausted retry without reopening the failed workflow."""
+    try:
+        _require_publisher_identity(identity)
+        _validate_failure_code(request.failure_code)
+        attempt = _publication_attempt_for_update(session, publication_attempt_id, request.organization_id)
+        if attempt is None:
+            raise LookupError()
+        if attempt.state == "succeeded":
+            raise _AttemptAlreadyFinalized()
+        attempt.state = "failed"
+        attempt.failure_code = request.failure_code
+        attempt.lease_token = None
+        attempt.lease_expires_at = None
+        session.commit()
+        return {"publication_attempt_id": str(attempt.id), "state": attempt.state}
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Publisher service identity is not authorized") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Publication attempt not found") from exc
+    except _AttemptAlreadyFinalized as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "PUBLICATION_ATTEMPT_ALREADY_FINALIZED"}) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Publisher failure result is invalid") from exc
 
 
 @router.post("/youtube/publish-manifests/{workflow_run_id}/complete")
@@ -189,6 +304,82 @@ def fail_youtube_publish(workflow_run_id: uuid.UUID, request: FailYouTubePublish
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Publish handoff is no longer active") from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Publisher failure result is invalid") from exc
+
+
+class _AttemptLeaseActive(Exception):
+    pass
+
+
+class _AttemptAlreadyFinalized(Exception):
+    pass
+
+
+class _AttemptLeaseInvalid(Exception):
+    pass
+
+
+def _publication_attempt_for_update(session: Session, publication_attempt_id: uuid.UUID, organization_id: uuid.UUID) -> PublicationAttempt | None:
+    return session.scalar(
+        select(PublicationAttempt)
+        .join(WorkflowRun, WorkflowRun.id == PublicationAttempt.workflow_run_id)
+        .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
+        .where(PublicationAttempt.id == publication_attempt_id, VideoProject.organization_id == organization_id)
+        .with_for_update()
+    )
+
+
+def _require_attempt_lease(attempt: PublicationAttempt, lease_token: str) -> None:
+    now = datetime.now(UTC)
+    if (
+        attempt.state != "claimed"
+        or not attempt.lease_token
+        or not hmac.compare_digest(attempt.lease_token, lease_token)
+        or attempt.lease_expires_at is None
+        or attempt.lease_expires_at <= now
+    ):
+        raise _AttemptLeaseInvalid()
+
+
+def _validate_failure_code(failure_code: str) -> None:
+    if not failure_code.isupper() or len(failure_code) > 96:
+        raise ValueError()
+
+
+def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organization_id: uuid.UUID, publisher_connection_id: uuid.UUID) -> YouTubePublishManifest:
+    qa = session.scalar(
+        select(WorkflowStep).where(
+            WorkflowStep.workflow_run_id == workflow.id,
+            WorkflowStep.step_key == "quality_assurance",
+            WorkflowStep.state == WorkflowState.RENDERED.value,
+        )
+    )
+    artifact = qa.output_payload.get("artifact") if qa and isinstance(qa.output_payload, dict) else None
+    object_key = artifact.get("object_key") if isinstance(artifact, dict) else None
+    if not isinstance(object_key, str):
+        raise LookupError()
+    connection = session.scalar(
+        select(PublisherConnection).where(
+            PublisherConnection.id == publisher_connection_id,
+            PublisherConnection.organization_id == organization_id,
+            PublisherConnection.provider == "youtube",
+            PublisherConnection.status == "active",
+        )
+    )
+    project = session.get(VideoProject, workflow.project_id)
+    if connection is None or project is None:
+        raise LookupError()
+    preview = PrivateObjectPreviewIssuer.from_env().issue_final_export(workflow_run_id=workflow.id, object_key=object_key)
+    token = YouTubeAccessTokenRefresher(requests, PublisherTokenCipher.from_env(), YouTubePublisherSettings.from_env()).refresh(connection.encrypted_refresh_token)
+    return YouTubePublishManifest(
+        workflow_run_id=workflow.id,
+        publisher_connection_id=connection.id,
+        title=project.title[:100],
+        description=project.brief[:5000],
+        artifact_download_url=preview.download_url,
+        artifact_expires_in_seconds=preview.expires_in_seconds,
+        access_token=token.value,
+        access_token_expires_in_seconds=token.expires_in_seconds,
+    )
 
 
 def _require_publisher_identity(identity: VerifiedIdentity) -> None:

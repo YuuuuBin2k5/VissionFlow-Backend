@@ -27,15 +27,7 @@ def _service_token(session: requests.Session, base_url: str) -> str:
     return token
 
 
-def execute(workflow_run_id: str, organization_id: str) -> str:
-    base_url = _required("VISIONFLOW_CONTROL_PLANE_URL").rstrip("/")
-    session = requests.Session()
-    token = _service_token(session, base_url)
-    headers = {"Authorization": f"Bearer {token}"}
-    manifest_response = session.get(f"{base_url}/integrations/youtube/publish-manifests/{workflow_run_id}", params={"organization_id": organization_id}, headers=headers, timeout=(5, 30))
-    manifest = manifest_response.json() if manifest_response.status_code == 200 else {}
-    if not isinstance(manifest, dict):
-        raise RuntimeError("Control Plane did not issue publish manifest")
+def _upload_manifest(session: requests.Session, manifest: dict[str, object]) -> tuple[str, str]:
     with tempfile.TemporaryDirectory(prefix="visionflow-publish-") as directory:
         artifact_path = Path(directory) / "final.mp4"
         with session.get(str(manifest["artifact_download_url"]), stream=True, timeout=(10, 600)) as artifact_response:
@@ -45,9 +37,63 @@ def execute(workflow_run_id: str, organization_id: str) -> str:
                     if chunk:
                         destination.write(chunk)
         uploaded = YouTubeResumableUploader(session).upload(access_token=str(manifest["access_token"]), video_path=artifact_path, metadata=YouTubeUploadMetadata(str(manifest["title"]), str(manifest["description"]), ("Shorts",)))
-    completed = session.post(f"{base_url}/integrations/youtube/publish-manifests/{workflow_run_id}/complete", headers=headers, json={"organization_id": organization_id, "publisher_connection_id": manifest["publisher_connection_id"], "video_id": uploaded.video_id, "video_url": uploaded.url}, timeout=(5, 30))
+    return uploaded.video_id, uploaded.url
+
+
+def execute(workflow_run_id: str, organization_id: str) -> str:
+    base_url = _required("VISIONFLOW_CONTROL_PLANE_URL").rstrip("/")
+    session = requests.Session()
+    token = _service_token(session, base_url)
+    headers = {"Authorization": f"Bearer {token}"}
+    manifest_response = session.get(f"{base_url}/integrations/youtube/publish-manifests/{workflow_run_id}", params={"organization_id": organization_id}, headers=headers, timeout=(5, 30))
+    manifest = manifest_response.json() if manifest_response.status_code == 200 else {}
+    if not isinstance(manifest, dict):
+        raise RuntimeError("Control Plane did not issue publish manifest")
+    video_id, video_url = _upload_manifest(session, manifest)
+    completed = session.post(f"{base_url}/integrations/youtube/publish-manifests/{workflow_run_id}/complete", headers=headers, json={"organization_id": organization_id, "publisher_connection_id": manifest["publisher_connection_id"], "video_id": video_id, "video_url": video_url}, timeout=(5, 30))
     completed.raise_for_status()
-    return uploaded.url
+    return video_url
+
+
+def execute_publication_attempt(publication_attempt_id: str, organization_id: str) -> str | None:
+    """Publish one durable retry; a finalized attempt is an idempotent no-op."""
+    base_url = _required("VISIONFLOW_CONTROL_PLANE_URL").rstrip("/")
+    session = requests.Session()
+    token = _service_token(session, base_url)
+    headers = {"Authorization": f"Bearer {token}"}
+    claim = session.post(
+        f"{base_url}/integrations/youtube/publication-attempts/{publication_attempt_id}/claim",
+        headers=headers,
+        json={"organization_id": organization_id},
+        timeout=(5, 30),
+    )
+    if claim.status_code == 409:
+        detail = claim.json().get("detail") if claim.headers.get("content-type", "").startswith("application/json") else None
+        code = detail.get("code") if isinstance(detail, dict) else None
+        if code == "PUBLICATION_ATTEMPT_ALREADY_FINALIZED":
+            return None
+        raise RuntimeError("Publication attempt is currently leased")
+    claim.raise_for_status()
+    manifest = claim.json()
+    if not isinstance(manifest, dict):
+        raise RuntimeError("Control Plane did not issue publication attempt manifest")
+    video_id, video_url = _upload_manifest(session, manifest)
+    completed = session.post(
+        f"{base_url}/integrations/youtube/publication-attempts/{publication_attempt_id}/complete",
+        headers=headers,
+        json={
+            "organization_id": organization_id,
+            "publisher_connection_id": manifest["publisher_connection_id"],
+            "lease_token": manifest["lease_token"],
+            "video_id": video_id,
+            "video_url": video_url,
+        },
+        timeout=(5, 30),
+    )
+    # A network retry after a successful completion sees the terminal state.
+    if completed.status_code != 409:
+        completed.raise_for_status()
+    return video_url
 
 
 def record_failure(workflow_run_id: str, organization_id: str, publisher_connection_id: str, failure_code: str) -> None:
@@ -56,6 +102,20 @@ def record_failure(workflow_run_id: str, organization_id: str, publisher_connect
     token = _service_token(session, base_url)
     response = session.post(f"{base_url}/integrations/youtube/publish-manifests/{workflow_run_id}/fail", headers={"Authorization": f"Bearer {token}"}, json={"organization_id": organization_id, "publisher_connection_id": publisher_connection_id, "failure_code": failure_code}, timeout=(5, 30))
     response.raise_for_status()
+
+
+def record_publication_attempt_failure(publication_attempt_id: str, organization_id: str, failure_code: str) -> None:
+    base_url = _required("VISIONFLOW_CONTROL_PLANE_URL").rstrip("/")
+    session = requests.Session()
+    token = _service_token(session, base_url)
+    response = session.post(
+        f"{base_url}/integrations/youtube/publication-attempts/{publication_attempt_id}/fail-terminal",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"organization_id": organization_id, "failure_code": failure_code},
+        timeout=(5, 30),
+    )
+    if response.status_code != 409:
+        response.raise_for_status()
 
 
 if __name__ == "__main__":
