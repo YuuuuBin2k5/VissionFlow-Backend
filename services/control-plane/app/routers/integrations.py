@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import uuid
+from os import getenv
 from datetime import UTC, datetime
 from urllib.parse import urlencode
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.application.authorize_organization import AuthorizeOrganization
@@ -34,7 +37,7 @@ def list_publisher_connections(organization_id: uuid.UUID, identity: VerifiedIde
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.WORKFLOW_VIEW)
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail="Organization permission denied") from exc
-    rows = session.scalars(__import__('sqlalchemy').select(PublisherConnection).where(PublisherConnection.organization_id == organization_id).order_by(PublisherConnection.created_at.desc())).all()
+    rows = session.scalars(select(PublisherConnection).where(PublisherConnection.organization_id == organization_id).order_by(PublisherConnection.created_at.desc())).all()
     return [PublisherConnectionResponse(id=row.id, provider=row.provider, provider_account_id=row.provider_account_id, display_name=row.display_name, status=row.status) for row in rows]
 
 @router.post("/youtube/oauth/start", response_model=OAuthStartResponse)
@@ -53,7 +56,7 @@ def start_youtube_oauth(organization_id: uuid.UUID, identity: VerifiedIdentity =
 
 
 @router.get("/youtube/oauth/callback")
-def complete_youtube_oauth(code: str, state: str, session: Session = Depends(get_session)) -> dict[str, str]:
+def complete_youtube_oauth(code: str, state: str, session: Session = Depends(get_session)) -> RedirectResponse:
     try:
         payload = verify_state(state)
         organization_id = uuid.UUID(str(payload["o"]))
@@ -74,7 +77,7 @@ def complete_youtube_oauth(code: str, state: str, session: Session = Depends(get
         item = items[0]; channel_id = item.get("id"); snippet = item.get("snippet")
         title = snippet.get("title") if isinstance(snippet, dict) else None
         if not isinstance(channel_id, str) or not isinstance(title, str): raise ValueError("YouTube channel identity is invalid")
-        connection = session.scalar(__import__("sqlalchemy").select(PublisherConnection).where(PublisherConnection.organization_id == organization_id, PublisherConnection.provider == "youtube", PublisherConnection.provider_account_id == channel_id))
+        connection = session.scalar(select(PublisherConnection).where(PublisherConnection.organization_id == organization_id, PublisherConnection.provider == "youtube", PublisherConnection.provider_account_id == channel_id))
         encrypted = PublisherTokenCipher.from_env().encrypt(refresh_token)
         if connection is None:
             session.add(PublisherConnection(organization_id=organization_id, provider="youtube", provider_account_id=channel_id, display_name=title, encrypted_refresh_token=encrypted, scopes={"granted": tokens.get("scope", "https://www.googleapis.com/auth/youtube.upload")}, status="active", connected_by_subject=subject))
@@ -84,4 +87,12 @@ def complete_youtube_oauth(code: str, state: str, session: Session = Depends(get
     except (ValueError, requests.RequestException) as exc:
         session.rollback()
         raise HTTPException(status_code=400, detail="YouTube connection could not be completed") from exc
-    return {"status": "connected", "provider": "youtube"}
+    return RedirectResponse(_console_callback_url(), status_code=status.HTTP_303_SEE_OTHER)
+
+
+def _console_callback_url() -> str:
+    """Return a configured console origin only; never trust a browser redirect parameter."""
+    origins = [value.strip().rstrip("/") for value in (getenv("VISIONFLOW_WEB_ORIGINS") or "").split(",") if value.strip()]
+    if not origins or not origins[0].startswith("https://"):
+        raise ConfigurationError("VISIONFLOW_WEB_ORIGINS must contain an HTTPS console origin")
+    return f"{origins[0]}/?youtube_oauth=connected"
