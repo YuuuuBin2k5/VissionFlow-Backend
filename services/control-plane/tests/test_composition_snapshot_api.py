@@ -144,6 +144,36 @@ class CompositionSnapshotApiTests(unittest.TestCase):
         self.assertEqual(409, response.status_code)
         self.assertIn("changed by another editor", response.json()["detail"])
 
+    def test_render_plan_is_compiled_only_from_a_locked_snapshot(self) -> None:
+        with patch("app.routers.workflows.AuthorizeOrganization") as authorize, patch(
+            "app.routers.workflows.SqlAlchemyCompositionRepository"
+        ) as repository:
+            repository.return_value.read.return_value = self._snapshot(state="locked")
+            response = self._client().get(
+                f"/api/v1/workflows/{self.workflow_run_id}/composition/render-plan",
+                headers={"Authorization": "Bearer service-token"},
+                params={"organization_id": str(self.organization_id)},
+            )
+
+        self.assertEqual(200, response.status_code, response.text)
+        self.assertEqual(5_000, response.json()["duration_ms"])
+        self.assertEqual(64, len(response.json()["fingerprint"]))
+        self.assertEqual("workflow:view", authorize.return_value.require.call_args.args[2].value)
+
+    def test_render_plan_rejects_a_draft_snapshot(self) -> None:
+        with patch("app.routers.workflows.AuthorizeOrganization"), patch(
+            "app.routers.workflows.SqlAlchemyCompositionRepository"
+        ) as repository:
+            repository.return_value.read.return_value = self._snapshot(state="draft")
+            response = self._client().get(
+                f"/api/v1/workflows/{self.workflow_run_id}/composition/render-plan",
+                headers={"Authorization": "Bearer service-token"},
+                params={"organization_id": str(self.organization_id)},
+            )
+
+        self.assertEqual(409, response.status_code)
+        self.assertIn("locked", response.json()["detail"])
+
 
 if __name__ == "__main__":
     unittest.main()

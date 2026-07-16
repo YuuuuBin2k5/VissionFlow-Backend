@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import uuid
+from dataclasses import asdict
 from datetime import datetime
 from typing import Any
 
@@ -50,6 +51,7 @@ from app.application.save_creative_draft import SaveCreativeDraft, SaveCreativeD
 from app.core.oidc import VerifiedIdentity
 from app.domain.authorization import Permission
 from app.domain.composition import CompositionValidationError, validate_composition_for_v1
+from app.domain.render_plan import RenderPlanCompilationError, compile_render_plan
 from app.domain.workflow import WorkflowState
 from app.infrastructure.database import get_session
 from app.infrastructure.creative_draft_repository import SqlAlchemyCreativeDraftRepository
@@ -644,6 +646,33 @@ def get_composition(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.get("/workflows/{workflow_run_id}/composition/render-plan", response_model=dict[str, Any])
+def get_composition_render_plan(
+    workflow_run_id: uuid.UUID,
+    organization_id: uuid.UUID,
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> dict[str, Any]:
+    """Expose the authoritative renderer input for one locked composition revision."""
+
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject,
+            organization_id,
+            Permission.WORKFLOW_VIEW,
+        )
+        composition = SqlAlchemyCompositionRepository(session).read(organization_id, workflow_run_id)
+        if composition is None:
+            raise LookupError("Composition not found")
+        return asdict(compile_render_plan(composition))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except RenderPlanCompilationError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
 @router.put("/workflows/{workflow_run_id}/composition", response_model=dict[str, Any])

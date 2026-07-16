@@ -99,6 +99,7 @@ def main() -> int:
     suite.addTests(loader.loadTestsFromName("tests.test_execution_context_by_job_api"))
     suite.addTests(loader.loadTestsFromName("tests.test_request_legacy_job_repository"))
     suite.addTests(loader.loadTestsFromName("tests.test_publication_attempt_api"))
+    suite.addTests(loader.loadTestsFromName("tests.test_composition_snapshot_api"))
     suite.addTests(loader.loadTestsFromName("tests.test_render_plan"))
 
     runner = unittest.TextTestRunner(verbosity=2)
