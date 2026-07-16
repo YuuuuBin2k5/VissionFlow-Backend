@@ -23,14 +23,8 @@ class VisionFlowVideoRenderer:
 
 
 def _style_plan(contract) -> dict:
-    """Translate the locked editor snapshot into supported render directives.
-
-    The raw snapshot stays attached for audit/next renderer extensions; known
-    presets are translated only where the MediaService has a real behavior.
-    Unsupported presets are retained for audit, but never presented to the
-    renderer as if they had already been implemented.
-    """
-    effects = _composition_effects(contract.composition)
+    """Translate the typed render plan into supported media directives."""
+    effects = list(contract.render_plan.effect_keys)
     applied_effects: list[str] = []
 
     # MediaService supports these motion names through _apply_scene_motion.
@@ -53,11 +47,14 @@ def _style_plan(contract) -> dict:
 
     frame_effects = [effect for effect in effects if effect in {"soft_glow", "motion_blur"}]
     applied_effects.extend(frame_effects)
-    keyframes = _composition_keyframes(contract.composition)
+    keyframes = [
+        {"time_ms": keyframe.time_ms, "value": keyframe.value, "easing": keyframe.easing}
+        for keyframe in contract.render_plan.scale_keyframes
+    ]
     plan = {
         "visual_preset": contract.visual_preset,
         "scene_motion": scene_motion,
-        "composition_snapshot": contract.composition,
+        "render_plan_hash": contract.render_plan_hash,
         "composition_applied_effects": applied_effects,
         "composition_frame_effects": frame_effects,
         "composition_keyframes": keyframes,
@@ -66,49 +63,3 @@ def _style_plan(contract) -> dict:
     if caption_style:
         plan["caption_style"] = caption_style
     return plan
-
-
-def _composition_effects(composition: object) -> list[str]:
-    """Return ordered, known effect keys from a persisted composition safely."""
-    if not isinstance(composition, dict):
-        return []
-    tracks = composition.get("tracks")
-    if not isinstance(tracks, list):
-        return []
-
-    effects: list[str] = []
-    for track in tracks:
-        if not isinstance(track, dict) or not isinstance(track.get("clips"), list):
-            continue
-        for clip in track["clips"]:
-            if not isinstance(clip, dict) or not isinstance(clip.get("effects"), list):
-                continue
-            for effect in clip["effects"]:
-                effect_key = effect.get("effect_key") if isinstance(effect, dict) else None
-                if isinstance(effect_key, str):
-                    effects.append(effect_key)
-    return effects
-
-
-def _composition_keyframes(composition: object) -> list[dict]:
-    """Flatten valid keyframes with their timeline anchor for MoviePy."""
-    if not isinstance(composition, dict) or not isinstance(composition.get("tracks"), list):
-        return []
-    result: list[dict] = []
-    for track in composition["tracks"]:
-        if not isinstance(track, dict) or not isinstance(track.get("clips"), list):
-            continue
-        for clip in track["clips"]:
-            if not isinstance(clip, dict) or not isinstance(clip.get("keyframes"), list):
-                continue
-            for keyframe in clip["keyframes"]:
-                if not isinstance(keyframe, dict) or keyframe.get("property_key") != "scale":
-                    continue
-                if not isinstance(keyframe.get("time_ms"), int) or not isinstance(keyframe.get("value"), dict):
-                    continue
-                value = keyframe["value"].get("value")
-                if isinstance(value, (int, float)) and 0.5 <= float(value) <= 2.0:
-                    # Composition Studio stores keyframe time on the timeline
-                    # (not relative to clip trim); preserve it exactly.
-                    result.append({"time_ms": keyframe["time_ms"], "value": float(value), "easing": str(keyframe.get("easing", "linear"))})
-    return sorted(result, key=lambda item: item["time_ms"])

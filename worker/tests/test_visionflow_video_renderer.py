@@ -1,19 +1,29 @@
 import unittest
 from types import SimpleNamespace
 
+from worker.domain.composition_render_plan import compile_composition_render_plan
 from worker.services.visionflow_video_renderer import _style_plan
 
 
 def contract_with_effects(*effect_keys):
     return SimpleNamespace(
         visual_preset="clean_explainer",
-        composition={
+        render_plan=compile_composition_render_plan("run-1", {
             "state": "locked",
+            "version_id": "composition-version-1",
+            "aspect_ratio": "9:16",
             "tracks": [{
                 "track_type": "video",
-                "clips": [{"timeline_start_ms": 0, "effects": [{"effect_key": key} for key in effect_keys], "keyframes": [{"property_key": "scale", "time_ms": 100, "value": {"value": 1.15}, "easing": "ease_out"}]}, {}],
+                "name": "Visuals",
+                "clips": [{
+                    "source_type": "scene", "source_ref": "scene-01", "timeline_start_ms": 0,
+                    "duration_ms": 5000, "trim_in_ms": 0, "transform": {},
+                    "effects": [{"effect_key": key} for key in effect_keys],
+                    "keyframes": [{"property_key": "scale", "time_ms": 100, "value": {"value": 1.15}, "easing": "ease_out"}],
+                }],
             }],
-        },
+        }),
+        render_plan_hash="a" * 64,
     )
 
 
@@ -37,10 +47,11 @@ class VisionFlowVideoRendererStylePlanTests(unittest.TestCase):
         self.assertEqual(["cinematic_push"], plan["composition_applied_effects"])
         self.assertNotIn("caption_style", plan)
 
-    def test_ignores_malformed_persisted_tracks_without_failing_render_setup(self):
+    def test_uses_an_empty_typed_plan_without_raw_snapshot_fallback(self):
         contract = SimpleNamespace(
             visual_preset="clean_explainer",
-            composition={"state": "locked", "tracks": [None, {"clips": "not-a-list"}]},
+            render_plan=compile_composition_render_plan("run-1", {"state": "locked", "version_id": "composition-version-1", "aspect_ratio": "9:16", "tracks": []}),
+            render_plan_hash="b" * 64,
         )
 
         plan = _style_plan(contract)

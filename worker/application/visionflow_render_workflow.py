@@ -43,15 +43,15 @@ class VisionFlowRenderWorkflow:
         assets = self._asset_preparer.prepare(contract)
         self._gateway.advance_workflow(
             contract.workflow_run_id, "STORYBOARDED", "ASSETS_READY",
-            {"asset_keys": list(assets.asset_keys), "workspace_key": contract.workspace_key}, trace_id=contract.trace_id,
+            {"asset_keys": list(assets.asset_keys), "workspace_key": contract.workspace_key, "render_plan_hash": contract.render_plan_hash}, trace_id=contract.trace_id,
         )
         self._gateway.advance_workflow(
             contract.workflow_run_id, "ASSETS_READY", "RENDERING",
-            {"workspace_key": contract.workspace_key}, trace_id=contract.trace_id,
+            {"workspace_key": contract.workspace_key, "render_plan_hash": contract.render_plan_hash}, trace_id=contract.trace_id,
         )
         artifact = self._renderer.render(contract, assets)
         self._gateway.advance_workflow(
             contract.workflow_run_id, "RENDERING", "QA_PENDING",
-            {"object_key": artifact.object_key, "content_type": artifact.content_type, "byte_size": artifact.byte_size, "checksum_sha256": artifact.checksum_sha256}, trace_id=contract.trace_id,
+            {"object_key": artifact.object_key, "content_type": artifact.content_type, "byte_size": artifact.byte_size, "checksum_sha256": artifact.checksum_sha256, "render_plan_hash": contract.render_plan_hash}, trace_id=contract.trace_id,
         )
         return artifact

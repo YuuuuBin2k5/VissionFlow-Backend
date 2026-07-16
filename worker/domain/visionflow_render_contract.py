@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from worker.domain.composition_render_plan import CompositionRenderPlan, compile_composition_render_plan
+
 
 @dataclass(frozen=True)
 class VisionFlowRenderContract:
@@ -17,7 +19,8 @@ class VisionFlowRenderContract:
     aspect_ratio: str
     voice_code: str
     visual_preset: str
-    composition: dict[str, Any]
+    render_plan: CompositionRenderPlan
+    render_plan_hash: str
     workspace_key: str
 
 
@@ -41,8 +44,7 @@ def build_visionflow_render_contract(
         raise ValueError("VisionFlow V1 only supports 9:16 rendering")
     if not script.strip() or not scenes:
         raise ValueError("render requires a script and storyboard scenes")
-    if composition.get("state") != "locked" or not isinstance(composition.get("tracks"), list):
-        raise ValueError("render requires a locked composition snapshot")
+    render_plan = compile_composition_render_plan(workflow_run_id, composition)
     return VisionFlowRenderContract(
         workflow_run_id=workflow_run_id,
         trace_id=trace_id,
@@ -53,6 +55,7 @@ def build_visionflow_render_contract(
         aspect_ratio="9:16",
         voice_code=str(payload.get("voice_code", "edge-nam-minh")),
         visual_preset=str(payload.get("visual_preset", "clean_explainer")),
-        composition=composition,
+        render_plan=render_plan,
+        render_plan_hash=render_plan.plan_hash,
         workspace_key=f"visionflow/{workflow_run_id}/render",
     )

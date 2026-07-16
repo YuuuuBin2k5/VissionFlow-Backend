@@ -48,7 +48,7 @@ def render_contract():
         {"title": "A vertical short", "input_payload": {"duration_seconds": 45, "aspect_ratio": "9:16"}},
         "A script suitable for rendering.",
         [{"scene_id": "scene-01", "visual_search_keywords": "city lights"}],
-        {"state": "locked", "tracks": []},
+        {"state": "locked", "version_id": "composition-version-1", "aspect_ratio": "9:16", "tracks": []},
     )
 
 
@@ -71,6 +71,8 @@ class VisionFlowRenderWorkflowTests(unittest.TestCase):
         self.assertEqual("visionflow/run-1/exports/final.mp4", artifact.object_key)
         self.assertEqual(["visionflow/run-1/assets/scene-01.mp4"], gateway.transitions[0][3]["asset_keys"])
         self.assertEqual("visionflow/run-1/render", gateway.transitions[1][3]["workspace_key"])
+        self.assertEqual(64, len(gateway.transitions[0][3]["render_plan_hash"]))
+        self.assertEqual(gateway.transitions[0][3]["render_plan_hash"], gateway.transitions[2][3]["render_plan_hash"])
         self.assertEqual("a" * 32, gateway.transitions[2][4])
         self.assertEqual(1, len(assets.contracts))
         self.assertEqual(1, len(renderer.calls))
