@@ -95,6 +95,20 @@ class VisionFlowRenderDispatcherTests(unittest.TestCase):
         self.assertEqual(["b", "a"], [scene["scene_id"] for scene in result])
         self.assertEqual([9.0, 6.0], [scene["duration"] for scene in result])
 
+    def test_rejects_authoritative_plan_for_a_different_locked_version(self):
+        gateway = ControlPlane(context())
+        gateway.get_composition_render_plan = lambda *_args, **_kwargs: {
+            "workflow_run_id": "run-1",
+            "composition_version_id": "unexpected-version",
+            "fingerprint": "c" * 64,
+        }
+        workflow = RenderWorkflow()
+
+        with self.assertRaisesRegex(ValueError, "version does not match"):
+            VisionFlowRenderDispatcher(gateway, workflow).dispatch("run-1", trace_id="b" * 32)
+
+        self.assertEqual([], workflow.contracts)
+
     def test_runs_technical_qa_only_after_render_artifact_exists(self):
         gateway, workflow, qa = ControlPlane(context()), RenderWorkflow(), QualityAssurance()
         VisionFlowRenderDispatcher(gateway, workflow, qa).dispatch("run-1", trace_id="b" * 32)
