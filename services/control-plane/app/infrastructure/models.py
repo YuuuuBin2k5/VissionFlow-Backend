@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func, Index
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -364,12 +364,15 @@ class OutboxEvent(Base):
 
 class CommandReceipt(Base):
     __tablename__ = "command_receipts"
+    __table_args__ = (
+        Index("ix_command_receipts_org_workflow", "organization_id", "workflow_run_id"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
     operation_type: Mapped[str] = mapped_column(String(64), nullable=False)
     idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
-    workflow_run_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    workflow_run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workflow_runs.id", ondelete="CASCADE"), nullable=False)
     request_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     result_payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -377,6 +380,9 @@ class CommandReceipt(Base):
 
 class WorkflowAuditEvent(Base):
     __tablename__ = "workflow_audit_events"
+    __table_args__ = (
+        Index("ix_workflow_audit_events_org_workflow_time", "organization_id", "workflow_run_id", "created_at"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     organization_id: Mapped[uuid.UUID] = mapped_column(
@@ -387,6 +393,8 @@ class WorkflowAuditEvent(Base):
     )
     action: Mapped[str] = mapped_column(String(64), nullable=False)
     actor_subject: Mapped[str] = mapped_column(String(512), nullable=False)
-    target_version_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    target_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("creative_document_versions.id", ondelete="SET NULL"), nullable=True
+    )
     trace_id: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
