@@ -92,3 +92,47 @@ model ProcessRealtimeLogs {
   @@index([job_id], map: "idx_job_logs")
   @@map("process_realtime_logs")
 }
+
+// Isolated VisionFlow Stream B aggregate. These records deliberately avoid
+// relations to Telegram campaign models: legacy jobs remain a separate flow.
+model VisionFlowJobLink {
+  id                String   @id @db.Char(36)
+  source_command_id String   @unique @db.Char(36)
+  organization_id   String   @db.Char(36)
+  workflow_run_id   String   @unique @db.Char(36)
+  legacy_job_id     Int      @unique
+  trace_id          String   @db.Char(32)
+  created_at        DateTime @default(now()) @db.DateTime(3)
+  updated_at        DateTime @default(now()) @updatedAt @db.DateTime(3)
+
+  @@index([organization_id, workflow_run_id], map: "idx_visionflow_job_links_org_workflow")
+  @@map("visionflow_job_links")
+}
+
+model LegacyOutbox {
+  id                String   @id @db.Char(36)
+  event_id          String   @unique @db.Char(36)
+  source_command_id String   @unique @db.Char(36)
+  organization_id   String   @db.Char(36)
+  workflow_run_id   String   @db.Char(36)
+  legacy_job_id     Int
+  event_type        String   @db.VarChar(160)
+  payload_json      Json
+  idempotency_key   String   @unique @db.VarChar(128)
+  status            String   @db.VarChar(32)
+  attempt_count     Int      @default(0)
+  max_attempts      Int      @default(10)
+  next_attempt_at   DateTime @db.DateTime(3)
+  lease_token       String?  @db.Char(36)
+  lease_owner       String?  @db.VarChar(128)
+  lease_expires_at  DateTime? @db.DateTime(3)
+  last_error_code   String?  @db.VarChar(96)
+  processed_at      DateTime? @db.DateTime(3)
+  dead_lettered_at  DateTime? @db.DateTime(3)
+  created_at        DateTime @default(now()) @db.DateTime(3)
+  updated_at        DateTime @default(now()) @updatedAt @db.DateTime(3)
+
+  @@index([status, next_attempt_at, id], map: "idx_legacy_outbox_due")
+  @@index([lease_expires_at], map: "idx_legacy_outbox_lease")
+  @@map("legacy_outbox")
+}
