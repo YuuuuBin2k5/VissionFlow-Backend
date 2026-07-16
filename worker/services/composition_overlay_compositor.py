@@ -90,7 +90,9 @@ def build_ffmpeg_command(executable: str, source_path: Path, layers: tuple[Resol
     for index, layer in enumerate(layers, start=1):
         scale, x, y, opacity = _normalized_transform(layer.transform)
         overlay_label, output_label = f"overlay{index}", f"video{index}"
-        filters.append(f"[{index}:v]scale=trunc(iw*{scale:.4f}/2)*2:-2,colorchannelmixer=aa={opacity:.4f}[{overlay_label}]")
+        # -1 is compatible with the older FFmpeg builds used by local Windows
+        # validation as well as the modern Debian worker image.
+        filters.append(f"[{index}:v]scale=trunc(iw*{scale:.4f}/2)*2:-1,colorchannelmixer=aa={opacity:.4f}[{overlay_label}]")
         start, end = layer.start_ms / 1000, (layer.start_ms + layer.duration_ms) / 1000
         filters.append(f"[{previous}][{overlay_label}]overlay=x='(W-w)*{x:.4f}':y='(H-h)*{y:.4f}':enable='between(t,{start:.3f},{end:.3f})'[{output_label}]")
         previous = output_label
