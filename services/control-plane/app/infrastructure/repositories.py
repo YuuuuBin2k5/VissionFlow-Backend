@@ -33,7 +33,11 @@ from app.infrastructure.models import (
     WorkflowStep,
     CommandReceipt,
     WorkflowAuditEvent,
+    PromptTemplate,
+    ProviderCredential,
+    PublisherConnection,
 )
+
 
 
 class SqlAlchemyShortFormWorkflowRepository:
@@ -359,3 +363,55 @@ class SqlAlchemyNarrationResultRepository:
             version_id=version.id,
             version=new_version_number,
         )
+
+
+class SqlAlchemyShortFormReadinessRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def check_gemini_active(self, organization_id: uuid.UUID) -> bool:
+        return self._session.scalar(
+            select(ProviderCredential.id)
+            .where(
+                ProviderCredential.organization_id == organization_id,
+                ProviderCredential.provider == "gemini",
+                ProviderCredential.status == "active"
+            )
+        ) is not None
+
+    def check_stock_media_active(self, organization_id: uuid.UUID) -> list[str]:
+        records = self._session.scalars(
+            select(ProviderCredential.provider)
+            .where(
+                ProviderCredential.organization_id == organization_id,
+                ProviderCredential.provider.in_(["pexels", "pixabay", "coverr"]),
+                ProviderCredential.status == "active"
+            )
+        ).all()
+        return list(records)
+
+    def check_youtube_connection_active(self, organization_id: uuid.UUID) -> bool:
+        return self._session.scalar(
+            select(PublisherConnection.id)
+            .where(
+                PublisherConnection.organization_id == organization_id,
+                PublisherConnection.provider == "youtube",
+                PublisherConnection.status == "active"
+            )
+        ) is not None
+
+    def check_prompts_baseline_active(self, organization_id: uuid.UUID, required_keys: list[str]) -> dict[str, bool]:
+        records = self._session.execute(
+            select(PromptTemplate.prompt_key, PromptTemplate.production_version)
+            .where(
+                PromptTemplate.organization_id == organization_id,
+                PromptTemplate.prompt_key.in_(required_keys)
+            )
+        ).all()
+        
+        status_map = {key: False for key in required_keys}
+        for prompt_key, production_version in records:
+            if production_version is not None:
+                status_map[prompt_key] = True
+        return status_map
+
