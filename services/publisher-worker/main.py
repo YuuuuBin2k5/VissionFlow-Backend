@@ -97,6 +97,17 @@ def execute_publication_attempt(publication_attempt_id: str, organization_id: st
     manifest = claim.json()
     if not isinstance(manifest, dict):
         raise RuntimeError("Control Plane did not issue publication attempt manifest")
+    mark_uploading = session.post(
+        f"{base_url}/integrations/youtube/publication-attempts/{publication_attempt_id}/mark-uploading",
+        headers=headers,
+        json={
+            "organization_id": organization_id,
+            "publisher_connection_id": manifest["publisher_connection_id"],
+            "lease_token": manifest["lease_token"],
+        },
+        timeout=(5, 30),
+    )
+    mark_uploading.raise_for_status()
     video_id, video_url = _upload_manifest(session, manifest)
     completed = session.post(
         f"{base_url}/integrations/youtube/publication-attempts/{publication_attempt_id}/complete",

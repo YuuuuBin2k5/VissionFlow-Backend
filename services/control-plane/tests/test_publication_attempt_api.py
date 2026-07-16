@@ -166,6 +166,27 @@ class PublicationAttemptApiTests(unittest.TestCase):
             response = client.post(f"{base}/complete", json={"organization_id": str(self.organization.id), "publisher_connection_id": str(self.connection.id), "lease_token": "x" * 64, "video_id": "yt-video-1", "video_url": "https://www.youtube.com/watch?v=yt-video-1"}, headers=headers)
         self.assertEqual(409, response.status_code, response.text)
 
+    def test_uploading_boundary_prevents_a_second_claim_after_lease_expiry(self) -> None:
+        client = self._client()
+        headers = {"Authorization": f"Bearer {self._token()}"}
+        base = f"/api/v1/integrations/youtube/publication-attempts/{self.attempt.id}"
+        with patch.dict(os.environ, self.env, clear=True), patch("app.routers.integrations._issue_youtube_manifest", return_value=self._manifest()):
+            claim = client.post(f"{base}/claim", json={"organization_id": str(self.organization.id)}, headers=headers)
+        self.assertEqual(200, claim.status_code, claim.text)
+        lease_token = claim.json()["lease_token"]
+        with patch.dict(os.environ, self.env, clear=True):
+            marked = client.post(f"{base}/mark-uploading", json={"organization_id": str(self.organization.id), "publisher_connection_id": str(self.connection.id), "lease_token": lease_token}, headers=headers)
+        self.assertEqual(200, marked.status_code, marked.text)
+        db = self.SessionFactory()
+        persisted = db.get(PublicationAttempt, self.attempt.id)
+        self.assertEqual("uploading", persisted.state)
+        persisted.lease_expires_at = None
+        db.commit()
+        db.close()
+        with patch.dict(os.environ, self.env, clear=True):
+            duplicate_claim = client.post(f"{base}/claim", json={"organization_id": str(self.organization.id)}, headers=headers)
+        self.assertEqual(409, duplicate_claim.status_code, duplicate_claim.text)
+
     def test_database_permits_only_one_active_attempt_per_workflow(self) -> None:
         self.session.add(
             PublicationAttempt(

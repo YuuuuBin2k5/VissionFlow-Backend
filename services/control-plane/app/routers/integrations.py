@@ -42,6 +42,7 @@ class YouTubePublishManifest(BaseModel): workflow_run_id: uuid.UUID; publisher_c
 class CompleteYouTubePublishRequest(BaseModel): organization_id: uuid.UUID; publisher_connection_id: uuid.UUID; video_id: str; video_url: str
 class FailYouTubePublishRequest(BaseModel): organization_id: uuid.UUID; publisher_connection_id: uuid.UUID; failure_code: str
 class ClaimPublicationAttemptRequest(BaseModel): organization_id: uuid.UUID
+class MarkPublicationAttemptUploadingRequest(BaseModel): organization_id: uuid.UUID; publisher_connection_id: uuid.UUID; lease_token: str
 class YouTubePublicationAttemptManifest(YouTubePublishManifest): publication_attempt_id: uuid.UUID; attempt_number: int; lease_token: str
 class CompletePublicationAttemptRequest(BaseModel): organization_id: uuid.UUID; publisher_connection_id: uuid.UUID; lease_token: str; video_id: str; video_url: str
 class FailPublicationAttemptRequest(BaseModel): organization_id: uuid.UUID; publisher_connection_id: uuid.UUID; lease_token: str; failure_code: str
@@ -176,6 +177,26 @@ def claim_youtube_publication_attempt(publication_attempt_id: uuid.UUID, request
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Publisher service is unavailable") from exc
     except OverlayUploadVerificationError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Publish artifact is invalid") from exc
+
+
+@router.post("/youtube/publication-attempts/{publication_attempt_id}/mark-uploading")
+def mark_youtube_publication_attempt_uploading(publication_attempt_id: uuid.UUID, request: MarkPublicationAttemptUploadingRequest, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> dict[str, str]:
+    """Create a durable external-side-effect boundary before contacting YouTube."""
+    try:
+        _require_publisher_identity(identity)
+        attempt = _publication_attempt_for_update(session, publication_attempt_id, request.organization_id)
+        if attempt is None or attempt.publisher_connection_id != request.publisher_connection_id:
+            raise LookupError()
+        _require_attempt_lease(attempt, request.lease_token)
+        attempt.state = "uploading"
+        session.commit()
+        return {"publication_attempt_id": str(attempt.id), "state": attempt.state}
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Publisher service identity is not authorized") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Publication attempt not found") from exc
+    except _AttemptLeaseInvalid as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "PUBLICATION_ATTEMPT_LEASE_INVALID"}) from exc
 
 
 @router.post("/youtube/publication-attempts/{publication_attempt_id}/complete")
@@ -344,7 +365,7 @@ def _publication_attempt_for_update(session: Session, publication_attempt_id: uu
 def _require_attempt_lease(attempt: PublicationAttempt, lease_token: str) -> None:
     now = datetime.now(UTC)
     if (
-        attempt.state != "claimed"
+        attempt.state not in {"claimed", "uploading"}
         or not attempt.lease_token
         or not hmac.compare_digest(attempt.lease_token, lease_token)
         or attempt.lease_expires_at is None

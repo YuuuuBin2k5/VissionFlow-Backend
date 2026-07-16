@@ -43,13 +43,16 @@ class PublicationAttemptExecutorTests(unittest.TestCase):
             "title": "Recovered short",
             "description": "Description",
         }
-        session.post.side_effect = [Response(200, manifest), Response(200, {"state": "succeeded"})]
+        session.post.side_effect = [Response(200, manifest), Response(200, {"state": "uploading"}), Response(200, {"state": "succeeded"})]
         with patch.dict(os.environ, self.environment, clear=True), patch("main.requests.Session", return_value=session), patch("main._service_token", return_value="service-token"), patch("main._upload_manifest", return_value=("video-1", "https://www.youtube.com/watch?v=video-1")) as upload:
             result = main.execute_publication_attempt("attempt-1", "org-1")
 
         self.assertEqual("https://www.youtube.com/watch?v=video-1", result)
         upload.assert_called_once_with(session, manifest)
-        complete_call = session.post.call_args_list[1]
+        mark_call = session.post.call_args_list[1]
+        self.assertTrue(mark_call.args[0].endswith("/publication-attempts/attempt-1/mark-uploading"))
+        self.assertEqual("lease-token-1", mark_call.kwargs["json"]["lease_token"])
+        complete_call = session.post.call_args_list[2]
         self.assertTrue(complete_call.args[0].endswith("/publication-attempts/attempt-1/complete"))
         self.assertEqual("lease-token-1", complete_call.kwargs["json"]["lease_token"])
         self.assertEqual("org-1", complete_call.kwargs["json"]["organization_id"])
