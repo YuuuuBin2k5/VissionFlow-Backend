@@ -33,6 +33,10 @@ Before activation, apply MySQL only through `npx prisma migrate deploy` and
 seed the legacy mapping service subject as a `service` organization member in
 the Control Plane. Do not use `db push` or runtime table creation.
 
+Run `node orchestrator/scripts/validate-visionflow-stream-b-config.js` in the
+target deployment environment immediately before enabling the flag. It makes
+no network calls and never prints secrets.
+
 ## Readiness checks
 
 1. Rehearse the MySQL migration on a disposable database with
