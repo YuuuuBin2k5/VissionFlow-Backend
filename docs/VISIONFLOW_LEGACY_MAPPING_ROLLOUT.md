@@ -26,6 +26,20 @@ Before the legacy MySQL orchestrator is integrated with the PostgreSQL control p
 - **Durable Retries**: Any network calls from the legacy side to the new `RegisterLegacyJobMapping` route must utilize a durable background retry queue to prevent data loss.
 - **Worker Client Resiliency**: Narration workers must fetch the context using their OIDC subject token and fail-closed if they receive a `404` or `409` from the Control Plane.
 
+### Stream B activation boundary
+
+`RequestLegacyJob` is intentionally an internal Control Plane use case in the
+current slice. It atomically moves a `READY` workflow to `QUEUED`, records a
+canonical `visionflow.legacy_job.requested.v1` outbox event, and uses the
+existing outbox event UUID as `event_id`. It is not yet wired to a public
+route, submit flow, or Redis consumer.
+
+Before enabling it, deploy the isolated orchestrator consumer and its MySQL
+transactional outbox. Configure a separate `VISIONFLOW_LEGACY_MAPPING_*`
+client with only `workflow:legacy-mapping:register`; it must never share the
+narration worker's credential or scope. This preserves the legacy Telegram
+paths unchanged until their separate strangler milestone is approved.
+
 ## 4. Testing & Acceptance Disclaimer
 
 > [!NOTE]

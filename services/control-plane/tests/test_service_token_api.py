@@ -58,6 +58,50 @@ class ServiceTokenApiTests(unittest.TestCase):
         self.assertEqual(401, response.status_code)
         self.assertEqual("Client authentication is invalid", response.json()["detail"])
 
+    def test_mapping_client_receives_only_mapping_scope(self) -> None:
+        values = _environment() | {
+            "VISIONFLOW_LEGACY_MAPPING_CLIENT_ID": "visionflow-legacy-intake",
+            "VISIONFLOW_LEGACY_MAPPING_CLIENT_SECRET": "safe-test-intake-secret",
+            "VISIONFLOW_LEGACY_MAPPING_SUBJECT": "service|visionflow-legacy-intake",
+        }
+        with patch.dict(os.environ, values, clear=True):
+            from app.main import app
+
+            response = TestClient(app).post(
+                "/api/v1/auth/token",
+                data={
+                    "grant_type": "client_credentials",
+                    "client_id": "visionflow-legacy-intake",
+                    "client_secret": "safe-test-intake-secret",
+                    "audience": "visionflow-control-plane",
+                    "scope": "workflow:legacy-mapping:register",
+                },
+            )
+
+        self.assertEqual(200, response.status_code)
+        claims = jwt.decode(response.json()["access_token"], options={"verify_signature": False})
+        self.assertEqual("service|visionflow-legacy-intake", claims["sub"])
+        self.assertEqual(["workflow:legacy-mapping:register"], claims["scopes"])
+
+    def test_client_credentials_rejects_scope_outside_client_grant(self) -> None:
+        values = _environment()
+        with patch.dict(os.environ, values, clear=True):
+            from app.main import app
+
+            response = TestClient(app).post(
+                "/api/v1/auth/token",
+                data={
+                    "grant_type": "client_credentials",
+                    "client_id": "visionflow-intelligence-worker",
+                    "client_secret": "safe-test-worker-secret",
+                    "audience": "visionflow-control-plane",
+                    "scope": "workflow:legacy-mapping:register",
+                },
+            )
+
+        self.assertEqual(400, response.status_code)
+        self.assertEqual("Requested scope is not permitted for this client", response.json()["detail"])
+
 
 def _environment() -> dict[str, str]:
     private_key = rsa.generate_private_key(public_exponent=65_537, key_size=2_048)

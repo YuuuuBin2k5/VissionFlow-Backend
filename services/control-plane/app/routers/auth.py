@@ -24,6 +24,7 @@ from app.core.config import ConfigurationError
 from app.core.internal_tokens import InternalAccessTokenVerifier, InternalAuthSettings, Rs256AccessTokenSigner
 from app.core.oidc import OidcProviderUnavailable, OidcSettings, OidcTokenVerifier, VerifiedIdentity
 from app.core.passwords import Argon2idPasswordHasher
+from app.core.service_client_registry import ServiceClientRegistry
 from app.infrastructure.database import get_session
 from app.infrastructure.local_auth_repository import SqlAlchemyLocalAuthRepository
 
@@ -118,26 +119,32 @@ async def issue_service_token(request: Request) -> ClientCredentialsTokenRespons
     client_secret = _form_value(form, "client_secret")
     audience = _form_value(form, "audience")
     settings = InternalAuthSettings.from_env()
-    expected_client_id = _required_service_setting("VISIONFLOW_WORKER_CLIENT_ID")
-    expected_client_secret = _required_service_setting("VISIONFLOW_WORKER_CLIENT_SECRET")
-    expected_subject = _required_service_setting("VISIONFLOW_WORKER_SUBJECT")
+    requested_scope = _form_value(form, "scope")
+    try:
+        client = ServiceClientRegistry.from_env().get(client_id)
+    except ConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service authentication is not configured",
+        ) from exc
     if (
         grant_type != "client_credentials"
         or audience != settings.audience
-        or not secrets.compare_digest(client_id, expected_client_id)
-        or not secrets.compare_digest(client_secret, expected_client_secret)
+        or client is None
+        or not secrets.compare_digest(client_secret, client.client_secret)
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Client authentication is invalid",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    scopes = _resolve_requested_scopes(requested_scope, client.allowed_scopes)
     signed = Rs256AccessTokenSigner(settings).issue(
-        subject=expected_subject,
-        session_id=f"service:{expected_client_id}",
+        subject=client.subject,
+        session_id=f"service:{client.client_id}",
         extra_claims={
-            "client_id": expected_client_id,
-            "scopes": ["workflow:narration:complete"],
+            "client_id": client.client_id,
+            "scopes": sorted(scopes),
         },
     )
     return ClientCredentialsTokenResponse(
@@ -252,14 +259,22 @@ def _form_value(form: dict[str, list[str]], key: str) -> str:
     return values[0] if len(values) == 1 else ""
 
 
-def _required_service_setting(name: str) -> str:
-    value = os.getenv(name, "").strip()
-    if not value:
+def _resolve_requested_scopes(requested_scope: str, allowed_scopes: frozenset[str]) -> frozenset[str]:
+    """Grant only a configured client's complete least-privilege scope set.
+
+    A missing ``scope`` preserves the old worker wire contract.  A supplied
+    scope must be a non-empty subset; silently dropping an unpermitted scope
+    could grant a token that callers mistakenly believe is more privileged.
+    """
+    if not requested_scope:
+        return allowed_scopes
+    requested = frozenset(scope for scope in requested_scope.split() if scope)
+    if not requested or not requested.issubset(allowed_scopes):
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Service authentication is not configured",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Requested scope is not permitted for this client",
         )
-    return value
+    return requested
 
 
 def _require_internal_identity(credentials: HTTPAuthorizationCredentials | None) -> InternalIdentity:

@@ -97,6 +97,7 @@ def main() -> int:
     suite.addTests(loader.loadTestsFromName("tests.test_narration_auth_capability"))
     suite.addTests(loader.loadTestsFromName("tests.test_register_legacy_mapping_api"))
     suite.addTests(loader.loadTestsFromName("tests.test_execution_context_by_job_api"))
+    suite.addTests(loader.loadTestsFromName("tests.test_request_legacy_job_repository"))
 
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
