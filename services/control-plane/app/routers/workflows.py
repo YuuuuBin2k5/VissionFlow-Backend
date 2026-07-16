@@ -775,6 +775,14 @@ def advance_workflow(
             request.organization_id,
             Permission.WORKFLOW_ADVANCE,
         )
+        if request.target_state == WorkflowState.QA_PENDING:
+            composition = SqlAlchemyCompositionRepository(session).read(request.organization_id, workflow_run_id)
+            if composition is None:
+                raise LookupError("Composition not found")
+            expected_fingerprint = compile_render_plan(composition).fingerprint
+            received_fingerprint = request.output_payload.get("render_plan_hash")
+            if received_fingerprint != expected_fingerprint:
+                raise WorkflowStateConflict("Rendered artifact does not match the locked composition")
         result = AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(session)).execute(
             AdvanceWorkflowCommand(
                 organization_id=request.organization_id,
