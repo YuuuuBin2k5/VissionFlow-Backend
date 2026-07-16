@@ -27,9 +27,9 @@ class OAuthStartResponse(BaseModel): authorization_url: str
 def start_youtube_oauth(organization_id: uuid.UUID, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> OAuthStartResponse:
     try:
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.PUBLISH_EXECUTE)
+        settings = YouTubePublisherSettings.from_env()
         state, digest, expires = issue_state(organization_id, identity.subject)
         PublisherOAuthAttemptRepository(session).create(organization_id=organization_id, provider="youtube", state_digest=digest, requested_by_subject=identity.subject, expires_at=datetime.fromtimestamp(expires, UTC))
-        settings = YouTubePublisherSettings.from_env()
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail="Organization permission denied") from exc
     except (ConfigurationError, ValueError) as exc:
