@@ -989,9 +989,9 @@ def register_legacy_job_mapping(
             )
 
         # 2. Subject enforcement — only the intake service may register mappings
-        intake_subject = os.getenv("VISIONFLOW_INTAKE_SUBJECT", "").strip()
+        intake_subject = _legacy_mapping_subject()
         if not intake_subject:
-            raise ConfigurationError("VISIONFLOW_INTAKE_SUBJECT must be configured")
+            raise ConfigurationError("VISIONFLOW_LEGACY_MAPPING_SUBJECT must be configured")
         worker_subject = os.getenv("VISIONFLOW_WORKER_SUBJECT", "").strip()
         if identity.subject == worker_subject:
             raise PermissionError(
@@ -1089,7 +1089,7 @@ def get_execution_context_by_job(
         worker_subject = os.getenv("VISIONFLOW_WORKER_SUBJECT", "").strip()
         if not worker_subject:
             raise ConfigurationError("VISIONFLOW_WORKER_SUBJECT must be configured")
-        intake_subject = os.getenv("VISIONFLOW_INTAKE_SUBJECT", "").strip()
+        intake_subject = _legacy_mapping_subject()
         if identity.subject == intake_subject and intake_subject:
             raise PermissionError(
                 "Legacy intake service identity may not call execution context lookup"
@@ -1149,3 +1149,16 @@ def _trace_id(request_id: str | None) -> str:
     if len(normalized) == 32 and all(character in "0123456789abcdefABCDEF" for character in normalized):
         return normalized.lower()
     return uuid.uuid4().hex
+
+
+def _legacy_mapping_subject() -> str:
+    """Use the canonical D2 setting while accepting the pre-D2 name briefly.
+
+    The fallback is deliberately one-way: deployments can rotate to the
+    dedicated registry subject without a coordinated flag day, but new code
+    never needs to configure both values.
+    """
+    return (
+        os.getenv("VISIONFLOW_LEGACY_MAPPING_SUBJECT", "").strip()
+        or os.getenv("VISIONFLOW_INTAKE_SUBJECT", "").strip()
+    )
