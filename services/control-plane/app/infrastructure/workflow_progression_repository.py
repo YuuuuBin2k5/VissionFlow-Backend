@@ -78,6 +78,7 @@ class SqlAlchemyWorkflowProgressionRepository:
         workflow_run.state = command.target_state.value
         event_payload: dict[str, object] = {
             "workflow_run_id": str(workflow_run.id),
+            "organization_id": str(command.organization_id),
             "from_state": current_state.value,
             "to_state": command.target_state.value,
             "step_key": step_key,
