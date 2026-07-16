@@ -21,6 +21,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Verify required free-runner secrets
+        run: |
+          for name in DATABASE_URL REDIS_URL VISIONFLOW_CONTROL_PLANE_URL VISIONFLOW_PUBLISHER_CLIENT_ID VISIONFLOW_PUBLISHER_CLIENT_SECRET; do
+            if [ -z "${!name}" ]; then echo "Missing required secret: $name"; exit 1; fi
+          done
       - run: pip install -r services/control-plane/requirements.txt -r services/publisher-worker/requirements.txt
       - working-directory: services/control-plane
         run: python scripts/relay_outbox.py --limit 50
