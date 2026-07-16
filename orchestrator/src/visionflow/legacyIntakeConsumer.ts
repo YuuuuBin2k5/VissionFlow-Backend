@@ -8,6 +8,7 @@ export interface LegacyIntakeConsumerSettings {
   consumer: string;
   deadLetterStream: string;
   maxDeliveries: number;
+  claimIdleMs: number;
 }
 
 /**
@@ -49,6 +50,31 @@ export class LegacyIntakeConsumer {
     return handled;
   }
 
+  /** Reclaim abandoned pending entries without relying on in-memory retries. */
+  async reclaimPendingOnce(): Promise<number> {
+    const reply = await this.redis.call(
+      'XAUTOCLAIM',
+      this.settings.stream,
+      this.settings.group,
+      this.settings.consumer,
+      String(this.settings.claimIdleMs),
+      '0-0',
+      'COUNT',
+      '10',
+    ) as unknown as [string, Array<[string, string[]]>, string[]];
+    const entries = reply?.[1] || [];
+    for (const [entryId, fieldPairs] of entries) {
+      const fields = fieldPairsToObject(fieldPairs);
+      const deliveries = await this.deliveryCount(entryId);
+      if (deliveries >= this.settings.maxDeliveries) {
+        await this.deadLetterThenAck(entryId, fields, 'MAX_DELIVERIES_EXCEEDED');
+      } else {
+        await this.handle(entryId, fields);
+      }
+    }
+    return entries.length;
+  }
+
   private async handle(entryId: string, fields: StreamFields): Promise<void> {
     try {
       const request = parseAndVerifyLegacyJobRequest(fields, this.keys);
@@ -77,6 +103,13 @@ export class LegacyIntakeConsumer {
       ...Object.entries(deadLetterFields).flatMap(([key, value]) => [key, value]),
     );
     await this.redis.xack(this.settings.stream, this.settings.group, entryId);
+  }
+
+  private async deliveryCount(entryId: string): Promise<number> {
+    const reply = await this.redis.call(
+      'XPENDING', this.settings.stream, this.settings.group, entryId, entryId, '1',
+    ) as unknown as Array<[string, string, number, number]>;
+    return Number(reply[0]?.[3] || 0);
   }
 }
 

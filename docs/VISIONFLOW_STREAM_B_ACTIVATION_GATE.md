@@ -1,0 +1,47 @@
+# VisionFlow Stream B Activation Gate
+
+## Current status
+
+All Stream B modules are **dormant**. `orchestrator/src/main.ts` does not
+import the runtime. `VISIONFLOW_LEGACY_INTAKE_ENABLED` defaults to disabled;
+only the exact string `true` can construct Redis consumers or HTTP clients.
+
+## Required deployment configuration
+
+Configure these as Render secrets, never in Git:
+
+```text
+VISIONFLOW_LEGACY_INTAKE_ENABLED=true
+VISIONFLOW_INTAKE_HMAC_KEY_ID=<current-key-id>
+VISIONFLOW_INTAKE_HMAC_KEY=<current-key>
+VISIONFLOW_INTAKE_HMAC_PREV_KEY_ID=<previous-key-id, optional paired value>
+VISIONFLOW_INTAKE_HMAC_KEY_PREV=<previous-key, optional paired value>
+VISIONFLOW_LEGACY_MAPPING_CLIENT_ID=visionflow-legacy-intake
+VISIONFLOW_LEGACY_MAPPING_CLIENT_SECRET=<different-secret>
+VISIONFLOW_LEGACY_MAPPING_SUBJECT=service|visionflow-legacy-intake
+VISIONFLOW_CONTROL_PLANE_BASE_URL=https://<control-plane>
+VISIONFLOW_AUTH_AUDIENCE=visionflow-control-plane
+```
+
+Before activation, apply MySQL only through `npx prisma migrate deploy` and
+seed the legacy mapping service subject as a `service` organization member in
+the Control Plane. Do not use `db push` or runtime table creation.
+
+## Readiness checks
+
+1. Rehearse the MySQL migration on a disposable database.
+2. Deploy the dormant runtime code; leave the feature flag unset.
+3. Confirm the Control Plane outbox relay has `REDIS_URL` and the HMAC current
+   key configured.
+4. Create one non-production workflow and manually invoke the internal
+   `RequestLegacyJob` use case.
+5. Enable one consumer replica. Verify a link, one MySQL job, and one
+   successful mapping receipt.
+6. Force a consumer interruption and verify `XAUTOCLAIM` reclaims the PEL.
+7. Run 100 staging jobs with no mapping mismatch before expanding traffic.
+
+## Rollback
+
+Set `VISIONFLOW_LEGACY_INTAKE_ENABLED=false` and restart only the intake
+runtime. Existing rows remain durable in `legacy_outbox`; do not delete or
+replay them manually without an operator incident record.
