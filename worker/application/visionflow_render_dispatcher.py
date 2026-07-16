@@ -22,6 +22,7 @@ class ExecutionContextGateway(Protocol):
         self, workflow_run_id: str, *, trace_id: str | None = None
     ) -> dict[str, Any]: ...
     def get_composition(self, workflow_run_id: str, *, trace_id: str | None = None) -> dict[str, Any]: ...
+    def open_manual_approval(self, workflow_run_id: str, *, trace_id: str | None = None) -> dict[str, Any]: ...
 
 
 class VisionFlowRenderDispatcher:
@@ -68,6 +69,10 @@ class VisionFlowRenderDispatcher:
                 RenderArtifactForQa(artifact.object_key, artifact.content_type, artifact.byte_size, artifact.checksum_sha256),
                 trace_id=trace_id,
             )
+            # QA may only promote a technically valid artifact to RENDERED.
+            # This explicit API handoff then opens the separate human-review
+            # boundary; the worker never approves or publishes a video.
+            self._control_plane.open_manual_approval(workflow_run_id, trace_id=trace_id)
         return artifact
 
 

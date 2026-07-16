@@ -15,6 +15,10 @@ class ControlPlane:
     def get_composition(self, workflow_run_id, *, trace_id=None):
         return {"state": "locked", "version_id": "composition-version-1", "aspect_ratio": "9:16", "tracks": [{"track_type": "video", "name": "Visuals", "clips": [{"source_type": "scene", "source_ref": "scene-01", "timeline_start_ms": 0, "duration_ms": 5000}]}]}
 
+    def open_manual_approval(self, workflow_run_id, *, trace_id=None):
+        self.calls.append(("approval", workflow_run_id, trace_id))
+        return {"workflow_run_id": workflow_run_id, "state": "APPROVAL_PENDING", "changed": True}
+
 
 class RenderWorkflow:
     def __init__(self):
@@ -94,6 +98,7 @@ class VisionFlowRenderDispatcherTests(unittest.TestCase):
         VisionFlowRenderDispatcher(gateway, workflow, qa).dispatch("run-1", trace_id="b" * 32)
         self.assertEqual("visionflow/run-1/exports/final.mp4", qa.calls[0][1].object_key)
         self.assertEqual("b" * 32, qa.calls[0][2])
+        self.assertEqual(("approval", "run-1", "b" * 32), gateway.calls[-1])
 
 
 if __name__ == "__main__":

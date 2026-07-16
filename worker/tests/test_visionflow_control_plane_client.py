@@ -26,6 +26,8 @@ class RecordingHttp:
         self.calls.append({"url": url, **kwargs})
         if url.endswith("/auth/token"):
             return FakeResponse(200, {"access_token": "service-access-token", "expires_in": 300})
+        if url.endswith("/approval/open"):
+            return FakeResponse(200, {"workflow_run_id": "run-1", "state": "APPROVAL_PENDING", "changed": True})
         return FakeResponse(200, {"workflow_run_id": "run-1", "state": "PLANNING", "changed": True})
 
     def get(self, url: str, **kwargs: object) -> FakeResponse:
@@ -124,6 +126,28 @@ class VisionFlowWorkerSettingsTests(unittest.TestCase):
         self.assertEqual(settings.organization_id, http.calls[1]["params"]["organization_id"])
         self.assertEqual("Bearer service-access-token", http.calls[1]["headers"]["Authorization"])
         self.assertEqual("b" * 32, http.calls[1]["headers"]["X-Request-ID"])
+
+    def test_opens_manual_approval_with_service_token(self) -> None:
+        settings = VisionFlowWorkerSettings(
+            api_url="https://visionflow.example.com/api/v1",
+            organization_id="00000000-0000-0000-0000-000000000001",
+            token_url="https://visionflow.example.com/api/v1/auth/token",
+            client_id="render-worker",
+            client_secret="not-a-real-secret",
+            audience="visionflow-control-plane",
+        )
+        http = RecordingHttp()
+        client = VisionFlowControlPlaneClient(settings, http=http)
+
+        result = client.open_manual_approval(
+            "00000000-0000-0000-0000-000000000002", trace_id="e" * 32
+        )
+
+        self.assertEqual("APPROVAL_PENDING", result["state"])
+        self.assertEqual(2, len(http.calls))
+        self.assertTrue(http.calls[1]["url"].endswith("/approval/open"))
+        self.assertEqual(settings.organization_id, http.calls[1]["json"]["organization_id"])
+        self.assertEqual("e" * 32, http.calls[1]["headers"]["X-Request-ID"])
 
     def test_complete_narration_calls_endpoint(self) -> None:
         settings = VisionFlowWorkerSettings(

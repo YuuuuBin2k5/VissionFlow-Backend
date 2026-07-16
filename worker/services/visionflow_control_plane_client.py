@@ -140,6 +140,38 @@ class VisionFlowControlPlaneClient:
             )
         return response.json()
 
+    def open_manual_approval(
+        self,
+        workflow_run_id: str,
+        *,
+        trace_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Hand a QA-passed export to the Control Plane review boundary.
+
+        This named operation intentionally uses the Control Plane's approval
+        endpoint rather than synthesising a generic state transition in the
+        worker.  It keeps the human-review policy and its audit semantics in
+        one service boundary.
+        """
+        response = self._http.post(
+            f"{self._settings.api_url}/workflows/{workflow_run_id}/approval/open",
+            json={"organization_id": self._settings.organization_id},
+            headers={
+                "Authorization": f"Bearer {self._get_access_token()}",
+                "X-Request-ID": trace_id or uuid.uuid4().hex,
+            },
+            timeout=(3, 20),
+        )
+        if response.status_code not in (200, 201):
+            detail = _response_detail(response)
+            raise VisionFlowControlPlaneError(
+                f"Control Plane approval handoff failed with HTTP {response.status_code}: {detail}"
+            )
+        payload = response.json()
+        if not isinstance(payload, dict) or payload.get("state") != "APPROVAL_PENDING":
+            raise VisionFlowControlPlaneError("Control Plane approval handoff returned an invalid state")
+        return payload
+
     def get_execution_context(
         self,
         workflow_run_id: str,
