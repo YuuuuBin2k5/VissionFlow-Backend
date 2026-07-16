@@ -15,6 +15,8 @@ export interface LegacyIntakeRuntime {
 export interface LegacyIntakeHealth {
   enabled: boolean;
   running: boolean;
+  /** Redis consumer-group initialization completed and no current runtime failure is known. */
+  ready: boolean;
   lastConsumerSuccessAt: string | null;
   lastProcessorSuccessAt: string | null;
   lastErrorCode: string | null;
@@ -55,6 +57,7 @@ export function startLegacyIntakeRuntime(env: NodeJS.ProcessEnv = process.env): 
   const state: LegacyIntakeHealth = {
     enabled: true,
     running: true,
+    ready: false,
     lastConsumerSuccessAt: null,
     lastProcessorSuccessAt: null,
     lastErrorCode: null,
@@ -65,9 +68,11 @@ export function startLegacyIntakeRuntime(env: NodeJS.ProcessEnv = process.env): 
     try {
       await consumer.reclaimPendingOnce();
       await consumer.consumeOnce(1_000);
+      state.ready = true;
       state.lastConsumerSuccessAt = new Date().toISOString();
       state.lastErrorCode = null;
     } catch (error) {
+      state.ready = false;
       state.lastErrorCode = error instanceof Error ? error.name : 'CONSUMER_FAILURE';
     }
   };
@@ -82,6 +87,7 @@ export function startLegacyIntakeRuntime(env: NodeJS.ProcessEnv = process.env): 
     }
   };
   void consumer.ensureGroup().then(runConsumer).catch((error: unknown) => {
+    state.ready = false;
     state.lastErrorCode = error instanceof Error ? error.name : 'GROUP_CREATE_FAILURE';
   });
   const interval = setInterval(() => { void runProcessor(); }, 5_000);
@@ -90,6 +96,7 @@ export function startLegacyIntakeRuntime(env: NodeJS.ProcessEnv = process.env): 
       stopped = true;
       clearInterval(interval);
       state.running = false;
+      state.ready = false;
       await redis.quit();
     },
     health() { return { ...state }; },

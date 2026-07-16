@@ -31,6 +31,7 @@ Configure these as Render secrets, never in Git:
 
 ```text
 VISIONFLOW_LEGACY_INTAKE_ENABLED=true
+REDIS_URL=<redis-tls-url>
 VISIONFLOW_INTAKE_HMAC_KEY_ID=<current-key-id>
 VISIONFLOW_INTAKE_HMAC_KEY=<current-key>
 VISIONFLOW_INTAKE_HMAC_PREV_KEY_ID=<previous-key-id, optional paired value>
@@ -74,4 +75,8 @@ replay them manually without an operator incident record.
 After deploy, run `VISIONFLOW_LEGACY_INTAKE_BASE_URL=https://<service> node
 orchestrator/scripts/probe-visionflow-legacy-intake.js`. Add
 `VISIONFLOW_EXPECT_LEGACY_INTAKE_ENABLED=true` only after intentionally
-enabling the service.
+enabling the service. The endpoint returns `503` while an enabled intake has
+not initialized its Redis consumer group or its consumer connection has
+failed; this is deliberate so Render health checks cannot mask a disconnected
+intake. Mapping-delivery failures are retained in the durable MySQL outbox and
+exposed through `lastErrorCode` for operator investigation.

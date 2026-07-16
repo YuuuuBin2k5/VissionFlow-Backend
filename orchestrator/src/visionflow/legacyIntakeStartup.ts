@@ -11,11 +11,12 @@ export function attachLegacyIntakeRuntime(app: Express): LegacyIntakeRuntime | n
     const health = runtime?.health() || {
       enabled: false,
       running: false,
+      ready: true,
       lastConsumerSuccessAt: null,
       lastProcessorSuccessAt: null,
       lastErrorCode: null,
     };
-    response.status(health.running || !health.enabled ? 200 : 503).json(health);
+    response.status(health.ready ? 200 : 503).json(health);
   });
   return runtime;
 }
