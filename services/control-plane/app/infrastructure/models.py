@@ -124,6 +124,24 @@ class VideoProject(Timestamped, Base):
     timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="Asia/Bangkok")
 
 
+class PublisherConnection(Timestamped, Base):
+    """Organization-owned OAuth connection; refresh credentials are encrypted."""
+
+    __tablename__ = "publisher_connections"
+    __table_args__ = (UniqueConstraint("organization_id", "provider", "provider_account_id", name="uq_publisher_connection_account"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    provider_account_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(256), nullable=False)
+    encrypted_refresh_token: Mapped[str] = mapped_column(Text, nullable=False)
+    scopes: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    connected_by_subject: Mapped[str] = mapped_column(String(512), nullable=False)
+
+
 class WorkflowRun(Timestamped, Base):
     __tablename__ = "workflow_runs"
 
