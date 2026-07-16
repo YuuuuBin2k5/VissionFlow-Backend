@@ -60,3 +60,22 @@ Console domain changes. Do not use `*`.
 
 If R2 responds with a CORS error, verify the exact Vercel origin, `PUT`, and
 the `Content-Type` header before changing application code.
+
+## Repeatable smoke test
+
+After signing in as an organization producer/admin, obtain the short-lived
+access token from the browser session and run this from a trusted workstation:
+
+```powershell
+python services/control-plane/scripts/smoke_overlay_upload.py `
+  --api-url https://your-control-plane.onrender.com/api/v1 `
+  --organization-id <organization-uuid> `
+  --workflow-run-id <workflow-run-uuid> `
+  --access-token <short-lived-access-token> `
+  --image C:\path\to\overlay.png
+```
+
+The script intentionally prints only the uploaded object key, never a token
+or storage credential. Use a fresh test workflow because the next Lock action
+will validate the object with R2 `HeadObject` before the composition becomes
+immutable.
