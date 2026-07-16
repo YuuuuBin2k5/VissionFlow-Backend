@@ -7,7 +7,7 @@ import uuid
 from app.core.config import Settings
 from app.infrastructure.database import get_engine, get_session
 from app.application.authorize_organization import AuthorizeOrganization
-from app.application.get_short_form_readiness import GetShortFormReadiness
+from app.application.get_short_form_readiness import GetShortFormReadiness, ReadinessResponse
 from app.domain.authorization import Permission
 from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
 from app.infrastructure.repositories import SqlAlchemyShortFormReadinessRepository
@@ -34,7 +34,7 @@ def ready() -> dict[str, str]:
     return {"status": "ready", "database": "postgresql"}
 
 
-@router.get("/organizations/{organization_id}/readiness")
+@router.get("/organizations/{organization_id}/readiness", response_model=ReadinessResponse)
 def get_readiness(
     organization_id: uuid.UUID,
     identity: VerifiedIdentity = Depends(require_identity),

@@ -3,9 +3,38 @@ from __future__ import annotations
 import os
 import uuid
 from datetime import datetime, UTC
-from typing import Any, Protocol
+from typing import Literal, Union, Protocol
 
-from app.infrastructure.overlay_uploads import OverlayUploadIssuer, OverlayUploadConfigurationError
+from pydantic import BaseModel
+from app.infrastructure.overlay_uploads import OverlayUploadIssuer
+
+
+# Response schemas
+class RemediationTab(BaseModel):
+    kind: Literal["tab"]
+    target: Literal["credential_vault", "agent_prompts", "publication_queue"]
+
+class RemediationUrl(BaseModel):
+    kind: Literal["url"]
+    target: str
+
+class ReadinessCheck(BaseModel):
+    key: Literal["creative_provider", "stock_media", "r2_storage", "render_runner", "prompt_baseline", "youtube_connection"]
+    state: Literal["ready", "blocked", "degraded", "unknown"]
+    label: str
+    detail: str
+    remediation: Union[RemediationTab, RemediationUrl, None] = None
+
+class ReadinessResponse(BaseModel):
+    organization_id: uuid.UUID
+    profile: Literal["short_vertical"]
+    overall: Literal["ready", "blocked", "degraded"]
+    creation_ready: bool
+    ai_planning_ready: bool
+    render_prerequisites_ready: bool
+    render_dispatch_ready: bool
+    checks: list[ReadinessCheck]
+    checked_at: datetime
 
 
 class ShortFormReadinessRepository(Protocol):
@@ -30,7 +59,7 @@ class GetShortFormReadiness:
     def __init__(self, repository: ShortFormReadinessRepository) -> None:
         self._repository = repository
 
-    def execute(self, organization_id: uuid.UUID) -> dict[str, Any]:
+    def execute(self, organization_id: uuid.UUID) -> ReadinessResponse:
         # 1. Gemini
         has_gemini = self._repository.check_gemini_active(organization_id)
         if not has_gemini:
@@ -54,14 +83,14 @@ class GetShortFormReadiness:
         stock_state = "ready" if has_stock else "blocked"
         stock_detail = f"Stock media configured: {', '.join(all_stocks)}." if has_stock else "No active stock media provider found. Add one (Pexels/Pixabay/Coverr) to API Key Vault."
 
-        # 3. R2 Storage
+        # 3. R2 Storage (safe detail on error)
         try:
             OverlayUploadIssuer.from_env()
             r2_state = "ready"
             r2_detail = "R2 storage configuration is valid."
-        except OverlayUploadConfigurationError as exc:
+        except Exception:
             r2_state = "blocked"
-            r2_detail = str(exc)
+            r2_detail = "Object storage configuration is incomplete."
 
         # 4. Render Runner
         runner_state = "unknown"
@@ -72,91 +101,93 @@ class GetShortFormReadiness:
         prompt_status = self._repository.check_prompts_baseline_active(organization_id, required_prompts)
         missing_prompts = [k for k in required_prompts if not prompt_status.get(k, False)]
         has_prompts = len(missing_prompts) == 0
-        prompt_state = "ready" if has_prompts else "blocked"
-        prompt_detail = "Required prompt templates are active and promoted." if has_prompts else f"Required prompt templates ({', '.join(missing_prompts)}) must be created and promoted in the Agent Prompts registry."
+        
+        prompt_state = "ready" if has_prompts else "degraded"
+        prompt_detail = "Required prompt templates are active and promoted." if has_prompts else f"Prompt template registry is degraded. Baseline templates ({', '.join(missing_prompts)}) are missing and will need to be configured for AI planning in the future."
 
         # 6. YouTube
         has_youtube = self._repository.check_youtube_connection_active(organization_id)
         youtube_state = "ready" if has_youtube else "degraded"
         youtube_detail = "YouTube channel connection is active." if has_youtube else "No connected YouTube channel. Highly recommended to connect a channel for publication."
 
+        remediation_gemini = RemediationTab(kind="tab", target="credential_vault") if gemini_state == "blocked" else None
+        remediation_stock = RemediationTab(kind="tab", target="credential_vault") if stock_state == "blocked" else None
+        remediation_prompt = RemediationTab(kind="tab", target="agent_prompts") if prompt_state == "degraded" else None
+        remediation_youtube = RemediationTab(kind="tab", target="publication_queue") if youtube_state == "degraded" else None
+
         checks = [
-            {
-                "key": "creative_provider",
-                "state": gemini_state,
-                "label": "Gemini creative planning",
-                "detail": gemini_detail,
-                "remediation": {
-                    "kind": "tab",
-                    "target": "credential_vault"
-                } if gemini_state == "blocked" else None
-            },
-            {
-                "key": "stock_media",
-                "state": stock_state,
-                "label": "Stock media provider",
-                "detail": stock_detail,
-                "remediation": {
-                    "kind": "tab",
-                    "target": "credential_vault"
-                } if stock_state == "blocked" else None
-            },
-            {
-                "key": "r2_storage",
-                "state": r2_state,
-                "label": "R2 storage connection",
-                "detail": r2_detail,
-                "remediation": None
-            },
-            {
-                "key": "render_runner",
-                "state": runner_state,
-                "label": "Free render runner",
-                "detail": runner_detail,
-                "remediation": {
-                    "kind": "url",
-                    "target": "https://github.com/YuuuuBin2k5/YuuuBin_Agent_Bot/actions/workflows/visionflow-render-free.yml"
-                }
-            },
-            {
-                "key": "prompt_baseline",
-                "state": prompt_state,
-                "label": "Prompt baseline",
-                "detail": prompt_detail,
-                "remediation": {
-                    "kind": "tab",
-                    "target": "agent_prompts"
-                } if prompt_state == "blocked" else None
-            },
-            {
-                "key": "youtube_connection",
-                "state": youtube_state,
-                "label": "YouTube channel connection",
-                "detail": youtube_detail,
-                "remediation": {
-                    "kind": "tab",
-                    "target": "publication_queue"
-                } if youtube_state == "degraded" else None
-            }
+            ReadinessCheck(
+                key="creative_provider",
+                state=gemini_state,
+                label="Gemini creative planning",
+                detail=gemini_detail,
+                remediation=remediation_gemini
+            ),
+            ReadinessCheck(
+                key="stock_media",
+                state=stock_state,
+                label="Stock media provider",
+                detail=stock_detail,
+                remediation=remediation_stock
+            ),
+            ReadinessCheck(
+                key="r2_storage",
+                state=r2_state,
+                label="R2 storage connection",
+                detail=r2_detail,
+                remediation=None
+            ),
+            ReadinessCheck(
+                key="render_runner",
+                state=runner_state,
+                label="Free render runner",
+                detail=runner_detail,
+                remediation=RemediationUrl(
+                    kind="url",
+                    target="https://github.com/YuuuuBin2k5/YuuuBin_Agent_Bot/actions/workflows/visionflow-render-free.yml"
+                )
+            ),
+            ReadinessCheck(
+                key="prompt_baseline",
+                state=prompt_state,
+                label="Prompt baseline",
+                detail=prompt_detail,
+                remediation=remediation_prompt
+            ),
+            ReadinessCheck(
+                key="youtube_connection",
+                state=youtube_state,
+                label="YouTube channel connection",
+                detail=youtube_detail,
+                remediation=remediation_youtube
+            )
         ]
 
-        is_blocked = any(c["state"] == "blocked" for c in checks if c["key"] not in ("youtube_connection", "render_runner"))
-        overall_state = "blocked" if is_blocked else "degraded"
+        # Overall calculation
+        is_blocked = any(c.state == "blocked" for c in checks)
+        is_degraded = any(c.state in ("degraded", "unknown") for c in checks)
+        if is_blocked:
+            overall_state = "blocked"
+        elif is_degraded:
+            overall_state = "degraded"
+        else:
+            overall_state = "ready"
 
-        creation_ready = (
-            gemini_state == "ready" and
-            stock_state == "ready" and
-            r2_state == "ready" and
-            prompt_state == "ready"
-        )
+        # creation_ready is always True because users can always draft manual briefs/scripts/storyboards
+        creation_ready = True
+
+        ai_planning_ready = gemini_state == "ready"
+        render_prerequisites_ready = stock_state == "ready" and r2_state == "ready"
         render_dispatch_ready = False
 
-        return {
-            "organization_id": str(organization_id),
-            "profile": "short_vertical",
-            "overall": overall_state,
-            "creation_ready": creation_ready,
-            "render_dispatch_ready": render_dispatch_ready,
-            "checks": checks,
-            "checked_at": datetime.now(UTC).isoformat()
-        }
+        return ReadinessResponse(
+            organization_id=organization_id,
+            profile="short_vertical",
+            overall=overall_state,
+            creation_ready=creation_ready,
+            ai_planning_ready=ai_planning_ready,
+            render_prerequisites_ready=render_prerequisites_ready,
+            render_dispatch_ready=render_dispatch_ready,
+            checks=checks,
+            checked_at=datetime.now(UTC)
+        )
