@@ -34,6 +34,11 @@ canonical `visionflow.legacy_job.requested.v1` outbox event, and uses the
 existing outbox event UUID as `event_id`. It is not yet wired to a public
 route, submit flow, or Redis consumer.
 
+The event contains an immutable `intake` snapshot (title, brief, format
+profile, timezone, input payload, and prompt manifest). A consumer must use
+this snapshot; it must not infer work from identifiers or reach back into the
+Control Plane database.
+
 Before enabling it, deploy the isolated orchestrator consumer and its MySQL
 transactional outbox. Configure a separate `VISIONFLOW_LEGACY_MAPPING_*`
 client with only `workflow:legacy-mapping:register`; it must never share the

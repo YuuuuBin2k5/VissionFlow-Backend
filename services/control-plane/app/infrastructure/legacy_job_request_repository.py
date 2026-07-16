@@ -90,6 +90,9 @@ class SqlAlchemyLegacyJobRequestRepository:
         workflow_run.state = WorkflowState.QUEUED.value
 
         event_id = uuid.uuid4()
+        project = self._session.get(VideoProject, workflow_run.project_id)
+        if project is None:
+            raise LookupError("project for workflow run was not found")
         event = OutboxEvent(
             id=event_id,
             aggregate_type="workflow_run",
@@ -101,6 +104,16 @@ class SqlAlchemyLegacyJobRequestRepository:
                 "source_command_id": str(command.source_command_id),
                 "organization_id": str(command.organization_id),
                 "workflow_run_id": str(workflow_run.id),
+                # This is a point-in-time command snapshot. The legacy intake
+                # must not re-query PostgreSQL or infer fields from a UUID.
+                "intake": {
+                    "title": project.title,
+                    "brief": project.brief,
+                    "format_profile": project.format_profile,
+                    "timezone": project.timezone,
+                    "input_payload": workflow_run.input_payload,
+                    "prompt_manifest": workflow_run.prompt_manifest,
+                },
             },
             trace_id=command.trace_id,
         )

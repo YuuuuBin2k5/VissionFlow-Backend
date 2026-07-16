@@ -89,6 +89,9 @@ class LegacyJobRequestRepositoryTests(unittest.TestCase):
         self.assertEqual(str(self.organization.id), event.payload["organization_id"])
         self.assertEqual(str(self.run.id), event.payload["workflow_run_id"])
         self.assertEqual(1, event.payload["event_version"])
+        self.assertEqual("Test", event.payload["intake"]["title"])
+        self.assertEqual("Brief", event.payload["intake"]["brief"])
+        self.assertEqual("short_vertical", event.payload["intake"]["format_profile"])
         queue_step = verification.scalar(
             select(WorkflowStep).where(WorkflowStep.workflow_run_id == self.run.id, WorkflowStep.step_key == "queue")
         )
