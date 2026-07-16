@@ -11,13 +11,16 @@ from app.domain.workflow import WorkflowState
 class BeginManualPublishCommand:
     """Declare an approved artifact ready for a human-controlled publish action.
 
-    This command intentionally contains no social-platform account, credential,
-    destination, or scheduling details. V1 records the boundary only; an
-    external publisher must be introduced later behind an explicit port.
+    The selected publisher connection is an opaque organization-owned ID. It
+    deliberately never carries platform credentials; the future publisher
+    adapter resolves credentials only inside the Control Plane boundary.
     """
 
     organization_id: uuid.UUID
     workflow_run_id: uuid.UUID
+    publisher_connection_id: uuid.UUID
+    publisher_provider: str
+    publisher_account_id: str
     requested_by_subject: str
     note: str | None = None
     trace_id: str = field(default_factory=lambda: uuid.uuid4().hex)
@@ -47,6 +50,9 @@ class BeginManualPublish:
                 target_state=WorkflowState.PUBLISHING,
                 output_payload={
                     "publish_status": "manual_publish_requested",
+                    "publisher_connection_id": str(command.publisher_connection_id),
+                    "publisher_provider": command.publisher_provider,
+                    "publisher_account_id": command.publisher_account_id,
                     "requested_by_subject": requested_by_subject,
                     "note": command.note,
                 },

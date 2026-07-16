@@ -3,7 +3,7 @@ import sys
 import unittest
 import uuid
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -55,6 +55,7 @@ class ManualApprovalApiTests(unittest.TestCase):
         }
         self.organization_id = uuid.uuid4()
         self.workflow_run_id = uuid.uuid4()
+        self.publisher_connection_id = uuid.uuid4()
         _ApprovalDouble.opened_command = None
         _ApprovalDouble.approved_command = None
         _ManualPublishDouble.command = None
@@ -67,7 +68,13 @@ class ManualApprovalApiTests(unittest.TestCase):
             from app.routers.auth import require_identity
 
         app.dependency_overrides[require_identity] = lambda: VerifiedIdentity("oidc|reviewer-42", None, None)
-        app.dependency_overrides[workflows.get_session] = lambda: object()
+        session = MagicMock()
+        connection = MagicMock()
+        connection.id = self.publisher_connection_id
+        connection.provider = "youtube"
+        connection.provider_account_id = "UC_channel_123"
+        session.scalar.return_value = connection
+        app.dependency_overrides[workflows.get_session] = lambda: session
         self.addCleanup(app.dependency_overrides.clear)
         return TestClient(app)
 
@@ -126,12 +133,13 @@ class ManualApprovalApiTests(unittest.TestCase):
             response = self._client().post(
                 f"/api/v1/workflows/{self.workflow_run_id}/publication/manual-dispatch",
                 headers={"Authorization": "Bearer publisher-token", "X-Request-ID": "f" * 32},
-                json={"organization_id": str(self.organization_id), "note": "Operator accepted handoff."},
+                json={"organization_id": str(self.organization_id), "publisher_connection_id": str(self.publisher_connection_id), "note": "Operator accepted handoff."},
             )
 
         self.assertEqual(200, response.status_code)
         self.assertEqual("PUBLISHING", response.json()["state"])
         self.assertEqual("oidc|reviewer-42", _ManualPublishDouble.command.requested_by_subject)
+        self.assertEqual(self.publisher_connection_id, _ManualPublishDouble.command.publisher_connection_id)
         self.assertEqual("publish:execute", authorize.return_value.require.call_args.args[2].value)
 
 

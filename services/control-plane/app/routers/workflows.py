@@ -73,7 +73,7 @@ from app.infrastructure.repositories import (
     SqlAlchemyNarrationResultRepository,
 )
 from app.infrastructure.workflow_progression_repository import SqlAlchemyWorkflowProgressionRepository
-from app.infrastructure.models import CompositionDocument, CompositionVersion, CreativeDocument, CreativeDocumentVersion, VideoProject, WorkflowRun, WorkflowStep
+from app.infrastructure.models import CompositionDocument, CompositionVersion, CreativeDocument, CreativeDocumentVersion, PublisherConnection, VideoProject, WorkflowRun, WorkflowStep
 from app.routers.auth import require_identity
 
 
@@ -370,6 +370,7 @@ class BeginManualPublishRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     organization_id: uuid.UUID
+    publisher_connection_id: uuid.UUID
     note: str | None = Field(default=None, max_length=2_000)
 
 
@@ -1225,17 +1226,30 @@ def begin_manual_publish(
 ) -> WorkflowTransitionResponse:
     """Enter PUBLISHING and emit the existing transactional outbox event.
 
-    No platform credentials, accounts or legacy publish calls are accepted at
-    this boundary. A future platform adapter consumes this explicit handoff.
+    The selected connection must be active and belong to the organization. No
+    platform credential is exposed at this boundary; a publisher adapter later
+    consumes the explicit connection reference from the workflow output.
     """
     try:
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
             identity.subject, request.organization_id, Permission.PUBLISH_EXECUTE
         )
+        connection = session.scalar(
+            select(PublisherConnection).where(
+                PublisherConnection.id == request.publisher_connection_id,
+                PublisherConnection.organization_id == request.organization_id,
+                PublisherConnection.status == "active",
+            )
+        )
+        if connection is None:
+            raise LookupError("Publisher connection not found")
         result = BeginManualPublish(AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(session))).execute(
             BeginManualPublishCommand(
                 organization_id=request.organization_id,
                 workflow_run_id=workflow_run_id,
+                publisher_connection_id=connection.id,
+                publisher_provider=connection.provider,
+                publisher_account_id=connection.provider_account_id,
                 requested_by_subject=identity.subject,
                 note=request.note,
                 trace_id=_trace_id(request_id),
