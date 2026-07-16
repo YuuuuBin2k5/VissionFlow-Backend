@@ -38,7 +38,7 @@ router = APIRouter(prefix="/integrations", tags=["integrations"])
 
 class OAuthStartResponse(BaseModel): authorization_url: str
 class PublisherConnectionResponse(BaseModel): id: uuid.UUID; provider: str; provider_account_id: str; display_name: str; status: str
-class YouTubePublishManifest(BaseModel): workflow_run_id: uuid.UUID; publisher_connection_id: uuid.UUID; title: str; description: str; artifact_download_url: str; artifact_expires_in_seconds: int; access_token: str; access_token_expires_in_seconds: int
+class YouTubePublishManifest(BaseModel): workflow_run_id: uuid.UUID; publisher_connection_id: uuid.UUID; title: str; description: str; artifact_download_url: str; artifact_expires_in_seconds: int; artifact_byte_size: int; artifact_checksum_sha256: str; access_token: str; access_token_expires_in_seconds: int
 class CompleteYouTubePublishRequest(BaseModel): organization_id: uuid.UUID; publisher_connection_id: uuid.UUID; video_id: str; video_url: str
 class FailYouTubePublishRequest(BaseModel): organization_id: uuid.UUID; publisher_connection_id: uuid.UUID; failure_code: str
 class ClaimPublicationAttemptRequest(BaseModel): organization_id: uuid.UUID
@@ -384,6 +384,8 @@ def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organizatio
         description=project.brief[:5000],
         artifact_download_url=preview.download_url,
         artifact_expires_in_seconds=preview.expires_in_seconds,
+        artifact_byte_size=artifact.byte_size,
+        artifact_checksum_sha256=artifact.checksum_sha256,
         access_token=token.value,
         access_token_expires_in_seconds=token.expires_in_seconds,
     )

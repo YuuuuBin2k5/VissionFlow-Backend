@@ -129,6 +129,8 @@ class PublishArtifactLineageTests(unittest.TestCase):
             manifest = _issue_youtube_manifest(self.session, self.session.get(WorkflowRun, self.workflow_run.id), self.organization_id, connection.id)
 
         self.assertEqual("https://object.example/final.mp4", manifest.artifact_download_url)
+        self.assertEqual(asset.byte_size, manifest.artifact_byte_size)
+        self.assertEqual(asset.checksum_sha256, manifest.artifact_checksum_sha256)
         previews.return_value.issue_final_export.assert_called_once_with(workflow_run_id=self.workflow_run.id, object_key=asset.object_key)
 
     def test_approval_without_a_final_export_is_rejected(self) -> None:

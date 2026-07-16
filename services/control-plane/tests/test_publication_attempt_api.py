@@ -129,6 +129,8 @@ class PublicationAttemptApiTests(unittest.TestCase):
             description="A retried YouTube short",
             artifact_download_url="https://object.example/final.mp4",
             artifact_expires_in_seconds=300,
+            artifact_byte_size=1024,
+            artifact_checksum_sha256="a" * 64,
             access_token="short-lived-token",
             access_token_expires_in_seconds=300,
         )

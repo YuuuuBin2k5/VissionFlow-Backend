@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import tempfile
 from pathlib import Path
@@ -30,14 +31,33 @@ def _service_token(session: requests.Session, base_url: str) -> str:
 def _upload_manifest(session: requests.Session, manifest: dict[str, object]) -> tuple[str, str]:
     with tempfile.TemporaryDirectory(prefix="visionflow-publish-") as directory:
         artifact_path = Path(directory) / "final.mp4"
-        with session.get(str(manifest["artifact_download_url"]), stream=True, timeout=(10, 600)) as artifact_response:
-            artifact_response.raise_for_status()
-            with artifact_path.open("wb") as destination:
-                for chunk in artifact_response.iter_content(1024 * 1024):
-                    if chunk:
-                        destination.write(chunk)
+        _download_verified_artifact(session, manifest, artifact_path)
         uploaded = YouTubeResumableUploader(session).upload(access_token=str(manifest["access_token"]), video_path=artifact_path, metadata=YouTubeUploadMetadata(str(manifest["title"]), str(manifest["description"]), ("Shorts",)))
     return uploaded.video_id, uploaded.url
+
+
+def _download_verified_artifact(session: requests.Session, manifest: dict[str, object], destination_path: Path) -> None:
+    """Download only the immutable export identified by the Control Plane manifest."""
+    expected_size = manifest.get("artifact_byte_size")
+    expected_checksum = manifest.get("artifact_checksum_sha256")
+    if not isinstance(expected_size, int) or isinstance(expected_size, bool) or expected_size < 1:
+        raise RuntimeError("Publish manifest has an invalid artifact size")
+    if not isinstance(expected_checksum, str) or len(expected_checksum) != 64:
+        raise RuntimeError("Publish manifest has an invalid artifact checksum")
+    digest = hashlib.sha256()
+    received_size = 0
+    with session.get(str(manifest["artifact_download_url"]), stream=True, timeout=(10, 600)) as artifact_response:
+        artifact_response.raise_for_status()
+        with destination_path.open("wb") as destination:
+            for chunk in artifact_response.iter_content(1024 * 1024):
+                if chunk:
+                    destination.write(chunk)
+                    digest.update(chunk)
+                    received_size += len(chunk)
+    if received_size != expected_size:
+        raise RuntimeError("Downloaded export size does not match the approved artifact")
+    if digest.hexdigest() != expected_checksum.lower():
+        raise RuntimeError("Downloaded export checksum does not match the approved artifact")
 
 
 def execute(workflow_run_id: str, organization_id: str) -> str:
