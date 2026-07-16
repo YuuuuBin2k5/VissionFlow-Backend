@@ -197,3 +197,24 @@ class VisionFlowWorkerSettingsTests(unittest.TestCase):
                     "model": "gemini-1.5-pro",
                 },
             )
+
+    def test_get_execution_context_by_job_id_calls_endpoint(self) -> None:
+        settings = VisionFlowWorkerSettings(
+            api_url="https://visionflow.example.com/api/v1",
+            organization_id="00000000-0000-0000-0000-000000000001",
+            token_url="https://visionflow.example.com/api/v1/auth/token",
+            client_id="intelligence-worker",
+            client_secret="not-a-real-secret",
+            audience="visionflow-control-plane",
+        )
+        http = RecordingHttp()
+        client = VisionFlowControlPlaneClient(settings, http=http)
+
+        result = client.get_execution_context_by_job_id(999, trace_id="d" * 32)
+
+        self.assertEqual(2, len(http.calls))
+        self.assertTrue(http.calls[1]["url"].endswith("/execution-context-by-job/999"))
+        self.assertEqual(settings.organization_id, http.calls[1]["params"]["organization_id"])
+        self.assertEqual("Bearer service-access-token", http.calls[1]["headers"]["Authorization"])
+        self.assertEqual("d" * 32, http.calls[1]["headers"]["X-Request-ID"])
+
