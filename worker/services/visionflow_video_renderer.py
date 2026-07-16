@@ -7,12 +7,15 @@ from worker.application.visionflow_render_workflow import PreparedAssets, Render
 from worker.domain.composition_render_plan import CompositionRenderPlan
 from worker.domain.render_workspace import RenderWorkspace
 from worker.services.composition_caption_compositor import FfmpegCaptionCompositor
+from worker.services.composition_overlay_compositor import FfmpegOverlayCompositor, OverlayAssetMaterializer
 
 class VisionFlowVideoRenderer:
-    def __init__(self, storage, materializer, tts, media_service, workspace_root, caption_compositor=None) -> None:
+    def __init__(self, storage, materializer, tts, media_service, workspace_root, caption_compositor=None, overlay_materializer=None, overlay_compositor=None) -> None:
         self._storage, self._materializer, self._tts = storage, materializer, tts
         self._media_service, self._workspace_root = media_service, Path(workspace_root)
         self._caption_compositor = caption_compositor or FfmpegCaptionCompositor()
+        self._overlay_materializer = overlay_materializer or OverlayAssetMaterializer(storage)
+        self._overlay_compositor = overlay_compositor or FfmpegOverlayCompositor()
 
     def render(self, contract, assets: PreparedAssets) -> RenderedArtifact:
         workspace = RenderWorkspace(self._workspace_root, contract.workflow_run_id).create()
@@ -25,6 +28,8 @@ class VisionFlowVideoRenderer:
             visual_style_plan=_style_plan(contract),
             full_voice_script=contract.script,
         )
+        overlays = self._overlay_materializer.download(contract.render_plan, workspace.path)
+        output_path = self._overlay_compositor.apply(output_path, overlays, workspace.path)
         output_path = self._caption_compositor.apply(output_path, contract.render_plan, workspace.path)
         uploaded = self._storage.upload_export(contract.workflow_run_id, output_path)
         return RenderedArtifact(**uploaded)
