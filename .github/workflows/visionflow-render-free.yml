@@ -1,0 +1,78 @@
+name: VisionFlow free short-form render
+
+# Render Free cannot host an always-on background worker. This intentionally
+# manual runner processes a small, operator-approved batch on GitHub-hosted
+# infrastructure using the same Control Plane, Redis Stream and R2 contracts.
+on:
+  workflow_dispatch:
+    inputs:
+      confirmed:
+        description: "Type RENDER to acknowledge this can call AI providers and create real media artifacts."
+        required: true
+        type: string
+      passes:
+        description: "Relay/worker passes (1-3). Two passes normally cover plan then render."
+        required: true
+        default: "2"
+        type: choice
+        options:
+          - "1"
+          - "2"
+          - "3"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: visionflow-free-short-render
+  cancel-in-progress: false
+
+jobs:
+  render-approved-work:
+    if: ${{ inputs.confirmed == 'RENDER' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      DATABASE_URL: ${{ secrets.VISIONFLOW_DATABASE_URL }}
+      REDIS_URL: ${{ secrets.VISIONFLOW_REDIS_URL }}
+      VISIONFLOW_CONTROL_PLANE_URL: ${{ secrets.VISIONFLOW_CONTROL_PLANE_URL }}
+      VISIONFLOW_WORKER_CLIENT_ID: ${{ secrets.VISIONFLOW_WORKER_CLIENT_ID }}
+      VISIONFLOW_WORKER_CLIENT_SECRET: ${{ secrets.VISIONFLOW_WORKER_CLIENT_SECRET }}
+      VISIONFLOW_ORGANIZATION_ID: ${{ secrets.VISIONFLOW_ORGANIZATION_ID }}
+      VISIONFLOW_AUTH_AUDIENCE: visionflow-control-plane
+      VISIONFLOW_OBJECT_STORE_ENDPOINT: ${{ secrets.VISIONFLOW_OBJECT_STORE_ENDPOINT }}
+      VISIONFLOW_OBJECT_STORE_BUCKET: ${{ secrets.VISIONFLOW_OBJECT_STORE_BUCKET }}
+      VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID: ${{ secrets.VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID }}
+      VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY: ${{ secrets.VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY }}
+      VISIONFLOW_OBJECT_STORE_REGION: auto
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify render runner configuration
+        shell: bash
+        run: |
+          required=(DATABASE_URL REDIS_URL VISIONFLOW_CONTROL_PLANE_URL VISIONFLOW_WORKER_CLIENT_ID VISIONFLOW_WORKER_CLIENT_SECRET VISIONFLOW_ORGANIZATION_ID VISIONFLOW_OBJECT_STORE_ENDPOINT VISIONFLOW_OBJECT_STORE_BUCKET VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY GEMINI_API_KEY PEXELS_API_KEY)
+          for name in "${required[@]}"; do
+            if [ -z "${!name}" ]; then
+              echo "Missing required GitHub secret: $name"
+              exit 1
+            fi
+          done
+          export VISIONFLOW_TOKEN_URL="${VISIONFLOW_CONTROL_PLANE_URL%/}/auth/token"
+          printf 'VISIONFLOW_TOKEN_URL=%s\n' "$VISIONFLOW_TOKEN_URL" >> "$GITHUB_ENV"
+      - name: Install relay and render dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r services/control-plane/requirements.txt -r worker/requirements.txt
+      - name: Relay and execute bounded short-form work
+        shell: bash
+        run: |
+          for ((pass=1; pass<=${{ inputs.passes }}; pass++)); do
+            echo "Starting VisionFlow relay/worker pass $pass"
+            python services/control-plane/scripts/relay_outbox.py --limit 10
+            python worker/consume_visionflow_events.py --once --block-ms 1000 --count 10
+          done
+          # Persist final QA/review state events even though no further worker action is required.
+          python services/control-plane/scripts/relay_outbox.py --limit 10

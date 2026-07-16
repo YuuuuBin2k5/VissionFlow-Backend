@@ -68,3 +68,26 @@ docker run --rm --env-file services/control-plane/.env visionflow-control-plane 
 
 Avoid building these images on drive C when it is nearly full. Docker uses a
 large build cache and FFmpeg dependencies; use a drive with sufficient space.
+
+## Run one real short-form workflow on GitHub Actions
+
+For an on-demand free runner, use the **VisionFlow free short-form render**
+workflow from the repository's Actions tab. It is deliberately manual: enter
+`RENDER` in the confirmation field and select two passes. The runner relays
+the durable outbox, generates the plan, relays again, then renders the queued
+short-form workflow. It never auto-publishes.
+
+Configure these repository secrets before the first run. Values stay in GitHub
+Secrets and must not be copied into workflow YAML:
+
+- `VISIONFLOW_DATABASE_URL`, `VISIONFLOW_REDIS_URL`,
+  `VISIONFLOW_CONTROL_PLANE_URL`, `VISIONFLOW_ORGANIZATION_ID`
+- `VISIONFLOW_WORKER_CLIENT_ID`, `VISIONFLOW_WORKER_CLIENT_SECRET`
+- `VISIONFLOW_OBJECT_STORE_ENDPOINT`, `VISIONFLOW_OBJECT_STORE_BUCKET`,
+  `VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID`,
+  `VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY`
+- `GEMINI_API_KEY`, `PEXELS_API_KEY`
+
+Use this only for a small, manually reviewed V1 short-form queue. The hosted
+runner has a 45-minute job bound and is not a replacement for a persistent
+production worker.
