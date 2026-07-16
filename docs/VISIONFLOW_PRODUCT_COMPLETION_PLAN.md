@@ -129,6 +129,10 @@ broken contract, migration and type error.
 - Use Render/Vercel secrets only; browser variables are public and contain no
   private key, provider token or database URL.
 - Add configuration validators that fail closed and redact secrets.
+- Classify Render Free as preview-only: it can spin down and cannot host
+  background workers or pre-deploy commands. Staging/production needs paid
+  Render worker services or an equivalent always-on worker platform; migration
+  runs in a dedicated paid pre-deploy job or an explicit CI migration job.
 
 **Accept:** a deployment with a missing required setting fails before work is
 consumed; no secret is printed by health checks, CI or logs.
@@ -137,6 +141,10 @@ consumed; no secret is printed by health checks, CI or logs.
 
 - Run forward-only Alembic migrations through `MIGRATION_DATABASE_URL`; use
   pooled `DATABASE_URL` only at runtime.
+- Design runtime queries for Neon transaction pooling: do not depend on
+  session-level advisory locks, `LISTEN`, prepared statements, temporary-table
+  session state or other connection-affine behavior. Use direct connections
+  only for controlled migration/admin operations.
 - Build isolated services for Control Plane, relay, intelligence worker, media
   worker and optional legacy intake. Do not combine workers with the public
   frontend process.
@@ -248,6 +256,10 @@ the editor receives it.
 
 - MIME/size/duration/dimension validation, malware scanning for user uploads,
   metadata extraction and duplicate checksum policy.
+- Browser direct uploads use short-lived, object-specific signed **PUT** URLs
+  with signed content type and bucket CORS allow-lists. Resumable/multipart
+  uploads require a server-coordinated create-part-complete protocol and an
+  incomplete-upload lifecycle; do not assume HTML form POST uploads work.
 - Temporary uploads expire; finalized media is immutable/referential.
 
 ### AS-03 Rights, brand kit and font policy
@@ -300,8 +312,9 @@ locked or rendered; a worker restart can still retrieve every finalized input.
   keyframe commands; undo/redo before autosave.
 - Debounced autosave (750–1200ms), explicit saving/saved/conflict/offline,
   flush on lock/navigation; no silent overwrite.
-- Keyboard alternatives for every drag action, visible focus, screen-reader
-  feedback, 200% zoom and reduced-motion support.
+- Keyboard **and single-pointer** alternatives for every drag action (for
+  example, Move earlier/later and Move track controls), visible focus,
+  screen-reader feedback, 200% zoom and reduced-motion support.
 
 ### CMP-05 Effects, caption, overlay and audio editing
 
@@ -455,6 +468,10 @@ critical creation/review paths pass keyboard-only and reduced-motion E2E.
 
 - OpenTelemetry trace/log/metric correlation across API, relay, workers and
   provider calls. Propagate trace IDs through HTTP and events.
+- Use OpenTelemetry HTTP, database, messaging and object-store semantic
+  conventions with stable `service.name`, deployment environment and
+  instrumentation scope. Never put raw prompts, media URLs, bearer tokens or
+  personal data into telemetry attributes.
 - Dashboards: API, auth, queue age/DLQ, workflow success, render latency/cost,
   provider failures, Neon, R2 and publication attempts.
 
@@ -491,6 +508,8 @@ critical creation/review paths pass keyboard-only and reduced-motion E2E.
 - Candidate SHA/image digest, migration revision, secrets-name checklist,
   independent approval, backward-compatible rollback plan and post-deploy
   synthetic short workflow with publishing disabled.
+- Pin every third-party GitHub Action to a full commit SHA, retain the release
+  tag in a comment, and review updates through a dedicated dependency change.
 
 ### OPS-08 Production launch
 
@@ -562,9 +581,10 @@ creative/composition persistence, basic timeline interactions, auth and the
 isolated intake runtime. It does **not** yet prove an end-to-end browser-to-MP4
 short workflow; the immediate work must close that gap before adding breadth.
 
-1. **S1 — Staging runtime parity:** deploy Control Plane, relay and
-   intelligence/media workers with Neon, Redis, R2 and provider secrets;
-   complete FND-03/04 evidence.
+1. **S1 — Staging runtime parity:** choose an always-on worker topology (not
+   Render Free), then deploy Control Plane, relay and intelligence/media
+   workers with Neon, Redis, R2 and provider secrets; complete FND-03/04
+   evidence.
 2. **S2 — Real short vertical slice:** run RND-07 with one browser-created
    short workflow. Capture workflow/trace/artifact IDs and fix every missing
    API/event/provider contract uncovered.
@@ -596,3 +616,22 @@ For each completed item, record in a release artifact:
 
 No item may be marked done without this ledger. If a dependency is missing,
 mark the item **blocked**, not complete.
+
+## 18. Research decisions validated on 2026-07-16
+
+- [Render Free limits](https://render.com/docs/free) confirm Free is suited to
+  preview/testing, spins down idle web services and does not support free
+  background workers; [Render deploys](https://render.com/docs/deploys)
+  confirms pre-deploy commands are paid-service functionality.
+- [Neon connection pooling](https://neon.com/docs/connect/connection-pooling)
+  documents transaction-pool restrictions that inform FND-04.
+- [Cloudflare R2 presigned URLs](https://developers.cloudflare.com/r2/api/s3/presigned-urls/)
+  and [upload details](https://developers.cloudflare.com/r2/objects/upload-objects/)
+  inform the signed PUT, CORS and multipart lifecycle requirements in AS-02.
+- [OpenTelemetry semantic conventions](https://opentelemetry.io/docs/specs/semconv/)
+  define the consistent telemetry vocabulary required by OPS-01.
+- [WCAG 2.2](https://www.w3.org/TR/WCAG22/) and the
+  [dragging guidance](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements)
+  require alternatives to dragging, reflected in CMP-04.
+- [GitHub Actions secure use](https://docs.github.com/en/actions/reference/security/secure-use)
+  supports the full-SHA Action pinning rule in OPS-07.
