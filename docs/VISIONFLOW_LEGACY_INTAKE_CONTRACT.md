@@ -46,7 +46,18 @@ The source command UUID is the idempotency key. An exact replay returns the
 prior job; a conflicting replay is dead-lettered. No Control Plane endpoint is
 called from this intake transaction.
 
-`legacy_outbox` delivery, lease claiming, `XAUTOCLAIM` recovery, and the
-separate OAuth mapping call are the D2b slice. Production migration is only
-`npx prisma migrate deploy`; runtime schema creation and `prisma db push` are
-prohibited.
+## Mapping outbox delivery
+
+The mapping processor claims work in deterministic `(next_attempt_at, id)`
+order under a unique lease token. Every state update includes `id`,
+`status='PROCESSING'`, and `lease_token`; an old worker therefore cannot mark
+another worker's lease as delivered.
+
+`200`/`201` are success. Mapping conflicts and client/auth/validation errors
+become `DEAD_LETTER`; network, `429`, and `5xx` failures are retried with
+bounded exponential backoff. Maximum attempts become `DEAD_LETTER` rather
+than silently looping forever.
+
+The separate processor remains dormant until the activation gate. Production
+migration is only `npx prisma migrate deploy`; runtime schema creation and
+`prisma db push` are prohibited.
