@@ -1,7 +1,7 @@
 # VisionFlow — Product Completion Plan
 
-**Status:** authoritative execution backlog for a complete product  
-**Audience:** product lead, implementation agents, reviewers and release operator  
+**Status:** authoritative execution backlog for a complete product
+**Audience:** product lead, implementation agents, reviewers and release operator
 **Supersedes:** no architecture decision. This document sequences the approved
 scope in the Delivery Plan, Master Execution Playbook, Composition Next Phases,
 UI System and Acceptance/Operations Runbook.
