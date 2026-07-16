@@ -154,6 +154,19 @@ class PublisherOAuthAttempt(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
+class PublicationAttempt(Timestamped, Base):
+    """Append-only operator retry record; never reopens a failed workflow."""
+    __tablename__ = "publication_attempts"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workflow_run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workflow_runs.id", ondelete="CASCADE"), nullable=False)
+    publisher_connection_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("publisher_connections.id", ondelete="RESTRICT"), nullable=False)
+    attempt_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False, default="requested")
+    requested_by_subject: Mapped[str] = mapped_column(String(512), nullable=False)
+    failure_code: Mapped[str | None] = mapped_column(String(96), nullable=True)
+    __table_args__ = (UniqueConstraint("workflow_run_id", "attempt_number", name="uq_publication_attempt_number"),)
+
+
 class WorkflowRun(Timestamped, Base):
     __tablename__ = "workflow_runs"
 
