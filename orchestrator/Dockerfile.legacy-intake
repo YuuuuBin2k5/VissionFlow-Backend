@@ -1,0 +1,25 @@
+FROM node:20-bookworm-slim AS build
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY tsconfig.json ./
+COPY prisma ./prisma
+COPY src ./src
+ENV DATABASE_URL=mysql://placeholder:placeholder@localhost:3306/visionflow_build
+RUN npx prisma generate --schema prisma/schema.prisma && npm run build
+
+FROM node:20-bookworm-slim AS runtime
+
+ENV NODE_ENV=production
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=build /app/dist ./dist
+
+USER node
+EXPOSE 3000
+CMD ["node", "dist/visionflow/runLegacyIntake.js"]

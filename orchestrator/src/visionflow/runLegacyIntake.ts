@@ -6,7 +6,7 @@ dotenv.config();
 
 const app = express();
 const runtime = attachLegacyIntakeRuntime(app);
-const port = Number(process.env.VISIONFLOW_LEGACY_INTAKE_PORT || '3100');
+const port = Number(process.env.VISIONFLOW_LEGACY_INTAKE_PORT || process.env.PORT || '3100');
 
 if (!Number.isInteger(port) || port < 1 || port > 65_535) {
   throw new Error('VISIONFLOW_LEGACY_INTAKE_PORT must be a valid TCP port');
