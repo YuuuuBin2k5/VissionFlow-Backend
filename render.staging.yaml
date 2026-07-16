@@ -54,13 +54,34 @@ services:
     name: visionflow-outbox-relay-staging
     region: singapore
     dockerfilePath: services/control-plane/Dockerfile
-    dockerCommand: python scripts/relay_outbox.py --limit 50
+    dockerCommand: python scripts/run_outbox_relay.py
     maxShutdownDelaySeconds: 60
     envVars:
       - key: DATABASE_URL
         sync: false
       - key: REDIS_URL
         sync: false
+  - type: worker
+    runtime: docker
+    name: visionflow-youtube-publisher-staging
+    region: singapore
+    dockerfilePath: services/publisher-worker/Dockerfile
+    maxShutdownDelaySeconds: 600
+    envVars:
+      - key: REDIS_URL
+        sync: false
+      - key: VISIONFLOW_CONTROL_PLANE_URL
+        sync: false
+      - key: VISIONFLOW_AUTH_AUDIENCE
+        value: visionflow-control-plane
+      - key: VISIONFLOW_PUBLISHER_CLIENT_ID
+        sync: false
+      - key: VISIONFLOW_PUBLISHER_CLIENT_SECRET
+        sync: false
+      - key: VISIONFLOW_PUBLISHER_SUBJECT
+        value: service|visionflow-publisher
+      - key: VISIONFLOW_PUBLISHER_WORKER_SUBJECT
+        value: service|visionflow-publisher
   - type: worker
     runtime: docker
     name: visionflow-intelligence-worker-staging

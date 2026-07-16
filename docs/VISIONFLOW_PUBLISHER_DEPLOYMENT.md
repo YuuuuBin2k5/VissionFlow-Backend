@@ -1,0 +1,15 @@
+# VisionFlow YouTube Publisher deployment
+
+The free Render Blueprint intentionally does not run background workers. Use the staging Blueprint only after Redis and object storage are configured.
+
+Required publisher-worker environment values:
+
+- `REDIS_URL`: durable TLS Redis endpoint shared with the Control Plane.
+- `VISIONFLOW_CONTROL_PLANE_URL`: `https://<control-plane>/api/v1`.
+- `VISIONFLOW_AUTH_AUDIENCE`: `visionflow-control-plane`.
+- `VISIONFLOW_PUBLISHER_CLIENT_ID` and `VISIONFLOW_PUBLISHER_CLIENT_SECRET`: a new, dedicated client-credentials pair.
+- `VISIONFLOW_PUBLISHER_SUBJECT` and `VISIONFLOW_PUBLISHER_WORKER_SUBJECT`: both `service|visionflow-publisher`.
+
+The same client ID, secret, and subject must be registered as `VISIONFLOW_PUBLISHER_*` on the Control Plane. The service token carries only `publish:execute`.
+
+Before enabling workers, run `python -m alembic upgrade head` once against Neon. Verify Control Plane health, then publish one approved private test Short. A successful execution ends with workflow state `PUBLISHED` and a YouTube watch URL.
