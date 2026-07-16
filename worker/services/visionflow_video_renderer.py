@@ -1,5 +1,6 @@
 """MySQL-free VideoRenderer adapter for the VisionFlow render workflow."""
 from __future__ import annotations
+from pathlib import Path
 from typing import Any
 
 from worker.application.visionflow_render_workflow import PreparedAssets, RenderedArtifact
@@ -10,7 +11,7 @@ from worker.services.composition_caption_compositor import FfmpegCaptionComposit
 class VisionFlowVideoRenderer:
     def __init__(self, storage, materializer, tts, media_service, workspace_root, caption_compositor=None) -> None:
         self._storage, self._materializer, self._tts = storage, materializer, tts
-        self._media_service, self._workspace_root = media_service, workspace_root
+        self._media_service, self._workspace_root = media_service, Path(workspace_root)
         self._caption_compositor = caption_compositor or FfmpegCaptionCompositor()
 
     def render(self, contract, assets: PreparedAssets) -> RenderedArtifact:
