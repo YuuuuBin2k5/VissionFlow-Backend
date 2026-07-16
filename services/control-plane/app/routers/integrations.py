@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.application.authorize_organization import AuthorizeOrganization
+from app.application.youtube_access_token import YouTubeAccessTokenRefresher
 from app.core.config import ConfigurationError
 from app.core.publisher_oauth_state import issue_state
 from app.core.publisher_oauth_state import verify_state
@@ -20,16 +21,20 @@ from app.core.publisher_token_cipher import PublisherTokenCipher
 from app.core.youtube_publisher import YouTubePublisherSettings
 from app.core.oidc import VerifiedIdentity
 from app.domain.authorization import Permission
+from app.domain.workflow import WorkflowState
 from app.infrastructure.database import get_session
 from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
 from app.infrastructure.publisher_oauth_repository import PublisherOAuthAttemptRepository
 from app.infrastructure.models import PublisherConnection
+from app.infrastructure.models import VideoProject, WorkflowRun, WorkflowStep
+from app.infrastructure.overlay_uploads import PrivateObjectPreviewIssuer, OverlayUploadConfigurationError, OverlayUploadVerificationError
 from app.routers.auth import require_identity
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 
 class OAuthStartResponse(BaseModel): authorization_url: str
 class PublisherConnectionResponse(BaseModel): id: uuid.UUID; provider: str; provider_account_id: str; display_name: str; status: str
+class YouTubePublishManifest(BaseModel): workflow_run_id: uuid.UUID; publisher_connection_id: uuid.UUID; artifact_download_url: str; artifact_expires_in_seconds: int; access_token: str; access_token_expires_in_seconds: int
 
 @router.get("/publisher-connections", response_model=list[PublisherConnectionResponse])
 def list_publisher_connections(organization_id: uuid.UUID, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> list[PublisherConnectionResponse]:
@@ -96,3 +101,38 @@ def _console_callback_url() -> str:
     if not origins or not origins[0].startswith("https://"):
         raise ConfigurationError("VISIONFLOW_WEB_ORIGINS must contain an HTTPS console origin")
     return f"{origins[0]}/?youtube_oauth=connected"
+
+
+@router.get("/youtube/publish-manifests/{workflow_run_id}", response_model=YouTubePublishManifest)
+def get_youtube_publish_manifest(workflow_run_id: uuid.UUID, organization_id: uuid.UUID, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> YouTubePublishManifest:
+    """Issue one short-lived, service-only manifest for an approved publish handoff."""
+    try:
+        expected_subject = (getenv("VISIONFLOW_PUBLISHER_WORKER_SUBJECT") or "").strip()
+        if not expected_subject or identity.subject != expected_subject or Permission.PUBLISH_EXECUTE not in identity.scopes:
+            raise PermissionError("Publisher service identity is not authorized")
+        workflow = session.scalar(select(WorkflowRun).join(VideoProject).where(VideoProject.organization_id == organization_id, WorkflowRun.id == workflow_run_id))
+        if workflow is None or workflow.state != WorkflowState.PUBLISHING.value:
+            raise LookupError()
+        publish = session.scalar(select(WorkflowStep).where(WorkflowStep.workflow_run_id == workflow_run_id, WorkflowStep.step_key == "publish"))
+        qa = session.scalar(select(WorkflowStep).where(WorkflowStep.workflow_run_id == workflow_run_id, WorkflowStep.step_key == "quality_assurance", WorkflowStep.state == WorkflowState.RENDERED.value))
+        payload = publish.output_payload if publish and isinstance(publish.output_payload, dict) else {}
+        artifact = qa.output_payload.get("artifact") if qa and isinstance(qa.output_payload, dict) else None
+        connection_id = payload.get("publisher_connection_id")
+        object_key = artifact.get("object_key") if isinstance(artifact, dict) else None
+        if not isinstance(connection_id, str) or not isinstance(object_key, str):
+            raise LookupError()
+        connection = session.scalar(select(PublisherConnection).where(PublisherConnection.id == uuid.UUID(connection_id), PublisherConnection.organization_id == organization_id, PublisherConnection.provider == "youtube", PublisherConnection.status == "active"))
+        if connection is None:
+            raise LookupError()
+        preview = PrivateObjectPreviewIssuer.from_env().issue_final_export(workflow_run_id=workflow_run_id, object_key=object_key)
+        import requests
+        token = YouTubeAccessTokenRefresher(requests, PublisherTokenCipher.from_env(), YouTubePublisherSettings.from_env()).refresh(connection.encrypted_refresh_token)
+        return YouTubePublishManifest(workflow_run_id=workflow_run_id, publisher_connection_id=connection.id, artifact_download_url=preview.download_url, artifact_expires_in_seconds=preview.expires_in_seconds, access_token=token.value, access_token_expires_in_seconds=token.expires_in_seconds)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Publisher service identity is not authorized") from exc
+    except (LookupError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Publish handoff not found") from exc
+    except (ConfigurationError, OverlayUploadConfigurationError) as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Publisher service is unavailable") from exc
+    except OverlayUploadVerificationError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Publish artifact is invalid") from exc
