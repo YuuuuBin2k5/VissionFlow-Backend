@@ -56,6 +56,7 @@ from app.infrastructure.creative_document_repository import (
     SqlAlchemyCreativeDocumentRepository,
 )
 from app.infrastructure.composition_repository import CompositionConflict, SqlAlchemyCompositionRepository
+from app.infrastructure.overlay_uploads import OverlayUploadConfigurationError, OverlayUploadIssuer
 from app.infrastructure.legacy_mapping_repository import SqlAlchemyLegacyMappingRepository
 from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
 from app.infrastructure.repositories import (
@@ -276,6 +277,21 @@ class LockCompositionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     organization_id: uuid.UUID
     expected_revision: int = Field(ge=1)
+
+
+class CreateOverlayUploadRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    organization_id: uuid.UUID
+    filename: str = Field(min_length=1, max_length=255)
+    content_type: str = Field(min_length=1, max_length=96)
+    byte_size: int = Field(ge=1, le=15 * 1024 * 1024)
+
+
+class OverlayUploadTicketResponse(BaseModel):
+    object_key: str
+    upload_url: str
+    required_headers: dict[str, str]
+    expires_in_seconds: int
 
 
 class CreativeDocumentSceneResponse(BaseModel):
@@ -591,6 +607,33 @@ def lock_composition(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
+@router.post("/workflows/{workflow_run_id}/composition/overlay-uploads", response_model=OverlayUploadTicketResponse, status_code=status.HTTP_201_CREATED)
+def create_overlay_upload(
+    workflow_run_id: uuid.UUID, request: CreateOverlayUploadRequest,
+    identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session),
+) -> OverlayUploadTicketResponse:
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, request.organization_id, Permission.WORKFLOW_CREATE)
+        exists = session.scalar(select(WorkflowRun.id).join(VideoProject, VideoProject.id == WorkflowRun.project_id).where(
+            WorkflowRun.id == workflow_run_id, VideoProject.organization_id == request.organization_id,
+        ))
+        if exists is None:
+            raise LookupError("Workflow run not found")
+        ticket = OverlayUploadIssuer.from_env().issue(
+            workflow_run_id=workflow_run_id, filename=request.filename,
+            content_type=request.content_type, byte_size=request.byte_size,
+        )
+        return OverlayUploadTicketResponse(**ticket.__dict__)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except OverlayUploadConfigurationError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Overlay uploads are not configured") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
 
 
 @router.post(
