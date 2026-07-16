@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import Settings
-from app.routers import auth, prompts, system, workflows
+from app.routers import auth, integrations, prompts, system, workflows
 
 
 settings = Settings.from_env()
@@ -22,6 +22,7 @@ app.include_router(system.router, prefix=settings.api_prefix)
 app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(workflows.router, prefix=settings.api_prefix)
 app.include_router(prompts.router, prefix=settings.api_prefix)
+app.include_router(integrations.router, prefix=settings.api_prefix)
 
 
 from fastapi import HTTPException
