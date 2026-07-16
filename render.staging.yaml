@@ -39,6 +39,16 @@ services:
         sync: false
       - key: VISIONFLOW_WORKER_SUBJECT
         value: service|visionflow-intelligence-worker
+      - key: VISIONFLOW_OBJECT_STORE_ENDPOINT
+        sync: false
+      - key: VISIONFLOW_OBJECT_STORE_BUCKET
+        sync: false
+      - key: VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID
+        sync: false
+      - key: VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY
+        sync: false
+      - key: VISIONFLOW_OBJECT_STORE_REGION
+        value: auto
   - type: worker
     runtime: docker
     name: visionflow-outbox-relay-staging
@@ -72,3 +82,13 @@ services:
         sync: false
       - key: VISIONFLOW_AUTH_AUDIENCE
         value: visionflow-control-plane
+      - key: VISIONFLOW_OBJECT_STORE_ENDPOINT
+        sync: false
+      - key: VISIONFLOW_OBJECT_STORE_BUCKET
+        sync: false
+      - key: VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID
+        sync: false
+      - key: VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY
+        sync: false
+      - key: VISIONFLOW_OBJECT_STORE_REGION
+        value: auto

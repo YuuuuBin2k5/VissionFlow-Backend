@@ -47,3 +47,16 @@ services:
         sync: false
       - key: VISIONFLOW_WORKER_SUBJECT
         value: service|visionflow-intelligence-worker
+      # Required only for browser overlay uploads. The free profile cannot run
+      # the intelligence worker, so uploaded overlays render only after a
+      # paid worker or local worker consumes the workflow event.
+      - key: VISIONFLOW_OBJECT_STORE_ENDPOINT
+        sync: false
+      - key: VISIONFLOW_OBJECT_STORE_BUCKET
+        sync: false
+      - key: VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID
+        sync: false
+      - key: VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY
+        sync: false
+      - key: VISIONFLOW_OBJECT_STORE_REGION
+        value: auto
