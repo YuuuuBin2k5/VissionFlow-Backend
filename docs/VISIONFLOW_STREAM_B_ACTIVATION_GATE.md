@@ -6,6 +6,12 @@ All Stream B modules are **dormant**. `orchestrator/src/main.ts` does not
 import the runtime. `VISIONFLOW_LEGACY_INTAKE_ENABLED` defaults to disabled;
 only the exact string `true` can construct Redis consumers or HTTP clients.
 
+The activation commit must call `attachLegacyIntakeRuntime(app)` from
+`orchestrator/src/visionflow/legacyIntakeStartup.ts` after `dotenv.config()`.
+It must retain the returned runtime and await `runtime.stop()` on `SIGINT` and
+`SIGTERM`. This adapter exposes `GET /health/visionflow/legacy-intake` without
+leaking secrets or event payloads.
+
 ## Required deployment configuration
 
 Configure these as Render secrets, never in Git:
