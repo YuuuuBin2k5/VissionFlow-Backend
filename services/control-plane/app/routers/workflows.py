@@ -56,7 +56,13 @@ from app.infrastructure.creative_document_repository import (
     SqlAlchemyCreativeDocumentRepository,
 )
 from app.infrastructure.composition_repository import CompositionConflict, SqlAlchemyCompositionRepository
-from app.infrastructure.overlay_uploads import OverlayUploadConfigurationError, OverlayUploadIssuer
+from app.infrastructure.overlay_uploads import (
+    OverlayAssetVerifier,
+    OverlayUploadConfigurationError,
+    OverlayUploadIssuer,
+    OverlayUploadVerificationError,
+    composition_overlay_object_keys,
+)
 from app.infrastructure.legacy_mapping_repository import SqlAlchemyLegacyMappingRepository
 from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
 from app.infrastructure.repositories import (
@@ -598,13 +604,24 @@ def lock_composition(
 ) -> dict[str, Any]:
     try:
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, request.organization_id, Permission.WORKFLOW_CREATE)
-        return SqlAlchemyCompositionRepository(session).lock(organization_id=request.organization_id, workflow_run_id=workflow_run_id, expected_revision=request.expected_revision)
+        repository = SqlAlchemyCompositionRepository(session)
+        composition = repository.read(request.organization_id, workflow_run_id)
+        if composition is None:
+            raise LookupError("Composition not found")
+        object_keys = composition_overlay_object_keys(composition)
+        if object_keys:
+            OverlayAssetVerifier.from_env().verify(workflow_run_id=workflow_run_id, object_keys=object_keys)
+        return repository.lock(organization_id=request.organization_id, workflow_run_id=workflow_run_id, expected_revision=request.expected_revision)
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except CompositionConflict as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except OverlayUploadConfigurationError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Overlay verification is not configured") from exc
+    except OverlayUploadVerificationError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 

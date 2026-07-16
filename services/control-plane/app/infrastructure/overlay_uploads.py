@@ -14,6 +14,10 @@ class OverlayUploadConfigurationError(ValueError):
     pass
 
 
+class OverlayUploadVerificationError(ValueError):
+    pass
+
+
 @dataclass(frozen=True)
 class OverlayUploadTicket:
     object_key: str
@@ -64,3 +68,50 @@ class OverlayUploadIssuer:
             HttpMethod="PUT",
         )
         return OverlayUploadTicket(key, url, {"Content-Type": content_type}, self._expires_in_seconds)
+
+
+class OverlayAssetVerifier:
+    """Verifies object-store facts before an overlay becomes immutable render input."""
+
+    def __init__(self, client, bucket: str) -> None:
+        self._client, self._bucket = client, bucket
+
+    @classmethod
+    def from_env(cls) -> "OverlayAssetVerifier":
+        issuer = OverlayUploadIssuer.from_env()
+        return cls(issuer._client, issuer._bucket)
+
+    def verify(self, *, workflow_run_id: uuid.UUID, object_keys: tuple[str, ...]) -> None:
+        for key in object_keys:
+            self._validate_key(workflow_run_id, key)
+            try:
+                metadata = self._client.head_object(Bucket=self._bucket, Key=key)
+            except Exception as exc:
+                raise OverlayUploadVerificationError("Uploaded overlay could not be verified") from exc
+            content_type = str(metadata.get("ContentType", "")).lower()
+            size = metadata.get("ContentLength")
+            if content_type not in OverlayUploadIssuer._CONTENT_TYPES or not isinstance(size, int) or not 1 <= size <= 15 * 1024 * 1024:
+                raise OverlayUploadVerificationError("Uploaded overlay has an unsupported type or size")
+
+    @staticmethod
+    def _validate_key(workflow_run_id: uuid.UUID, key: str) -> None:
+        normalized = key.replace("\\", "/")
+        if not normalized.startswith(f"visionflow/{workflow_run_id}/uploads/") or ".." in normalized.split("/"):
+            raise OverlayUploadVerificationError("Overlay object does not belong to this workflow")
+
+
+def composition_overlay_object_keys(composition: dict[str, object]) -> tuple[str, ...]:
+    keys: list[str] = []
+    tracks = composition.get("tracks", [])
+    if not isinstance(tracks, list):
+        return ()
+    for track in tracks:
+        if not isinstance(track, dict) or track.get("track_type") != "overlay" or track.get("muted"):
+            continue
+        clips = track.get("clips", [])
+        if not isinstance(clips, list):
+            continue
+        for clip in clips:
+            if isinstance(clip, dict) and clip.get("source_type") == "asset" and isinstance(clip.get("source_ref"), str):
+                keys.append(clip["source_ref"])
+    return tuple(sorted(set(keys)))

@@ -2,7 +2,7 @@ import unittest
 import uuid
 from unittest.mock import Mock
 
-from app.infrastructure.overlay_uploads import OverlayUploadIssuer
+from app.infrastructure.overlay_uploads import OverlayAssetVerifier, OverlayUploadIssuer, OverlayUploadVerificationError, composition_overlay_object_keys
 
 
 class OverlayUploadIssuerTests(unittest.TestCase):
@@ -23,3 +23,20 @@ class OverlayUploadIssuerTests(unittest.TestCase):
             issuer.issue(workflow_run_id=uuid.uuid4(), filename="brand.gif", content_type="image/gif", byte_size=10)
         with self.assertRaisesRegex(ValueError, "15 MiB"):
             issuer.issue(workflow_run_id=uuid.uuid4(), filename="brand.png", content_type="image/png", byte_size=16 * 1024 * 1024)
+
+    def test_verifies_head_object_before_locking_overlay_revision(self):
+        client = Mock()
+        client.head_object.return_value = {"ContentType": "image/png", "ContentLength": 2048}
+        run_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
+        key = f"visionflow/{run_id}/uploads/logo.png"
+        OverlayAssetVerifier(client, "visionflow-assets").verify(workflow_run_id=run_id, object_keys=(key,))
+        client.head_object.assert_called_once_with(Bucket="visionflow-assets", Key=key)
+
+    def test_rejects_cross_workflow_or_invalid_head_object(self):
+        verifier = OverlayAssetVerifier(Mock(), "visionflow-assets")
+        with self.assertRaisesRegex(OverlayUploadVerificationError, "does not belong"):
+            verifier.verify(workflow_run_id=uuid.uuid4(), object_keys=("visionflow/other/uploads/logo.png",))
+
+    def test_extracts_only_active_overlay_asset_keys(self):
+        composition = {"tracks": [{"track_type": "overlay", "muted": False, "clips": [{"source_type": "asset", "source_ref": "visionflow/run/uploads/a.png"}]}, {"track_type": "video", "clips": [{"source_type": "asset", "source_ref": "ignored"}]}]}
+        self.assertEqual(("visionflow/run/uploads/a.png",), composition_overlay_object_keys(composition))
