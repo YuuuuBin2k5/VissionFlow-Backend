@@ -18,7 +18,7 @@ class CompositionCompositorIntegrationTests(unittest.TestCase):
             workspace = Path(temporary)
             base = workspace / "base.mp4"
             image = workspace / "overlay.png"
-            subprocess.run(["ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=black:s=1080x1920:d=1", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono", "-shortest", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", str(base)], capture_output=True, check=True)
+            subprocess.run(["ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=black:s=1080x1920:d=1", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono", "-shortest", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "libmp3lame", str(base)], capture_output=True, check=True)
             subprocess.run(["ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=red:s=120x120", "-frames:v", "1", "-update", "1", str(image)], capture_output=True, check=True)
             overlaid = FfmpegOverlayCompositor().apply(str(base), (ResolvedOverlayLayer(image, 0, 900, {"x": 0, "y": 0, "scale": 0.4, "opacity": 1}),), workspace)
             plan = compile_composition_render_plan("run-1", {
