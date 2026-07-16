@@ -46,6 +46,7 @@ from app.application.manual_approval import (
 from app.application.save_creative_draft import SaveCreativeDraft, SaveCreativeDraftCommand
 from app.core.oidc import VerifiedIdentity
 from app.domain.authorization import Permission
+from app.domain.composition import CompositionValidationError, validate_composition_for_v1
 from app.domain.workflow import WorkflowState
 from app.infrastructure.database import get_session
 from app.infrastructure.creative_draft_repository import SqlAlchemyCreativeDraftRepository
@@ -555,10 +556,12 @@ def save_composition(
 ) -> dict[str, Any]:
     try:
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, request.organization_id, Permission.WORKFLOW_CREATE)
+        tracks = [track.model_dump() for track in request.tracks]
+        validate_composition_for_v1(aspect_ratio=request.aspect_ratio, tracks=tracks)
         return SqlAlchemyCompositionRepository(session).save(
             organization_id=request.organization_id, workflow_run_id=workflow_run_id,
             expected_revision=request.expected_revision, aspect_ratio=request.aspect_ratio,
-            canvas_config=request.canvas_config, tracks=[track.model_dump() for track in request.tracks], actor_subject=identity.subject,
+            canvas_config=request.canvas_config, tracks=tracks, actor_subject=identity.subject,
         )
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
@@ -566,6 +569,8 @@ def save_composition(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except CompositionConflict as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except CompositionValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 

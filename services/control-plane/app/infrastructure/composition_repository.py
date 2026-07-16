@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.domain.composition import validate_composition_for_v1
 from app.domain.workflow import WorkflowState
 from app.infrastructure.models import (
     CompositionClip, CompositionDocument, CompositionEffectInstance, CompositionKeyframe,
@@ -28,6 +29,8 @@ class SqlAlchemyCompositionRepository:
         return self._serialize(document) if document else None
 
     def save(self, *, organization_id: uuid.UUID, workflow_run_id: uuid.UUID, expected_revision: int, aspect_ratio: str, canvas_config: dict[str, Any], tracks: list[dict[str, Any]], actor_subject: str) -> dict[str, Any]:
+        # Keep the persistence boundary safe for non-HTTP callers as well.
+        validate_composition_for_v1(aspect_ratio=aspect_ratio, tracks=tracks)
         try:
             document = self._document(organization_id, workflow_run_id, lock=True, editable=True)
             if document is None:

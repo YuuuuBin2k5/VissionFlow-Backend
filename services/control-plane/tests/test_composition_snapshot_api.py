@@ -59,8 +59,8 @@ class CompositionSnapshotApiTests(unittest.TestCase):
                     "duration_ms": 5000,
                     "trim_in_ms": 0,
                     "transform": {},
-                    "effects": [{"effect_key": "fade", "config": {"duration_ms": 300}}],
-                    "keyframes": [{"property_key": "opacity", "time_ms": 0, "value": {"value": 1}, "easing": "linear"}],
+                    "effects": [{"effect_key": "cinematic_push", "config": {}}],
+                    "keyframes": [{"property_key": "scale", "time_ms": 0, "value": {"value": 1}, "easing": "linear"}],
                 }],
             }],
         }
@@ -79,8 +79,8 @@ class CompositionSnapshotApiTests(unittest.TestCase):
                     "source_ref": "visionflow/run-1/assets/scene-01.mp4",
                     "timeline_start_ms": 0,
                     "duration_ms": 5000,
-                    "effects": [{"effect_key": "fade", "config": {"duration_ms": 300}}],
-                    "keyframes": [{"property_key": "opacity", "time_ms": 0, "value": {"value": 1}}],
+                    "effects": [{"effect_key": "cinematic_push", "config": {}}],
+                    "keyframes": [{"property_key": "scale", "time_ms": 0, "value": {"value": 1}}],
                 }],
             }],
         }
@@ -110,8 +110,23 @@ class CompositionSnapshotApiTests(unittest.TestCase):
         self.assertEqual(self.organization_id, saved["organization_id"])
         self.assertEqual(self.workflow_run_id, saved["workflow_run_id"])
         self.assertEqual(0, saved["expected_revision"])
-        self.assertEqual("fade", saved["tracks"][0]["clips"][0]["effects"][0]["effect_key"])
+        self.assertEqual("cinematic_push", saved["tracks"][0]["clips"][0]["effects"][0]["effect_key"])
         authorize.return_value.require.assert_called_once()
+
+    def test_save_rejects_unknown_effect_before_repository_write(self) -> None:
+        payload = self._payload()
+        payload["tracks"][0]["clips"][0]["effects"] = [{"effect_key": "fade", "config": {}}]
+        with patch("app.routers.workflows.AuthorizeOrganization"), patch(
+            "app.routers.workflows.SqlAlchemyCompositionRepository"
+        ) as repository:
+            response = self._client().put(
+                f"/api/v1/workflows/{self.workflow_run_id}/composition",
+                headers={"Authorization": "Bearer service-token"}, json=payload,
+            )
+
+        self.assertEqual(422, response.status_code)
+        self.assertIn("unsupported effect", response.json()["detail"])
+        repository.return_value.save.assert_not_called()
 
     def test_lock_maps_optimistic_concurrency_conflict_to_409(self) -> None:
         from app.infrastructure.composition_repository import CompositionConflict
