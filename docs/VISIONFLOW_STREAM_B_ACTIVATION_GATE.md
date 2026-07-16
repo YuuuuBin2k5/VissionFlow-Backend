@@ -37,6 +37,7 @@ the Control Plane. Do not use `db push` or runtime table creation.
 
 1. Rehearse the MySQL migration on a disposable database with
    `powershell -ExecutionPolicy Bypass -File orchestrator/scripts/rehearse-visionflow-mysql-migration.ps1`.
+   The `VisionFlow Stream B CI` workflow must also be green.
 2. Deploy the dormant runtime code; leave the feature flag unset.
 3. Confirm the Control Plane outbox relay has `REDIS_URL` and the HMAC current
    key configured.

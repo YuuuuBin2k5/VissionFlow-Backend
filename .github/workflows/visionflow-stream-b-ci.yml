@@ -1,0 +1,47 @@
+name: VisionFlow Stream B CI
+
+on:
+  pull_request:
+    paths:
+      - "orchestrator/src/visionflow/**"
+      - "orchestrator/prisma/**"
+      - "orchestrator/package.json"
+      - "orchestrator/package-lock.json"
+      - ".github/workflows/visionflow-stream-b-ci.yml"
+  push:
+    branches: [production]
+    paths:
+      - "orchestrator/src/visionflow/**"
+      - "orchestrator/prisma/**"
+      - "orchestrator/package.json"
+      - "orchestrator/package-lock.json"
+      - ".github/workflows/visionflow-stream-b-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: orchestrator
+    env:
+      # Prisma validate parses the schema only; it never connects to this URL.
+      DATABASE_URL: mysql://placeholder:placeholder@localhost:3306/visionflow_ci
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: orchestrator/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Validate Prisma schema
+        run: npx prisma validate --schema prisma/schema.prisma
+      - name: Typecheck Stream B and Orchestrator
+        run: npm run typecheck
