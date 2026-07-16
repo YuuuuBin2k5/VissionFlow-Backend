@@ -12,6 +12,8 @@ from worker.application.visionflow_render_workflow import (
     RenderedArtifact,
     VisionFlowRenderWorkflow,
 )
+from worker.application.visionflow_quality_assurance import VisionFlowQualityAssurance
+from worker.domain.visionflow_qa_contract import RenderArtifactForQa
 from worker.domain.visionflow_render_contract import build_visionflow_render_contract
 
 
@@ -29,9 +31,11 @@ class VisionFlowRenderDispatcher:
         self,
         control_plane: ExecutionContextGateway,
         render_workflow: VisionFlowRenderWorkflow,
+        quality_assurance: VisionFlowQualityAssurance | None = None,
     ) -> None:
         self._control_plane = control_plane
         self._render_workflow = render_workflow
+        self._quality_assurance = quality_assurance
 
     def dispatch(self, workflow_run_id: str, *, trace_id: str) -> RenderedArtifact:
         if not workflow_run_id.strip() or len(trace_id) != 32:
@@ -57,7 +61,14 @@ class VisionFlowRenderDispatcher:
             scenes,
             composition,
         )
-        return self._render_workflow.execute(contract)
+        artifact = self._render_workflow.execute(contract)
+        if self._quality_assurance is not None:
+            self._quality_assurance.execute(
+                workflow_run_id,
+                RenderArtifactForQa(artifact.object_key, artifact.content_type, artifact.byte_size, artifact.checksum_sha256),
+                trace_id=trace_id,
+            )
+        return artifact
 
 
 def _required_script(payload: object) -> str:

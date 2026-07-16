@@ -6,12 +6,14 @@ from redis import Redis
 
 from worker.application.visionflow_render_dispatcher import VisionFlowRenderDispatcher
 from worker.application.visionflow_render_workflow import VisionFlowRenderWorkflow
+from worker.application.visionflow_quality_assurance import VisionFlowQualityAssurance
 from worker.services.asset_service import AssetService
 from worker.services.media_service import MediaService
 from worker.services.visionflow_asset_preparer import VisionFlowAssetPreparer
 from worker.services.visionflow_control_plane_client import VisionFlowControlPlaneClient, VisionFlowWorkerSettings
 from worker.services.visionflow_event_consumer import VisionFlowEventConsumer, VisionFlowEventConsumerSettings
 from worker.services.visionflow_object_storage import S3CompatibleObjectStorage, VisionFlowObjectStorageSettings
+from worker.services.visionflow_media_inspector import FfprobeMediaInspector
 from worker.services.visionflow_render_assets import VisionFlowRenderAssetMaterializer
 from worker.services.visionflow_tts import VisionFlowTts
 from worker.services.visionflow_video_renderer import VisionFlowVideoRenderer
@@ -36,7 +38,11 @@ def main() -> None:
         Redis.from_url(consumer_settings.redis_url, decode_responses=True),
         consumer_settings,
         control_plane,
-        render_dispatcher=VisionFlowRenderDispatcher(control_plane, render_workflow),
+        render_dispatcher=VisionFlowRenderDispatcher(
+            control_plane,
+            render_workflow,
+            VisionFlowQualityAssurance(control_plane, FfprobeMediaInspector(storage)),
+        ),
     )
     consumer.ensure_group()
     while True:

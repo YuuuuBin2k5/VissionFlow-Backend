@@ -25,6 +25,11 @@ class RenderWorkflow:
         return RenderedArtifact("visionflow/run-1/exports/final.mp4", "video/mp4", 10, "a" * 64)
 
 
+class QualityAssurance:
+    def __init__(self): self.calls = []
+    def execute(self, workflow_run_id, artifact, *, trace_id=None): self.calls.append((workflow_run_id, artifact, trace_id))
+
+
 def context(*, state="STORYBOARDED"):
     return {
         "workflow_run_id": "run-1",
@@ -83,6 +88,12 @@ class VisionFlowRenderDispatcherTests(unittest.TestCase):
         result = _apply_locked_timeline(scenes, composition)
         self.assertEqual(["b", "a"], [scene["scene_id"] for scene in result])
         self.assertEqual([9.0, 6.0], [scene["duration"] for scene in result])
+
+    def test_runs_technical_qa_only_after_render_artifact_exists(self):
+        gateway, workflow, qa = ControlPlane(context()), RenderWorkflow(), QualityAssurance()
+        VisionFlowRenderDispatcher(gateway, workflow, qa).dispatch("run-1", trace_id="b" * 32)
+        self.assertEqual("visionflow/run-1/exports/final.mp4", qa.calls[0][1].object_key)
+        self.assertEqual("b" * 32, qa.calls[0][2])
 
 
 if __name__ == "__main__":
