@@ -8,6 +8,7 @@ on:
       - "orchestrator/package.json"
       - "orchestrator/package-lock.json"
       - "orchestrator/Dockerfile.legacy-intake"
+      - "orchestrator/scripts/verify-legacy-intake-container.js"
       - "render.stream-b.staging.yaml"
       - ".github/workflows/visionflow-stream-b-ci.yml"
   push:
@@ -18,6 +19,7 @@ on:
       - "orchestrator/package.json"
       - "orchestrator/package-lock.json"
       - "orchestrator/Dockerfile.legacy-intake"
+      - "orchestrator/scripts/verify-legacy-intake-container.js"
       - "render.stream-b.staging.yaml"
       - ".github/workflows/visionflow-stream-b-ci.yml"
   workflow_dispatch:
@@ -52,3 +54,6 @@ jobs:
       - name: Build isolated intake image
         working-directory: ${{ github.workspace }}
         run: docker build --file orchestrator/Dockerfile.legacy-intake --tag visionflow-legacy-intake:ci orchestrator
+      - name: Verify isolated intake image health semantics
+        working-directory: ${{ github.workspace }}
+        run: node orchestrator/scripts/verify-legacy-intake-container.js visionflow-legacy-intake:ci

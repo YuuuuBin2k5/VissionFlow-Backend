@@ -57,7 +57,8 @@ no network calls and never prints secrets.
    `powershell -ExecutionPolicy Bypass -File orchestrator/scripts/rehearse-visionflow-mysql-migration.ps1`.
    The `VisionFlow Stream B CI` workflow must also be green.
 2. Build `orchestrator/Dockerfile.legacy-intake` and run its dormant health
-   check locally before deploy; leave the feature flag unset in Render.
+   check locally before deploy. CI also verifies that an enabled service with
+   disconnected Redis returns `503`; leave the feature flag unset in Render.
 3. Confirm the Control Plane outbox relay has `REDIS_URL` and the HMAC current
    key configured.
 4. Create one non-production workflow and manually invoke the internal
