@@ -1,10 +1,9 @@
 # VisionFlow R2 Overlay Staging Gate
 
 This runbook activates the signed-overlay upload path introduced in Control
-Plane and consumed by the VisionFlow worker. It is intentionally limited to
-short-lived browser `PUT` uploads of PNG, JPEG, and WebP images. The ticket
-endpoint limits declared uploads to 15 MiB; worker-side object verification is
-the next hardening gate before treating an uploaded object as render input.
+Plane and consumed by the VisionFlow worker, plus the signed final-export
+preview used by the human review queue. The bucket remains private: the
+browser receives short-lived URLs, never storage credentials.
 
 ## 1. Provision a private bucket
 
@@ -32,7 +31,7 @@ Console domain changes. Do not use `*`.
 [
   {
     "AllowedOrigins": ["https://vision-flow-console.vercel.app"],
-    "AllowedMethods": ["PUT"],
+    "AllowedMethods": ["PUT", "GET", "HEAD"],
     "AllowedHeaders": ["Content-Type"],
     "ExposeHeaders": ["ETag"],
     "MaxAgeSeconds": 300

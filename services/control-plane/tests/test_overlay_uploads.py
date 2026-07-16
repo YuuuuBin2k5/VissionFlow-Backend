@@ -2,7 +2,13 @@ import unittest
 import uuid
 from unittest.mock import Mock
 
-from app.infrastructure.overlay_uploads import OverlayAssetVerifier, OverlayUploadIssuer, OverlayUploadVerificationError, composition_overlay_object_keys
+from app.infrastructure.overlay_uploads import (
+    OverlayAssetVerifier,
+    OverlayUploadIssuer,
+    OverlayUploadVerificationError,
+    PrivateObjectPreviewIssuer,
+    composition_overlay_object_keys,
+)
 
 
 class OverlayUploadIssuerTests(unittest.TestCase):
@@ -40,3 +46,19 @@ class OverlayUploadIssuerTests(unittest.TestCase):
     def test_extracts_only_active_overlay_asset_keys(self):
         composition = {"tracks": [{"track_type": "overlay", "muted": False, "clips": [{"source_type": "asset", "source_ref": "visionflow/run/uploads/a.png"}]}, {"track_type": "video", "clips": [{"source_type": "asset", "source_ref": "ignored"}]}]}
         self.assertEqual(("visionflow/run/uploads/a.png",), composition_overlay_object_keys(composition))
+
+    def test_issues_get_only_for_the_workflow_final_export(self):
+        client = Mock()
+        client.generate_presigned_url.return_value = "https://storage.example/preview"
+        run_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
+        ticket = PrivateObjectPreviewIssuer(client, "visionflow-assets").issue_final_export(
+            workflow_run_id=run_id,
+            object_key=f"visionflow/{run_id}/exports/final.mp4",
+        )
+        self.assertEqual("https://storage.example/preview", ticket.download_url)
+        self.assertEqual("get_object", client.generate_presigned_url.call_args.args[0])
+        with self.assertRaisesRegex(OverlayUploadVerificationError, "does not belong"):
+            PrivateObjectPreviewIssuer(Mock(), "visionflow-assets").issue_final_export(
+                workflow_run_id=run_id,
+                object_key="visionflow/other/exports/final.mp4",
+            )

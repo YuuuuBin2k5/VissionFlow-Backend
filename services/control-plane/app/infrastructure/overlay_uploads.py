@@ -26,6 +26,13 @@ class OverlayUploadTicket:
     expires_in_seconds: int
 
 
+@dataclass(frozen=True)
+class PrivateObjectPreviewTicket:
+    object_key: str
+    download_url: str
+    expires_in_seconds: int
+
+
 class OverlayUploadIssuer:
     _CONTENT_TYPES = frozenset({"image/png", "image/jpeg", "image/webp"})
     _SUFFIXES = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
@@ -98,6 +105,31 @@ class OverlayAssetVerifier:
         normalized = key.replace("\\", "/")
         if not normalized.startswith(f"visionflow/{workflow_run_id}/uploads/") or ".." in normalized.split("/"):
             raise OverlayUploadVerificationError("Overlay object does not belong to this workflow")
+
+
+class PrivateObjectPreviewIssuer:
+    """Issue short-lived reads for an already-authorized workflow artifact."""
+
+    def __init__(self, client, bucket: str, expires_in_seconds: int = 300) -> None:
+        self._client, self._bucket = client, bucket
+        self._expires_in_seconds = expires_in_seconds
+
+    @classmethod
+    def from_env(cls) -> "PrivateObjectPreviewIssuer":
+        issuer = OverlayUploadIssuer.from_env()
+        return cls(issuer._client, issuer._bucket)
+
+    def issue_final_export(self, *, workflow_run_id: uuid.UUID, object_key: str) -> PrivateObjectPreviewTicket:
+        expected_key = f"visionflow/{workflow_run_id}/exports/final.mp4"
+        if object_key != expected_key:
+            raise OverlayUploadVerificationError("Review artifact does not belong to this workflow")
+        url = self._client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": self._bucket, "Key": object_key},
+            ExpiresIn=self._expires_in_seconds,
+            HttpMethod="GET",
+        )
+        return PrivateObjectPreviewTicket(object_key, url, self._expires_in_seconds)
 
 
 def composition_overlay_object_keys(composition: dict[str, object]) -> tuple[str, ...]:

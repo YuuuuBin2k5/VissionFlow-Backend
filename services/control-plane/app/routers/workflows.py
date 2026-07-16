@@ -62,6 +62,7 @@ from app.infrastructure.overlay_uploads import (
     OverlayUploadConfigurationError,
     OverlayUploadIssuer,
     OverlayUploadVerificationError,
+    PrivateObjectPreviewIssuer,
     composition_overlay_object_keys,
 )
 from app.infrastructure.legacy_mapping_repository import SqlAlchemyLegacyMappingRepository
@@ -108,6 +109,12 @@ class ReviewQueueItemResponse(BaseModel):
 
 class ReviewQueueResponse(BaseModel):
     items: list[ReviewQueueItemResponse]
+
+
+class ReviewArtifactPreviewResponse(BaseModel):
+    object_key: str
+    download_url: str
+    expires_in_seconds: int
 
 
 class RecordNarrationSceneRequest(BaseModel):
@@ -999,6 +1006,68 @@ def list_review_queue(
             )
             for workflow, project in rows
         ]
+    )
+
+
+@router.get(
+    "/workflows/{workflow_run_id}/review-artifact",
+    response_model=ReviewArtifactPreviewResponse,
+    summary="Issue a short-lived preview URL for a QA-passed final export",
+)
+def get_review_artifact_preview(
+    workflow_run_id: uuid.UUID,
+    organization_id: uuid.UUID,
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> ReviewArtifactPreviewResponse:
+    """Authorize a reviewer before issuing a private object-store read URL."""
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject,
+            organization_id,
+            Permission.WORKFLOW_VIEW,
+        )
+        workflow = session.scalar(
+            select(WorkflowRun)
+            .join(VideoProject, WorkflowRun.project_id == VideoProject.id)
+            .where(VideoProject.organization_id == organization_id, WorkflowRun.id == workflow_run_id)
+        )
+        if workflow is None:
+            raise LookupError()
+        if workflow.state != WorkflowState.APPROVAL_PENDING.value:
+            raise WorkflowStateConflict("Workflow is not awaiting human approval")
+        qa_step = session.scalar(
+            select(WorkflowStep).where(
+                WorkflowStep.workflow_run_id == workflow_run_id,
+                WorkflowStep.step_key == "quality_assurance",
+                WorkflowStep.state == WorkflowState.RENDERED.value,
+            )
+        )
+        artifact = qa_step.output_payload.get("artifact") if qa_step and isinstance(qa_step.output_payload, dict) else None
+        if not isinstance(artifact, dict):
+            raise LookupError()
+        object_key = artifact.get("object_key")
+        if not isinstance(object_key, str):
+            raise LookupError()
+        ticket = PrivateObjectPreviewIssuer.from_env().issue_final_export(
+            workflow_run_id=workflow_run_id,
+            object_key=object_key,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review artifact not found") from exc
+    except WorkflowStateConflict as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Workflow is not awaiting approval") from exc
+    except OverlayUploadConfigurationError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Review preview storage is unavailable") from exc
+    except OverlayUploadVerificationError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Review artifact verification failed") from exc
+
+    return ReviewArtifactPreviewResponse(
+        object_key=ticket.object_key,
+        download_url=ticket.download_url,
+        expires_in_seconds=ticket.expires_in_seconds,
     )
 
 
