@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 
@@ -162,6 +163,21 @@ class PublicationAttemptApiTests(unittest.TestCase):
         with patch.dict(os.environ, self.env, clear=True):
             response = client.post(f"{base}/complete", json={"organization_id": str(self.organization.id), "publisher_connection_id": str(self.connection.id), "lease_token": "x" * 64, "video_id": "yt-video-1", "video_url": "https://www.youtube.com/watch?v=yt-video-1"}, headers=headers)
         self.assertEqual(409, response.status_code, response.text)
+
+    def test_database_permits_only_one_active_attempt_per_workflow(self) -> None:
+        self.session.add(
+            PublicationAttempt(
+                workflow_run_id=self.workflow.id,
+                publisher_connection_id=self.connection.id,
+                attempt_number=2,
+                state="claimed",
+                requested_by_subject="local|operator",
+            )
+        )
+
+        with self.assertRaises(IntegrityError):
+            self.session.commit()
+        self.session.rollback()
 
     def test_tenant_mismatch_is_a_safe_not_found(self) -> None:
         client = self._client()

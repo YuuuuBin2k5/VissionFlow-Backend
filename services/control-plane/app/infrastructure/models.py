@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func, Index
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func, Index, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -168,7 +168,15 @@ class PublicationAttempt(Timestamped, Base):
     lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     external_video_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     external_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
-    __table_args__ = (UniqueConstraint("workflow_run_id", "attempt_number", name="uq_publication_attempt_number"),)
+    __table_args__ = (
+        UniqueConstraint("workflow_run_id", "attempt_number", name="uq_publication_attempt_number"),
+        Index(
+            "uq_publication_attempts_one_active",
+            "workflow_run_id",
+            unique=True,
+            postgresql_where=text("state IN ('requested', 'claimed')"),
+        ),
+    )
 
 
 class WorkflowRun(Timestamped, Base):
