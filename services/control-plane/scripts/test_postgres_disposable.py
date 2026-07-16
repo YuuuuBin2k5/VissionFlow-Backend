@@ -1,15 +1,15 @@
 """VF-03.01b — Postgres Disposable Integration and Migration Chain Testing Script.
 
 This script runs database integration tests and verifies the Alembic migration chain
-(specifically the 0004 -> 0005 -> 0006 progression) in both upgrade and downgrade directions.
+(specifically the 0004 -> 0005 -> 0006 -> 0007 -> 0008 progression) in both upgrade and downgrade directions.
 """
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
-import unittest
 from pathlib import Path
+import subprocess
+import unittest
 
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SERVICE_ROOT))
@@ -95,6 +95,8 @@ def main() -> int:
     suite.addTests(loader.loadTestsFromName("tests.test_narration_result_repository"))
     suite.addTests(loader.loadTestsFromName("tests.test_narration_result_api"))
     suite.addTests(loader.loadTestsFromName("tests.test_narration_auth_capability"))
+    suite.addTests(loader.loadTestsFromName("tests.test_register_legacy_mapping_api"))
+    suite.addTests(loader.loadTestsFromName("tests.test_execution_context_by_job_api"))
 
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)

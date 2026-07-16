@@ -128,7 +128,7 @@ class NarrationHandoffTests(unittest.TestCase):
         }
 
         reconciler = MagicMock()
-        
+
         # Mock API context payload
         api_payload = {
             "workflow_run_id": "00000000-0000-0000-0000-000000000002",
@@ -157,7 +157,7 @@ class NarrationHandoffTests(unittest.TestCase):
         get_context_mock.assert_called_once_with(self.job_id)
         mysql_sink.save_narration_result.assert_called_once()
         cp_sink.save_narration_result.assert_called_once()
-        
+
         # Verify reconciler called with reconstructed context
         call_args = reconciler.reconcile.call_args[0]
         ctx_arg = call_args[1]
@@ -319,7 +319,7 @@ class NarrationHandoffTests(unittest.TestCase):
         """Verify that concurrent coordinator tasks maintain strict context isolation."""
         mysql_sink = MagicMock()
         cp_sink = MagicMock()
-        
+
         # CP sink save returns distinct details including context properties to verify isolation
         def cp_save_side_effect(job_id, hook, script, layout, tags, context=None):
             return {
@@ -328,10 +328,10 @@ class NarrationHandoffTests(unittest.TestCase):
                 "narration_attempt_id": context.narration_attempt_id,
                 "legacy_job_id": context.legacy_job_id,
             }
-        
+
         cp_sink.save_narration_result.side_effect = cp_save_side_effect
         reconciler = MagicMock()
-        
+
         # Set up a client mock that return context corresponding to the requested job_id
         def get_context_side_effect(job_id):
             return {
@@ -339,7 +339,7 @@ class NarrationHandoffTests(unittest.TestCase):
                 "organization_id": "00000000-0000-0000-0000-000000000001",
                 "narration_attempt_id": f"attempt-job-{job_id}",
             }
-        
+
         client = MagicMock()
         client.get_execution_context_by_job_id.side_effect = get_context_side_effect
         client._settings.organization_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
@@ -354,9 +354,9 @@ class NarrationHandoffTests(unittest.TestCase):
             "VISIONFLOW_ORGANIZATION_ID": "00000000-0000-0000-0000-000000000001",
             "VISIONFLOW_CONTROL_PLANE_URL": "http://localhost:8000/api/v1",
         }
-        
+
         jobs_to_run = [1, 2, 3, 4, 5]
-        
+
         with patch.dict(os.environ, env, clear=True):
             # Run handle_narration concurrently for multiple jobs
             with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
@@ -371,7 +371,7 @@ class NarrationHandoffTests(unittest.TestCase):
                     ): job_id
                     for job_id in jobs_to_run
                 }
-                
+
                 # Check results
                 for future in concurrent.futures.as_completed(futures):
                     job_id = futures[future]
@@ -383,12 +383,12 @@ class NarrationHandoffTests(unittest.TestCase):
         # Verify calls on CP sink received isolated corresponding context properties
         cp_calls = cp_sink.save_narration_result.call_args_list
         self.assertEqual(len(cp_calls), 5)
-        
+
         for call in cp_calls:
             call_kwargs = call[1]
             ctx = call_kwargs.get("context")
             self.assertIsNotNone(ctx)
-            
+
             # Context properties must exactly match legacy_job_id (no leaking or overlapping state)
             expected_run_id = uuid.UUID(f"00000000-0000-0000-0000-00000000000{ctx.legacy_job_id}")
             self.assertEqual(ctx.workflow_run_id, expected_run_id)

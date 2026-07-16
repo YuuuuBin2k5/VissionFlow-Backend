@@ -217,4 +217,3 @@ class VisionFlowWorkerSettingsTests(unittest.TestCase):
         self.assertEqual(settings.organization_id, http.calls[1]["params"]["organization_id"])
         self.assertEqual("Bearer service-access-token", http.calls[1]["headers"]["Authorization"])
         self.assertEqual("d" * 32, http.calls[1]["headers"]["X-Request-ID"])
-
