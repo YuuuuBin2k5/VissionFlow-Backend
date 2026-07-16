@@ -70,3 +70,8 @@ no network calls and never prints secrets.
 Set `VISIONFLOW_LEGACY_INTAKE_ENABLED=false` and restart only the intake
 runtime. Existing rows remain durable in `legacy_outbox`; do not delete or
 replay them manually without an operator incident record.
+
+After deploy, run `VISIONFLOW_LEGACY_INTAKE_BASE_URL=https://<service> node
+orchestrator/scripts/probe-visionflow-legacy-intake.js`. Add
+`VISIONFLOW_EXPECT_LEGACY_INTAKE_ENABLED=true` only after intentionally
+enabling the service.
