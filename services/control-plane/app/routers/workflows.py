@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, 
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.application.advance_workflow import (
@@ -1176,6 +1177,9 @@ def create_publication_attempt(workflow_run_id: uuid.UUID, request: CreatePublic
     except PermissionError as exc: raise HTTPException(status_code=403, detail="Organization permission denied") from exc
     except LookupError as exc: raise HTTPException(status_code=404, detail="Failed publish handoff or active channel not found") from exc
     except ActivePublicationAttemptError as exc: raise HTTPException(status_code=409, detail="PUBLICATION_ATTEMPT_ALREADY_ACTIVE") from exc
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="PUBLICATION_ATTEMPT_ALREADY_ACTIVE") from exc
     return PublicationAttemptResponse(id=attempt.id, workflow_run_id=attempt.workflow_run_id, publisher_connection_id=attempt.publisher_connection_id, attempt_number=attempt.attempt_number, state=attempt.state, failure_code=attempt.failure_code, external_url=attempt.external_url, external_video_id=attempt.external_video_id)
 
 

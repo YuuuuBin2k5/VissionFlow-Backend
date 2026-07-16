@@ -9,6 +9,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from sqlalchemy.exc import IntegrityError
+
 
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SERVICE_ROOT))
@@ -124,6 +126,40 @@ class ReviewQueueApiTests(unittest.TestCase):
         self.assertEqual(409, raised.exception.status_code)
         self.assertEqual("PUBLICATION_ATTEMPT_ALREADY_ACTIVE", raised.exception.detail)
         session.add.assert_not_called()
+
+    def test_maps_database_uniqueness_race_to_a_safe_conflict(self) -> None:
+        with patch.dict(os.environ, self.environment, clear=True):
+            from app.core.oidc import VerifiedIdentity
+            from app.domain.workflow import WorkflowState
+            from app.routers.workflows import CreatePublicationAttemptRequest, create_publication_attempt
+            from fastapi import HTTPException
+
+        connection = SimpleNamespace(id=uuid.uuid4())
+        session = MagicMock()
+        session.scalar.side_effect = [
+            SimpleNamespace(state=WorkflowState.FAILED.value),
+            connection,
+            SimpleNamespace(output_payload={"provider": "youtube", "failure_code": "UPLOAD_FAILED"}),
+            None,
+        ]
+        session.scalars.return_value = []
+        session.commit.side_effect = IntegrityError("insert", {}, Exception("unique index"))
+
+        with patch("app.routers.workflows.AuthorizeOrganization"):
+            with self.assertRaises(HTTPException) as raised:
+                create_publication_attempt(
+                    self.workflow_run_id,
+                    CreatePublicationAttemptRequest(
+                        organization_id=self.organization_id,
+                        publisher_connection_id=connection.id,
+                    ),
+                    VerifiedIdentity("local|operator", None, None),
+                    session,
+                )
+
+        self.assertEqual(409, raised.exception.status_code)
+        self.assertEqual("PUBLICATION_ATTEMPT_ALREADY_ACTIVE", raised.exception.detail)
+        session.rollback.assert_called_once()
 
 
 if __name__ == "__main__":
