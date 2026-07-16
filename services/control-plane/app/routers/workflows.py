@@ -44,6 +44,7 @@ from app.application.manual_approval import (
     ManualApproval,
     OpenManualApprovalCommand,
 )
+from app.application.begin_manual_publish import BeginManualPublish, BeginManualPublishCommand
 from app.application.save_creative_draft import SaveCreativeDraft, SaveCreativeDraftCommand
 from app.core.oidc import VerifiedIdentity
 from app.domain.authorization import Permission
@@ -108,6 +109,10 @@ class ReviewQueueItemResponse(BaseModel):
 
 
 class ReviewQueueResponse(BaseModel):
+    items: list[ReviewQueueItemResponse]
+
+
+class PublicationQueueResponse(BaseModel):
     items: list[ReviewQueueItemResponse]
 
 
@@ -355,6 +360,13 @@ class OpenManualApprovalRequest(BaseModel):
 class ApproveManualApprovalRequest(BaseModel):
     """Reviewer decision; reviewer identity is always derived from OIDC."""
 
+    model_config = ConfigDict(extra="forbid")
+
+    organization_id: uuid.UUID
+    note: str | None = Field(default=None, max_length=2_000)
+
+
+class BeginManualPublishRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     organization_id: uuid.UUID
@@ -1010,6 +1022,48 @@ def list_review_queue(
 
 
 @router.get(
+    "/organizations/{organization_id}/publication-queue",
+    response_model=PublicationQueueResponse,
+    summary="List approved workflows awaiting an explicit publish handoff",
+)
+def list_publication_queue(
+    organization_id: uuid.UUID,
+    limit: int = Query(default=50, ge=1, le=100),
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> PublicationQueueResponse:
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject, organization_id, Permission.WORKFLOW_VIEW
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+
+    rows = session.execute(
+        select(WorkflowRun, VideoProject)
+        .join(VideoProject, WorkflowRun.project_id == VideoProject.id)
+        .where(
+            VideoProject.organization_id == organization_id,
+            WorkflowRun.state == WorkflowState.APPROVED.value,
+        )
+        .order_by(WorkflowRun.created_at.desc())
+        .limit(limit)
+    ).all()
+    return PublicationQueueResponse(
+        items=[
+            ReviewQueueItemResponse(
+                workflow_run_id=workflow.id,
+                project_id=project.id,
+                title=project.title,
+                state=workflow.state,
+                created_at=workflow.created_at,
+            )
+            for workflow, project in rows
+        ]
+    )
+
+
+@router.get(
     "/workflows/{workflow_run_id}/review-artifact",
     response_model=ReviewArtifactPreviewResponse,
     summary="Issue a short-lived preview URL for a QA-passed final export",
@@ -1147,6 +1201,52 @@ def approve_manual_approval(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow run not found") from exc
     except WorkflowStateConflict as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Workflow is not awaiting approval") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+    return WorkflowTransitionResponse(
+        workflow_run_id=result.workflow_run_id,
+        state=result.state.value,
+        changed=result.changed,
+    )
+
+
+@router.post(
+    "/workflows/{workflow_run_id}/publication/manual-dispatch",
+    response_model=WorkflowTransitionResponse,
+    summary="Start the explicit manual publish handoff for an approved video",
+)
+def begin_manual_publish(
+    workflow_run_id: uuid.UUID,
+    request: BeginManualPublishRequest,
+    request_id: str | None = Header(default=None, alias="X-Request-ID", max_length=64),
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> WorkflowTransitionResponse:
+    """Enter PUBLISHING and emit the existing transactional outbox event.
+
+    No platform credentials, accounts or legacy publish calls are accepted at
+    this boundary. A future platform adapter consumes this explicit handoff.
+    """
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject, request.organization_id, Permission.PUBLISH_EXECUTE
+        )
+        result = BeginManualPublish(AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(session))).execute(
+            BeginManualPublishCommand(
+                organization_id=request.organization_id,
+                workflow_run_id=workflow_run_id,
+                requested_by_subject=identity.subject,
+                note=request.note,
+                trace_id=_trace_id(request_id),
+            )
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow run not found") from exc
+    except WorkflowStateConflict as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Workflow is not approved for publishing") from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 

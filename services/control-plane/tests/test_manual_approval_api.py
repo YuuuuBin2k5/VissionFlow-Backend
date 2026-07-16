@@ -34,6 +34,20 @@ class _ApprovalDouble:
         return WorkflowTransitionResult(command.workflow_run_id, WorkflowState.APPROVED, True)
 
 
+class _ManualPublishDouble:
+    command: object | None = None
+
+    def __init__(self, workflow: object) -> None:
+        del workflow
+
+    def execute(self, command: object) -> object:
+        from app.application.advance_workflow import WorkflowTransitionResult
+        from app.domain.workflow import WorkflowState
+
+        type(self).command = command
+        return WorkflowTransitionResult(command.workflow_run_id, WorkflowState.PUBLISHING, True)
+
+
 class ManualApprovalApiTests(unittest.TestCase):
     def setUp(self) -> None:
         self.environment = {
@@ -43,6 +57,7 @@ class ManualApprovalApiTests(unittest.TestCase):
         self.workflow_run_id = uuid.uuid4()
         _ApprovalDouble.opened_command = None
         _ApprovalDouble.approved_command = None
+        _ManualPublishDouble.command = None
 
     def _client(self) -> TestClient:
         with patch.dict(os.environ, self.environment, clear=True):
@@ -103,6 +118,21 @@ class ManualApprovalApiTests(unittest.TestCase):
         self.assertEqual(403, response.status_code)
         self.assertEqual("Organization permission denied", response.json()["detail"])
         self.assertIsNone(_ApprovalDouble.approved_command)
+
+    def test_manual_publish_requires_execute_permission_and_uses_canonical_boundary(self) -> None:
+        with patch("app.routers.workflows.AuthorizeOrganization") as authorize, patch(
+            "app.routers.workflows.BeginManualPublish", _ManualPublishDouble
+        ):
+            response = self._client().post(
+                f"/api/v1/workflows/{self.workflow_run_id}/publication/manual-dispatch",
+                headers={"Authorization": "Bearer publisher-token", "X-Request-ID": "f" * 32},
+                json={"organization_id": str(self.organization_id), "note": "Operator accepted handoff."},
+            )
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("PUBLISHING", response.json()["state"])
+        self.assertEqual("oidc|reviewer-42", _ManualPublishDouble.command.requested_by_subject)
+        self.assertEqual("publish:execute", authorize.return_value.require.call_args.args[2].value)
 
 
 if __name__ == "__main__":
