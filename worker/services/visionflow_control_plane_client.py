@@ -233,6 +233,23 @@ class VisionFlowControlPlaneClient:
             raise VisionFlowControlPlaneError("Control Plane did not return a locked composition")
         return payload
 
+    def get_composition_render_plan(self, workflow_run_id: str, *, trace_id: str | None = None) -> dict[str, Any]:
+        """Read the Control Plane's authoritative locked-composition plan."""
+        response = self._http.get(
+            f"{self._settings.api_url}/workflows/{workflow_run_id}/composition/render-plan",
+            params={"organization_id": self._settings.organization_id},
+            headers={"Authorization": f"Bearer {self._get_access_token()}", "X-Request-ID": trace_id or uuid.uuid4().hex},
+            timeout=(3, 20),
+        )
+        if response.status_code != 200:
+            raise VisionFlowControlPlaneError(
+                f"Control Plane render plan failed with HTTP {response.status_code}: {_response_detail(response)}"
+            )
+        payload = response.json()
+        if not isinstance(payload, dict) or not isinstance(payload.get("fingerprint"), str) or len(payload["fingerprint"]) != 64:
+            raise VisionFlowControlPlaneError("Control Plane did not return a valid render plan fingerprint")
+        return payload
+
     def complete_narration(
         self,
         *,

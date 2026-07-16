@@ -149,6 +149,22 @@ class VisionFlowWorkerSettingsTests(unittest.TestCase):
         self.assertEqual(settings.organization_id, http.calls[1]["json"]["organization_id"])
         self.assertEqual("e" * 32, http.calls[1]["headers"]["X-Request-ID"])
 
+    def test_gets_authoritative_composition_render_plan(self) -> None:
+        settings = VisionFlowWorkerSettings(
+            api_url="https://visionflow.example.com/api/v1", organization_id="00000000-0000-0000-0000-000000000001",
+            token_url="https://visionflow.example.com/api/v1/auth/token", client_id="render-worker",
+            client_secret="not-a-real-secret", audience="visionflow-control-plane",
+        )
+        http = RecordingHttp()
+        http.get = lambda url, **kwargs: (http.calls.append({"url": url, **kwargs}) or FakeResponse(200, {"fingerprint": "a" * 64}))
+        client = VisionFlowControlPlaneClient(settings, http=http)
+
+        plan = client.get_composition_render_plan("00000000-0000-0000-0000-000000000002", trace_id="f" * 32)
+
+        self.assertEqual("a" * 64, plan["fingerprint"])
+        self.assertTrue(http.calls[1]["url"].endswith("/composition/render-plan"))
+        self.assertEqual(settings.organization_id, http.calls[1]["params"]["organization_id"])
+
     def test_complete_narration_calls_endpoint(self) -> None:
         settings = VisionFlowWorkerSettings(
             api_url="https://visionflow.example.com/api/v1",
