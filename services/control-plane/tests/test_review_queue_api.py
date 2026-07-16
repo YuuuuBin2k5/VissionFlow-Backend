@@ -7,7 +7,7 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
@@ -94,6 +94,36 @@ class ReviewQueueApiTests(unittest.TestCase):
             )
         )
         self.assertFalse(_is_youtube_publish_failure(None))
+
+    def test_rejects_a_second_retry_while_the_first_is_active(self) -> None:
+        with patch.dict(os.environ, self.environment, clear=True):
+            from app.core.oidc import VerifiedIdentity
+            from app.routers.workflows import CreatePublicationAttemptRequest, create_publication_attempt
+            from app.domain.workflow import WorkflowState
+            from fastapi import HTTPException
+
+        workflow = SimpleNamespace(state=WorkflowState.FAILED.value)
+        connection = SimpleNamespace(id=uuid.uuid4())
+        failure = SimpleNamespace(output_payload={"provider": "youtube", "failure_code": "UPLOAD_FAILED"})
+        active_attempt = SimpleNamespace(id=uuid.uuid4())
+        session = MagicMock()
+        session.scalar.side_effect = [workflow, connection, failure, active_attempt]
+
+        with patch("app.routers.workflows.AuthorizeOrganization"):
+            with self.assertRaises(HTTPException) as raised:
+                create_publication_attempt(
+                    self.workflow_run_id,
+                    CreatePublicationAttemptRequest(
+                        organization_id=self.organization_id,
+                        publisher_connection_id=connection.id,
+                    ),
+                    VerifiedIdentity("local|operator", None, None),
+                    session,
+                )
+
+        self.assertEqual(409, raised.exception.status_code)
+        self.assertEqual("PUBLICATION_ATTEMPT_ALREADY_ACTIVE", raised.exception.detail)
+        session.add.assert_not_called()
 
 
 if __name__ == "__main__":
