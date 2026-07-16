@@ -21,6 +21,10 @@ Use `orchestrator/Dockerfile.legacy-intake` for that service. It uses Render's
 `PORT` automatically when `VISIONFLOW_LEGACY_INTAKE_PORT` is unset; configure
 the health check as `/health/visionflow/legacy-intake`.
 
+`render.stream-b.staging.yaml` is the opt-in Render Blueprint. It deliberately
+starts with `VISIONFLOW_LEGACY_INTAKE_ENABLED=false`; deploy and health-check
+that inert service before changing the flag through Render's secret settings.
+
 ## Required deployment configuration
 
 Configure these as Render secrets, never in Git:

@@ -1,0 +1,40 @@
+# Opt-in Stream B staging service. Do not merge this into render.yaml/free.
+# It runs independently from Telegram and has a health endpoint for Render.
+services:
+  - type: web
+    runtime: docker
+    name: visionflow-legacy-intake-staging
+    region: singapore
+    dockerfilePath: orchestrator/Dockerfile.legacy-intake
+    healthCheckPath: /health/visionflow/legacy-intake
+    preDeployCommand: cd orchestrator && npx prisma migrate deploy
+    maxShutdownDelaySeconds: 60
+    envVars:
+      - key: APP_ENV
+        value: staging
+      - key: VISIONFLOW_LEGACY_INTAKE_ENABLED
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: VISIONFLOW_EVENTS_STREAM
+        value: visionflow.workflow-events.v1
+      - key: VISIONFLOW_INTAKE_HMAC_KEY_ID
+        sync: false
+      - key: VISIONFLOW_INTAKE_HMAC_KEY
+        sync: false
+      - key: VISIONFLOW_INTAKE_HMAC_PREV_KEY_ID
+        sync: false
+      - key: VISIONFLOW_INTAKE_HMAC_KEY_PREV
+        sync: false
+      - key: VISIONFLOW_LEGACY_MAPPING_CLIENT_ID
+        sync: false
+      - key: VISIONFLOW_LEGACY_MAPPING_CLIENT_SECRET
+        sync: false
+      - key: VISIONFLOW_LEGACY_MAPPING_SUBJECT
+        value: service|visionflow-legacy-intake
+      - key: VISIONFLOW_CONTROL_PLANE_BASE_URL
+        sync: false
+      - key: VISIONFLOW_AUTH_AUDIENCE
+        value: visionflow-control-plane
