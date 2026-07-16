@@ -5,6 +5,8 @@ import sys
 import unittest
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from alembic import command as alembic_command
 from alembic.config import Config
@@ -19,7 +21,7 @@ from app.application.advance_workflow import AdvanceWorkflow
 from app.application.begin_manual_publish import BeginManualPublish, BeginManualPublishCommand
 from app.application.manual_approval import ApproveManualReviewCommand, ManualApproval
 from app.domain.workflow import WorkflowState
-from app.infrastructure.models import MediaAsset, Organization, OutboxEvent, PublishApproval, VideoProject, WorkflowRun
+from app.infrastructure.models import MediaAsset, Organization, OutboxEvent, PublishApproval, PublisherConnection, VideoProject, WorkflowRun
 from app.infrastructure.workflow_progression_repository import SqlAlchemyWorkflowProgressionRepository
 
 
@@ -102,6 +104,32 @@ class PublishArtifactLineageTests(unittest.TestCase):
         )
         self.assertEqual(str(asset.id), event.payload["publish_artifact"]["asset_id"])
         self.assertEqual(asset.object_key, event.payload["publish_artifact"]["object_key"])
+
+        connection = PublisherConnection(
+            organization_id=self.organization_id,
+            provider="youtube",
+            provider_account_id="UC_lineage",
+            display_name="Lineage channel",
+            encrypted_refresh_token="encrypted",
+            scopes={"granted": "youtube.upload"},
+            status="active",
+            connected_by_subject="operator-1",
+        )
+        self.session.add(connection)
+        self.session.commit()
+        from app.routers.integrations import _issue_youtube_manifest
+
+        with patch("app.routers.integrations.PrivateObjectPreviewIssuer.from_env") as previews, patch(
+            "app.routers.integrations.PublisherTokenCipher.from_env"
+        ), patch("app.routers.integrations.YouTubePublisherSettings.from_env"), patch(
+            "app.routers.integrations.YouTubeAccessTokenRefresher"
+        ) as refresher:
+            previews.return_value.issue_final_export.return_value = SimpleNamespace(download_url="https://object.example/final.mp4", expires_in_seconds=300)
+            refresher.return_value.refresh.return_value = SimpleNamespace(value="access-token", expires_in_seconds=300)
+            manifest = _issue_youtube_manifest(self.session, self.session.get(WorkflowRun, self.workflow_run.id), self.organization_id, connection.id)
+
+        self.assertEqual("https://object.example/final.mp4", manifest.artifact_download_url)
+        previews.return_value.issue_final_export.assert_called_once_with(workflow_run_id=self.workflow_run.id, object_key=asset.object_key)
 
     def test_approval_without_a_final_export_is_rejected(self) -> None:
         workflow = AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(self.session))

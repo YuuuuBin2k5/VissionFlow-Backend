@@ -28,7 +28,7 @@ from app.domain.workflow import WorkflowState
 from app.infrastructure.database import get_session
 from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
 from app.infrastructure.publisher_oauth_repository import PublisherOAuthAttemptRepository
-from app.infrastructure.models import PublicationAttempt, PublisherConnection
+from app.infrastructure.models import MediaAsset, PublicationAttempt, PublishApproval, PublisherConnection
 from app.infrastructure.models import VideoProject, WorkflowRun, WorkflowStep
 from app.infrastructure.workflow_progression_repository import SqlAlchemyWorkflowProgressionRepository
 from app.infrastructure.overlay_uploads import PrivateObjectPreviewIssuer, OverlayUploadConfigurationError, OverlayUploadVerificationError
@@ -346,16 +346,23 @@ def _validate_failure_code(failure_code: str) -> None:
 
 
 def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organization_id: uuid.UUID, publisher_connection_id: uuid.UUID) -> YouTubePublishManifest:
-    qa = session.scalar(
-        select(WorkflowStep).where(
-            WorkflowStep.workflow_run_id == workflow.id,
-            WorkflowStep.step_key == "quality_assurance",
-            WorkflowStep.state == WorkflowState.RENDERED.value,
+    approval = session.scalar(
+        select(PublishApproval).where(
+            PublishApproval.workflow_run_id == workflow.id,
+            PublishApproval.decision == "approved",
         )
     )
-    artifact = qa.output_payload.get("artifact") if qa and isinstance(qa.output_payload, dict) else None
-    object_key = artifact.get("object_key") if isinstance(artifact, dict) else None
-    if not isinstance(object_key, str):
+    if approval is None:
+        raise LookupError()
+    artifact = session.scalar(
+        select(MediaAsset).where(
+            MediaAsset.id == approval.export_asset_id,
+            MediaAsset.organization_id == organization_id,
+            MediaAsset.workflow_run_id == workflow.id,
+            MediaAsset.media_kind == "final_export",
+        )
+    )
+    if artifact is None:
         raise LookupError()
     connection = session.scalar(
         select(PublisherConnection).where(
@@ -368,7 +375,7 @@ def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organizatio
     project = session.get(VideoProject, workflow.project_id)
     if connection is None or project is None:
         raise LookupError()
-    preview = PrivateObjectPreviewIssuer.from_env().issue_final_export(workflow_run_id=workflow.id, object_key=object_key)
+    preview = PrivateObjectPreviewIssuer.from_env().issue_final_export(workflow_run_id=workflow.id, object_key=artifact.object_key)
     token = YouTubeAccessTokenRefresher(requests, PublisherTokenCipher.from_env(), YouTubePublisherSettings.from_env()).refresh(connection.encrypted_refresh_token)
     return YouTubePublishManifest(
         workflow_run_id=workflow.id,
