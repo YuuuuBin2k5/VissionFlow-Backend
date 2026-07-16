@@ -12,4 +12,6 @@ Required publisher-worker environment values:
 
 The same client ID, secret, and subject must be registered as `VISIONFLOW_PUBLISHER_*` on the Control Plane. The service token carries only `publish:execute`.
 
+The consumer automatically reclaims unacknowledged messages after 60 seconds. It retries a failed event up to five times and then writes the original envelope and error class to `visionflow.publisher-dlq.v1`. Tune this only with explicit operational ownership using `VISIONFLOW_PUBLISHER_CLAIM_IDLE_MS`, `VISIONFLOW_PUBLISHER_MAX_ATTEMPTS`, and `VISIONFLOW_PUBLISHER_DLQ_STREAM`.
+
 Before enabling workers, run `python -m alembic upgrade head` once against Neon. Verify Control Plane health, then publish one approved private test Short. A successful execution ends with workflow state `PUBLISHED` and a YouTube watch URL.

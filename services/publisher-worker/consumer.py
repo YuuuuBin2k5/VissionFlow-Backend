@@ -14,6 +14,9 @@ from main import execute
 STREAM = os.getenv("VISIONFLOW_EVENTS_STREAM", "visionflow.workflow-events.v1")
 GROUP = os.getenv("VISIONFLOW_PUBLISHER_CONSUMER_GROUP", "visionflow-publisher-v1")
 CONSUMER = os.getenv("VISIONFLOW_PUBLISHER_CONSUMER_NAME", socket.gethostname())
+DLQ = os.getenv("VISIONFLOW_PUBLISHER_DLQ_STREAM", "visionflow.publisher-dlq.v1")
+MAX_ATTEMPTS = int(os.getenv("VISIONFLOW_PUBLISHER_MAX_ATTEMPTS", "5"))
+CLAIM_IDLE_MS = int(os.getenv("VISIONFLOW_PUBLISHER_CLAIM_IDLE_MS", "60000"))
 
 
 def _redis() -> Redis:
@@ -31,16 +34,12 @@ def main() -> None:
         if "BUSYGROUP" not in str(exc):
             raise
     while True:
-        messages = client.xreadgroup(GROUP, CONSUMER, {STREAM: ">"}, count=1, block=5000)
-        for _, events in messages:
-            for event_id, fields in events:
-                try:
-                    _handle(fields)
-                except Exception:
-                    # Do not ACK transient failures; Redis PEL preserves the event for recovery.
-                    time.sleep(2)
-                    continue
-                client.xack(STREAM, GROUP, event_id)
+        reclaimed = client.xautoclaim(STREAM, GROUP, CONSUMER, CLAIM_IDLE_MS, "0-0", count=10)
+        reclaimed_events = reclaimed[1] if len(reclaimed) > 1 else []
+        messages = client.xreadgroup(GROUP, CONSUMER, {STREAM: ">"}, count=10, block=5000)
+        new_events = [event for _, events in messages for event in events]
+        for event_id, fields in [*reclaimed_events, *new_events]:
+            _process(client, event_id, fields)
 
 
 def _handle(fields: dict[str, str]) -> None:
@@ -53,6 +52,24 @@ def _handle(fields: dict[str, str]) -> None:
     if not isinstance(workflow_run_id, str) or not isinstance(organization_id, str):
         raise ValueError("PUBLISHING event has no tenant-scoped workflow identifiers")
     execute(workflow_run_id, organization_id)
+
+
+def _process(client: Redis, event_id: str, fields: dict[str, str]) -> None:
+    attempts_key = f"visionflow:publisher:attempts:{event_id}"
+    try:
+        _handle(fields)
+    except Exception as exc:
+        attempts = int(client.incr(attempts_key))
+        client.expire(attempts_key, 86_400)
+        if attempts >= MAX_ATTEMPTS:
+            client.xadd(DLQ, {"source_stream": STREAM, "source_event_id": event_id, "attempts": str(attempts), "error_type": type(exc).__name__, "event": json.dumps(fields, sort_keys=True)})
+            client.xack(STREAM, GROUP, event_id)
+            client.delete(attempts_key)
+        else:
+            time.sleep(min(attempts, 5))
+        return
+    client.xack(STREAM, GROUP, event_id)
+    client.delete(attempts_key)
 
 
 if __name__ == "__main__":
