@@ -36,7 +36,7 @@ router = APIRouter(prefix="/integrations", tags=["integrations"])
 
 class OAuthStartResponse(BaseModel): authorization_url: str
 class PublisherConnectionResponse(BaseModel): id: uuid.UUID; provider: str; provider_account_id: str; display_name: str; status: str
-class YouTubePublishManifest(BaseModel): workflow_run_id: uuid.UUID; publisher_connection_id: uuid.UUID; artifact_download_url: str; artifact_expires_in_seconds: int; access_token: str; access_token_expires_in_seconds: int
+class YouTubePublishManifest(BaseModel): workflow_run_id: uuid.UUID; publisher_connection_id: uuid.UUID; title: str; description: str; artifact_download_url: str; artifact_expires_in_seconds: int; access_token: str; access_token_expires_in_seconds: int
 class CompleteYouTubePublishRequest(BaseModel): organization_id: uuid.UUID; publisher_connection_id: uuid.UUID; video_id: str; video_url: str
 
 @router.get("/publisher-connections", response_model=list[PublisherConnectionResponse])
@@ -128,7 +128,10 @@ def get_youtube_publish_manifest(workflow_run_id: uuid.UUID, organization_id: uu
         preview = PrivateObjectPreviewIssuer.from_env().issue_final_export(workflow_run_id=workflow_run_id, object_key=object_key)
         import requests
         token = YouTubeAccessTokenRefresher(requests, PublisherTokenCipher.from_env(), YouTubePublisherSettings.from_env()).refresh(connection.encrypted_refresh_token)
-        return YouTubePublishManifest(workflow_run_id=workflow_run_id, publisher_connection_id=connection.id, artifact_download_url=preview.download_url, artifact_expires_in_seconds=preview.expires_in_seconds, access_token=token.value, access_token_expires_in_seconds=token.expires_in_seconds)
+        project = session.get(VideoProject, workflow.project_id)
+        if project is None:
+            raise LookupError()
+        return YouTubePublishManifest(workflow_run_id=workflow_run_id, publisher_connection_id=connection.id, title=project.title[:100], description=project.brief[:5000], artifact_download_url=preview.download_url, artifact_expires_in_seconds=preview.expires_in_seconds, access_token=token.value, access_token_expires_in_seconds=token.expires_in_seconds)
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Publisher service identity is not authorized") from exc
     except (LookupError, ValueError) as exc:
