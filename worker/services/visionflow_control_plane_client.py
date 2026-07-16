@@ -162,6 +162,8 @@ class VisionFlowControlPlaneClient:
         trace_id: str | None = None,
     ) -> dict[str, Any]:
         """Call complete-narration endpoint on the Control Plane."""
+        if organization_id != self._settings.organization_id:
+            raise ValueError("organization_id mismatch with configured client settings")
         url = f"{self._settings.api_url}/workflows/{workflow_run_id}/complete-narration"
         response = self._http.post(
             url,

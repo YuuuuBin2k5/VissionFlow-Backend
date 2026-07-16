@@ -46,7 +46,12 @@ class NarrationResultApiTests(unittest.TestCase):
             from app.routers import workflows
             from app.routers.auth import require_identity
 
-        app.dependency_overrides[require_identity] = lambda: VerifiedIdentity("oidc|worker", None, None)
+        app.dependency_overrides[require_identity] = lambda: VerifiedIdentity(
+            subject="service|visionflow-intelligence-worker",
+            email=None,
+            display_name=None,
+            scopes=["workflow:narration:complete"],
+        )
         app.dependency_overrides[workflows.get_session] = lambda: object()
         self.addCleanup(app.dependency_overrides.clear)
         return TestClient(app)
@@ -90,7 +95,7 @@ class NarrationResultApiTests(unittest.TestCase):
         self.assertEqual(str(expected_summary.version_id), response.json()["version_id"])
         self.assertEqual(1, response.json()["version"])
         authorize.return_value.require.assert_called_once_with(
-            "oidc|worker",
+            "service|visionflow-intelligence-worker",
             self.organization_id,
             Permission.WORKFLOW_NARRATION_COMPLETE,
         )

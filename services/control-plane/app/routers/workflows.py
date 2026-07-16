@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import uuid
 from typing import Any
 
@@ -589,6 +590,15 @@ def complete_narration(
 ) -> Any:
     trace_id = _trace_id(request_id)
     try:
+        if "workflow:narration:complete" not in identity.scopes:
+            raise PermissionError("Token is missing required capability: workflow:narration:complete")
+        if identity.subject.startswith("local|"):
+            raise PermissionError("User tokens are not allowed for service endpoints")
+        expected_subject = os.getenv("VISIONFLOW_WORKER_SUBJECT", "").strip()
+        if expected_subject:
+            if identity.subject.startswith("service|") and identity.subject != expected_subject:
+                raise PermissionError("Service token subject mismatch")
+
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
             identity.subject,
             request.organization_id,

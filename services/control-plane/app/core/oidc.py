@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Any
 from urllib.parse import urlparse
@@ -17,6 +17,7 @@ class VerifiedIdentity:
     subject: str
     email: str | None
     display_name: str | None
+    scopes: list[str] = field(default_factory=list)
 
 
 class OidcProviderUnavailable(RuntimeError):
@@ -73,10 +74,18 @@ class OidcTokenVerifier:
             raise PermissionError("OIDC token is missing a subject")
         email = claims.get("email")
         display_name = claims.get("name")
+        scopes_claim = claims.get("scope") or claims.get("scopes") or claims.get("permissions") or ""
+        if isinstance(scopes_claim, str):
+            scopes = scopes_claim.split()
+        elif isinstance(scopes_claim, list):
+            scopes = [str(s) for s in scopes_claim]
+        else:
+            scopes = []
         return VerifiedIdentity(
             subject=subject,
             email=email if isinstance(email, str) else None,
             display_name=display_name if isinstance(display_name, str) else None,
+            scopes=scopes,
         )
 
 

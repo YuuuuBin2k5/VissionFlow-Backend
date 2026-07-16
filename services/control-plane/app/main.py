@@ -76,3 +76,23 @@ async def validation_exception_handler(request, exc):
             "detail": exc.errors(),
         }
     )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    request_id = request.headers.get("X-Request-ID") or request.headers.get("x-request-id")
+    trace_id = _normalize_trace_id(request_id) if request_id else uuid.uuid4().hex
+
+    import sys
+    import traceback
+    print(f"Unhandled Exception [Trace ID: {trace_id}]: {exc}", file=sys.stderr)
+    traceback.print_exc(file=sys.stderr)
+
+    return JSONResponse(
+        status_code=500,
+        content={
+            "code": "INTERNAL_SERVER_ERROR",
+            "message": "An unexpected error occurred",
+            "trace_id": trace_id,
+            "detail": None,
+        }
+    )

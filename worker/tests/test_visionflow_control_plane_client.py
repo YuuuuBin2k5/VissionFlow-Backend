@@ -173,3 +173,27 @@ class VisionFlowWorkerSettingsTests(unittest.TestCase):
             http.calls[1]["json"]["source_metadata"]["provider"],
         )
 
+    def test_complete_narration_mismatched_organization_id_raises_value_error(self) -> None:
+        settings = VisionFlowWorkerSettings(
+            api_url="https://visionflow.example.com/api/v1",
+            organization_id="00000000-0000-0000-0000-000000000001",
+            token_url="https://visionflow.example.com/api/v1/auth/token",
+            client_id="intelligence-worker",
+            client_secret="not-a-real-secret",
+            audience="visionflow-control-plane",
+        )
+        client = VisionFlowControlPlaneClient(settings, http=RecordingHttp())
+        with self.assertRaisesRegex(ValueError, "organization_id mismatch"):
+            client.complete_narration(
+                workflow_run_id="00000000-0000-0000-0000-000000000002",
+                organization_id="00000000-0000-0000-0000-000000000009",
+                idempotency_key="idempotency-key-narration-01",
+                script="This is a valid narration script that is long enough.",
+                scenes=[
+                    {"narration": "Scene 1", "visual_prompt": "Prompt 1", "duration_seconds": 5},
+                ],
+                source_metadata={
+                    "provider": "google",
+                    "model": "gemini-1.5-pro",
+                },
+            )

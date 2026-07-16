@@ -135,7 +135,10 @@ async def issue_service_token(request: Request) -> ClientCredentialsTokenRespons
     signed = Rs256AccessTokenSigner(settings).issue(
         subject=expected_subject,
         session_id=f"service:{expected_client_id}",
-        extra_claims={"client_id": expected_client_id},
+        extra_claims={
+            "client_id": expected_client_id,
+            "scopes": ["workflow:narration:complete"],
+        },
     )
     return ClientCredentialsTokenResponse(
         access_token=signed,
@@ -282,10 +285,18 @@ def require_identity(
     # auth is not configured (during migration), retain external OIDC support.
     try:
         claims = InternalAccessTokenVerifier(InternalAuthSettings.from_env()).verify(credentials.credentials)
+        scopes_val = claims.get("scopes") or claims.get("scope") or []
+        if isinstance(scopes_val, str):
+            scopes = scopes_val.split()
+        elif isinstance(scopes_val, list):
+            scopes = [str(s) for s in scopes_val]
+        else:
+            scopes = []
         return VerifiedIdentity(
             subject=claims["sub"],
             email=claims.get("email") if isinstance(claims.get("email"), str) else None,
             display_name=None,
+            scopes=scopes,
         )
     except ConfigurationError:
         pass
