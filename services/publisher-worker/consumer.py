@@ -51,12 +51,8 @@ def _handle(fields: dict[str, str]) -> None:
         return
     event_type = fields.get("event_type")
     if event_type == "visionflow.workflow_run.state_changed.v1":
-        if payload.get("to_state") != "PUBLISHING":
-            return
-        workflow_run_id, organization_id = payload.get("workflow_run_id"), payload.get("organization_id")
-        if not isinstance(workflow_run_id, str) or not isinstance(organization_id, str):
-            raise ValueError("PUBLISHING event has no tenant-scoped workflow identifiers")
-        execute(workflow_run_id, organization_id)
+        # PUBLISHING is an audit/state event only. The durable publication
+        # attempt event below owns the lease and is the sole upload trigger.
         return
     if event_type == "visionflow.publication_attempt.requested.v1":
         attempt_id, organization_id = payload.get("publication_attempt_id"), payload.get("organization_id")

@@ -21,7 +21,7 @@ from app.application.advance_workflow import AdvanceWorkflow
 from app.application.begin_manual_publish import BeginManualPublish, BeginManualPublishCommand
 from app.application.manual_approval import ApproveManualReviewCommand, ManualApproval
 from app.domain.workflow import WorkflowState
-from app.infrastructure.models import MediaAsset, Organization, OutboxEvent, PublishApproval, PublisherConnection, VideoProject, WorkflowRun
+from app.infrastructure.models import MediaAsset, Organization, OutboxEvent, PublicationAttempt, PublishApproval, PublisherConnection, VideoProject, WorkflowRun
 from app.infrastructure.workflow_progression_repository import SqlAlchemyWorkflowProgressionRepository
 
 
@@ -84,27 +84,6 @@ class PublishArtifactLineageTests(unittest.TestCase):
         self.session.add(asset)
         self.session.commit()
 
-        workflow = AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(self.session))
-        ManualApproval(workflow).approve(
-            ApproveManualReviewCommand(self.organization_id, self.workflow_run.id, "reviewer-1", "looks good", "c" * 32)
-        )
-        BeginManualPublish(workflow).execute(
-            BeginManualPublishCommand(
-                self.organization_id, self.workflow_run.id, uuid.uuid4(), "youtube", "UC_test", "operator-1", trace_id="d" * 32
-            )
-        )
-
-        approval = self.session.scalar(select(PublishApproval).where(PublishApproval.workflow_run_id == self.workflow_run.id))
-        self.assertIsNotNone(approval)
-        self.assertEqual(asset.id, approval.export_asset_id)
-        event = self.session.scalar(
-            select(OutboxEvent)
-            .where(OutboxEvent.aggregate_id == self.workflow_run.id)
-            .order_by(OutboxEvent.created_at.desc())
-        )
-        self.assertEqual(str(asset.id), event.payload["publish_artifact"]["asset_id"])
-        self.assertEqual(asset.object_key, event.payload["publish_artifact"]["object_key"])
-
         connection = PublisherConnection(
             organization_id=self.organization_id,
             provider="youtube",
@@ -117,6 +96,32 @@ class PublishArtifactLineageTests(unittest.TestCase):
         )
         self.session.add(connection)
         self.session.commit()
+
+        workflow = AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(self.session))
+        ManualApproval(workflow).approve(
+            ApproveManualReviewCommand(self.organization_id, self.workflow_run.id, "reviewer-1", "looks good", "c" * 32)
+        )
+        BeginManualPublish(workflow).execute(
+            BeginManualPublishCommand(
+                self.organization_id, self.workflow_run.id, connection.id, "youtube", "UC_test", "operator-1", trace_id="d" * 32
+            )
+        )
+
+        approval = self.session.scalar(select(PublishApproval).where(PublishApproval.workflow_run_id == self.workflow_run.id))
+        self.assertIsNotNone(approval)
+        self.assertEqual(asset.id, approval.export_asset_id)
+        initial_attempt = self.session.scalar(select(PublicationAttempt).where(PublicationAttempt.workflow_run_id == self.workflow_run.id))
+        self.assertIsNotNone(initial_attempt)
+        self.assertEqual("requested", initial_attempt.state)
+        self.assertEqual(connection.id, initial_attempt.publisher_connection_id)
+        event = self.session.scalar(
+            select(OutboxEvent)
+            .where(OutboxEvent.aggregate_id == self.workflow_run.id)
+            .order_by(OutboxEvent.created_at.desc())
+        )
+        self.assertEqual(str(asset.id), event.payload["publish_artifact"]["asset_id"])
+        self.assertEqual(asset.object_key, event.payload["publish_artifact"]["object_key"])
+
         from app.routers.integrations import _issue_youtube_manifest
 
         with patch("app.routers.integrations.PrivateObjectPreviewIssuer.from_env") as previews, patch(

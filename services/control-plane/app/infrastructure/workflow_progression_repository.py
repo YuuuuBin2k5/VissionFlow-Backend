@@ -11,7 +11,7 @@ from app.application.advance_workflow import (
     WorkflowTransitionResult,
 )
 from app.domain.workflow import WorkflowState, require_transition
-from app.infrastructure.models import MediaAsset, OutboxEvent, PublishApproval, VideoProject, WorkflowRun, WorkflowStep
+from app.infrastructure.models import MediaAsset, OutboxEvent, PublicationAttempt, PublishApproval, VideoProject, WorkflowRun, WorkflowStep
 
 
 class SqlAlchemyWorkflowProgressionRepository:
@@ -105,6 +105,7 @@ class SqlAlchemyWorkflowProgressionRepository:
         if command.target_state == WorkflowState.PUBLISHING:
             event_payload["publisher_connection_id"] = command.output_payload.get("publisher_connection_id")
             event_payload["publish_artifact"] = self._approved_artifact_payload(workflow_run)
+            self._create_initial_publication_attempt(workflow_run, command)
         self._session.add(
             OutboxEvent(
                 aggregate_type="workflow_run",
@@ -202,6 +203,36 @@ class SqlAlchemyWorkflowProgressionRepository:
             )
             .order_by(MediaAsset.created_at.desc())
             .with_for_update()
+        )
+
+    def _create_initial_publication_attempt(self, workflow_run: WorkflowRun, command: AdvanceWorkflowCommand) -> None:
+        """Create the first publish lease and its outbox event in the state-change transaction."""
+        connection_id = command.output_payload.get("publisher_connection_id")
+        requested_by = command.output_payload.get("requested_by_subject")
+        if not isinstance(connection_id, str) or not isinstance(requested_by, str) or not requested_by.strip():
+            raise ValueError("PUBLISHING requires publisher connection and requester")
+        attempt = PublicationAttempt(
+            workflow_run_id=workflow_run.id,
+            publisher_connection_id=uuid.UUID(connection_id),
+            attempt_number=1,
+            state="requested",
+            requested_by_subject=requested_by.strip(),
+        )
+        self._session.add(attempt)
+        self._session.flush()
+        self._session.add(
+            OutboxEvent(
+                aggregate_type="publication_attempt",
+                aggregate_id=attempt.id,
+                event_type="visionflow.publication_attempt.requested.v1",
+                payload={
+                    "publication_attempt_id": str(attempt.id),
+                    "workflow_run_id": str(workflow_run.id),
+                    "organization_id": str(command.organization_id),
+                    "publisher_connection_id": connection_id,
+                },
+                trace_id=command.trace_id,
+            )
         )
 
 

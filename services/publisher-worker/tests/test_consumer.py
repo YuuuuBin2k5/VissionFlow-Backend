@@ -16,14 +16,13 @@ class PublisherConsumerTests(unittest.TestCase):
             consumer._handle({"event_type": "visionflow.workflow_run.state_changed.v1", "payload": '{"to_state":"APPROVED"}'})
         execute.assert_not_called()
 
-    def test_executes_only_tenant_scoped_publishing_event(self) -> None:
+    def test_ignores_publishing_state_event_because_attempt_owns_the_lease(self) -> None:
         with patch("consumer.execute") as execute:
             consumer._handle({"event_type": "visionflow.workflow_run.state_changed.v1", "payload": '{"to_state":"PUBLISHING","workflow_run_id":"run-1","organization_id":"org-1"}'})
-        execute.assert_called_once_with("run-1", "org-1")
+        execute.assert_not_called()
 
-    def test_rejects_publishing_event_without_organization(self) -> None:
-        with self.assertRaisesRegex(ValueError, "tenant-scoped"):
-            consumer._handle({"event_type": "visionflow.workflow_run.state_changed.v1", "payload": '{"to_state":"PUBLISHING","workflow_run_id":"run-1"}'})
+    def test_ignores_publishing_audit_event_without_execution_payload(self) -> None:
+        consumer._handle({"event_type": "visionflow.workflow_run.state_changed.v1", "payload": '{"to_state":"PUBLISHING","workflow_run_id":"run-1"}'})
 
     def test_executes_a_tenant_scoped_publication_attempt(self) -> None:
         with patch("consumer.execute_publication_attempt") as execute_attempt:

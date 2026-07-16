@@ -156,7 +156,7 @@ def claim_youtube_publication_attempt(publication_attempt_id: uuid.UUID, request
         if attempt.state not in {"requested", "claimed"}:
             raise _AttemptAlreadyFinalized()
         workflow = session.get(WorkflowRun, attempt.workflow_run_id)
-        if workflow is None or workflow.state != WorkflowState.FAILED.value:
+        if workflow is None or workflow.state not in {WorkflowState.PUBLISHING.value, WorkflowState.FAILED.value}:
             raise LookupError()
         attempt.state = "claimed"
         attempt.lease_token = secrets.token_hex(32)
@@ -194,7 +194,20 @@ def complete_youtube_publication_attempt(publication_attempt_id: uuid.UUID, requ
         attempt.failure_code = None
         attempt.lease_token = None
         attempt.lease_expires_at = None
-        session.commit()
+        workflow = session.get(WorkflowRun, attempt.workflow_run_id)
+        if workflow is not None and workflow.state == WorkflowState.PUBLISHING.value:
+            AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(session)).execute(
+                AdvanceWorkflowCommand(
+                    organization_id=request.organization_id,
+                    workflow_run_id=workflow.id,
+                    expected_state=WorkflowState.PUBLISHING,
+                    target_state=WorkflowState.PUBLISHED,
+                    output_payload={"provider": "youtube", "publisher_connection_id": str(attempt.publisher_connection_id), "external_video_id": request.video_id, "external_url": request.video_url},
+                    trace_id=uuid.uuid4().hex,
+                )
+            )
+        else:
+            session.commit()
         return {"publication_attempt_id": str(attempt.id), "state": attempt.state, "external_url": request.video_url}
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Publisher service identity is not authorized") from exc
@@ -219,7 +232,7 @@ def fail_youtube_publication_attempt(publication_attempt_id: uuid.UUID, request:
         attempt.failure_code = request.failure_code
         attempt.lease_token = None
         attempt.lease_expires_at = None
-        session.commit()
+        _transition_initial_attempt_failure(session, attempt, request.organization_id, request.failure_code)
         return {"publication_attempt_id": str(attempt.id), "state": attempt.state}
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Publisher service identity is not authorized") from exc
@@ -246,7 +259,7 @@ def fail_youtube_publication_attempt_terminal(publication_attempt_id: uuid.UUID,
         attempt.failure_code = request.failure_code
         attempt.lease_token = None
         attempt.lease_expires_at = None
-        session.commit()
+        _transition_initial_attempt_failure(session, attempt, request.organization_id, request.failure_code)
         return {"publication_attempt_id": str(attempt.id), "state": attempt.state}
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Publisher service identity is not authorized") from exc
@@ -343,6 +356,23 @@ def _require_attempt_lease(attempt: PublicationAttempt, lease_token: str) -> Non
 def _validate_failure_code(failure_code: str) -> None:
     if not failure_code.isupper() or len(failure_code) > 96:
         raise ValueError()
+
+
+def _transition_initial_attempt_failure(session: Session, attempt: PublicationAttempt, organization_id: uuid.UUID, failure_code: str) -> None:
+    workflow = session.get(WorkflowRun, attempt.workflow_run_id)
+    if workflow is not None and workflow.state == WorkflowState.PUBLISHING.value:
+        AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(session)).execute(
+            AdvanceWorkflowCommand(
+                organization_id=organization_id,
+                workflow_run_id=workflow.id,
+                expected_state=WorkflowState.PUBLISHING,
+                target_state=WorkflowState.FAILED,
+                output_payload={"provider": "youtube", "failure_code": failure_code},
+                trace_id=uuid.uuid4().hex,
+            )
+        )
+    else:
+        session.commit()
 
 
 def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organization_id: uuid.UUID, publisher_connection_id: uuid.UUID) -> YouTubePublishManifest:
