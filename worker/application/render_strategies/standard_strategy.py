@@ -203,7 +203,12 @@ class StandardRenderStrategy(RenderStrategy):
                 "scenes_layout": scenes_layout,
             }
 
-        repo.save_script_result(job_id, hook, full_script, scenes_payload_for_db, seo_tags)
+        # Narration Handoff Coordination (VF-03.02a)
+        from worker.application.narration_handoff import NarrationHandoffCoordinator
+        handoff_coordinator = NarrationHandoffCoordinator()
+        handoff_coordinator.handle_narration(
+            job_id, hook, full_script, scenes_payload_for_db, seo_tags
+        )
         log_realtime_progress(job_id, "LLM_SCRIPT", "INFO",
                               f"Kịch bản hoàn thành! Hook: '{hook[:40]}...'")
         return details, hook, full_script, scenes_layout, seo_tags, voice_code
