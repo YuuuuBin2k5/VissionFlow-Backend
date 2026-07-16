@@ -1,0 +1,28 @@
+name: VisionFlow free publisher runner
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/10 * * * *'
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.VISIONFLOW_DATABASE_URL }}
+      REDIS_URL: ${{ secrets.VISIONFLOW_REDIS_URL }}
+      VISIONFLOW_CONTROL_PLANE_URL: ${{ secrets.VISIONFLOW_CONTROL_PLANE_URL }}
+      VISIONFLOW_AUTH_AUDIENCE: visionflow-control-plane
+      VISIONFLOW_PUBLISHER_CLIENT_ID: ${{ secrets.VISIONFLOW_PUBLISHER_CLIENT_ID }}
+      VISIONFLOW_PUBLISHER_CLIENT_SECRET: ${{ secrets.VISIONFLOW_PUBLISHER_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r services/control-plane/requirements.txt -r services/publisher-worker/requirements.txt
+      - working-directory: services/control-plane
+        run: python scripts/relay_outbox.py --limit 50
+      - working-directory: services/publisher-worker
+        run: python consumer.py --once

@@ -5,6 +5,7 @@ import json
 import os
 import socket
 import time
+import argparse
 
 from redis import Redis
 
@@ -26,7 +27,7 @@ def _redis() -> Redis:
     return Redis.from_url(url, decode_responses=True)
 
 
-def main() -> None:
+def main(*, once: bool = False) -> None:
     client = _redis()
     try:
         client.xgroup_create(STREAM, GROUP, id="0", mkstream=True)
@@ -40,6 +41,8 @@ def main() -> None:
         new_events = [event for _, events in messages for event in events]
         for event_id, fields in [*reclaimed_events, *new_events]:
             _process(client, event_id, fields)
+        if once:
+            return
 
 
 def _handle(fields: dict[str, str]) -> None:
@@ -73,4 +76,7 @@ def _process(client: Redis, event_id: str, fields: dict[str, str]) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Consume VisionFlow publishing events")
+    parser.add_argument("--once", action="store_true", help="Run one bounded pass for GitHub Actions")
+    arguments = parser.parse_args()
+    main(once=arguments.once)

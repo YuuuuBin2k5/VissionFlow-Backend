@@ -1,10 +1,11 @@
 # VisionFlow YouTube Publisher deployment
 
-The free Render Blueprint intentionally does not run background workers. Use the staging Blueprint only after Redis and object storage are configured.
+The free Render Blueprint intentionally runs only the Control Plane. For the no-cost profile, GitHub Actions runs relay and publisher work every ten minutes or manually. Do not import `render.staging.yaml` unless you later choose paid workers.
 
-Required publisher-worker environment values:
+Required GitHub repository secrets:
 
-- `REDIS_URL`: durable TLS Redis endpoint shared with the Control Plane.
+- `VISIONFLOW_DATABASE_URL`: the same TLS Neon URL used by the Control Plane.
+- `VISIONFLOW_REDIS_URL`: durable TLS Redis endpoint shared with the Control Plane.
 - `VISIONFLOW_CONTROL_PLANE_URL`: `https://<control-plane>/api/v1`.
 - `VISIONFLOW_AUTH_AUDIENCE`: `visionflow-control-plane`.
 - `VISIONFLOW_PUBLISHER_CLIENT_ID` and `VISIONFLOW_PUBLISHER_CLIENT_SECRET`: a new, dedicated client-credentials pair.
