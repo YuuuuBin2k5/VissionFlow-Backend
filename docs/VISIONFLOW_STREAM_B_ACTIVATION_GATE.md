@@ -12,6 +12,11 @@ It must retain the returned runtime and await `runtime.stop()` on `SIGINT` and
 `SIGTERM`. This adapter exposes `GET /health/visionflow/legacy-intake` without
 leaking secrets or event payloads.
 
+For production, prefer the isolated entrypoint
+`npx ts-node src/visionflow/runLegacyIntake.ts` over attaching Stream B to the
+Telegram web process. It has its own health port and shutdown lifecycle, so it
+can be deployed as a separately scaled worker service.
+
 ## Required deployment configuration
 
 Configure these as Render secrets, never in Git:
