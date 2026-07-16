@@ -5,11 +5,13 @@ from typing import Any
 from worker.application.visionflow_render_workflow import PreparedAssets, RenderedArtifact
 from worker.domain.composition_render_plan import CompositionRenderPlan
 from worker.domain.render_workspace import RenderWorkspace
+from worker.services.composition_caption_compositor import FfmpegCaptionCompositor
 
 class VisionFlowVideoRenderer:
-    def __init__(self, storage, materializer, tts, media_service, workspace_root) -> None:
+    def __init__(self, storage, materializer, tts, media_service, workspace_root, caption_compositor=None) -> None:
         self._storage, self._materializer, self._tts = storage, materializer, tts
         self._media_service, self._workspace_root = media_service, workspace_root
+        self._caption_compositor = caption_compositor or FfmpegCaptionCompositor()
 
     def render(self, contract, assets: PreparedAssets) -> RenderedArtifact:
         workspace = RenderWorkspace(self._workspace_root, contract.workflow_run_id).create()
@@ -22,6 +24,7 @@ class VisionFlowVideoRenderer:
             visual_style_plan=_style_plan(contract),
             full_voice_script=contract.script,
         )
+        output_path = self._caption_compositor.apply(output_path, contract.render_plan, workspace.path)
         uploaded = self._storage.upload_export(contract.workflow_run_id, output_path)
         return RenderedArtifact(**uploaded)
 

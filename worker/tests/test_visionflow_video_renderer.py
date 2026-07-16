@@ -1,8 +1,11 @@
 import unittest
+import tempfile
 from types import SimpleNamespace
 
 from worker.domain.composition_render_plan import compile_composition_render_plan
+from worker.domain.visionflow_render_contract import build_visionflow_render_contract
 from worker.services.visionflow_video_renderer import _style_plan, build_renderable_scene_layout
+from worker.services.visionflow_video_renderer import VisionFlowVideoRenderer
 
 
 def contract_with_effects(*effect_keys):
@@ -94,6 +97,37 @@ class VisionFlowVideoRendererStylePlanTests(unittest.TestCase):
 
         self.assertEqual([], plan["composition_applied_effects"])
         self.assertEqual(["soft_glow"], plan["composition_deferred_effects"])
+
+    def test_post_processes_mp4_with_caption_compositor_before_upload(self):
+        class Materializer:
+            def download(self, assets, workspace): return ["scene.mp4"]
+        class Tts:
+            def synthesize(self, script, voice, workspace): return SimpleNamespace(word_timestamps=[], audio_path="voice.mp3")
+        class Media:
+            def render_final_video(self, *args, **kwargs): return "base.mp4"
+        class Captions:
+            def __init__(self): self.calls = []
+            def apply(self, source_path, render_plan, workspace):
+                self.calls.append((source_path, render_plan, workspace)); return "captioned.mp4"
+        class Storage:
+            def __init__(self): self.paths = []
+            def upload_export(self, run_id, path):
+                self.paths.append((run_id, path))
+                return {"object_key": "export.mp4", "content_type": "video/mp4", "byte_size": 1, "checksum_sha256": "a" * 64}
+
+        contract = build_visionflow_render_contract(
+            "run-1", "a" * 32, {"input_payload": {"duration_seconds": 15, "aspect_ratio": "9:16"}},
+            "A script suitable for a caption compositor integration test.",
+            [{"scene_id": "scene-01", "duration": 5, "visual_search_keywords": "city"}],
+            {"state": "locked", "version_id": "composition-version-1", "aspect_ratio": "9:16", "tracks": []},
+        )
+        storage, captions = Storage(), Captions()
+        with tempfile.TemporaryDirectory() as workspace_root:
+            renderer = VisionFlowVideoRenderer(storage, Materializer(), Tts(), Media(), workspace_root, caption_compositor=captions)
+            renderer.render(contract, SimpleNamespace(asset_keys=("scene.mp4",)))
+
+        self.assertEqual([("run-1", "captioned.mp4")], storage.paths)
+        self.assertEqual("base.mp4", captions.calls[0][0])
 
 
 if __name__ == "__main__":
