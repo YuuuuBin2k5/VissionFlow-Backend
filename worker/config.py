@@ -93,3 +93,36 @@ BROWSER_EXTRA_ARGS = [
 VISIONFLOW_USE_PG_ADAPTER = os.environ.get("VISIONFLOW_USE_PG_ADAPTER", "false").lower() == "true"
 VISIONFLOW_CONTROL_PLANE_URL = os.environ.get("VISIONFLOW_CONTROL_PLANE_URL", "http://localhost:8000/api/v1")
 VISIONFLOW_ORGANIZATION_ID = os.environ.get("VISIONFLOW_ORGANIZATION_ID", "")
+
+# Narration handoff mode config & validation
+VISIONFLOW_NARRATION_HANDOFF_MODE = os.environ.get("VISIONFLOW_NARRATION_HANDOFF_MODE", "legacy").lower()
+APP_ENV = os.environ.get("APP_ENV", "development").lower()
+
+
+class ConfigurationError(ValueError):
+    """Raised when a worker config is missing or invalid."""
+
+
+def validate_config() -> None:
+    mode = os.environ.get("VISIONFLOW_NARRATION_HANDOFF_MODE", "legacy").lower()
+    app_env = os.environ.get("APP_ENV", "development").lower()
+
+    if mode not in {"legacy", "shadow", "control_plane"}:
+        raise ConfigurationError(f"Invalid VISIONFLOW_NARRATION_HANDOFF_MODE: {mode}")
+
+    if app_env == "production" and mode in {"shadow", "control_plane"}:
+        raise ConfigurationError("Shadow or Control Plane handoff mode is not allowed in production environment")
+
+    if mode in {"shadow", "control_plane"}:
+        org_id = os.environ.get("VISIONFLOW_ORGANIZATION_ID", "").strip()
+        if not org_id:
+            raise ConfigurationError("VISIONFLOW_ORGANIZATION_ID is required for shadow/control_plane mode")
+        import uuid
+        try:
+            uuid.UUID(org_id)
+        except ValueError:
+            raise ConfigurationError("VISIONFLOW_ORGANIZATION_ID must be a valid UUID")
+
+        cp_url = os.environ.get("VISIONFLOW_CONTROL_PLANE_URL", "").strip()
+        if not cp_url:
+            raise ConfigurationError("VISIONFLOW_CONTROL_PLANE_URL is required for shadow/control_plane mode")
