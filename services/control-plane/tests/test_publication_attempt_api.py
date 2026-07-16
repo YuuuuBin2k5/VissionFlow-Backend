@@ -202,6 +202,21 @@ class PublicationAttemptApiTests(unittest.TestCase):
             self.session.commit()
         self.session.rollback()
 
+    def test_database_treats_uploading_as_an_active_attempt(self) -> None:
+        self.attempt.state = "uploading"
+        self.session.add(
+            PublicationAttempt(
+                workflow_run_id=self.workflow.id,
+                publisher_connection_id=self.connection.id,
+                attempt_number=2,
+                state="requested",
+                requested_by_subject="local|operator",
+            )
+        )
+        with self.assertRaises(IntegrityError):
+            self.session.commit()
+        self.session.rollback()
+
     def test_tenant_mismatch_is_a_safe_not_found(self) -> None:
         client = self._client()
         headers = {"Authorization": f"Bearer {self._token()}"}

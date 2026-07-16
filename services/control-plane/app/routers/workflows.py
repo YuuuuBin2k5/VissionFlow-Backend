@@ -1216,7 +1216,7 @@ def create_publication_attempt(workflow_run_id: uuid.UUID, request: CreatePublic
         active_attempt = session.scalar(
             select(PublicationAttempt.id).where(
                 PublicationAttempt.workflow_run_id == workflow_run_id,
-                PublicationAttempt.state.in_(("requested", "claimed")),
+                PublicationAttempt.state.in_(("requested", "claimed", "uploading")),
             )
         )
         if active_attempt is not None:

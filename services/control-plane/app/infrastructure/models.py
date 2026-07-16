@@ -174,7 +174,7 @@ class PublicationAttempt(Timestamped, Base):
             "uq_publication_attempts_one_active",
             "workflow_run_id",
             unique=True,
-            postgresql_where=text("state IN ('requested', 'claimed')"),
+            postgresql_where=text("state IN ('requested', 'claimed', 'uploading')"),
         ),
     )
 
