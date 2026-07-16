@@ -166,7 +166,7 @@ class ReadinessApiTests(unittest.TestCase):
     def test_repository_checks_prompts_baseline_active(self) -> None:
         repository = SqlAlchemyShortFormReadinessRepository(self.session)
         required = ["short_video_scene_planner", "short_video_visual_art_director"]
-        
+
         status = repository.check_prompts_baseline_active(self.org_id, required)
         self.assertFalse(status.get("short_video_scene_planner", False))
         self.assertFalse(status.get("short_video_visual_art_director", False))
@@ -282,7 +282,7 @@ class ReadinessApiTests(unittest.TestCase):
         self.assertEqual(200, response.status_code)
         data = response.json()
         self.assertEqual("degraded", data["overall"])
-        
+
         # Manual creative draft is always ready
         self.assertTrue(data["creation_ready"])
         self.assertTrue(data["ai_planning_ready"])
@@ -314,7 +314,7 @@ class ReadinessApiTests(unittest.TestCase):
         self.assertEqual(200, response.status_code)
         data = response.json()
         self.assertEqual("blocked", data["overall"])
-        
+
         # Manual script is never blocked by lack of AI
         self.assertTrue(data["creation_ready"])
         self.assertFalse(data["ai_planning_ready"])
@@ -340,7 +340,7 @@ class ReadinessApiTests(unittest.TestCase):
         self.assertEqual(200, response.status_code)
         data = response.json()
         self.assertEqual("blocked", data["overall"])
-        
+
         # R2 blocked doesn't block manual brief/script drafting
         self.assertTrue(data["creation_ready"])
         self.assertFalse(data["render_prerequisites_ready"])

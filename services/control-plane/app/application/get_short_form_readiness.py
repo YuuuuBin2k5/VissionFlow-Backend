@@ -64,10 +64,10 @@ class GetShortFormReadiness:
         has_gemini = self._repository.check_gemini_active(organization_id)
         if not has_gemini:
             has_gemini = bool(os.getenv("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEYS"))
-        
+
         gemini_state = "ready" if has_gemini else "blocked"
         gemini_detail = "Gemini creative planning is configured and active." if has_gemini else "Gemini API key is missing. Add it to API Key Vault."
-        
+
         # 2. Stock Media
         active_stocks = self._repository.check_stock_media_active(organization_id)
         fallback_stocks = []
@@ -77,7 +77,7 @@ class GetShortFormReadiness:
             fallback_stocks.append("pixabay")
         if os.getenv("COVERR_API_KEY"):
             fallback_stocks.append("coverr")
-        
+
         all_stocks = sorted(list(set(active_stocks + fallback_stocks)))
         has_stock = len(all_stocks) > 0
         stock_state = "ready" if has_stock else "blocked"
@@ -101,7 +101,7 @@ class GetShortFormReadiness:
         prompt_status = self._repository.check_prompts_baseline_active(organization_id, required_prompts)
         missing_prompts = [k for k in required_prompts if not prompt_status.get(k, False)]
         has_prompts = len(missing_prompts) == 0
-        
+
         prompt_state = "ready" if has_prompts else "degraded"
         prompt_detail = "Required prompt templates are active and promoted." if has_prompts else f"Prompt template registry is degraded. Baseline templates ({', '.join(missing_prompts)}) are missing and will need to be configured for AI planning in the future."
 
