@@ -51,6 +51,13 @@ class ServiceClientRegistry:
         )
         if mapping_client is not None:
             clients.append(mapping_client)
+        publisher_client = _client_from_env(
+            "VISIONFLOW_PUBLISHER",
+            allowed_scopes=frozenset({"publish:execute"}),
+            required=False,
+        )
+        if publisher_client is not None:
+            clients.append(publisher_client)
         return cls(tuple(clients))
 
     def get(self, client_id: str) -> ServiceClient | None:
