@@ -38,6 +38,7 @@ class OAuthStartResponse(BaseModel): authorization_url: str
 class PublisherConnectionResponse(BaseModel): id: uuid.UUID; provider: str; provider_account_id: str; display_name: str; status: str
 class YouTubePublishManifest(BaseModel): workflow_run_id: uuid.UUID; publisher_connection_id: uuid.UUID; title: str; description: str; artifact_download_url: str; artifact_expires_in_seconds: int; access_token: str; access_token_expires_in_seconds: int
 class CompleteYouTubePublishRequest(BaseModel): organization_id: uuid.UUID; publisher_connection_id: uuid.UUID; video_id: str; video_url: str
+class FailYouTubePublishRequest(BaseModel): organization_id: uuid.UUID; publisher_connection_id: uuid.UUID; failure_code: str
 
 @router.get("/publisher-connections", response_model=list[PublisherConnectionResponse])
 def list_publisher_connections(organization_id: uuid.UUID, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> list[PublisherConnectionResponse]:
@@ -165,6 +166,29 @@ def complete_youtube_publish(workflow_run_id: uuid.UUID, request: CompleteYouTub
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Publish handoff is no longer active") from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="YouTube publish result is invalid") from exc
+
+
+@router.post("/youtube/publish-manifests/{workflow_run_id}/fail")
+def fail_youtube_publish(workflow_run_id: uuid.UUID, request: FailYouTubePublishRequest, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> dict[str, str]:
+    """Record terminal publisher failure without exposing provider error details."""
+    try:
+        _require_publisher_identity(identity)
+        if not request.failure_code.isupper() or len(request.failure_code) > 96:
+            raise ValueError()
+        publish = session.scalar(select(WorkflowStep).where(WorkflowStep.workflow_run_id == workflow_run_id, WorkflowStep.step_key == "publish"))
+        payload = publish.output_payload if publish and isinstance(publish.output_payload, dict) else {}
+        if payload.get("publisher_connection_id") != str(request.publisher_connection_id):
+            raise LookupError()
+        result = AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(session)).execute(AdvanceWorkflowCommand(organization_id=request.organization_id, workflow_run_id=workflow_run_id, expected_state=WorkflowState.PUBLISHING, target_state=WorkflowState.FAILED, output_payload={"provider": "youtube", "failure_code": request.failure_code}, trace_id=uuid.uuid4().hex))
+        return {"workflow_run_id": str(result.workflow_run_id), "state": result.state.value}
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Publisher service identity is not authorized") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Publish handoff not found") from exc
+    except WorkflowStateConflict as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Publish handoff is no longer active") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Publisher failure result is invalid") from exc
 
 
 def _require_publisher_identity(identity: VerifiedIdentity) -> None:

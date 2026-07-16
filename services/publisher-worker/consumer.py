@@ -9,7 +9,7 @@ import argparse
 
 from redis import Redis
 
-from main import execute
+from main import execute, record_failure
 
 
 STREAM = os.getenv("VISIONFLOW_EVENTS_STREAM", "visionflow.workflow-events.v1")
@@ -68,6 +68,15 @@ def _process(client: Redis, event_id: str, fields: dict[str, str]) -> None:
             client.xadd(DLQ, {"source_stream": STREAM, "source_event_id": event_id, "attempts": str(attempts), "error_type": type(exc).__name__, "event": json.dumps(fields, sort_keys=True)})
             client.xack(STREAM, GROUP, event_id)
             client.delete(attempts_key)
+            payload = json.loads(fields.get("payload", "{}"))
+            if isinstance(payload, dict):
+                workflow_run_id, organization_id = payload.get("workflow_run_id"), payload.get("organization_id")
+                if isinstance(workflow_run_id, str) and isinstance(organization_id, str):
+                    # The publish step binds the connection server-side; an empty value is rejected safely.
+                    try:
+                        record_failure(workflow_run_id, organization_id, str(payload.get("publisher_connection_id", "")), type(exc).__name__.upper())
+                    except Exception:
+                        pass
         else:
             time.sleep(min(attempts, 5))
         return

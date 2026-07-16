@@ -50,6 +50,14 @@ def execute(workflow_run_id: str, organization_id: str) -> str:
     return uploaded.url
 
 
+def record_failure(workflow_run_id: str, organization_id: str, publisher_connection_id: str, failure_code: str) -> None:
+    base_url = _required("VISIONFLOW_CONTROL_PLANE_URL").rstrip("/")
+    session = requests.Session()
+    token = _service_token(session, base_url)
+    response = session.post(f"{base_url}/integrations/youtube/publish-manifests/{workflow_run_id}/fail", headers={"Authorization": f"Bearer {token}"}, json={"organization_id": organization_id, "publisher_connection_id": publisher_connection_id, "failure_code": failure_code}, timeout=(5, 30))
+    response.raise_for_status()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Publish one approved VisionFlow video to YouTube")
     parser.add_argument("--workflow-run-id", required=True)
