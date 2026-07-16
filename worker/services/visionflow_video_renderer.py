@@ -1,6 +1,9 @@
 """MySQL-free VideoRenderer adapter for the VisionFlow render workflow."""
 from __future__ import annotations
+from typing import Any
+
 from worker.application.visionflow_render_workflow import PreparedAssets, RenderedArtifact
+from worker.domain.composition_render_plan import CompositionRenderPlan
 from worker.domain.render_workspace import RenderWorkspace
 
 class VisionFlowVideoRenderer:
@@ -12,8 +15,9 @@ class VisionFlowVideoRenderer:
         workspace = RenderWorkspace(self._workspace_root, contract.workflow_run_id).create()
         background_paths = self._materializer.download(assets, workspace)
         speech = self._tts.synthesize(contract.script, contract.voice_code, workspace)
+        scene_layout = build_renderable_scene_layout(contract.scenes, contract.render_plan)
         output_path = self._media_service.render_final_video(
-            list(contract.scenes), speech.word_timestamps, speech.audio_path, background_paths,
+            scene_layout, speech.word_timestamps, speech.audio_path, background_paths,
             workspace_path=str(workspace.path),
             visual_style_plan=_style_plan(contract),
             full_voice_script=contract.script,
@@ -22,18 +26,74 @@ class VisionFlowVideoRenderer:
         return RenderedArtifact(**uploaded)
 
 
+def build_renderable_scene_layout(
+    scenes: tuple[dict[str, Any], ...],
+    render_plan: CompositionRenderPlan,
+) -> list[dict[str, Any]]:
+    """Attach immutable V1 timeline directives to their matching storyboard scene.
+
+    MediaService already applies ``composition_effects`` and
+    ``composition_transform`` as real MoviePy frame transforms.  The mapping is
+    deliberately by stable scene ID, never by a best-effort positional guess:
+    applying an operator effect to a different scene would be worse than
+    applying none.  Non-video tracks are consumed by their dedicated render
+    stages and must not silently alter the background-video layer here.
+    """
+    video_clips_by_scene: dict[str, list[Any]] = {}
+    for track in render_plan.tracks:
+        if track.track_type != "video" or track.muted:
+            continue
+        for clip in track.clips:
+            if clip.source_type == "scene":
+                video_clips_by_scene.setdefault(clip.source_ref, []).append(clip)
+
+    rendered_scenes: list[dict[str, Any]] = []
+    for scene in scenes:
+        output = dict(scene)
+        scene_id = str(scene.get("scene_id") or scene.get("id") or "").strip()
+        clips = video_clips_by_scene.get(scene_id, [])
+        if clips:
+            # V1 permits one rendered visual treatment per storyboard scene.
+            # If an editor stores more than one clip for a scene, earliest
+            # timeline position wins deterministically until multilayer video
+            # compositing lands in a later renderer slice.
+            clip = min(clips, key=lambda item: (item.timeline_start_ms, item.duration_ms, item.source_ref))
+            output["composition_effects"] = [{"effect_key": effect.key} for effect in clip.effects]
+            output["composition_transform"] = dict(clip.transform)
+            output["composition_keyframes"] = [
+                {"time_ms": keyframe.time_ms, "value": keyframe.value, "easing": keyframe.easing}
+                for keyframe in clip.keyframes
+            ]
+        rendered_scenes.append(output)
+    return rendered_scenes
+
+
 def _style_plan(contract) -> dict:
     """Translate the typed render plan into supported media directives."""
     effects = list(contract.render_plan.effect_keys)
+    video_effects = [
+        effect.key
+        for track in contract.render_plan.tracks
+        if track.track_type == "video" and not track.muted
+        for clip in track.clips
+        for effect in clip.effects
+    ]
+    caption_effects = [
+        effect.key
+        for track in contract.render_plan.tracks
+        if track.track_type in {"caption", "video"} and not track.muted
+        for clip in track.clips
+        for effect in clip.effects
+    ]
     applied_effects: list[str] = []
 
     # MediaService supports these motion names through _apply_scene_motion.
     # A beat push is the closest currently implemented treatment for the
     # editor's impact preset; it is intentionally preferred over slow zoom.
-    if "impact_shake" in effects:
+    if "impact_shake" in video_effects:
         scene_motion = "beat_push"
         applied_effects.append("impact_shake")
-    elif "cinematic_push" in effects:
+    elif "cinematic_push" in video_effects:
         scene_motion = "slow_zoom"
         applied_effects.append("cinematic_push")
     else:
@@ -41,15 +101,19 @@ def _style_plan(contract) -> dict:
 
     # SubtitleRenderer contains a real sticker_pop style.  This is a caption
     # treatment, not a generic clip transform, so only map caption_pop here.
-    caption_style = "sticker_pop" if "caption_pop" in effects else None
+    caption_style = "sticker_pop" if "caption_pop" in caption_effects else None
     if caption_style:
         applied_effects.append("caption_pop")
 
-    frame_effects = [effect for effect in effects if effect in {"soft_glow", "motion_blur"}]
+    frame_effects = [effect for effect in video_effects if effect in {"soft_glow", "motion_blur"}]
     applied_effects.extend(frame_effects)
     keyframes = [
         {"time_ms": keyframe.time_ms, "value": keyframe.value, "easing": keyframe.easing}
-        for keyframe in contract.render_plan.scale_keyframes
+        for track in contract.render_plan.tracks
+        if track.track_type == "video" and not track.muted
+        for clip in track.clips
+        for keyframe in clip.keyframes
+        if keyframe.property_key == "scale"
     ]
     plan = {
         "visual_preset": contract.visual_preset,
@@ -58,7 +122,9 @@ def _style_plan(contract) -> dict:
         "composition_applied_effects": applied_effects,
         "composition_frame_effects": frame_effects,
         "composition_keyframes": keyframes,
-        "composition_deferred_effects": [],
+        # Overlay/audio sources are not yet materialized independently by the
+        # V1 asset pipeline, so do not claim they changed the resulting MP4.
+        "composition_deferred_effects": [effect for effect in effects if effect not in applied_effects],
     }
     if caption_style:
         plan["caption_style"] = caption_style

@@ -2,7 +2,7 @@ import unittest
 from types import SimpleNamespace
 
 from worker.domain.composition_render_plan import compile_composition_render_plan
-from worker.services.visionflow_video_renderer import _style_plan
+from worker.services.visionflow_video_renderer import _style_plan, build_renderable_scene_layout
 
 
 def contract_with_effects(*effect_keys):
@@ -37,7 +37,7 @@ class VisionFlowVideoRendererStylePlanTests(unittest.TestCase):
         self.assertEqual("sticker_pop", plan["caption_style"])
         self.assertEqual(["impact_shake", "caption_pop", "soft_glow", "motion_blur"], plan["composition_applied_effects"])
         self.assertEqual(["soft_glow", "motion_blur"], plan["composition_frame_effects"])
-        self.assertEqual([], plan["composition_deferred_effects"])
+        self.assertEqual(["cinematic_push"], plan["composition_deferred_effects"])
         self.assertEqual([{"time_ms": 100, "value": 1.15, "easing": "ease_out"}], plan["composition_keyframes"])
 
     def test_maps_cinematic_push_when_no_stronger_motion_preset_exists(self):
@@ -59,6 +59,41 @@ class VisionFlowVideoRendererStylePlanTests(unittest.TestCase):
         self.assertEqual("static", plan["scene_motion"])
         self.assertEqual([], plan["composition_applied_effects"])
         self.assertEqual([], plan["composition_deferred_effects"])
+
+    def test_attaches_effects_transform_and_keyframes_to_matching_scene_only(self):
+        contract = contract_with_effects("cinematic_push", "soft_glow")
+        plan = contract.render_plan
+        # The renderer must use a stable scene identity, not array position.
+        layout = build_renderable_scene_layout((
+            {"scene_id": "scene-01", "duration": 5},
+            {"scene_id": "scene-02", "duration": 5},
+        ), plan)
+
+        self.assertEqual([{"effect_key": "cinematic_push"}, {"effect_key": "soft_glow"}], layout[0]["composition_effects"])
+        self.assertEqual({}, layout[0]["composition_transform"])
+        self.assertEqual(1.15, layout[0]["composition_keyframes"][0]["value"])
+        self.assertNotIn("composition_effects", layout[1])
+
+    def test_does_not_claim_overlay_effects_as_rendered_background_effects(self):
+        contract = SimpleNamespace(
+            visual_preset="clean_explainer",
+            render_plan=compile_composition_render_plan("run-1", {
+                "state": "locked", "version_id": "composition-version-1", "aspect_ratio": "9:16",
+                "tracks": [{
+                    "track_type": "overlay", "name": "Overlay", "clips": [{
+                        "source_type": "asset", "source_ref": "overlay.png", "timeline_start_ms": 0,
+                        "duration_ms": 5000, "trim_in_ms": 0, "transform": {},
+                        "effects": [{"effect_key": "soft_glow"}], "keyframes": [],
+                    }],
+                }],
+            }),
+            render_plan_hash="c" * 64,
+        )
+
+        plan = _style_plan(contract)
+
+        self.assertEqual([], plan["composition_applied_effects"])
+        self.assertEqual(["soft_glow"], plan["composition_deferred_effects"])
 
 
 if __name__ == "__main__":
