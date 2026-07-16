@@ -1,0 +1,36 @@
+name: VisionFlow PostgreSQL migrations
+
+on:
+  push:
+    branches: [production]
+    paths:
+      - 'services/control-plane/**'
+      - '.github/workflows/visionflow-migrate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: visionflow-postgres-migrations-production
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ${{ secrets.VISIONFLOW_DATABASE_URL }}
+      MIGRATION_DATABASE_URL: ${{ secrets.VISIONFLOW_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify migration secret
+        run: test -n "$MIGRATION_DATABASE_URL"
+      - name: Install Control Plane dependencies
+        run: pip install -r services/control-plane/requirements.txt
+      - name: Upgrade Neon schema to the committed head
+        working-directory: services/control-plane
+        run: python -m alembic upgrade head
