@@ -142,6 +142,42 @@ class PublisherConnection(Timestamped, Base):
     connected_by_subject: Mapped[str] = mapped_column(String(512), nullable=False)
 
 
+class ProviderCredential(Timestamped, Base):
+    """Organization-owned encrypted provider key; plaintext never leaves the write boundary."""
+
+    __tablename__ = "provider_credentials"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "provider", "label", name="uq_provider_credential_label"),
+        Index("ix_provider_credentials_resolution", "organization_id", "provider", "status", "priority"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    provider: Mapped[str] = mapped_column(String(64), nullable=False)
+    label: Mapped[str] = mapped_column(String(120), nullable=False)
+    secret_ciphertext: Mapped[str] = mapped_column(Text, nullable=False)
+    secret_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="active")
+    capabilities: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_by_subject: Mapped[str] = mapped_column(String(512), nullable=False)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_failure_code: Mapped[str | None] = mapped_column(String(96), nullable=True)
+
+
+class ProviderCredentialAuditEvent(Base):
+    __tablename__ = "provider_credential_audit_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    credential_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("provider_credentials.id", ondelete="SET NULL"), nullable=True)
+    actor_subject: Mapped[str] = mapped_column(String(512), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(24), nullable=False)
+    metadata_json: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
 class PublisherOAuthAttempt(Base):
     __tablename__ = "publisher_oauth_attempts"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

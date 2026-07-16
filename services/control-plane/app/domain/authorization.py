@@ -20,6 +20,8 @@ class Permission(StrEnum):
     # Must NOT be granted to the narration worker or any human-facing role.
     WORKFLOW_LEGACY_MAPPING_REGISTER = "workflow:legacy-mapping:register"
     PROMPT_MANAGE = "prompt:manage"
+    CREDENTIAL_MANAGE = "credential:manage"
+    CREDENTIAL_RESOLVE = "credential:resolve"
     PUBLISH_APPROVE = "publish:approve"
     PUBLISH_EXECUTE = "publish:execute"
 
@@ -35,6 +37,7 @@ ROLE_PERMISSIONS: dict[OrganizationRole, frozenset[Permission]] = {
             # Service role encompasses both worker and intake service identities;
             # endpoint-level subject checks enforce the narrower separation.
             Permission.WORKFLOW_LEGACY_MAPPING_REGISTER,
+            Permission.CREDENTIAL_RESOLVE,
         }
     ),
     OrganizationRole.PRODUCER: frozenset({Permission.WORKFLOW_CREATE, Permission.WORKFLOW_VIEW}),
