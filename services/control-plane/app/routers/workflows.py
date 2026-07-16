@@ -101,6 +101,22 @@ class WorkflowRunResponse(BaseModel):
     created: bool
 
 
+class WorkflowListItemResponse(BaseModel):
+    """Tenant-safe operator projection for a workflow currently in the Control Tower."""
+
+    workflow_run_id: uuid.UUID
+    project_id: uuid.UUID
+    title: str
+    state: str
+    failure_code: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class WorkflowListResponse(BaseModel):
+    items: list[WorkflowListItemResponse]
+
+
 class ReviewQueueItemResponse(BaseModel):
     """Minimal tenant-scoped review projection; no legacy publish metadata."""
 
@@ -429,6 +445,55 @@ class WorkflowExecutionContextResponse(BaseModel):
     state: str
     intake: dict[str, object]
     steps: dict[str, dict[str, object] | None]
+
+
+@router.get("/organizations/{organization_id}/workflows", response_model=WorkflowListResponse)
+def list_workflows(
+    organization_id: uuid.UUID,
+    limit: int = Query(default=50, ge=1, le=100),
+    active_only: bool = Query(default=True),
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> WorkflowListResponse:
+    """List real tenant workflows for the operator Control Tower.
+
+    This is a read projection only. It deliberately excludes published and
+    cancelled runs by default while retaining failures, so operators can see
+    every item that may need attention without exposing another tenant's
+    projects or mutating workflow state.
+    """
+
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject, organization_id, Permission.WORKFLOW_VIEW
+        )
+        query = (
+            select(WorkflowRun, VideoProject)
+            .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
+            .where(VideoProject.organization_id == organization_id)
+        )
+        if active_only:
+            query = query.where(
+                WorkflowRun.state.not_in((WorkflowState.PUBLISHED.value, WorkflowState.CANCELED.value))
+            )
+        rows = session.execute(query.order_by(WorkflowRun.updated_at.desc()).limit(limit)).all()
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+
+    return WorkflowListResponse(
+        items=[
+            WorkflowListItemResponse(
+                workflow_run_id=run.id,
+                project_id=project.id,
+                title=project.title,
+                state=run.state,
+                failure_code=run.failure_code,
+                created_at=run.created_at,
+                updated_at=run.updated_at,
+            )
+            for run, project in rows
+        ]
+    )
 
 
 @router.get("/workflows/{workflow_run_id}/execution-context", response_model=WorkflowExecutionContextResponse)

@@ -66,6 +66,45 @@ class ReviewQueueApiTests(unittest.TestCase):
         self.assertEqual("workflow:view", authorize.return_value.require.call_args.args[2].value)
         self.assertIsNotNone(session.query)
 
+    def test_lists_active_workflows_with_failure_visibility_after_tenant_authorization(self) -> None:
+        with patch.dict(os.environ, self.environment, clear=True):
+            from app.core.oidc import VerifiedIdentity
+            from app.routers.workflows import list_workflows
+
+        workflow = SimpleNamespace(
+            id=self.workflow_run_id,
+            state="FAILED",
+            failure_code="RENDER_FAILED",
+            created_at=datetime(2026, 7, 16, tzinfo=UTC),
+            updated_at=datetime(2026, 7, 16, 1, tzinfo=UTC),
+        )
+        project = SimpleNamespace(id=self.project_id, title="Recoverable short render")
+        session = _Session([(workflow, project)])
+        identity = VerifiedIdentity("oidc|operator", None, None)
+
+        with patch("app.routers.workflows.AuthorizeOrganization") as authorize:
+            response = list_workflows(self.organization_id, 50, True, identity, session)
+
+        self.assertEqual(1, len(response.items))
+        self.assertEqual("FAILED", response.items[0].state)
+        self.assertEqual("RENDER_FAILED", response.items[0].failure_code)
+        self.assertEqual("workflow:view", authorize.return_value.require.call_args.args[2].value)
+
+    def test_rejects_unreadable_organization_before_listing_workflows(self) -> None:
+        with patch.dict(os.environ, self.environment, clear=True):
+            from app.core.oidc import VerifiedIdentity
+            from app.routers.workflows import list_workflows
+            from fastapi import HTTPException
+
+        session = _Session([])
+        with patch("app.routers.workflows.AuthorizeOrganization") as authorize:
+            authorize.return_value.require.side_effect = PermissionError("denied")
+            with self.assertRaises(HTTPException) as raised:
+                list_workflows(self.organization_id, 50, True, VerifiedIdentity("oidc|blocked", None, None), session)
+
+        self.assertEqual(403, raised.exception.status_code)
+        self.assertIsNone(session.query)
+
     def test_rejects_unreadable_organization_before_querying(self) -> None:
         with patch.dict(os.environ, self.environment, clear=True):
             from app.core.oidc import VerifiedIdentity
