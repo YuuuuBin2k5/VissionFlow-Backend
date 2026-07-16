@@ -994,6 +994,20 @@ def submit_workflow(
         locked_composition = session.get(CompositionVersion, composition_document.active_version_id)
         if locked_composition is None or locked_composition.state != "locked":
             raise WorkflowStateConflict("Lock a composition before submitting for render")
+        composition_snapshot = SqlAlchemyCompositionRepository(session).read(
+            request.organization_id,
+            workflow_run_id,
+        )
+        if composition_snapshot is None:
+            raise LookupError("Composition not found")
+        render_plan = compile_render_plan(composition_snapshot)
+        render_plan_summary = {
+            "composition_version_id": render_plan.composition_version_id,
+            "revision": render_plan.revision,
+            "fingerprint": render_plan.fingerprint,
+            "duration_ms": render_plan.duration_ms,
+            "aspect_ratio": render_plan.aspect_ratio,
+        }
         current_state = WorkflowState(workflow_run.state)
         if current_state == WorkflowState.QUEUED:
             return WorkflowTransitionResponse(workflow_run_id=workflow_run_id, state=current_state.value, changed=False)
@@ -1020,7 +1034,7 @@ def submit_workflow(
                 workflow_run_id=workflow_run_id,
                 expected_state=WorkflowState.READY,
                 target_state=WorkflowState.QUEUED,
-                output_payload={"submitted_by": identity.subject},
+                output_payload={"submitted_by": identity.subject, "render_plan": render_plan_summary},
                 trace_id=trace_id,
             )
         )

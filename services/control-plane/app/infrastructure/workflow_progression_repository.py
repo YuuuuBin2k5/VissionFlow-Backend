@@ -95,6 +95,9 @@ class SqlAlchemyWorkflowProgressionRepository:
                 "input_payload": workflow_run.input_payload,
                 "prompt_manifest": workflow_run.prompt_manifest,
             }
+            render_plan = command.output_payload.get("render_plan")
+            if isinstance(render_plan, dict):
+                event_payload["render_plan"] = render_plan
         if command.target_state == WorkflowState.PUBLISHING:
             event_payload["publisher_connection_id"] = command.output_payload.get("publisher_connection_id")
         self._session.add(
