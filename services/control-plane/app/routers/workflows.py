@@ -76,7 +76,7 @@ from app.infrastructure.repositories import (
     SqlAlchemyNarrationResultRepository,
 )
 from app.infrastructure.workflow_progression_repository import SqlAlchemyWorkflowProgressionRepository
-from app.infrastructure.models import CompositionDocument, CompositionVersion, CreativeDocument, CreativeDocumentVersion, OutboxEvent, PublicationAttempt, PublisherConnection, VideoProject, WorkflowRun, WorkflowStep
+from app.infrastructure.models import CompositionDocument, CompositionVersion, CreativeDocument, CreativeDocumentVersion, MediaAsset, OutboxEvent, PublicationAttempt, PublisherConnection, VideoProject, WorkflowRun, WorkflowStep
 from app.routers.auth import require_identity
 
 
@@ -1266,22 +1266,20 @@ def get_review_artifact_preview(
             raise LookupError()
         if workflow.state != WorkflowState.APPROVAL_PENDING.value:
             raise WorkflowStateConflict("Workflow is not awaiting human approval")
-        qa_step = session.scalar(
-            select(WorkflowStep).where(
-                WorkflowStep.workflow_run_id == workflow_run_id,
-                WorkflowStep.step_key == "quality_assurance",
-                WorkflowStep.state == WorkflowState.RENDERED.value,
+        artifact = session.scalar(
+            select(MediaAsset)
+            .where(
+                MediaAsset.organization_id == organization_id,
+                MediaAsset.workflow_run_id == workflow_run_id,
+                MediaAsset.media_kind == "final_export",
             )
+            .order_by(MediaAsset.created_at.desc())
         )
-        artifact = qa_step.output_payload.get("artifact") if qa_step and isinstance(qa_step.output_payload, dict) else None
-        if not isinstance(artifact, dict):
-            raise LookupError()
-        object_key = artifact.get("object_key")
-        if not isinstance(object_key, str):
+        if artifact is None:
             raise LookupError()
         ticket = PrivateObjectPreviewIssuer.from_env().issue_final_export(
             workflow_run_id=workflow_run_id,
-            object_key=object_key,
+            object_key=artifact.object_key,
         )
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
