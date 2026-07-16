@@ -79,6 +79,22 @@ class ReviewQueueApiTests(unittest.TestCase):
         self.assertEqual(403, raised.exception.status_code)
         self.assertIsNone(session.query)
 
+    def test_only_accepts_a_youtube_publish_failure_for_retry(self) -> None:
+        with patch.dict(os.environ, self.environment, clear=True):
+            from app.routers.workflows import _is_youtube_publish_failure
+
+        self.assertTrue(
+            _is_youtube_publish_failure(
+                SimpleNamespace(output_payload={"provider": "youtube", "failure_code": "UPLOAD_FAILED"})
+            )
+        )
+        self.assertFalse(
+            _is_youtube_publish_failure(
+                SimpleNamespace(output_payload={"provider": "render", "failure_code": "RENDER_FAILED"})
+            )
+        )
+        self.assertFalse(_is_youtube_publish_failure(None))
+
 
 if __name__ == "__main__":
     unittest.main()

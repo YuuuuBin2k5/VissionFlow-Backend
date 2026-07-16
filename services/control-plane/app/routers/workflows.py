@@ -1126,6 +1126,8 @@ def list_failed_publications(organization_id: uuid.UUID, limit: int = Query(defa
     for workflow, project in rows:
         failure = session.scalar(select(WorkflowStep).where(WorkflowStep.workflow_run_id == workflow.id, WorkflowStep.step_key == "failure"))
         payload = failure.output_payload if failure and isinstance(failure.output_payload, dict) else {}
+        if not _is_youtube_publish_failure(failure):
+            continue
         items.append(FailedPublicationResponse(workflow_run_id=workflow.id, project_id=project.id, title=project.title, state=workflow.state, created_at=workflow.created_at, failure_code=payload.get("failure_code") if isinstance(payload.get("failure_code"), str) else None))
     return FailedPublicationQueueResponse(items=items)
 
@@ -1153,7 +1155,8 @@ def create_publication_attempt(workflow_run_id: uuid.UUID, request: CreatePublic
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, request.organization_id, Permission.PUBLISH_EXECUTE)
         workflow = session.scalar(select(WorkflowRun).join(VideoProject).where(WorkflowRun.id == workflow_run_id, VideoProject.organization_id == request.organization_id).with_for_update())
         connection = session.scalar(select(PublisherConnection).where(PublisherConnection.id == request.publisher_connection_id, PublisherConnection.organization_id == request.organization_id, PublisherConnection.status == "active"))
-        if workflow is None or connection is None or workflow.state != WorkflowState.FAILED.value: raise LookupError()
+        failure = session.scalar(select(WorkflowStep).where(WorkflowStep.workflow_run_id == workflow_run_id, WorkflowStep.step_key == "failure"))
+        if workflow is None or connection is None or workflow.state != WorkflowState.FAILED.value or not _is_youtube_publish_failure(failure): raise LookupError()
         number = len(list(session.scalars(select(PublicationAttempt).where(PublicationAttempt.workflow_run_id == workflow_run_id)))) + 1
         attempt = PublicationAttempt(workflow_run_id=workflow_run_id, publisher_connection_id=connection.id, attempt_number=number, state="requested", requested_by_subject=identity.subject)
         session.add(attempt); session.flush()
@@ -1161,6 +1164,11 @@ def create_publication_attempt(workflow_run_id: uuid.UUID, request: CreatePublic
     except PermissionError as exc: raise HTTPException(status_code=403, detail="Organization permission denied") from exc
     except LookupError as exc: raise HTTPException(status_code=404, detail="Failed publish handoff or active channel not found") from exc
     return PublicationAttemptResponse(id=attempt.id, workflow_run_id=attempt.workflow_run_id, publisher_connection_id=attempt.publisher_connection_id, attempt_number=attempt.attempt_number, state=attempt.state, failure_code=attempt.failure_code, external_url=attempt.external_url, external_video_id=attempt.external_video_id)
+
+
+def _is_youtube_publish_failure(step: WorkflowStep | None) -> bool:
+    payload = step.output_payload if step and isinstance(step.output_payload, dict) else None
+    return isinstance(payload, dict) and payload.get("provider") == "youtube" and isinstance(payload.get("failure_code"), str)
 
 
 @router.get(
