@@ -26,6 +26,16 @@ from app.routers.auth import require_identity
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 
 class OAuthStartResponse(BaseModel): authorization_url: str
+class PublisherConnectionResponse(BaseModel): id: uuid.UUID; provider: str; provider_account_id: str; display_name: str; status: str
+
+@router.get("/publisher-connections", response_model=list[PublisherConnectionResponse])
+def list_publisher_connections(organization_id: uuid.UUID, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> list[PublisherConnectionResponse]:
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.WORKFLOW_VIEW)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail="Organization permission denied") from exc
+    rows = session.scalars(__import__('sqlalchemy').select(PublisherConnection).where(PublisherConnection.organization_id == organization_id).order_by(PublisherConnection.created_at.desc())).all()
+    return [PublisherConnectionResponse(id=row.id, provider=row.provider, provider_account_id=row.provider_account_id, display_name=row.display_name, status=row.status) for row in rows]
 
 @router.post("/youtube/oauth/start", response_model=OAuthStartResponse)
 def start_youtube_oauth(organization_id: uuid.UUID, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> OAuthStartResponse:
