@@ -11,7 +11,7 @@ from app.application.advance_workflow import (
     WorkflowTransitionResult,
 )
 from app.domain.workflow import WorkflowState, require_transition
-from app.infrastructure.models import OutboxEvent, VideoProject, WorkflowRun, WorkflowStep
+from app.infrastructure.models import MediaAsset, OutboxEvent, VideoProject, WorkflowRun, WorkflowStep
 
 
 class SqlAlchemyWorkflowProgressionRepository:
@@ -76,6 +76,8 @@ class SqlAlchemyWorkflowProgressionRepository:
             workflow_step.output_payload = command.output_payload
 
         workflow_run.state = command.target_state.value
+        if command.target_state == WorkflowState.QA_PENDING:
+            self._record_rendered_artifact(workflow_run, command)
         event_payload: dict[str, object] = {
             "workflow_run_id": str(workflow_run.id),
             "organization_id": str(command.organization_id),
@@ -114,6 +116,36 @@ class SqlAlchemyWorkflowProgressionRepository:
             workflow_run_id=uuid.UUID(str(workflow_run.id)),
             state=command.target_state,
             changed=True,
+        )
+
+    def _record_rendered_artifact(self, workflow_run: WorkflowRun, command: AdvanceWorkflowCommand) -> None:
+        payload = command.output_payload
+        object_key = payload.get("object_key")
+        content_type = payload.get("content_type")
+        byte_size = payload.get("byte_size")
+        checksum = payload.get("checksum_sha256")
+        fingerprint = payload.get("render_plan_hash")
+        if not isinstance(object_key, str) or not object_key.strip():
+            raise ValueError("QA_PENDING requires an artifact object_key")
+        if not isinstance(content_type, str) or not content_type.startswith("video/"):
+            raise ValueError("QA_PENDING requires a video artifact content_type")
+        if not isinstance(byte_size, int) or isinstance(byte_size, bool) or byte_size < 1:
+            raise ValueError("QA_PENDING requires a positive artifact byte_size")
+        if not isinstance(checksum, str) or len(checksum) != 64:
+            raise ValueError("QA_PENDING requires a SHA-256 artifact checksum")
+        if not isinstance(fingerprint, str) or len(fingerprint) != 64:
+            raise ValueError("QA_PENDING requires a render plan fingerprint")
+        self._session.add(
+            MediaAsset(
+                organization_id=command.organization_id,
+                workflow_run_id=workflow_run.id,
+                object_key=object_key,
+                media_kind="final_export",
+                content_type=content_type,
+                byte_size=byte_size,
+                checksum_sha256=checksum,
+                metadata_json={"render_plan_hash": fingerprint},
+            )
         )
 
 
