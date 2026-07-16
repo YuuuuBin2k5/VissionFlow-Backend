@@ -154,6 +154,14 @@ class CreatePublicationAttemptRequest(BaseModel):
     publisher_connection_id: uuid.UUID
 
 
+class ReconcilePublishedAttemptRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    organization_id: uuid.UUID
+    video_id: str = Field(min_length=1, max_length=255)
+    video_url: str = Field(min_length=1, max_length=2_048)
+
+
 class ActivePublicationAttemptError(Exception):
     """Raised when a failed workflow already has a publisher retry in flight."""
 
@@ -1232,6 +1240,55 @@ def create_publication_attempt(workflow_run_id: uuid.UUID, request: CreatePublic
         session.rollback()
         raise HTTPException(status_code=409, detail="PUBLICATION_ATTEMPT_ALREADY_ACTIVE") from exc
     return PublicationAttemptResponse(id=attempt.id, workflow_run_id=attempt.workflow_run_id, publisher_connection_id=attempt.publisher_connection_id, attempt_number=attempt.attempt_number, state=attempt.state, failure_code=attempt.failure_code, external_url=attempt.external_url, external_video_id=attempt.external_video_id)
+
+
+@router.post("/workflows/{workflow_run_id}/publication-attempts/{publication_attempt_id}/reconcile-published", response_model=WorkflowTransitionResponse)
+def reconcile_published_attempt(workflow_run_id: uuid.UUID, publication_attempt_id: uuid.UUID, request: ReconcilePublishedAttemptRequest, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> WorkflowTransitionResponse:
+    """Close an uncertain external upload only after an authorized operator verified YouTube."""
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, request.organization_id, Permission.PUBLISH_EXECUTE)
+        if not request.video_url.startswith("https://www.youtube.com/watch?v="):
+            raise ValueError("video_url must be a YouTube watch URL")
+        workflow = session.scalar(
+            select(WorkflowRun)
+            .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
+            .where(WorkflowRun.id == workflow_run_id, VideoProject.organization_id == request.organization_id)
+            .with_for_update()
+        )
+        attempt = session.scalar(
+            select(PublicationAttempt)
+            .where(PublicationAttempt.id == publication_attempt_id, PublicationAttempt.workflow_run_id == workflow_run_id)
+            .with_for_update()
+        )
+        if workflow is None or attempt is None:
+            raise LookupError()
+        if workflow.state != WorkflowState.PUBLISHING.value or attempt.state != "uploading":
+            raise WorkflowStateConflict("Publication attempt is not awaiting reconciliation")
+        attempt.state = "succeeded"
+        attempt.external_video_id = request.video_id
+        attempt.external_url = request.video_url
+        attempt.failure_code = None
+        attempt.lease_token = None
+        attempt.lease_expires_at = None
+        result = AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(session)).execute(
+            AdvanceWorkflowCommand(
+                organization_id=request.organization_id,
+                workflow_run_id=workflow_run_id,
+                expected_state=WorkflowState.PUBLISHING,
+                target_state=WorkflowState.PUBLISHED,
+                output_payload={"provider": "youtube", "publisher_connection_id": str(attempt.publisher_connection_id), "external_video_id": request.video_id, "external_url": request.video_url, "reconciled_by_subject": identity.subject},
+                trace_id=uuid.uuid4().hex,
+            )
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Publication attempt not found") from exc
+    except WorkflowStateConflict as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Publication attempt is not awaiting reconciliation") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    return WorkflowTransitionResponse(workflow_run_id=result.workflow_run_id, state=result.state.value, changed=result.changed)
 
 
 def _is_youtube_publish_failure(step: WorkflowStep | None) -> bool:

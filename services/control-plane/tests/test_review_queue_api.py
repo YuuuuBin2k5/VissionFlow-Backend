@@ -152,6 +152,39 @@ class ReviewQueueApiTests(unittest.TestCase):
                 )
         self.assertEqual(409, raised.exception.status_code)
 
+    def test_operator_can_reconcile_an_uncertain_upload_as_published(self) -> None:
+        with patch.dict(os.environ, self.environment, clear=True):
+            from app.application.advance_workflow import WorkflowTransitionResult
+            from app.core.oidc import VerifiedIdentity
+            from app.domain.workflow import WorkflowState
+            from app.routers.workflows import ReconcilePublishedAttemptRequest, reconcile_published_attempt
+
+        connection_id = uuid.uuid4()
+        attempt = SimpleNamespace(
+            state="uploading", publisher_connection_id=connection_id,
+            external_video_id=None, external_url=None, failure_code=None,
+            lease_token="lease", lease_expires_at=object(),
+        )
+        session = MagicMock()
+        session.scalar.side_effect = [SimpleNamespace(state=WorkflowState.PUBLISHING.value), attempt]
+        result = WorkflowTransitionResult(self.workflow_run_id, WorkflowState.PUBLISHED, True)
+        with patch("app.routers.workflows.AuthorizeOrganization"), patch("app.routers.workflows.AdvanceWorkflow") as advance:
+            advance.return_value.execute.return_value = result
+            response = reconcile_published_attempt(
+                self.workflow_run_id,
+                uuid.uuid4(),
+                ReconcilePublishedAttemptRequest(
+                    organization_id=self.organization_id,
+                    video_id="youtube-video-1",
+                    video_url="https://www.youtube.com/watch?v=youtube-video-1",
+                ),
+                VerifiedIdentity("local|operator", None, None),
+                session,
+            )
+        self.assertEqual(WorkflowState.PUBLISHED.value, response.state)
+        self.assertEqual("succeeded", attempt.state)
+        self.assertEqual("youtube-video-1", attempt.external_video_id)
+
     def test_maps_database_uniqueness_race_to_a_safe_conflict(self) -> None:
         with patch.dict(os.environ, self.environment, clear=True):
             from app.core.oidc import VerifiedIdentity
