@@ -205,9 +205,17 @@ class StandardRenderStrategy(RenderStrategy):
 
         # Narration Handoff Coordination (VF-03.02a)
         from worker.application.narration_handoff import NarrationHandoffCoordinator
+        from worker.domain.narration_sink import WorkerExecutionContext
+
+        context = None
+        try:
+            context = WorkerExecutionContext.from_env()
+        except Exception:
+            pass
+
         handoff_coordinator = NarrationHandoffCoordinator()
         handoff_coordinator.handle_narration(
-            job_id, hook, full_script, scenes_payload_for_db, seo_tags
+            job_id, hook, full_script, scenes_payload_for_db, seo_tags, context=context
         )
         log_realtime_progress(job_id, "LLM_SCRIPT", "INFO",
                               f"Kịch bản hoàn thành! Hook: '{hook[:40]}...'")

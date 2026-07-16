@@ -71,16 +71,46 @@ class NarrationHandoffConfigTests(unittest.TestCase):
             # Should pass without errors
             validate_config()
 
-    def test_deterministic_workflow_run_id_generation(self) -> None:
-        from worker.domain.narration_sink import get_deterministic_workflow_run_id
-        # Same job_id must produce the exact same UUID
-        uuid1 = get_deterministic_workflow_run_id(12345)
-        uuid2 = get_deterministic_workflow_run_id(12345)
-        self.assertEqual(uuid1, uuid2)
+    def test_worker_execution_context_validation(self) -> None:
+        from worker.domain.narration_sink import WorkerExecutionContext
+        # 1. Missing env vars
+        env = {}
+        with patch.dict(os.environ, env, clear=True):
+            with self.assertRaisesRegex(ValueError, "Missing required fields"):
+                WorkerExecutionContext.from_env()
 
-        # Different job_ids must produce different UUIDs
-        uuid3 = get_deterministic_workflow_run_id(54321)
-        self.assertNotEqual(uuid1, uuid3)
+        # 2. Invalid UUID
+        env = {
+            "VISIONFLOW_WORKFLOW_RUN_ID": "not-a-uuid",
+            "VISIONFLOW_ORGANIZATION_ID": "00000000-0000-0000-0000-000000000001",
+            "VISIONFLOW_NARRATION_ATTEMPT_ID": "attempt-1",
+            "VISIONFLOW_TRACE_ID": "a" * 32,
+        }
+        with patch.dict(os.environ, env, clear=True):
+            with self.assertRaisesRegex(ValueError, "Invalid UUID"):
+                WorkerExecutionContext.from_env()
+
+        # 3. Empty attempt ID
+        env = {
+            "VISIONFLOW_WORKFLOW_RUN_ID": "00000000-0000-0000-0000-000000000002",
+            "VISIONFLOW_ORGANIZATION_ID": "00000000-0000-0000-0000-000000000001",
+            "VISIONFLOW_NARRATION_ATTEMPT_ID": "   ",
+            "VISIONFLOW_TRACE_ID": "a" * 32,
+        }
+        with patch.dict(os.environ, env, clear=True):
+            with self.assertRaisesRegex(ValueError, "Empty narration_attempt_id"):
+                WorkerExecutionContext.from_env()
+
+        # 4. Valid setup
+        env = {
+            "VISIONFLOW_WORKFLOW_RUN_ID": "00000000-0000-0000-0000-000000000002",
+            "VISIONFLOW_ORGANIZATION_ID": "00000000-0000-0000-0000-000000000001",
+            "VISIONFLOW_NARRATION_ATTEMPT_ID": "attempt-1",
+            "VISIONFLOW_TRACE_ID": "a" * 32,
+        }
+        with patch.dict(os.environ, env, clear=True):
+            ctx = WorkerExecutionContext.from_env()
+            self.assertEqual(ctx.narration_attempt_id, "attempt-1")
 
 
 if __name__ == "__main__":

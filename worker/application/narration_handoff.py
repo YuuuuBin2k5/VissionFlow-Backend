@@ -1,4 +1,4 @@
-"""VF-03.02a Commit 2 — Narration handoff coordinator and shadow reconciler."""
+"""VF-03.02a.1 — Narration handoff coordinator, shadow reconciler, and adapters."""
 from __future__ import annotations
 
 import datetime
@@ -9,10 +9,15 @@ import os
 import uuid
 from typing import Any
 
+import requests
 from worker.config import ConfigurationError
-from worker.domain.narration_sink import NarrationSinkPort, get_deterministic_workflow_run_id
+from worker.domain.narration_sink import NarrationSinkPort, WorkerExecutionContext
 from worker.infrastructure.repositories.video_job_repository import VideoJobRepository
-from worker.services.visionflow_control_plane_client import VisionFlowControlPlaneClient, VisionFlowWorkerSettings
+from worker.services.visionflow_control_plane_client import (
+    VisionFlowControlPlaneClient,
+    VisionFlowControlPlaneError,
+    VisionFlowWorkerSettings,
+)
 
 logger = logging.getLogger("visionflow.handoff")
 reconciliation_logger = logging.getLogger("visionflow.shadow_reconciliation")
@@ -32,14 +37,14 @@ class MySqlNarrationSink(NarrationSinkPort):
         scenes_layout_json: Any,
         seo_tags: dict[str, Any],
         *,
-        trace_id: str | None = None,
+        context: WorkerExecutionContext | None = None,
     ) -> dict[str, Any]:
         try:
             self._repo.save_script_result(job_id, hook, full_script, scenes_layout_json, seo_tags)
             return {"success": True, "source": "legacy"}
         except Exception as exc:
-            logger.error(f"Legacy MySQL save failed for Job #{job_id}: {exc}")
-            return {"success": False, "source": "legacy", "error": str(exc)}
+            logger.error(f"Legacy MySQL save failed for Job #{job_id}: {exc}", exc_info=True)
+            return {"success": False, "source": "legacy", "error": "MYSQL_DATABASE_ERROR"}
 
 
 class ControlPlaneNarrationSink(NarrationSinkPort):
@@ -56,30 +61,22 @@ class ControlPlaneNarrationSink(NarrationSinkPort):
         scenes_layout_json: Any,
         seo_tags: dict[str, Any],
         *,
-        trace_id: str | None = None,
+        context: WorkerExecutionContext | None = None,
     ) -> dict[str, Any]:
+        if not context:
+            raise ValueError("WorkerExecutionContext is mandatory for ControlPlaneNarrationSink")
+
+        # Tenancy boundary check
+        if context.organization_id != self._client._settings.organization_id:
+            raise ValueError("Context organization_id mismatch with client configuration")
+
+        trace_id = context.trace_id
+
         try:
-            # 1. Resolve workflow_run_id
-            workflow_run_id_val = seo_tags.get("workflow_run_id")
-            if not workflow_run_id_val:
-                workflow_run_id = get_deterministic_workflow_run_id(job_id)
-            else:
-                try:
-                    workflow_run_id = uuid.UUID(str(workflow_run_id_val))
-                except ValueError:
-                    workflow_run_id = get_deterministic_workflow_run_id(job_id)
+            # 1. Semantic Idempotency Key based on run ID and attempt ID
+            idempotency_key = f"narration-{context.workflow_run_id}-{context.narration_attempt_id}"
 
-            # 2. Resolve organization_id
-            organization_id_val = seo_tags.get("organization_id") or os.environ.get("VISIONFLOW_ORGANIZATION_ID")
-            if not organization_id_val:
-                raise ValueError("VISIONFLOW_ORGANIZATION_ID is required for Control Plane sink")
-            organization_id = uuid.UUID(str(organization_id_val))
-
-            # 3. Create stable, deterministic idempotency key based on script content hash
-            script_hash = hashlib.sha256(full_script.encode("utf-8")).hexdigest()[:16]
-            idempotency_key = f"narration-{workflow_run_id}-{script_hash}"
-
-            # 4. Map scenes to Control Plane request format
+            # 2. Map scenes to Control Plane request format
             raw_scenes = []
             if isinstance(scenes_layout_json, dict):
                 raw_scenes = scenes_layout_json.get("scenes_layout", [])
@@ -95,20 +92,20 @@ class ControlPlaneNarrationSink(NarrationSinkPort):
                     "narration": narration,
                     "visual_prompt": visual_prompt,
                     "duration_seconds": duration,
-                    "transition": scene.get("transition"),
-                    "caption": scene.get("caption"),
+                    "transition": str(scene.get("transition") or "cut").strip() or "cut",
+                    "caption": str(scene.get("caption") or "").strip() or None,
                 })
 
-            # 5. Extract LLM metadata if available
+            # 3. Extract LLM metadata if available
             source_metadata = {
                 "provider": seo_tags.get("source_metadata", {}).get("provider") or "openai",
                 "model": seo_tags.get("source_metadata", {}).get("model") or "gpt-4",
             }
 
-            # 6. Call Control Plane complete_narration
+            # 4. Call Control Plane complete_narration
             res = self._client.complete_narration(
-                workflow_run_id=str(workflow_run_id),
-                organization_id=str(organization_id),
+                workflow_run_id=str(context.workflow_run_id),
+                organization_id=str(context.organization_id),
                 idempotency_key=idempotency_key,
                 script=full_script,
                 scenes=scenes_list,
@@ -123,12 +120,28 @@ class ControlPlaneNarrationSink(NarrationSinkPort):
                 "version": res.get("version"),
                 "state": res.get("state"),
                 "idempotency_key": idempotency_key,
-                "workflow_run_id": workflow_run_id,
+                "workflow_run_id": context.workflow_run_id,
             }
         except Exception as exc:
-            # Safe diagnostics logging (does not log prompts, scripts or credentials)
-            logger.warning(f"Control Plane complete_narration failed for Job #{job_id}: {exc}")
-            return {"success": False, "source": "control_plane", "error": str(exc)}
+            # Exception safety: log traceback in server log, return safe error codes
+            error_code = "CONTROL_PLANE_INTERNAL_ERROR"
+            if isinstance(exc, VisionFlowControlPlaneError):
+                error_code = "CONTROL_PLANE_API_ERROR"
+            elif isinstance(exc, requests.Timeout):
+                error_code = "CONTROL_PLANE_TIMEOUT"
+            elif isinstance(exc, requests.ConnectionError):
+                error_code = "CONTROL_PLANE_NETWORK_ERROR"
+
+            logger.error(
+                f"Control Plane complete_narration failed for Job #{job_id} [Trace ID: {trace_id}]: {exc}",
+                exc_info=True
+            )
+            return {
+                "success": False,
+                "source": "control_plane",
+                "error_code": error_code,
+                "trace_id": trace_id,
+            }
 
 
 class ShadowReconciler:
@@ -137,50 +150,116 @@ class ShadowReconciler:
     def reconcile(
         self,
         job_id: int,
-        workflow_run_id: str | uuid.UUID,
+        context: WorkerExecutionContext,
         idempotency_key: str,
         full_script: str,
         scenes_layout_json: Any,
         cp_result: dict[str, Any],
-        *,
-        trace_id: str | None = None,
+        client: VisionFlowControlPlaneClient,
     ) -> dict[str, Any]:
         # Normalized hashes (safe, no full scripts or prompts are stored)
         normalized_script_hash = hashlib.sha256(full_script.strip().lower().encode("utf-8")).hexdigest()
 
+        report = {
+            "workflow_run_id": str(context.workflow_run_id),
+            "legacy_job_id": int(job_id),
+            "idempotency_key": idempotency_key,
+            "control_plane_version_id": None,
+            "normalized_script_hash": normalized_script_hash,
+            "result": "control-plane-failed",
+            "mismatch_codes": [],
+            "error_code": None,
+            "trace_id": context.trace_id,
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
+            "observability_record_only": True,  # Observability record only, not authoritative state
+        }
+
+        if not cp_result.get("success", False):
+            report["error_code"] = cp_result.get("error_code") or "CONTROL_PLANE_SUBMIT_FAILED"
+            reconciliation_logger.info(json.dumps(report))
+            return report
+
+        report["control_plane_version_id"] = str(cp_result.get("version_id"))
+
+        # Fetch actual Creative Document version from Control Plane API
+        try:
+            doc = client.get_creative_document(workflow_run_id=str(context.workflow_run_id), trace_id=context.trace_id)
+        except Exception as exc:
+            logger.error(
+                f"Failed to fetch creative document for reconciliation of Job #{job_id} [Trace: {context.trace_id}]: {exc}",
+                exc_info=True
+            )
+            report["error_code"] = "FETCH_CREATIVE_DOCUMENT_FAILED"
+            reconciliation_logger.info(json.dumps(report))
+            return report
+
+        mismatch_codes = []
+
+        # 1. Compare Script (normalized)
+        legacy_script_normalized = full_script.strip().lower()
+        cp_script_normalized = (doc.get("script") or "").strip().lower()
+        if legacy_script_normalized != cp_script_normalized:
+            mismatch_codes.append("SCRIPT_HASH_MISMATCH")
+
+        # Normalize legacy scenes
         raw_scenes = []
         if isinstance(scenes_layout_json, dict):
             raw_scenes = scenes_layout_json.get("scenes_layout", [])
         elif isinstance(scenes_layout_json, list):
             raw_scenes = scenes_layout_json
 
-        scene_durations = [str(s.get("duration") or s.get("duration_seconds") or 5) for s in raw_scenes]
-        scene_str = f"count:{len(raw_scenes)}|durations:[{','.join(scene_durations)}]"
-        normalized_scenes_hash = hashlib.sha256(scene_str.encode("utf-8")).hexdigest()
+        cp_scenes = sorted(doc.get("scenes", []), key=lambda s: s.get("position", 0))
 
-        if not cp_result.get("success", False):
-            result_status = "control-plane-failed"
-            cp_version_id = None
+        # 2. Compare Scene Count
+        if len(raw_scenes) != len(cp_scenes):
+            mismatch_codes.append("SCENE_COUNT_MISMATCH")
         else:
-            cp_version_id = cp_result.get("version_id")
-            if cp_result.get("state") == "SCRIPTED":
-                result_status = "matched"
-            else:
-                result_status = "mismatched"
+            # 3. Compare Scene fields and order
+            for idx, legacy_scene in enumerate(raw_scenes):
+                cp_scene = cp_scenes[idx]
 
-        report = {
-            "workflow_run_id": str(workflow_run_id),
-            "legacy_job_id": int(job_id),
-            "idempotency_key": idempotency_key,
-            "control_plane_version_id": str(cp_version_id) if cp_version_id else None,
-            "normalized_script_hash": normalized_script_hash,
-            "normalized_scenes_hash": normalized_scenes_hash,
-            "result": result_status,
-            "trace_id": trace_id,
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
-        }
+                # Position check
+                if cp_scene.get("position") != idx:
+                    mismatch_codes.append("SCENE_ORDER_MISMATCH")
 
-        # Log to structured comparison logger
+                # Narration content
+                leg_narration = str(legacy_scene.get("narration") or legacy_scene.get("subtitle") or "").strip()
+                cp_narration = str(cp_scene.get("narration") or "").strip()
+                if leg_narration != cp_narration:
+                    mismatch_codes.append(f"SCENE_{idx}_NARRATION_MISMATCH")
+
+                # Visual prompt content
+                leg_prompt = str(legacy_scene.get("visual_search_keywords") or legacy_scene.get("visual_prompt") or "").strip()
+                cp_prompt = str(cp_scene.get("visual_prompt") or "").strip()
+                if leg_prompt != cp_prompt:
+                    mismatch_codes.append(f"SCENE_{idx}_VISUAL_PROMPT_MISMATCH")
+
+                # Duration
+                leg_duration = int(legacy_scene.get("duration") or legacy_scene.get("duration_seconds") or 5)
+                cp_duration = int(cp_scene.get("duration_seconds") or 5)
+                if leg_duration != cp_duration:
+                    mismatch_codes.append(f"SCENE_{idx}_DURATION_MISMATCH")
+
+                # Transition
+                leg_trans = str(legacy_scene.get("transition") or "cut").strip() or "cut"
+                cp_trans = str(cp_scene.get("transition") or "cut").strip() or "cut"
+                if leg_trans != cp_trans:
+                    mismatch_codes.append(f"SCENE_{idx}_TRANSITION_MISMATCH")
+
+                # Caption presence/content
+                leg_cap = str(legacy_scene.get("caption") or "").strip() or None
+                cp_cap = str(cp_scene.get("caption") or "").strip() or None
+                if (leg_cap is None) != (cp_cap is None):
+                    mismatch_codes.append(f"SCENE_{idx}_CAPTION_PRESENCE_MISMATCH")
+                elif leg_cap is not None and leg_cap != cp_cap:
+                    mismatch_codes.append(f"SCENE_{idx}_CAPTION_CONTENT_MISMATCH")
+
+        if mismatch_codes:
+            report["result"] = "mismatched"
+            report["mismatch_codes"] = mismatch_codes
+        else:
+            report["result"] = "matched"
+
         reconciliation_logger.info(json.dumps(report))
         return report
 
@@ -193,10 +272,19 @@ class NarrationHandoffCoordinator:
         mysql_sink: NarrationSinkPort | None = None,
         cp_sink: NarrationSinkPort | None = None,
         reconciler: ShadowReconciler | None = None,
+        client: VisionFlowControlPlaneClient | None = None,
     ) -> None:
         self._mysql_sink = mysql_sink or MySqlNarrationSink()
-        self._cp_sink = cp_sink or ControlPlaneNarrationSink()
         self._reconciler = reconciler or ShadowReconciler()
+        if cp_sink:
+            self._cp_sink = cp_sink
+            self._client = client
+        else:
+            try:
+                self._client = client or VisionFlowControlPlaneClient(VisionFlowWorkerSettings.from_env())
+            except Exception:
+                self._client = client
+            self._cp_sink = ControlPlaneNarrationSink(self._client)
 
     def handle_narration(
         self,
@@ -206,52 +294,58 @@ class NarrationHandoffCoordinator:
         scenes_layout_json: Any,
         seo_tags: dict[str, Any],
         *,
-        trace_id: str | None = None,
+        context: WorkerExecutionContext | None = None,
     ) -> dict[str, Any]:
-        # Validate configuration before executing
+        # Validate configuration before execution
         from worker.config import validate_config
         validate_config()
 
         mode = os.environ.get("VISIONFLOW_NARRATION_HANDOFF_MODE", "legacy").lower()
 
+        # Resolve trusted context if in shadow/control_plane mode
+        if mode in {"shadow", "control_plane"}:
+            if not context:
+                try:
+                    context = WorkerExecutionContext.from_env()
+                except Exception as exc:
+                    # Fail closed immediately before any write
+                    raise ConfigurationError(f"Trusted context loading failed for handoff mode {mode}: {exc}") from exc
+
         if mode == "legacy":
-            # 1. Legacy mode: only MySQL
             return self._mysql_sink.save_narration_result(
-                job_id, hook, full_script, scenes_layout_json, seo_tags, trace_id=trace_id
+                job_id, hook, full_script, scenes_layout_json, seo_tags, context=context
             )
 
         if mode == "shadow":
-            # 2. Shadow mode: MySQL is primary, Control Plane is shadow
+            # Primary MySQL write
             legacy_res = self._mysql_sink.save_narration_result(
-                job_id, hook, full_script, scenes_layout_json, seo_tags, trace_id=trace_id
+                job_id, hook, full_script, scenes_layout_json, seo_tags, context=context
             )
+
+            # Shadow Control Plane write
             cp_res = self._cp_sink.save_narration_result(
-                job_id, hook, full_script, scenes_layout_json, seo_tags, trace_id=trace_id
+                job_id, hook, full_script, scenes_layout_json, seo_tags, context=context
             )
 
-            # Extract or compute run ID and idempotency key for reconciler
-            workflow_run_id = cp_res.get("workflow_run_id") or get_deterministic_workflow_run_id(job_id)
-            idempotency_key = cp_res.get("idempotency_key") or f"narration-{workflow_run_id}-shadow"
-
+            # Reconcile outputs
+            idempotency_key = cp_res.get("idempotency_key") or f"narration-{context.workflow_run_id}-{context.narration_attempt_id}"
             self._reconciler.reconcile(
                 job_id,
-                workflow_run_id,
+                context,
                 idempotency_key,
                 full_script,
                 scenes_layout_json,
                 cp_res,
-                trace_id=trace_id,
+                self._client,
             )
             return legacy_res
 
         if mode == "control_plane":
-            # 3. Control Plane mode: only Control Plane, skip MySQL
             cp_res = self._cp_sink.save_narration_result(
-                job_id, hook, full_script, scenes_layout_json, seo_tags, trace_id=trace_id
+                job_id, hook, full_script, scenes_layout_json, seo_tags, context=context
             )
             if not cp_res.get("success", False):
-                # Fail closed on control plane save failure
-                raise RuntimeError(f"Control Plane narration save failed: {cp_res.get('error')}")
+                raise RuntimeError(f"Control Plane narration save failed with error code: {cp_res.get('error_code')}")
             return cp_res
 
         raise ConfigurationError(f"Unsupported handoff mode: {mode}")
