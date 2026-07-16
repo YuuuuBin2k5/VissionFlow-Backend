@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import os
 import uuid
+from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
@@ -93,6 +94,20 @@ class WorkflowRunResponse(BaseModel):
     workflow_run_id: uuid.UUID
     state: str
     created: bool
+
+
+class ReviewQueueItemResponse(BaseModel):
+    """Minimal tenant-scoped review projection; no legacy publish metadata."""
+
+    workflow_run_id: uuid.UUID
+    project_id: uuid.UUID
+    title: str
+    state: str
+    created_at: datetime
+
+
+class ReviewQueueResponse(BaseModel):
+    items: list[ReviewQueueItemResponse]
 
 
 class RecordNarrationSceneRequest(BaseModel):
@@ -933,6 +948,57 @@ def submit_workflow(
         workflow_run_id=queued.workflow_run_id,
         state=queued.state.value,
         changed=ready_changed or queued.changed,
+    )
+
+
+@router.get(
+    "/organizations/{organization_id}/review-queue",
+    response_model=ReviewQueueResponse,
+    summary="List rendered short-form workflows awaiting human approval",
+)
+def list_review_queue(
+    organization_id: uuid.UUID,
+    limit: int = Query(default=50, ge=1, le=100),
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> ReviewQueueResponse:
+    """Read only the current organization's human-review queue.
+
+    The query deliberately exposes only the approval-pending state.  A
+    publishing integration must consume an explicit approved event later;
+    neither this API nor the web console is allowed to invoke legacy MySQL
+    publisher endpoints.
+    """
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject,
+            organization_id,
+            Permission.WORKFLOW_VIEW,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+
+    rows = session.execute(
+        select(WorkflowRun, VideoProject)
+        .join(VideoProject, WorkflowRun.project_id == VideoProject.id)
+        .where(
+            VideoProject.organization_id == organization_id,
+            WorkflowRun.state == WorkflowState.APPROVAL_PENDING.value,
+        )
+        .order_by(WorkflowRun.created_at.desc())
+        .limit(limit)
+    ).all()
+    return ReviewQueueResponse(
+        items=[
+            ReviewQueueItemResponse(
+                workflow_run_id=workflow.id,
+                project_id=project.id,
+                title=project.title,
+                state=workflow.state,
+                created_at=workflow.created_at,
+            )
+            for workflow, project in rows
+        ]
     )
 
 
