@@ -19,9 +19,14 @@ class NarrationResultApiTests(unittest.TestCase):
     environment = {
         "DATABASE_URL": "postgresql+psycopg://placeholder:placeholder@localhost:5432/visionflow?sslmode=require",
         "VISIONFLOW_ALLOW_INSECURE_DB": "true",
+        "VISIONFLOW_WORKER_SUBJECT": "service|visionflow-intelligence-worker",
     }
 
     def setUp(self) -> None:
+        self.patcher = patch.dict(os.environ, self.environment, clear=True)
+        self.patcher.start()
+        self.addCleanup(self.patcher.stop)
+
         self.organization_id = uuid.uuid4()
         self.workflow_run_id = uuid.uuid4()
         self.valid_payload = {

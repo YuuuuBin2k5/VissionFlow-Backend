@@ -16,6 +16,7 @@ from app.application.advance_workflow import (
     WorkflowStateConflict,
 )
 from app.application.authorize_organization import AuthorizeOrganization
+from app.core.config import ConfigurationError
 from app.application.create_short_form import (
     CreateShortFormCommand,
     CreateShortFormWorkflow,
@@ -592,12 +593,13 @@ def complete_narration(
     try:
         if "workflow:narration:complete" not in identity.scopes:
             raise PermissionError("Token is missing required capability: workflow:narration:complete")
-        if identity.subject.startswith("local|"):
-            raise PermissionError("User tokens are not allowed for service endpoints")
+
         expected_subject = os.getenv("VISIONFLOW_WORKER_SUBJECT", "").strip()
-        if expected_subject:
-            if identity.subject.startswith("service|") and identity.subject != expected_subject:
-                raise PermissionError("Service token subject mismatch")
+        if not expected_subject:
+            raise ConfigurationError("VISIONFLOW_WORKER_SUBJECT must be configured")
+
+        if identity.subject != expected_subject:
+            raise PermissionError("Service subject mismatch")
 
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
             identity.subject,
@@ -677,6 +679,8 @@ def complete_narration(
                 "detail": None,
             }
         )
+    except ConfigurationError as exc:
+        raise
     except ValueError as exc:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

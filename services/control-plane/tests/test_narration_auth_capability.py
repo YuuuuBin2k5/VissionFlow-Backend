@@ -210,6 +210,61 @@ class NarrationAuthCapabilityTests(unittest.TestCase):
         data = response.json()
         self.assertEqual("SCRIPTED", data["state"])
 
+    def test_user_token_with_correct_scope_returns_403(self) -> None:
+        # A user token with the correct scope must be blocked because the subject is a user (local|...)
+        token = self._sign_token(subject="local|user-00000000", scopes=["workflow:narration:complete"])
+        client = self._app_client()
+        with patch.dict(os.environ, self.env, clear=True):
+            response = client.post(
+                self._url(),
+                json=self.valid_payload,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        self.assertEqual(403, response.status_code)
+        data = response.json()
+        self.assertEqual("PERMISSION_DENIED", data["code"])
+
+    def test_external_non_service_token_with_correct_scope_returns_403(self) -> None:
+        # An external OIDC user token with the correct scope must be blocked because the subject is not the worker
+        token = self._sign_token(subject="oidc|external-user", scopes=["workflow:narration:complete"])
+        client = self._app_client()
+        with patch.dict(os.environ, self.env, clear=True):
+            response = client.post(
+                self._url(),
+                json=self.valid_payload,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        self.assertEqual(403, response.status_code)
+        data = response.json()
+        self.assertEqual("PERMISSION_DENIED", data["code"])
+
+    def test_missing_worker_subject_configuration_returns_500_fail_closed(self) -> None:
+        # If the expected subject is not configured in env, the request fails closed and returns 500
+        token = self._sign_token(
+            subject="service|visionflow-intelligence-worker",
+            scopes=["workflow:narration:complete"],
+            session_id="service:visionflow-intelligence-worker",
+        )
+        bad_env = self.env.copy()
+        bad_env["VISIONFLOW_WORKER_SUBJECT"] = ""  # blank/missing config
+        with patch("app.routers.workflows.AuthorizeOrganization"), patch(
+            "app.routers.workflows.SqlAlchemyNarrationResultRepository"
+        ), patch(
+            "app.routers.workflows.RecordNarrationGenerated"
+        ):
+            with patch.dict(os.environ, bad_env, clear=True):
+                from app.main import app
+                client = TestClient(app, raise_server_exceptions=False)
+                response = client.post(
+                    self._url(),
+                    json=self.valid_payload,
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+        self.assertEqual(500, response.status_code)
+        data = response.json()
+        self.assertEqual("INTERNAL_SERVER_ERROR", data["code"])
+        self.assertEqual("An unexpected error occurred", data["message"])
+
 
 if __name__ == "__main__":
     unittest.main()
