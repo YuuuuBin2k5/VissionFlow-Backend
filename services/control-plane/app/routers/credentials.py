@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+import os
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -62,6 +63,13 @@ class ReorderProviderCredentialsRequest(BaseModel):
 
     provider: str = Field(min_length=2, max_length=64)
     credential_ids: list[uuid.UUID] = Field(min_length=1, max_length=50)
+
+
+class ResolvedProviderCredentialResponse(BaseModel):
+    id: uuid.UUID
+    provider: str
+    priority: int
+    secret: str
 
 
 def _authorize(session: Session, identity: VerifiedIdentity, organization_id: uuid.UUID) -> None:
@@ -180,3 +188,35 @@ def reorder_provider_credentials(organization_id: uuid.UUID, request: ReorderPro
     _audit(session, organization_id=organization_id, credential_id=None, actor=identity.subject, event_type="provider_credential.reordered", metadata={"provider": provider, "count": len(records)})
     session.commit()
     return [_response(by_id[credential_id]) for credential_id in request.credential_ids]
+
+
+@router.get("/organizations/{organization_id}/provider-credentials/{provider}/resolve", response_model=list[ResolvedProviderCredentialResponse])
+def resolve_provider_credentials(organization_id: uuid.UUID, provider: str, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> list[ResolvedProviderCredentialResponse]:
+    """Trusted worker-only secret delivery; never available to browser identities."""
+    normalized_provider = _provider(provider)
+    expected_subject = os.getenv("VISIONFLOW_WORKER_SUBJECT", "").strip()
+    if not expected_subject:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Worker identity is not configured")
+    if identity.subject != expected_subject or "credential:resolve" not in identity.scopes:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Provider credential resolution is restricted to the render worker")
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject, organization_id, Permission.CREDENTIAL_RESOLVE
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization credential permission denied") from exc
+    records = session.scalars(select(ProviderCredential).where(
+        ProviderCredential.organization_id == organization_id,
+        ProviderCredential.provider == normalized_provider,
+        ProviderCredential.status == "active",
+    ).order_by(ProviderCredential.priority, ProviderCredential.created_at)).all()
+    if not records:
+        return []
+    cipher = ProviderCredentialCipher.from_env()
+    result = []
+    for record in records:
+        record.last_used_at = datetime.now(UTC)
+        _audit(session, organization_id=organization_id, credential_id=record.id, actor=identity.subject, event_type="provider_credential.resolved", metadata={"provider": normalized_provider, "priority": record.priority})
+        result.append(ResolvedProviderCredentialResponse(id=record.id, provider=record.provider, priority=record.priority, secret=cipher.decrypt(record.secret_ciphertext)))
+    session.commit()
+    return result

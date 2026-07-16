@@ -40,7 +40,7 @@ class ServiceClientRegistry:
         clients = [
             _client_from_env(
                 "VISIONFLOW_WORKER",
-                allowed_scopes=frozenset({"workflow:narration:complete"}),
+                allowed_scopes=frozenset({"workflow:narration:complete", "credential:resolve"}),
                 required=True,
             )
         ]

@@ -233,6 +233,19 @@ class VisionFlowControlPlaneClient:
             raise VisionFlowControlPlaneError("Control Plane did not return a locked composition")
         return payload
 
+    def resolve_provider_credentials(self, provider: str, *, trace_id: str | None = None) -> list[dict[str, Any]]:
+        response = self._http.get(
+            f"{self._settings.api_url}/organizations/{self._settings.organization_id}/provider-credentials/{provider}/resolve",
+            headers={"Authorization": f"Bearer {self._get_access_token()}", "X-Request-ID": trace_id or uuid.uuid4().hex},
+            timeout=(3, 20),
+        )
+        if response.status_code != 200:
+            raise VisionFlowControlPlaneError(f"Control Plane provider credential resolution failed with HTTP {response.status_code}")
+        payload = response.json()
+        if not isinstance(payload, list) or not all(isinstance(item, dict) and isinstance(item.get("secret"), str) for item in payload):
+            raise VisionFlowControlPlaneError("Control Plane returned invalid provider credential data")
+        return payload
+
     def get_composition_render_plan(self, workflow_run_id: str, *, trace_id: str | None = None) -> dict[str, Any]:
         """Read the Control Plane's authoritative locked-composition plan."""
         response = self._http.get(

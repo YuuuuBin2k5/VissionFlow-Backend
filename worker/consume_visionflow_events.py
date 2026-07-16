@@ -46,13 +46,16 @@ def main() -> None:
     # Keep ``--help`` and argument validation independent of the media stack.
     # The actual consumer still fails closed if a required runtime dependency is
     # absent when it is asked to process work.
+    from worker.services.visionflow_control_plane_client import VisionFlowControlPlaneClient, VisionFlowWorkerSettings
+    control_plane = VisionFlowControlPlaneClient(VisionFlowWorkerSettings.from_env())
+    from worker.services.visionflow_provider_vault import hydrate_provider_environment
+    hydrate_provider_environment(control_plane)
     from worker.application.visionflow_render_dispatcher import VisionFlowRenderDispatcher
     from worker.application.visionflow_render_workflow import VisionFlowRenderWorkflow
     from worker.application.visionflow_quality_assurance import VisionFlowQualityAssurance
     from worker.services.asset_service import AssetService
     from worker.services.media_service import MediaService
     from worker.services.visionflow_asset_preparer import VisionFlowAssetPreparer
-    from worker.services.visionflow_control_plane_client import VisionFlowControlPlaneClient, VisionFlowWorkerSettings
     from worker.services.visionflow_event_consumer import VisionFlowEventConsumer, VisionFlowEventConsumerSettings
     from worker.services.visionflow_media_inspector import FfprobeMediaInspector
     from worker.services.visionflow_object_storage import S3CompatibleObjectStorage, VisionFlowObjectStorageSettings
@@ -61,7 +64,6 @@ def main() -> None:
     from worker.services.visionflow_video_renderer import VisionFlowVideoRenderer
 
     consumer_settings = VisionFlowEventConsumerSettings.from_env()
-    control_plane = VisionFlowControlPlaneClient(VisionFlowWorkerSettings.from_env())
     storage = S3CompatibleObjectStorage(VisionFlowObjectStorageSettings.from_env())
     render_workflow = VisionFlowRenderWorkflow(
         control_plane,
