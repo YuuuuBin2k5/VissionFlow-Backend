@@ -1,7 +1,7 @@
 """VF-03.01b — Postgres Disposable Integration and Migration Chain Testing Script.
 
-This script runs database integration tests and verifies the Alembic migration chain
-(specifically the 0004 -> 0005 -> 0006 -> 0007 -> 0008 progression) in both upgrade and downgrade directions.
+This script runs integration tests and verifies the complete Alembic migration
+chain in both upgrade and downgrade directions.
 """
 from __future__ import annotations
 
@@ -99,6 +99,7 @@ def main() -> int:
     suite.addTests(loader.loadTestsFromName("tests.test_execution_context_by_job_api"))
     suite.addTests(loader.loadTestsFromName("tests.test_request_legacy_job_repository"))
     suite.addTests(loader.loadTestsFromName("tests.test_publication_attempt_api"))
+    suite.addTests(loader.loadTestsFromName("tests.test_render_plan"))
 
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
