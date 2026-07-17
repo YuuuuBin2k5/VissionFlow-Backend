@@ -111,6 +111,16 @@ async def _seed_prompt_baselines() -> None:
                 logger.info("startup seed: no organizations found, nothing to seed.")
                 return
 
+            # Early-exit: if every org already has both prompt keys, skip entirely
+            expected = len(orgs) * len(_BASELINE_PROMPTS)
+            existing = conn.execute(sa_text("""
+                SELECT COUNT(*) FROM prompt_templates
+                WHERE prompt_key = ANY(:keys)
+            """), {"keys": [p["key"] for p in _BASELINE_PROMPTS]}).scalar() or 0
+            if existing >= expected:
+                logger.info("startup seed: all prompt baselines already present, skipping.")
+                return
+
             seeded = 0
             for (org_id,) in orgs:
                 for p in _BASELINE_PROMPTS:
