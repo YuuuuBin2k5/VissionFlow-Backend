@@ -82,15 +82,15 @@ def complete_youtube_oauth(code: str, state: str, session: Session = Depends(get
         PublisherOAuthAttemptRepository(session).consume(organization_id=organization_id, provider="youtube", state_digest=nonce_digest, requested_by_subject=subject)
         settings = YouTubePublisherSettings.from_env()
         token = requests.post("https://oauth2.googleapis.com/token", data={"code": code, "client_id": settings.client_id, "client_secret": settings.client_secret, "redirect_uri": settings.redirect_uri, "grant_type": "authorization_code"}, timeout=(3, 20))
-        if token.status_code != 200: raise ValueError("Google authorization code exchange failed")
+        if token.status_code != 200: raise ValueError(f"Google authorization code exchange failed: {token.status_code} - {token.text}")
         tokens = token.json()
         refresh_token = tokens.get("refresh_token")
         access_token = tokens.get("access_token")
-        if not isinstance(refresh_token, str) or not isinstance(access_token, str): raise ValueError("Google did not return reusable OAuth credentials")
+        if not isinstance(refresh_token, str) or not isinstance(access_token, str): raise ValueError(f"Google did not return reusable OAuth credentials. refresh_token present: {refresh_token is not None}, access_token present: {access_token is not None}")
         channel = requests.get("https://www.googleapis.com/youtube/v3/channels", params={"part":"id,snippet","mine":"true"}, headers={"Authorization": f"Bearer {access_token}"}, timeout=(3, 20))
         data = channel.json() if channel.status_code == 200 else {}
         items = data.get("items") if isinstance(data, dict) else None
-        if not isinstance(items, list) or len(items) != 1 or not isinstance(items[0], dict): raise ValueError("Google account has no uniquely selectable YouTube channel")
+        if not isinstance(items, list) or len(items) != 1 or not isinstance(items[0], dict): raise ValueError(f"Google account has no uniquely selectable YouTube channel. Status: {channel.status_code}, items: {items}")
         item = items[0]; channel_id = item.get("id"); snippet = item.get("snippet")
         title = snippet.get("title") if isinstance(snippet, dict) else None
         if not isinstance(channel_id, str) or not isinstance(title, str): raise ValueError("YouTube channel identity is invalid")
@@ -103,7 +103,7 @@ def complete_youtube_oauth(code: str, state: str, session: Session = Depends(get
         session.commit()
     except (ValueError, requests.RequestException) as exc:
         session.rollback()
-        raise HTTPException(status_code=400, detail="YouTube connection could not be completed") from exc
+        raise HTTPException(status_code=400, detail=f"YouTube connection could not be completed: {str(exc)}") from exc
     return RedirectResponse(_console_callback_url(), status_code=status.HTTP_303_SEE_OTHER)
 
 
