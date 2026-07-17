@@ -687,8 +687,15 @@ class ManageCreativeSession:
                 "GeminiTimeoutError": ProviderUnavailable,
                 "GeminiConnectionError": ProviderUnavailable,
                 "GeminiServerError": ProviderUnavailable,
+                "GeminiAuthError": ProviderUnavailable,
+                "GeminiBadRequestError": ProviderUnavailable,
+                "GeminiResponseError": ProviderUnavailable,
             }
             error_cls = error_mapping.get(failure_code, CreativeSessionError)
+            logger.error(
+                "_execute_planning_generation error: failure_code=%s mapped_to=%s detail=%s",
+                failure_code, error_cls.__name__, exc,
+            )
 
             # Mark turn as failed
             self._mark_turn_failed(turn_id, lease_token, failure_code)

@@ -178,6 +178,7 @@ def _handle_exception(exc: Exception) -> JSONResponse:
             }
         )
     elif isinstance(exc, CreativeSessionError):
+        logger_router.error("[400] CreativeSessionError: %s", exc)
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content={
