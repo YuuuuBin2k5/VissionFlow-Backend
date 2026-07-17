@@ -733,7 +733,7 @@ class ManageCreativeSession:
             manifest = {
                 "source": "gemini",
                 "provider": "gemini",
-                "model": model_name or "gemini-2.5-flash",
+                "model": model_name or "gemini-1.5-flash",
                 "provider_credential_id": str(credential_id) if isinstance(credential_id, uuid.UUID) else credential_id,
                 "prompt_templates": {
                     "short_video_scene_planner": {
@@ -960,7 +960,7 @@ class ManageCreativeSession:
                 try:
                     decrypted_secret = ProviderCredentialCipher.from_env().decrypt(c.secret_ciphertext)
                     # Resolve model name from credentials capabilities
-                    model = c.capabilities.get("model") if c.capabilities else "gemini-2.5-flash"
+                    model = c.capabilities.get("model") if c.capabilities else "gemini-1.5-flash"
                     return c.id, decrypted_secret, model
                 except Exception as exc:
                     logger.error(f"Failed to decrypt credential {c.id}: {exc}")
@@ -968,7 +968,7 @@ class ManageCreativeSession:
             # Safe Env Fallbacks resolution check
             if self._env_fallback_enabled and self._env_fallback_key:
                 logger.info("Credentials vault empty. Falling back to env credential.")
-                return "env_fallback", self._env_fallback_key, "gemini-2.5-flash"
+                return "env_fallback", self._env_fallback_key, "gemini-1.5-flash"
 
             raise ProviderUnavailable("No active provider key configuration details resolved.")
 
