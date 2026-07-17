@@ -3,11 +3,68 @@
 import json
 import logging
 import requests
+import time
 from typing import Tuple, List, Dict
+from collections import defaultdict
+from datetime import datetime, timedelta
 
 from app.application.ports.creative_planning_provider import CreativePlanningProvider
 
 logger = logging.getLogger(__name__)
+
+
+class ModelQuotaTracker:
+    """Track which models are exhausted and when to retry them"""
+    
+    def __init__(self):
+        self._exhausted_until = {}  # model -> timestamp when quota resets
+        self._last_successful_model = None
+        self._usage_counter = defaultdict(int)  # track usage per model
+        
+    def mark_quota_exhausted(self, model: str, retry_after_seconds: int = 60):
+        """Mark a model as quota exhausted for X seconds"""
+        reset_time = datetime.now() + timedelta(seconds=retry_after_seconds)
+        self._exhausted_until[model] = reset_time
+        logger.info(f"Model {model} marked exhausted until {reset_time}")
+        
+    def mark_restricted(self, model: str):
+        """Mark a model as permanently restricted (24 hours)"""
+        self.mark_quota_exhausted(model, retry_after_seconds=86400)  # 24 hours
+        
+    def mark_success(self, model: str):
+        """Mark a model as successfully used"""
+        self._last_successful_model = model
+        self._usage_counter[model] += 1
+        # Clear exhausted flag if it was set
+        self._exhausted_until.pop(model, None)
+        
+    def is_available(self, model: str) -> bool:
+        """Check if a model is available (not exhausted)"""
+        if model not in self._exhausted_until:
+            return True
+        return datetime.now() >= self._exhausted_until[model]
+    
+    def get_sorted_models(self, models: List[str]) -> List[str]:
+        """Sort models by: last successful > least used > available > original order"""
+        available = [m for m in models if self.is_available(m)]
+        exhausted = [m for m in models if not self.is_available(m)]
+        
+        # Prioritize last successful model
+        if self._last_successful_model and self._last_successful_model in available:
+            available.remove(self._last_successful_model)
+            available.insert(0, self._last_successful_model)
+        
+        # Sort remaining by usage (least used first) for load balancing
+        remaining = sorted(
+            [m for m in available if m != self._last_successful_model],
+            key=lambda m: self._usage_counter[m]
+        )
+        
+        return [self._last_successful_model] + remaining if self._last_successful_model in available else remaining + exhausted
+
+
+# Global singleton tracker (persists across requests in same process)
+_quota_tracker = ModelQuotaTracker()
 
 
 class GeminiCreativePlanningAdapter(CreativePlanningProvider):
@@ -63,12 +120,21 @@ class GeminiCreativePlanningAdapter(CreativePlanningProvider):
         else:
             models_to_try = model_fallback_chain
         
+        # Apply smart sorting: last successful > least used > available
+        models_to_try = _quota_tracker.get_sorted_models(models_to_try)
+        
+        logger.info(f"Model selection order (after smart sorting): {models_to_try}")
+        
         # Try each model in sequence until one works
         last_error = None
         for attempt_model in models_to_try:
+            if not _quota_tracker.is_available(attempt_model):
+                logger.info(f"Skipping {attempt_model}: quota exhausted or restricted")
+                continue
+                
             try:
                 logger.info(f"Attempting Gemini API call with model: {attempt_model}")
-                return self._try_model(
+                result = self._try_model(
                     model=attempt_model,
                     prompt=prompt,
                     history=history,
@@ -77,12 +143,37 @@ class GeminiCreativePlanningAdapter(CreativePlanningProvider):
                     director_prompt_template=director_prompt_template,
                     provider_credential_secret=provider_credential_secret,
                 )
-            except (GeminiBadRequestError, GeminiAuthError, GeminiServerError) as exc:
+                # Success! Mark it
+                _quota_tracker.mark_success(attempt_model)
+                logger.info(f"✓ Success with model: {attempt_model}")
+                return result
+                
+            except (GeminiBadRequestError, GeminiAuthError) as exc:
                 # Fatal errors → don't retry with other models
+                logger.error(f"Fatal error with {attempt_model}: {exc}")
                 raise
-            except (GeminiRateLimitError, GeminiTimeoutError, GeminiConnectionError) as exc:
+            except GeminiServerError as exc:
+                # Server error → try next model but don't mark as exhausted
+                logger.warning(f"Server error with {attempt_model}: {exc}")
+                last_error = exc
+                continue
+            except GeminiRateLimitError as exc:
+                # Rate limit or restricted → mark as exhausted and try next
+                error_msg = str(exc).lower()
+                if "not available for new users" in error_msg or "restricted" in error_msg:
+                    logger.warning(f"Model {attempt_model} restricted for new users")
+                    _quota_tracker.mark_restricted(attempt_model)
+                elif "503" in error_msg or "unavailable" in error_msg:
+                    logger.warning(f"Model {attempt_model} temporarily unavailable (503)")
+                    _quota_tracker.mark_quota_exhausted(attempt_model, retry_after_seconds=120)  # 2 min
+                else:
+                    logger.warning(f"Model {attempt_model} quota exceeded (429)")
+                    _quota_tracker.mark_quota_exhausted(attempt_model, retry_after_seconds=300)  # 5 min
+                last_error = exc
+                continue
+            except (GeminiTimeoutError, GeminiConnectionError) as exc:
                 # Temporary errors → try next model
-                logger.warning(f"Model {attempt_model} failed with {type(exc).__name__}: {exc}")
+                logger.warning(f"Temporary error with {attempt_model}: {exc}")
                 last_error = exc
                 continue
                 
