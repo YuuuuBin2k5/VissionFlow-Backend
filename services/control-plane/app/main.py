@@ -84,7 +84,7 @@ _BASELINE_PROMPTS = [
 
 @app.on_event("startup")
 async def _seed_prompt_baselines() -> None:
-    """Idempotent seed: ensures every org has the two baseline prompt templates."""
+    """Idempotent: creates prompt tables if missing, then seeds baselines for all orgs."""
     import json
     from sqlalchemy import text as sa_text
     from app.infrastructure.database import get_engine
@@ -92,39 +92,59 @@ async def _seed_prompt_baselines() -> None:
     engine = get_engine()
     try:
         with engine.begin() as conn:
-            # Guard: tables must exist (migration may not have run yet)
-            tables = {
-                row[0]
-                for row in conn.execute(sa_text(
-                    "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
-                ))
-            }
-            if not {"prompt_templates", "prompt_versions"}.issubset(tables):
-                logger.warning(
-                    "startup seed: prompt_templates / prompt_versions tables not found — "
-                    "run alembic upgrade head (migration 0017) to create them."
-                )
-                return
+            logger.info("startup seed: checking prompt registry tables...")
 
+            # ── Step 1: Create tables if they don't exist ──────────────────
+            conn.execute(sa_text("""
+                CREATE TABLE IF NOT EXISTS prompt_templates (
+                    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+                    prompt_key      VARCHAR(100) NOT NULL,
+                    name            VARCHAR(160) NOT NULL,
+                    description     TEXT NOT NULL,
+                    production_version INTEGER,
+                    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    CONSTRAINT uq_prompt_template_key UNIQUE (organization_id, prompt_key)
+                )
+            """))
+
+            conn.execute(sa_text("""
+                CREATE TABLE IF NOT EXISTS prompt_versions (
+                    id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    prompt_template_id UUID NOT NULL REFERENCES prompt_templates(id) ON DELETE CASCADE,
+                    version            INTEGER NOT NULL,
+                    content            TEXT NOT NULL,
+                    config             JSONB NOT NULL DEFAULT '{}',
+                    change_note        VARCHAR(500),
+                    created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    CONSTRAINT uq_prompt_version UNIQUE (prompt_template_id, version)
+                )
+            """))
+
+            logger.info("startup seed: tables ready.")
+
+            # ── Step 2: Load orgs ──────────────────────────────────────────
             orgs = conn.execute(sa_text("SELECT id FROM organizations")).fetchall()
             if not orgs:
                 logger.info("startup seed: no organizations found, nothing to seed.")
                 return
 
-            # Early-exit: if every org already has both prompt keys, skip entirely
+            # ── Step 3: Early-exit if all baselines already present ────────
             expected = len(orgs) * len(_BASELINE_PROMPTS)
             existing = conn.execute(sa_text("""
                 SELECT COUNT(*) FROM prompt_templates
                 WHERE prompt_key = ANY(:keys)
             """), {"keys": [p["key"] for p in _BASELINE_PROMPTS]}).scalar() or 0
+
             if existing >= expected:
-                logger.info("startup seed: all prompt baselines already present, skipping.")
+                logger.info("startup seed: all %d prompt baselines already present, skipping.", existing)
                 return
 
+            # ── Step 4: Seed missing baselines ────────────────────────────
             seeded = 0
             for (org_id,) in orgs:
                 for p in _BASELINE_PROMPTS:
-                    # Insert template (skip if already present)
                     conn.execute(sa_text("""
                         INSERT INTO prompt_templates
                             (id, organization_id, prompt_key, name, description, production_version, created_at, updated_at)
@@ -144,13 +164,11 @@ async def _seed_prompt_baselines() -> None:
                         WHERE organization_id = :org_id AND prompt_key = :key
                     """), {"org_id": str(org_id), "key": p["key"]}).scalar()
 
-                    # Insert version 1 (skip if already present)
                     conn.execute(sa_text("""
                         INSERT INTO prompt_versions
                             (id, prompt_template_id, version, content, config, change_note, created_at)
                         VALUES
-                            (:id, :tmpl_id, 1, :content, :config::jsonb,
-                             'Auto-seeded on startup', now())
+                            (:id, :tmpl_id, 1, :content, :config::jsonb, 'Auto-seeded on startup', now())
                         ON CONFLICT (prompt_template_id, version) DO NOTHING
                     """), {
                         "id": str(uuid.uuid4()),
@@ -159,7 +177,6 @@ async def _seed_prompt_baselines() -> None:
                         "config": json.dumps(p["config"]),
                     })
 
-                    # Ensure production_version is set if it was NULL
                     conn.execute(sa_text("""
                         UPDATE prompt_templates
                         SET production_version = 1
@@ -168,7 +185,7 @@ async def _seed_prompt_baselines() -> None:
 
                     seeded += 1
 
-            logger.info("startup seed: ensured %d prompt baseline(s) across %d org(s).", seeded, len(orgs))
+            logger.info("startup seed: seeded %d prompt baseline(s) across %d org(s).", seeded, len(orgs))
 
     except Exception as exc:
         # Never block server startup due to seed failure
