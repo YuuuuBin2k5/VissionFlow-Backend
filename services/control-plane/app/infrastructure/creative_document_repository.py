@@ -47,6 +47,48 @@ class SqlAlchemyCreativeDocumentRepository:
             return None
         return self._snapshot(document)
 
+    def _save_in_transaction(
+        self,
+        *,
+        organization_id: uuid.UUID,
+        workflow_run_id: uuid.UUID,
+        expected_revision: int,
+        script: str,
+        scenes: list[dict[str, object]],
+        actor_subject: str,
+    ) -> tuple[CreativeDocument, CreativeDocumentVersion]:
+        document = self._document_for_workflow(organization_id, workflow_run_id, lock=True, require_editable=True)
+        if document is None:
+            document = CreativeDocument(workflow_run_id=workflow_run_id, revision=0)
+            self._session.add(document)
+            self._session.flush()
+        if document.revision != expected_revision:
+            raise CreativeDocumentConflict("Creative document was changed by another editor. Refresh and merge your changes.")
+
+        version = CreativeDocumentVersion(
+            creative_document_id=document.id,
+            version=document.revision + 1,
+            state="draft",
+            script=script,
+            source="operator",
+            created_by_subject=actor_subject,
+        )
+        self._session.add(version)
+        self._session.flush()
+        for position, scene in enumerate(scenes, start=1):
+            self._session.add(CreativeScene(
+                creative_document_version_id=version.id,
+                position=position,
+                narration=str(scene["narration"]),
+                visual_prompt=str(scene["visual_prompt"]),
+                duration_seconds=int(scene["duration_seconds"]),
+                transition=str(scene.get("transition") or "cut"),
+                caption=str(scene["caption"]) if scene.get("caption") else None,
+            ))
+        document.revision = version.version
+        self._session.flush()
+        return document, version
+
     def save(
         self,
         *,
@@ -58,35 +100,14 @@ class SqlAlchemyCreativeDocumentRepository:
         actor_subject: str,
     ) -> CreativeDocumentSnapshot:
         try:
-            document = self._document_for_workflow(organization_id, workflow_run_id, lock=True, require_editable=True)
-            if document is None:
-                document = CreativeDocument(workflow_run_id=workflow_run_id, revision=0)
-                self._session.add(document)
-                self._session.flush()
-            if document.revision != expected_revision:
-                raise CreativeDocumentConflict("Creative document was changed by another editor. Refresh and merge your changes.")
-
-            version = CreativeDocumentVersion(
-                creative_document_id=document.id,
-                version=document.revision + 1,
-                state="draft",
+            document, version = self._save_in_transaction(
+                organization_id=organization_id,
+                workflow_run_id=workflow_run_id,
+                expected_revision=expected_revision,
                 script=script,
-                source="operator",
-                created_by_subject=actor_subject,
+                scenes=scenes,
+                actor_subject=actor_subject,
             )
-            self._session.add(version)
-            self._session.flush()
-            for position, scene in enumerate(scenes, start=1):
-                self._session.add(CreativeScene(
-                    creative_document_version_id=version.id,
-                    position=position,
-                    narration=str(scene["narration"]),
-                    visual_prompt=str(scene["visual_prompt"]),
-                    duration_seconds=int(scene["duration_seconds"]),
-                    transition=str(scene.get("transition") or "cut"),
-                    caption=str(scene["caption"]) if scene.get("caption") else None,
-                ))
-            document.revision = version.version
             self._session.commit()
             return self._snapshot(document, version)
         except Exception:

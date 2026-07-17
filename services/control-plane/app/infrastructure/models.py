@@ -492,3 +492,87 @@ class WorkflowAuditEvent(Base):
     )
     trace_id: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class CreativeSession(Timestamped, Base):
+    __tablename__ = "creative_sessions"
+    __table_args__ = (
+        UniqueConstraint("workflow_run_id", name="uq_creative_session_workflow_run"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    workflow_run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("workflow_runs.id", ondelete="SET NULL"), nullable=True)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    creation_spec: Mapped[dict] = mapped_column(JSONB, nullable=False)
+
+
+class CreativeMessage(Base):
+    __tablename__ = "creative_messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("creative_sessions.id", ondelete="CASCADE"), nullable=False)
+    actor: Mapped[str] = mapped_column(String(32), nullable=False)  # "user" | "assistant"
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class CreativeProposal(Base):
+    __tablename__ = "creative_proposals"
+    __table_args__ = (
+        UniqueConstraint("session_id", "version", name="uq_creative_proposals_version"),
+        Index("uq_accepted_proposal_per_session", "session_id", unique=True, postgresql_where=text("state = 'accepted'")),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("creative_sessions.id", ondelete="CASCADE"), nullable=False)
+    message_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("creative_messages.id", ondelete="CASCADE"), nullable=False)
+    parent_proposal_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("creative_proposals.id", ondelete="SET NULL"), nullable=True)
+    state: Mapped[str] = mapped_column(String(24), nullable=False, default="proposed")  # "proposed" | "accepted" | "superseded"
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    brief: Mapped[str] = mapped_column(Text, nullable=False)
+    script: Mapped[str] = mapped_column(Text, nullable=False)
+    scenes: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, default=list)
+    schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    trace_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    generation_manifest: Mapped[dict] = mapped_column(JSONB, nullable=False)
+
+
+class CreativeTurn(Timestamped, Base):
+    __tablename__ = "creative_turns"
+    __table_args__ = (
+        UniqueConstraint("session_id", "idempotency_key", name="uq_creative_turns_session_idempotency"),
+        Index("uq_active_generating_turn", "session_id", unique=True, postgresql_where=text("status = 'generating'")),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("creative_sessions.id", ondelete="CASCADE"), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    request_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="generating")  # "generating" | "completed" | "failed"
+    lease_token: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    lease_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expected_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    user_message_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("creative_messages.id", ondelete="CASCADE"), nullable=False)
+    assistant_message_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("creative_messages.id", ondelete="SET NULL"), nullable=True)
+    proposal_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("creative_proposals.id", ondelete="SET NULL"), nullable=True)
+    generation_attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    failure_code: Mapped[str | None] = mapped_column(String(96), nullable=True)
+
+
+class CreativeCommandReceipt(Base):
+    __tablename__ = "creative_command_receipts"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "operation_type", "idempotency_key", name="uq_creative_command_receipts_key"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    session_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("creative_sessions.id", ondelete="CASCADE"), nullable=True)
+    operation_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    request_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    result_payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

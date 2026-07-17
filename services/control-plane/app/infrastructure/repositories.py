@@ -46,10 +46,10 @@ class SqlAlchemyShortFormWorkflowRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def create_or_get_initial_run(self, command: CreateShortFormCommand) -> WorkflowRunSummary:
+    def _create_or_get_initial_run_in_transaction(self, command: CreateShortFormCommand) -> tuple[WorkflowRun, bool]:
         existing = self._find_by_idempotency_key(command.idempotency_key, command.organization_id)
         if existing:
-            return _summary(existing, created=False)
+            return existing, False
 
         project = VideoProject(
             organization_id=command.organization_id,
@@ -58,32 +58,40 @@ class SqlAlchemyShortFormWorkflowRepository:
             format_profile=command.format_profile,
             timezone=command.timezone,
         )
+        self._session.add(project)
+        self._session.flush()
+        workflow_run = WorkflowRun(
+            project_id=project.id,
+            state=WorkflowState.DRAFT.value,
+            idempotency_key=command.idempotency_key,
+            prompt_manifest=command.prompt_manifest,
+            input_payload=command.input_payload,
+        )
+        self._session.add(workflow_run)
+        self._session.flush()
+        self._session.add(
+            OutboxEvent(
+                aggregate_type="workflow_run",
+                aggregate_id=workflow_run.id,
+                event_type="visionflow.workflow_run.opened.v1",
+                payload={
+                    "project_id": str(project.id),
+                    "workflow_run_id": str(workflow_run.id),
+                    "state": WorkflowState.DRAFT.value,
+                },
+                trace_id=command.trace_id,
+            )
+        )
+        self._session.flush()
+        return workflow_run, True
+
+    def create_or_get_initial_run(self, command: CreateShortFormCommand) -> WorkflowRunSummary:
         try:
-            self._session.add(project)
-            self._session.flush()
-            workflow_run = WorkflowRun(
-                project_id=project.id,
-                state=WorkflowState.DRAFT.value,
-                idempotency_key=command.idempotency_key,
-                prompt_manifest=command.prompt_manifest,
-                input_payload=command.input_payload,
-            )
-            self._session.add(workflow_run)
-            self._session.flush()
-            self._session.add(
-                OutboxEvent(
-                    aggregate_type="workflow_run",
-                    aggregate_id=workflow_run.id,
-                    event_type="visionflow.workflow_run.opened.v1",
-                    payload={
-                        "project_id": str(project.id),
-                        "workflow_run_id": str(workflow_run.id),
-                        "state": WorkflowState.DRAFT.value,
-                    },
-                    trace_id=command.trace_id,
-                )
-            )
-            self._session.commit()
+            workflow_run, created = self._create_or_get_initial_run_in_transaction(command)
+            if created:
+                self._session.commit()
+                self._session.refresh(workflow_run)
+            return _summary(workflow_run, created=created)
         except IntegrityError as exc:
             self._session.rollback()
             existing = self._find_by_idempotency_key(command.idempotency_key, command.organization_id)
@@ -94,9 +102,6 @@ class SqlAlchemyShortFormWorkflowRepository:
                     "idempotency key is already associated with a different organization"
                 ) from exc
             raise
-
-        self._session.refresh(workflow_run)
-        return _summary(workflow_run, created=True)
 
     def _find_by_idempotency_key(
         self, idempotency_key: str, organization_id: uuid.UUID
