@@ -70,14 +70,14 @@ _BASELINE_PROMPTS = [
         "name": "Short video scene planner",
         "description": "Acts as the scene planning director for the short-video renderer.",
         "content": _PLANNER_CONTENT,
-        "config": {"model": "gemini-1.5-flash", "temperature": 0.7, "response_mime_type": "application/json"},
+        "config": {"model": "gemini-2.5-flash", "temperature": 0.7, "response_mime_type": "application/json"},
     },
     {
         "key": "short_video_visual_art_director",
         "name": "Short video visual art director",
         "description": "Acts as the visual art director for media search and render prompts.",
         "content": _DIRECTOR_CONTENT,
-        "config": {"model": "gemini-1.5-flash", "temperature": 0.4, "response_mime_type": "application/json"},
+        "config": {"model": "gemini-2.5-flash", "temperature": 0.4, "response_mime_type": "application/json"},
     },
 ]
 

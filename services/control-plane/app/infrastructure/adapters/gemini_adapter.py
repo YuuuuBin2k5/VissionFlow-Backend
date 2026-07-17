@@ -47,8 +47,8 @@ class GeminiCreativePlanningAdapter(CreativePlanningProvider):
         provider_credential_secret: str,
         model_name: str | None = None,
     ) -> Tuple[str, dict]:
-        # Enforce Gemini 1.5 Flash as standard planning model
-        model = model_name or "gemini-1.5-flash"
+        # Enforce Gemini 2.5 Flash as standard planning model
+        model = model_name or "gemini-2.5-flash"
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
         headers = {
