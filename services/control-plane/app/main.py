@@ -1,41 +1,43 @@
-import os
+﻿import os
+import uuid
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 
 from app.core.config import Settings
-from app.routers import auth, credentials, integrations, prompts, system, workflows
+from app.routers import auth, credentials, integrations, prompts, system, workflows, creative_sessions
 
 
 settings = Settings.from_env()
 app = FastAPI(title="VisionFlow Control Plane", version="0.1.0")
+
 origins = [origin.strip().rstrip("/") for origin in os.getenv("VISIONFLOW_WEB_ORIGINS", "").split(",") if origin.strip()]
 if origins:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "OPTIONS"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "X-Request-ID"],
     )
+
 app.include_router(system.router, prefix=settings.api_prefix)
 app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(workflows.router, prefix=settings.api_prefix)
 app.include_router(prompts.router, prefix=settings.api_prefix)
 app.include_router(credentials.router, prefix=settings.api_prefix)
 app.include_router(integrations.router, prefix=settings.api_prefix)
+app.include_router(creative_sessions.router, prefix=settings.api_prefix)
 
-
-from fastapi import HTTPException
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
-import uuid
 
 def _normalize_trace_id(request_id: str | None) -> str:
     normalized = (request_id or "").replace("-", "")
     if len(normalized) == 32 and all(character in "0123456789abcdefABCDEF" for character in normalized):
         return normalized.lower()
     return uuid.uuid4().hex
+
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
@@ -64,6 +66,7 @@ async def http_exception_handler(request, exc):
         }
     )
 
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
     request_id = request.headers.get("X-Request-ID") or request.headers.get("x-request-id")
@@ -78,6 +81,7 @@ async def validation_exception_handler(request, exc):
             "detail": exc.errors(),
         }
     )
+
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):

@@ -1,4 +1,4 @@
-"""VF-03.01b — Postgres Disposable Integration and Migration Chain Testing Script.
+﻿"""VF-03.01b â€” Postgres Disposable Integration and Migration Chain Testing Script.
 
 This script runs integration tests and verifies the complete Alembic migration
 chain in both upgrade and downgrade directions.
@@ -104,6 +104,8 @@ def main() -> int:
     suite.addTests(loader.loadTestsFromName("tests.test_review_artifact_api"))
     suite.addTests(loader.loadTestsFromName("tests.test_publish_artifact_lineage"))
     suite.addTests(loader.loadTestsFromName("tests.test_readiness"))
+    suite.addTests(loader.loadTestsFromName("tests.test_sessions_persistence"))
+    suite.addTests(loader.loadTestsFromName("tests.test_creative_sessions_api"))
 
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
