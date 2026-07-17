@@ -14,6 +14,8 @@ from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembe
 from app.routers.auth import require_identity
 from app.infrastructure.models import CreativeSession
 
+import logging
+
 from app.application.manage_creative_session import (
     ManageCreativeSession,
     CreativeSessionError,
@@ -89,8 +91,16 @@ def _get_manager(session) -> ManageCreativeSession:
     )
 
 
+logger_router = logging.getLogger(__name__)
+
+
 def _handle_exception(exc: Exception) -> JSONResponse:
     """Helper to map exception categories into RFC 7807 problem responses."""
+    # Log 5xx-class exceptions with full detail to surface root cause in Render logs
+    if isinstance(exc, (ProviderUnavailable, PromptBaselineUnavailable)):
+        logger_router.error(
+            "[503] %s: %s", type(exc).__name__, exc, exc_info=True
+        )
     if isinstance(exc, ValidationError):
         # `creation_spec` is deliberately validated in the application layer so
         # the same invariant applies to create and update commands.  Convert
