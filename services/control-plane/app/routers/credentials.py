@@ -190,6 +190,17 @@ def reorder_provider_credentials(organization_id: uuid.UUID, request: ReorderPro
     return [_response(by_id[credential_id]) for credential_id in request.credential_ids]
 
 
+@router.delete("/organizations/{organization_id}/provider-credentials/{credential_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_provider_credential(organization_id: uuid.UUID, credential_id: uuid.UUID, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> None:
+    _authorize(session, identity, organization_id)
+    record = session.scalar(select(ProviderCredential).where(ProviderCredential.id == credential_id, ProviderCredential.organization_id == organization_id).with_for_update())
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider credential not found")
+    _audit(session, organization_id=organization_id, credential_id=record.id, actor=identity.subject, event_type="provider_credential.deleted", metadata={"provider": record.provider, "label": record.label})
+    session.delete(record)
+    session.commit()
+
+
 @router.get("/organizations/{organization_id}/provider-credentials/{provider}/resolve", response_model=list[ResolvedProviderCredentialResponse])
 def resolve_provider_credentials(organization_id: uuid.UUID, provider: str, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> list[ResolvedProviderCredentialResponse]:
     """Trusted worker-only secret delivery; never available to browser identities."""
