@@ -104,14 +104,15 @@ class GeminiCreativePlanningAdapter(CreativePlanningProvider):
         provider_credential_secret: str,
         model_name: str | None = None,
     ) -> Tuple[str, dict]:
-        # Smart model fallback chain optimized for free tier quota
-        # Based on rate limits: gemini-3.1-flash-lite has highest quota (15 RPM, 500 RPD)
+        # Smart model fallback chain - VERIFIED WORKING MODELS (tested 2026-07-18)
+        # Only include models that are actually accessible with current API key
         model_fallback_chain = [
-            "gemini-3.1-flash-lite",     # BEST: Highest quota (15 RPM, 500 RPD), less overload
-            "gemini-3.5-flash",          # Fallback 1: Gemini 3.5 (5 RPM, 20 RPD)
-            "gemini-2.5-flash-lite",     # Fallback 2: Lite version (10 RPM, 20 RPD)
-            "gemini-3-flash-preview",    # Fallback 3: Gemini 3 preview (5 RPM, 20 RPD)
-            "gemini-2.5-flash",          # Fallback 4: Original target (may be restricted)
+            "gemini-3.1-flash-lite",     # ✅ VERIFIED: Highest quota (15 RPM, 500 RPD)
+            "gemini-3-flash-preview",    # ✅ VERIFIED: Working (5 RPM, 20 RPD)
+            # Backup models (may work after quota reset or when overload resolves)
+            "gemini-3.5-flash",          # ⚠️ Currently 503 overload
+            "gemini-2.5-flash-lite",     # ⚠️ Currently 404 restricted
+            "gemini-2.0-flash",          # ⚠️ Currently 429 quota
         ]
         
         # If user specifies model, try it first then fallback
