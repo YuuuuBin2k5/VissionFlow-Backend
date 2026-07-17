@@ -4,7 +4,7 @@ import uuid
 from typing import Any
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from app.core.oidc import VerifiedIdentity
 from app.domain.authorization import Permission
@@ -91,6 +91,28 @@ def _get_manager(session) -> ManageCreativeSession:
 
 def _handle_exception(exc: Exception) -> JSONResponse:
     """Helper to map exception categories into RFC 7807 problem responses."""
+    if isinstance(exc, ValidationError):
+        # `creation_spec` is deliberately validated in the application layer so
+        # the same invariant applies to create and update commands.  Convert
+        # that safe, expected validation failure into a client error instead of
+        # letting it escape as an unhandled 500 (which browsers then report as
+        # a misleading CORS failure).
+        errors = [
+            {
+                "field": ".".join(str(part) for part in error["loc"]),
+                "message": error["msg"],
+            }
+            for error in exc.errors()
+        ]
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={
+                "type": "VALIDATION_ERROR",
+                "title": "Validation Error",
+                "detail": "The creative session specification is invalid.",
+                "errors": errors,
+            },
+        )
     if isinstance(exc, CreativeSessionAlreadyBound):
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT,
