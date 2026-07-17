@@ -649,7 +649,7 @@ class ManageCreativeSession:
     ) -> dict:
         # Load active prompts & provider credential
         credential_id, secret, model_name = self._resolve_credentials(organization_id)
-        planner_tmpl, planner_version, director_tmpl, director_version = self._resolve_prompts()
+        planner_tmpl, planner_version, director_tmpl, director_version = self._resolve_prompts(organization_id)
 
         # Build prompt history
         history = []
@@ -965,14 +965,20 @@ class ManageCreativeSession:
 
             raise ProviderUnavailable("No active provider key configuration details resolved.")
 
-    def _resolve_prompts(self) -> Tuple[str, int, str, int]:
-        """Loads planner and director prompt instructions."""
+    def _resolve_prompts(self, organization_id: uuid.UUID) -> Tuple[str, int, str, int]:
+        """Loads planner and director prompt instructions for the given organization."""
         with self._session_maker() as db_session:
             planner = db_session.scalar(
-                select(PromptTemplate).where(PromptTemplate.prompt_key == "short_video_scene_planner")
+                select(PromptTemplate).where(
+                    PromptTemplate.organization_id == organization_id,
+                    PromptTemplate.prompt_key == "short_video_scene_planner",
+                )
             )
             director = db_session.scalar(
-                select(PromptTemplate).where(PromptTemplate.prompt_key == "short_video_visual_art_director")
+                select(PromptTemplate).where(
+                    PromptTemplate.organization_id == organization_id,
+                    PromptTemplate.prompt_key == "short_video_visual_art_director",
+                )
             )
 
             if not planner or not director:

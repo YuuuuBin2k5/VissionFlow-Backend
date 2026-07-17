@@ -17,8 +17,9 @@ COPY services/control-plane/app ./app
 # Keep operational commands in the production image.  Render runs the outbox
 # relay as a separate worker from this same immutable image.
 COPY services/control-plane/scripts ./scripts
+COPY services/control-plane/entrypoint.sh ./entrypoint.sh
 
 USER visionflow
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "entrypoint.sh"]
