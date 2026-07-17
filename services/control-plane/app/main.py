@@ -1,5 +1,6 @@
 ﻿import os
 import uuid
+import logging
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,6 +10,7 @@ from fastapi.exceptions import RequestValidationError
 from app.core.config import Settings
 from app.routers import auth, credentials, integrations, prompts, system, workflows, creative_sessions
 
+logger = logging.getLogger(__name__)
 
 settings = Settings.from_env()
 app = FastAPI(title="VisionFlow Control Plane", version="0.1.0")
@@ -30,6 +32,137 @@ app.include_router(prompts.router, prefix=settings.api_prefix)
 app.include_router(credentials.router, prefix=settings.api_prefix)
 app.include_router(integrations.router, prefix=settings.api_prefix)
 app.include_router(creative_sessions.router, prefix=settings.api_prefix)
+
+
+# ---------------------------------------------------------------------------
+# Startup: seed missing prompt baselines for all existing organizations
+# ---------------------------------------------------------------------------
+
+_PLANNER_CONTENT = """\
+Bạn là Đạo diễn Phân cảnh của VisionFlow AI. Nhiệm vụ của bạn là đọc hiểu yêu cầu sáng tạo từ người dùng và lịch sử hội thoại, sau đó xây dựng một kịch bản phân cảnh chi tiết cho video ngắn dọc (9:16).
+
+[QUY TẮC BẮT BUỘC]:
+1. Mỗi phân cảnh phải có đủ: narration (lời thoại), visual_prompt (mô tả hình ảnh tiếng Anh), duration_seconds (3-20 giây), transition (cut/fade/dissolve/zoom_in/zoom_out), caption (phụ đề hiển thị).
+2. Tổng thời lượng các cảnh phải xấp xỉ thời lượng yêu cầu trong creation_spec.
+3. Lời thoại (narration) viết bằng ngôn ngữ được chỉ định trong creation_spec, ngắn gọn, thu hút.
+4. visual_prompt luôn viết bằng tiếng Anh, mô tả chi tiết: nhân vật, hành động, góc máy, ánh sáng, màu sắc, phong cách.
+5. Số lượng phân cảnh từ 3 đến 20 cảnh.
+6. Phân bổ thời lượng hợp lý, cảnh mở đầu và kết thúc thường ngắn hơn cảnh giữa.
+7. Tone và phong cách phải nhất quán với visual_preset và brief đã cung cấp.\
+"""
+
+_DIRECTOR_CONTENT = """\
+You are the Visual Art Director for VisionFlow AI. Your role is to transform each scene narration and the overall creative brief into a highly detailed, cinematic English visual prompt suitable for AI image/video generation and stock media search.
+
+[MANDATORY RULES]:
+1. Always write visual_prompt in English regardless of the video language.
+2. Include: subject description, action, camera angle (close-up/wide/medium shot), lighting style, color palette, mood, and the visual_preset theme from the creation spec.
+3. Keep the composition optimized for vertical 9:16 short-form video.
+4. Ensure visual consistency across all scenes (same characters, color grading, art style).
+5. Append technical tags at the end: cinematic lighting, 4K, vertical composition, professional quality.
+6. The prompt must be self-contained — do not reference previous scenes by number.
+7. Adapt the style to match the format_profile and visual_preset supplied in the creation spec.\
+"""
+
+_BASELINE_PROMPTS = [
+    {
+        "key": "short_video_scene_planner",
+        "name": "Short video scene planner",
+        "description": "Acts as the scene planning director for the short-video renderer.",
+        "content": _PLANNER_CONTENT,
+        "config": {"model": "gemini-2.5-flash", "temperature": 0.7, "response_mime_type": "application/json"},
+    },
+    {
+        "key": "short_video_visual_art_director",
+        "name": "Short video visual art director",
+        "description": "Acts as the visual art director for media search and render prompts.",
+        "content": _DIRECTOR_CONTENT,
+        "config": {"model": "gemini-2.5-flash", "temperature": 0.4, "response_mime_type": "application/json"},
+    },
+]
+
+
+@app.on_event("startup")
+async def _seed_prompt_baselines() -> None:
+    """Idempotent seed: ensures every org has the two baseline prompt templates."""
+    import json
+    from sqlalchemy import text as sa_text
+    from app.infrastructure.database import get_engine
+
+    engine = get_engine()
+    try:
+        with engine.begin() as conn:
+            # Guard: tables must exist (migration may not have run yet)
+            tables = {
+                row[0]
+                for row in conn.execute(sa_text(
+                    "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
+                ))
+            }
+            if not {"prompt_templates", "prompt_versions"}.issubset(tables):
+                logger.warning(
+                    "startup seed: prompt_templates / prompt_versions tables not found — "
+                    "run alembic upgrade head (migration 0017) to create them."
+                )
+                return
+
+            orgs = conn.execute(sa_text("SELECT id FROM organizations")).fetchall()
+            if not orgs:
+                logger.info("startup seed: no organizations found, nothing to seed.")
+                return
+
+            seeded = 0
+            for (org_id,) in orgs:
+                for p in _BASELINE_PROMPTS:
+                    # Insert template (skip if already present)
+                    conn.execute(sa_text("""
+                        INSERT INTO prompt_templates
+                            (id, organization_id, prompt_key, name, description, production_version, created_at, updated_at)
+                        VALUES
+                            (:id, :org_id, :key, :name, :desc, 1, now(), now())
+                        ON CONFLICT (organization_id, prompt_key) DO NOTHING
+                    """), {
+                        "id": str(uuid.uuid4()),
+                        "org_id": str(org_id),
+                        "key": p["key"],
+                        "name": p["name"],
+                        "desc": p["description"],
+                    })
+
+                    tmpl_id = conn.execute(sa_text("""
+                        SELECT id FROM prompt_templates
+                        WHERE organization_id = :org_id AND prompt_key = :key
+                    """), {"org_id": str(org_id), "key": p["key"]}).scalar()
+
+                    # Insert version 1 (skip if already present)
+                    conn.execute(sa_text("""
+                        INSERT INTO prompt_versions
+                            (id, prompt_template_id, version, content, config, change_note, created_at)
+                        VALUES
+                            (:id, :tmpl_id, 1, :content, :config::jsonb,
+                             'Auto-seeded on startup', now())
+                        ON CONFLICT (prompt_template_id, version) DO NOTHING
+                    """), {
+                        "id": str(uuid.uuid4()),
+                        "tmpl_id": str(tmpl_id),
+                        "content": p["content"],
+                        "config": json.dumps(p["config"]),
+                    })
+
+                    # Ensure production_version is set if it was NULL
+                    conn.execute(sa_text("""
+                        UPDATE prompt_templates
+                        SET production_version = 1
+                        WHERE id = :tmpl_id AND production_version IS NULL
+                    """), {"tmpl_id": str(tmpl_id)})
+
+                    seeded += 1
+
+            logger.info("startup seed: ensured %d prompt baseline(s) across %d org(s).", seeded, len(orgs))
+
+    except Exception as exc:
+        # Never block server startup due to seed failure
+        logger.error("startup seed failed (non-fatal): %s", exc, exc_info=True)
 
 
 def _normalize_trace_id(request_id: str | None) -> str:
