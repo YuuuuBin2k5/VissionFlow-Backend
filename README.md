@@ -1,131 +1,140 @@
-# 🤖 CHAT-DRIVEN TIKTOK AUTOMATION TOOL
+# VisionFlow
 
-Hệ thống tự động hóa lập kế hoạch, tạo nội dung, tổng hợp giọng nói tiếng Việt, render video dọc chất lượng cao có phụ đề Karaoke, và tự động đăng bài lên TikTok Studio hoàn toàn thông qua giao diện Chat Telegram.
+**VisionFlow** is an operator-led AI video operating system for creating, reviewing, rendering, and distributing short-form video. It replaces the former Telegram-only workflow with a secure web Control Plane while preserving adapters for legacy intake and execution paths.
 
----
+V1 is intentionally optimized for **vertical short-form video**. Long-form is an architectural extension, not a production claim in this repository today.
 
-## 📸 Kiến Trúc Hệ Thống (System Topology)
-Hệ thống được thiết kế theo kiến trúc hướng sự kiện, gồm 3 tầng chính tách biệt để tránh nghẽn luồng xử lý đồ họa nặng:
-1. **Tầng 1 (Orchestrator Engine)**: Node.js / Express / TypeScript / Prisma quản lý cơ sở dữ liệu MySQL, tiếp nhận lệnh từ Telegram Bot, và điều phối tác vụ vào hàng đợi **BullMQ (Redis)**.
-2. **Tầng 2 (Core Media Worker)**: Python 3.10+ tích hợp **Gemini 1.5 Flash**, **Edge-TTS**, **Pexels API** và **MoviePy + Pillow** để biên soạn kịch bản, tải video nền dọc, tạo giọng đọc và ghép phụ đề Karaoke nhảy chữ thông minh.
-3. **Tầng 3 (Stealth Publishing Agent)**: **Playwright Stealth Engine** tự động hóa đăng bài giả lập hành vi con người an toàn tuyệt đối lên TikTok Studio.
+> Production deployment guidance: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+> Security policy: [docs/SECURITY.md](docs/SECURITY.md).
 
----
+## What operators can do today
 
-## 🛠️ Hướng Dẫn Cài Đặt (Installation Guide)
+- Sign in to the VisionFlow Console and work inside an organization boundary.
+- Check creation readiness before starting a short-form workflow.
+- Create a durable creative session from a brief, then plan with Gemini when a configured credential and promoted prompt baseline are available.
+- Continue with a validated manual proposal when AI planning is unavailable.
+- Edit storyboard proposals as immutable revisions, accept one proposal, and atomically create a workflow draft with a versioned Creative Document.
+- Manage encrypted provider credentials, versioned prompt templates, review state, publishing connections, and publication history through the Control Plane.
+- Use existing Telegram, scheduler, and worker paths as intake/execution adapters without making them the source of truth for the web workflow.
 
-### 1. Yêu Cầu Cấu Hình Hệ Thống
-* Hệ điều hành: **Windows 10/11**
-* **Node.js** v18+ hoặc v20+
-* **Python** v3.10+ (Đã thêm vào biến môi trường PATH)
-* **Docker Desktop** (Để chạy nhanh MySQL & Redis)
-* Trình duyệt **Google Chrome** thực tế đã cài đặt trên máy.
+## Guided short-form journey
 
----
-
-### 2. Thiết Lập Cơ Sở Dữ Liệu & Hàng Đợi (Docker Compose)
-Ở thư mục gốc dự án, mở Terminal và chạy lệnh sau để khởi động MySQL 8.0 và Redis 7.0:
-```bash
-docker-compose up -d
+```mermaid
+flowchart LR
+    A[Readiness] --> B[Brief]
+    B --> C[Creative session]
+    C --> D{Planning available?}
+    D -->|Gemini| E[Generated proposal]
+    D -->|Manual path| F[Manual proposal]
+    E --> G[Storyboard revision]
+    F --> G
+    G --> H[Accept one proposal]
+    H --> I[Atomic workflow draft]
+    I --> J[Creative Document and Composition]
+    J --> K[Review and distribution]
 ```
-*Lưu ý: Đảm bảo cổng `3306` (MySQL) và `6379` (Redis) không bị chiếm dụng trước khi khởi chạy.*
 
----
+The manual path is a first-class production flow. A missing Gemini credential must block only AI planning; it must not prevent an operator from drafting a valid short-form workflow.
 
-### 3. Cấu Hình Tầng 1: Orchestrator (Node.js & Telegram)
-1. Di chuyển vào thư mục `orchestrator`:
-   ```bash
-   cd orchestrator
-   ```
-2. Cài đặt các thư viện Node.js cần thiết:
-   ```bash
-   npm install
-   ```
-3. Cấu hình file `.env`:
-   Mở file `orchestrator/.env` và cập nhật thông tin:
-   * `TELEGRAM_BOT_TOKEN`: Dán token nhận được từ **@BotFather** trên Telegram.
-   * `DATABASE_URL`: Giữ nguyên nếu chạy qua Docker.
-4. Chạy Prisma Migrations để tự động khởi tạo cấu trúc bảng dữ liệu trong MySQL:
-   ```bash
-   npx prisma migrate dev --name init
-   ```
-5. Khởi động Orchestrator ở chế độ phát triển:
-   ```bash
-   npm run dev
-   ```
+## Architecture
 
----
+```mermaid
+flowchart TB
+    Console[VisionFlow Console\nReact + Vite] -->|HTTPS, bearer token| CP[Control Plane\nFastAPI modular monolith]
+    CP --> PG[(Neon PostgreSQL)]
+    CP --> Redis[(Redis Streams)]
+    CP --> R2[Object storage]
+    CP --> Gemini[Gemini API]
+    CP --> Outbox[Transactional outbox]
+    Outbox --> Redis
+    Redis --> Workers[Render and publisher workers]
+    Intake[Telegram / schedulers / legacy adapters] --> CP
+    Workers --> Platforms[YouTube and future publisher adapters]
+```
 
-### 4. Cấu Hình Tầng 2 & 3: Core Python Worker
-1. Di chuyển vào thư mục `worker`:
-   ```bash
-   cd ../worker
-   ```
-2. Tạo môi trường ảo (Khuyên dùng trên Windows để tránh xung đột thư viện):
-   ```bash
-   python -m venv venv
-   venv\Scripts\activate
-   ```
-3. Cài đặt các thư viện Python từ `requirements.txt`:
-   ```bash
-   pip install -r requirements.txt
-   ```
-4. Thiết lập các biến môi trường cấu hình:
-   * **Pexels API Key**: Cấu hình trong `worker/.env` bằng biến `PEXELS_API_KEY`.
-   * **Gemini API Key**: Đặt biến môi trường hệ thống hoặc truyền vào qua Terminal:
-     * Trên CMD Windows: `set GEMINI_API_KEY=khóa_của_bạn`
-     * Trên PowerShell Windows: `$env:GEMINI_API_KEY="khóa_của_bạn"`
-5. **Cực kỳ quan trọng**: Cài đặt các driver trình duyệt Playwright và cài đặt Chrome:
-   ```bash
-   playwright install chrome
-   ```
+### Architectural rules
 
----
+- **PostgreSQL Control Plane is the canonical state writer.** Workflow, creative, credential, prompt, approval, and publication state are owned there.
+- **Modular monolith, not microservices.** Modules communicate through application ports, repositories, and transactional outbox events within this repository.
+- **Organization isolation is mandatory.** Every operator-facing query and command is authorized against an organization membership.
+- **Creative inputs are reproducible.** Proposal revisions and Creative Document versions are immutable snapshots; a selected proposal is not silently overwritten.
+- **External side effects are isolated.** Rendering and publishing run behind worker/platform adapters; bot handlers do not render or publish directly.
+- **Secrets stay server-side.** Provider credentials are encrypted at rest and browser environment variables never contain database, object-storage, signing, or LLM secrets.
 
-## 🚀 Hướng Dẫn Vận Hành & Sử Dụng (Operation & Usage)
+## Repository map
 
-### 1. Khởi động Hệ Thống
-1. Chạy Docker Compose (MySQL, Redis).
-2. Chạy Orchestrator: `npm run dev` tại thư mục `orchestrator`.
-   *Bạn sẽ thấy log thông báo Telegram Bot đã online.*
-3. Kích hoạt môi trường ảo Python và giữ màn hình sẵn sàng nhận Job.
+| Path | Responsibility |
+| --- | --- |
+| `services/control-plane` | FastAPI API, SQLAlchemy models, Alembic migrations, organization authorization, creative sessions, prompt and credential vaults. |
+| `services/publisher-worker` | Publication execution boundary and platform adapters. |
+| `worker` | Media generation, rendering, audio, asset, and publishing execution workers. |
+| `orchestrator` | Legacy Telegram intake, scheduling, queues, and compatibility adapters. |
+| `shared` | Shared runtime contracts and assets. |
+| `docs` | Operational and security documentation. |
 
-### 2. Tương tác với Telegram Bot
-Mở ô chat với Bot trên Telegram và sử dụng các lệnh điều khiển:
+## Production topology
 
-* **Khởi chạy Chiến dịch**:
-  👉 `/start_campaign [Chủ đề] | [Đối tượng]`
-  *Ví dụ:* `/start_campaign Lập trình Python cho người mới | Học sinh sinh viên công nghệ`
-  *Hệ thống sẽ ghi nhận chiến dịch, đẩy tác vụ lập lịch vào hàng đợi, gọi Gemini lên ý tưởng 30 video và tạo 30 Jobs tương ứng.*
+| Concern | Production choice |
+| --- | --- |
+| Web console | Vercel-hosted VisionFlow Console |
+| API | Render-hosted Control Plane |
+| Canonical database | Neon PostgreSQL |
+| Event transport | Redis Streams with transactional outbox relay |
+| Files and media | Object storage adapter |
+| AI planning | Gemini through the encrypted provider credential vault |
 
-* **Kiểm tra tiến độ kênh**:
-  👉 `/status`
-  *Xem báo cáo thống kê trực quan số lượng video đang chờ xử lý, đã render, đã duyệt hay đã đăng.*
+The free Render topology is suitable for API/control-plane preview and manual dispatch. Persistent rendering/publishing workers should be enabled only when the corresponding deployment tier and operational runbook are in place.
 
-* **Xem trước & Phê duyệt video**:
-  👉 `/preview [job_id]`
-  *(Ví dụ: `/preview 1`)*
-  *Bot sẽ gửi trực tiếp file video `.mp4` hoàn chỉnh đã chèn phụ đề Karaoke chuyên nghiệp kèm Inline Keyboard gồm 2 nút bấm:*
-  * `🚀 DUYỆT ĐĂNG NGAY`: Cập nhật trạng thái và tự động gọi Playwright đăng bài.
-  * `❌ HỦY JOB`: Hủy bỏ video không phù hợp.
+## Readiness and safe degradation
 
-* **Buộc đăng tải ngay**:
-  👉 `/force_post [job_id]`
-  *Bỏ qua thời gian lập lịch, đẩy trực tiếp video lên TikTok Studio.*
+The Console asks the Control Plane for a short-form readiness snapshot before creation. It distinguishes:
 
----
+- **Creation ready:** an operator can create a brief or manual proposal.
+- **AI planning ready:** a Gemini credential and the promoted planner/director prompts are available.
+- **Render prerequisites ready:** required media and storage integrations are available.
+- **Render dispatch ready:** an execution runner is available for the selected environment.
 
-## 🛡️ Cơ Chế Vượt Rào Cản Phát Hiện Bot (Stealth Protocol) & Đăng Nhập
-* **Lần đầu tiên chạy đăng bài**: Trình duyệt Chromium của Playwright sẽ được kích hoạt ở chế độ **có giao diện (Headful mode)**.
-* **Hành động của bạn**: Vui lòng thực hiện đăng nhập tài khoản TikTok Studio của bạn thủ công (hoặc quét mã QR) tại cửa sổ Chrome vừa hiện ra.
-* **Thời gian chờ**: Trình duyệt sẽ đợi tối đa **90 giây** để bạn thao tác.
-* Sau khi đăng nhập thành công, session của bạn sẽ được lưu trữ an toàn trong thư mục cục bộ `worker/chrome_profile`. Các lần đăng bài tiếp theo sẽ hoàn toàn tự động mà không cần bạn đăng nhập lại!
-* Hệ thống mô phỏng việc gõ Caption và Hashtags với độ trễ ngẫu nhiên từ $50\text{ms}$ đến $150\text{ms}$ giữa các phím để chống việc quét spam.
+This prevents the UI from promising an unavailable capability and gives the operator a direct remediation path instead of a mock action.
 
----
+## Local development and verification
 
-## 🛠️ Ma Trận Tự Phục Hồi Sự Cố (Self-Healing Matrix)
-* **Lỗi API Gemini**: Tự động chuyển đổi kịch bản fallback mẫu thiết lập sẵn để giữ pipeline vận hành liên tục.
-* **Lỗi tải Asset video nền**: Khi Pexels không tìm thấy từ khóa chuyên sâu, hệ thống tự động đơn giản hóa từ khóa, hoặc lấy video thiên nhiên/đồ họa trừu tượng thay thế.
-* **Tràn bộ nhớ đồ họa (MoviePy RAM Spike)**: Tự động dọn dẹp bộ nhớ đệm (Garbage Collector), đóng luồng ffmpeg để giải phóng RAM tối ưu.
-* **Hết hạn Session / Cookie**: Trình duyệt chụp lại ảnh màn hình lỗi lưu vào `worker/output_videos/error.png` và thông báo khẩn qua Telegram kèm hình ảnh để chủ kênh cập nhật.
+Use repository-specific environment files; never commit them. The Control Plane requires PostgreSQL URLs for runtime and Alembic migrations. The Console uses only public `VITE_*` values.
+
+Primary checks:
+
+```powershell
+# Control Plane
+python services/control-plane/scripts/test_postgres_disposable.py
+
+# Console
+cd ..\VisionFlow_Client
+npm run lint
+npm run test
+npm run build
+
+# Backend secret scan
+cd ..\VisionFlow_Bakend
+powershell -ExecutionPolicy Bypass -File scripts/security-scan.ps1
+```
+
+Run Alembic migrations deliberately against the target PostgreSQL environment before deploying a new Control Plane revision. The current creative-session migration head is `0016_creative_sessions`.
+
+## Configuration boundaries
+
+Document variable names in environment examples and deployment documentation only. Do not put values in issues, commits, screenshots, or README files.
+
+- **Control Plane:** database, migration database, Redis, auth signing, encryption, storage, CORS, and worker identity configuration.
+- **Console:** Control Plane URL, organization identifier, and public client settings only.
+- **Gemini:** add credentials through the encrypted Provider Credential Vault. Environment fallback is intentionally opt-in and disabled for production by default.
+
+## Current product boundary
+
+| Included | Deliberately not claimed as complete |
+| --- | --- |
+| Guided short-form creation, manual fallback, AI planning integration, proposal acceptance, atomic draft creation | End-to-end long-form production workflow |
+| Versioned creative documents and Composition handoff | A full desktop-style NLE/CapCut replacement |
+| Organization authorization, credential vault, prompt registry, review and publishing foundations | Autonomous publishing without configured platform connection and approval policy |
+
+## Contributing safely
+
+Keep code changes inside existing module boundaries, preserve unrelated worktree changes, and run the relevant checks before committing. Review [AGENTS.md](AGENTS.md) before modifying orchestration, worker, publisher, or data-model behavior.
