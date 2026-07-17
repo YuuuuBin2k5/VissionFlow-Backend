@@ -4,7 +4,6 @@ import json
 import logging
 import requests
 from typing import Tuple, List, Dict
-import asyncio
 
 from app.application.ports.creative_planning_provider import CreativePlanningProvider
 
@@ -26,29 +25,16 @@ class GeminiCreativePlanningAdapter(CreativePlanningProvider):
         provider_credential_secret: str,
         model_name: str | None = None,
     ) -> Tuple[str, dict]:
-        """Runs the blocking HTTP call in a threadpool to avoid event loop starvation."""
-        loop = asyncio.get_event_loop()
-
-        # Define the synchronous wrapper
-        def _sync_call() -> Tuple[str, dict]:
-            return self._execute_http_call(
-                prompt=prompt,
-                history=history,
-                creation_spec=creation_spec,
-                planner_prompt_template=planner_prompt_template,
-                director_prompt_template=director_prompt_template,
-                provider_credential_secret=provider_credential_secret,
-                model_name=model_name,
-            )
-
-        # Execute synchronously if event loop is not running, else run in executor
-        if loop.is_running():
-            future = asyncio.run_coroutine_threadsafe(
-                loop.run_in_executor(None, _sync_call), loop
-            )
-            return future.result()
-        else:
-            return _sync_call()
+        """Executes the blocking HTTP call directly — safe to call from any thread."""
+        return self._execute_http_call(
+            prompt=prompt,
+            history=history,
+            creation_spec=creation_spec,
+            planner_prompt_template=planner_prompt_template,
+            director_prompt_template=director_prompt_template,
+            provider_credential_secret=provider_credential_secret,
+            model_name=model_name,
+        )
 
     def _execute_http_call(
         self,
