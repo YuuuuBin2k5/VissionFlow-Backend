@@ -982,6 +982,21 @@ class ManageCreativeSession:
             )
 
             if not planner or not director:
+                # Diagnostic: count ALL rows in prompt_templates to detect wrong-DB issue
+                total = db_session.execute(
+                    text("SELECT COUNT(*) FROM prompt_templates")
+                ).scalar() or 0
+                org_total = db_session.execute(
+                    text("SELECT COUNT(*) FROM prompt_templates WHERE organization_id = :oid"),
+                    {"oid": str(organization_id)},
+                ).scalar() or 0
+                logger.error(
+                    "_resolve_prompts FAILED for org=%s | "
+                    "prompt_templates total=%d, for_this_org=%d | "
+                    "planner=%s director=%s",
+                    organization_id, total, org_total,
+                    planner is not None, director is not None,
+                )
                 raise PromptBaselineUnavailable("Prompts baseline templates not configured in system.")
 
             # Fetch promoted versions
