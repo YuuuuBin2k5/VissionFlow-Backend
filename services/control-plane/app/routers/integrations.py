@@ -68,7 +68,7 @@ def start_youtube_oauth(organization_id: uuid.UUID, identity: VerifiedIdentity =
         raise HTTPException(status_code=403, detail="Organization permission denied") from exc
     except (ConfigurationError, ValueError) as exc:
         raise HTTPException(status_code=503, detail="YouTube integration is unavailable") from exc
-    query = urlencode({"client_id":settings.client_id,"redirect_uri":settings.redirect_uri,"response_type":"code","scope":"https://www.googleapis.com/auth/youtube.upload","access_type":"offline","prompt":"consent","state":state})
+    query = urlencode({"client_id":settings.client_id,"redirect_uri":settings.redirect_uri,"response_type":"code","scope":"https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly","access_type":"offline","prompt":"consent","state":state})
     return OAuthStartResponse(authorization_url=f"https://accounts.google.com/o/oauth2/v2/auth?{query}")
 
 
