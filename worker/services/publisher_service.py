@@ -7,9 +7,12 @@ from playwright_stealth import Stealth
 from worker.config import BASE_DIR, OUTPUT_DIR
 
 class PublisherService:
-    def __init__(self):
+    def __init__(self, profile_dir: str = None):
         # Thiết lập profile trình duyệt để lưu session cookie bền vững
-        self.profile_dir = str(BASE_DIR / "worker" / "chrome_profile")
+        if profile_dir:
+            self.profile_dir = profile_dir
+        else:
+            self.profile_dir = str(BASE_DIR / "worker" / "chrome_profile")
         print(f"[PublisherService] Persistent Chrome profile path: {self.profile_dir}")
 
     def _clean_joyride_overlays(self, page):
@@ -31,9 +34,27 @@ class PublisherService:
         except Exception as je:
             print(f"[PublisherService Warning] Không thể dọn dẹp joyride overlay: {je}")
 
-    def create_stealth_browser_instance(self, headless: bool = False):
+    def create_stealth_browser_instance(
+        self, 
+        headless: bool = False, 
+        proxy_ip: str = None, 
+        proxy_port: int = None, 
+        proxy_user: str = None, 
+        proxy_pass: str = None
+    ):
         """Khởi tạo instance trình duyệt thực tế chống phát hiện bot"""
         playwright = sync_playwright().start()
+        
+        # Thiết lập cấu hình Proxy dân cư động
+        proxy_config = None
+        if proxy_ip and proxy_port:
+            proxy_config = {
+                "server": f"http://{proxy_ip}:{proxy_port}"
+            }
+            if proxy_user and proxy_pass:
+                proxy_config["username"] = proxy_user
+                proxy_config["password"] = proxy_pass
+            print(f"[PublisherService] Binding dynamic proxy: {proxy_ip}:{proxy_port}")
         
         # Windows Chrome standard installation path fallback with self-healing default Chromium
         try:
@@ -45,7 +66,8 @@ class PublisherService:
                     "--disable-blink-features=AutomationControlled",
                     "--start-maximized",
                     "--no-sandbox"
-                ]
+                ],
+                proxy=proxy_config
             )
         except Exception as e:
             print(f"[PublisherService Warning] Failed to launch Chrome with channel='chrome': {e}. Falling back to default Chromium...")
@@ -56,7 +78,8 @@ class PublisherService:
                     "--disable-blink-features=AutomationControlled",
                     "--start-maximized",
                     "--no-sandbox"
-                ]
+                ],
+                proxy=proxy_config
             )
         
         page = browser_context.pages[0]
@@ -751,7 +774,19 @@ class PublisherService:
         print(f"[PublisherService Warning] {message}")
         return False
 
-    def publish_video_to_tiktok(self, video_path: str, caption: str, hashtags: list, force_headful: bool = True, music_metadata: dict = None) -> bool:
+    def publish_video_to_tiktok(
+        self, 
+        video_path: str, 
+        caption: str, 
+        hashtags: list, 
+        force_headful: bool = True, 
+        music_metadata: dict = None, 
+        comment_text: str = None,
+        proxy_ip: str = None,
+        proxy_port: int = None,
+        proxy_user: str = None,
+        proxy_pass: str = None
+    ) -> bool:
         """
         Quy trình tự động hóa xuất bản video lên TikTok Studio qua Playwright Stealth.
         Hỗ trợ chế độ chạy hiển thị giao diện ở lần đầu tiên.
@@ -761,7 +796,13 @@ class PublisherService:
         # Nếu lần đầu tiên hoặc có yêu cầu, bắt buộc phải chạy có giao diện (headless=False)
         headless = False if force_headful else True
         
-        playwright, context, page = self.create_stealth_browser_instance(headless=headless)
+        playwright, context, page = self.create_stealth_browser_instance(
+            headless=headless,
+            proxy_ip=proxy_ip,
+            proxy_port=proxy_port,
+            proxy_user=proxy_user,
+            proxy_pass=proxy_pass
+        )
         
         try:
             # 1. Điều hướng đến TikTok Studio Upload
@@ -929,6 +970,17 @@ class PublisherService:
             
             print("[PublisherService Success] Video successfully published to TikTok!")
             
+            # Nếu có comment_text, thực hiện tìm link video và post comment
+            if comment_text:
+                try:
+                    video_url = self._find_published_video_url(page)
+                    if video_url:
+                        self.post_comment_to_video(page, video_url, comment_text)
+                    else:
+                        print("[PublisherService Warning] Could not extract video URL, skipping auto-comment.")
+                except Exception as comm_err:
+                    print(f"[PublisherService Warning] Failed during comment posting: {comm_err}")
+            
             # Đóng trình duyệt
             context.close()
             playwright.stop()
@@ -951,3 +1003,403 @@ class PublisherService:
                 pass
             
             raise e
+
+    def _find_published_video_url(self, page) -> str:
+        """
+        Tìm URL của video vừa đăng.
+        Cách 1: Quét trên trang hoàn thành upload hiện tại xem có liên kết chứa '/video/'.
+        Cách 2: Điều hướng đến trang Quản lý bài đăng của TikTok Studio và lấy liên kết video đầu tiên.
+        """
+        time.sleep(3.0) # Đợi trang phản hồi sau khi ấn đăng
+        
+        # Cách 1: Tìm link trên trang hiện tại
+        for selector in ["a[href*='/video/']", "a:has-text('View')", "a:has-text('Xem')", "a:has-text('Watch')"]:
+            try:
+                link = page.query_selector(selector)
+                if link:
+                    href = link.get_attribute("href")
+                    if href:
+                        import urllib.parse
+                        url = urllib.parse.urljoin(page.url, href)
+                        if "/video/" in url:
+                            print(f"[PublisherService] Found video URL from publish success page: {url}")
+                            return url
+            except Exception:
+                continue
+
+        # Cách 2: Điều hướng đến posts manager
+        try:
+            posts_url = "https://www.tiktok.com/tiktokstudio/posts"
+            print(f"[PublisherService] Navigating to posts manager: {posts_url} to extract video link...")
+            page.goto(posts_url, wait_until="domcontentloaded", timeout=25000)
+            time.sleep(6.0) # Đợi trang tải danh sách bài viết
+            
+            links = page.query_selector_all("a[href*='/video/']")
+            for link in links:
+                href = link.get_attribute("href")
+                if href:
+                    import urllib.parse
+                    url = urllib.parse.urljoin(page.url, href)
+                    if "/video/" in url:
+                        print(f"[PublisherService] Found video URL from posts manager: {url}")
+                        return url
+        except Exception as e:
+            print(f"[PublisherService Warning] Failed to find video URL from posts page: {e}")
+            
+        return ""
+
+    def post_comment_to_video(self, page, video_url: str, comment_text: str) -> bool:
+        """
+        Điều hướng đến trang video công khai và thực hiện tự động gửi bình luận.
+        """
+        print(f"[PublisherService] Navigating to public video URL: {video_url} to post comment...")
+        try:
+            page.goto(video_url, wait_until="domcontentloaded", timeout=45000)
+            time.sleep(5.0) # Đợi các thành phần trang tải ổn định
+            
+            # Selector ô nhập bình luận phổ biến của TikTok
+            comment_selectors = [
+                "[data-e2e='comment-input']",
+                "div[contenteditable='true']",
+                "input[placeholder*='comment' i]",
+                "input[placeholder*='luận' i]",
+                ".comment-input",
+                "textarea"
+            ]
+            
+            input_el = None
+            for selector in comment_selectors:
+                try:
+                    el = page.query_selector(selector)
+                    if el and el.is_visible():
+                        input_el = el
+                        break
+                except Exception:
+                    continue
+                    
+            if not input_el:
+                print("[PublisherService Warning] Could not locate comment input field on video page.")
+                return False
+                
+            print("[PublisherService] Comment input field located. Typing comment...")
+            input_el.click()
+            time.sleep(0.5)
+            
+            # Gán text bình luận qua JS để gõ nhanh và chính xác đối với văn bản dài (2-3 đoạn)
+            page.evaluate(
+                """(el, text) => {
+                    el.focus();
+                    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                        el.value = text;
+                    } else {
+                        el.innerText = text;
+                    }
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                }""",
+                input_el,
+                comment_text
+            )
+            time.sleep(1.5)
+            
+            # Bấm nút gửi bình luận
+            post_selectors = [
+                "[data-e2e='comment-post']",
+                "button:has-text('Post')",
+                "button:has-text('Đăng')",
+                "button[type='submit']"
+            ]
+            
+            post_btn = None
+            for ps in post_selectors:
+                try:
+                    btn = page.query_selector(ps)
+                    if btn and btn.is_visible() and btn.is_enabled():
+                        post_btn = btn
+                        break
+                except Exception:
+                    continue
+                    
+            if post_btn:
+                print("[PublisherService] Clicking comment post button...")
+                post_btn.click()
+                time.sleep(3.0)
+                print("[PublisherService] Comment posted successfully!")
+                return True
+            else:
+                print("[PublisherService Warning] Send button not clickable. Trying Enter key fallback...")
+                page.keyboard.press("Enter")
+                time.sleep(3.0)
+                print("[PublisherService] Comment posted via Enter fallback!")
+                return True
+                
+        except Exception as e:
+            print(f"[PublisherService Warning] Error during posting comment: {e}")
+            return False
+
+
+class YouTubeStudioPublisherService:
+    def __init__(self, profile_dir: str = None):
+        """
+        Quản lý persistent profile riêng cho từng kênh YouTube Studio để tránh bị lẫn cookie.
+        """
+        if profile_dir:
+            self.profile_dir = profile_dir
+        else:
+            self.profile_dir = os.path.join(os.getcwd(), "worker", "chrome_profile_youtube")
+        os.makedirs(self.profile_dir, exist_ok=True)
+        print(f"[YouTubePublisher] Persistent Profile Path: {self.profile_dir}")
+
+    def create_stealth_browser_with_proxy(
+        self, 
+        headless: bool = True, 
+        proxy_ip: str = None, 
+        proxy_port: int = None, 
+        proxy_user: str = None, 
+        proxy_pass: str = None
+    ):
+        """
+        Khởi tạo Chrome Persistent Context với Proxy dân cư động và cơ chế Stealth Protocol.
+        """
+        playwright = sync_playwright().start()
+        
+        launch_args = [
+            "--disable-blink-features=AutomationControlled",
+            "--start-maximized",
+            "--no-sandbox",
+            "--disable-web-security",
+            "--disable-features=IsolateOrigins,site-per-process",
+            "--disable-dev-shm-usage"
+        ]
+        
+        # Thiết lập cấu hình Proxy dân cư động
+        proxy_config = None
+        if proxy_ip and proxy_port:
+            proxy_config = {
+                "server": f"http://{proxy_ip}:{proxy_port}"
+            }
+            if proxy_user and proxy_pass:
+                proxy_config["username"] = proxy_user
+                proxy_config["password"] = proxy_pass
+            print(f"[YouTubePublisher] Binding dynamic proxy: {proxy_ip}:{proxy_port}")
+        else:
+            print("[YouTubePublisher Warning] Launching context WITHOUT proxy!")
+
+        # Khởi chạy Persistent Context để giữ session đăng nhập của kênh
+        try:
+            context = playwright.chromium.launch_persistent_context(
+                user_data_dir=self.profile_dir,
+                headless=headless,
+                channel="chrome",  # Sử dụng trình duyệt Chrome chính thống trên OS
+                args=launch_args,
+                proxy=proxy_config,
+                viewport={"width": 1280, "height": 720}
+            )
+        except Exception as e:
+            print(f"[YouTubePublisher Warning] Failed to launch real Chrome ({e}). Falling back to Chromium...")
+            context = playwright.chromium.launch_persistent_context(
+                user_data_dir=self.profile_dir,
+                headless=headless,
+                args=launch_args,
+                proxy=proxy_config,
+                viewport={"width": 1280, "height": 720}
+            )
+
+        page = context.pages[0]
+        # Inject mã stealth ghi đè biến window.navigator.webdriver của Cloudflare
+        Stealth().apply_stealth_sync(page)
+        
+        return playwright, context, page
+
+    def human_type(self, page, selector: str, text: str):
+        """Giả lập gõ phím cơ học của con người với độ trễ biến thiên ngẫu nhiên"""
+        element = page.query_selector(selector)
+        if not element:
+            raise Exception(f"DOM Selector not found: {selector}")
+        element.click()
+        
+        # Xóa dữ liệu cũ trong trường
+        page.keyboard.press("Control+A")
+        page.keyboard.press("Backspace")
+        time.sleep(random.uniform(0.2, 0.4))
+        
+        for char in text:
+            page.keyboard.type(char)
+            time.sleep(random.uniform(0.04, 0.12)) # 40ms - 120ms delay
+
+    def _clean_joyride_overlays(self, page):
+        """Tự động xóa các onboarding popup của YouTube Studio che mắt click"""
+        selectors = [
+            "ytcp-dialog", "tp-yt-paper-dialog", 
+            "#react-joyride-portal", ".yt-help-popup",
+            "ytcp-bubble-wrap"
+        ]
+        try:
+            page.evaluate(
+                f"""() => {{
+                    const selectors = {selectors};
+                    selectors.forEach(sel => {{
+                        document.querySelectorAll(sel).forEach(el => el.remove());
+                    }});
+                }}"""
+            )
+        except Exception as e:
+            print(f"[YouTubePublisher Warning] Joyride cleanup failed: {e}")
+
+    def publish_video_to_youtube_studio(
+        self, 
+        video_path: str, 
+        title: str, 
+        description: str, 
+        tags: list, 
+        proxy_ip: str = None, 
+        proxy_port: int = None, 
+        proxy_user: str = None, 
+        proxy_pass: str = None,
+        headless: bool = True
+    ) -> str:
+        """
+        Thực hiện toàn bộ quy trình upload video dạng Shorts lên YouTube Studio Web qua trình duyệt ẩn danh.
+        """
+        if not os.path.exists(video_path):
+            raise FileNotFoundError(f"Video file path not found: {video_path}")
+
+        playwright, context, page = self.create_stealth_browser_with_proxy(
+            headless=headless,
+            proxy_ip=proxy_ip,
+            proxy_port=proxy_port,
+            proxy_user=proxy_user,
+            proxy_pass=proxy_pass
+        )
+
+        try:
+            print("[YouTubePublisher] Opening YouTube Studio Dashboard...")
+            page.goto("https://studio.youtube.com", wait_until="networkidle", timeout=60000)
+            time.sleep(3.0)
+
+            # Kiểm tra trạng thái đăng nhập
+            if "signin" in page.url or page.query_selector("input[type='email']"):
+                print("[YouTubePublisher Critical] Cookie expired. Manual login required.")
+                raise RuntimeError("YouTube Session cookie expired. Please run in headful mode (headless=False) to log in.")
+
+            self._clean_joyride_overlays(page)
+
+            # 1. Bấm nút CREATE
+            print("[YouTubePublisher] Clicking Create Button...")
+            create_btn = page.locator("#create-icon")
+            create_btn.wait_for(state="visible", timeout=15000)
+            create_btn.click()
+            time.sleep(1.0)
+
+            # 2. Bấm nút Upload Videos
+            print("[YouTubePublisher] Clicking Upload Videos Button...")
+            upload_menu_item = page.locator("text=Upload videos")
+            upload_menu_item.wait_for(state="visible", timeout=5000)
+            upload_menu_item.click()
+            time.sleep(2.0)
+
+            # 3. Đưa file video vào Input File ẩn của YouTube Studio
+            print(f"[YouTubePublisher] Uploading video file: {video_path}")
+            file_input = page.locator("input[type='file'][name='Filedata']")
+            file_input.wait_for(state="attached", timeout=10000)
+            file_input.set_input_files(video_path)
+            
+            # Đợi giao diện upload hiện lên
+            print("[YouTubePublisher] Waiting for details panel...")
+            page.locator("ytcp-uploads-dialog").wait_for(state="visible", timeout=30000)
+            time.sleep(3.0)
+
+            self._clean_joyride_overlays(page)
+
+            # 4. Điền tiêu đề (Title)
+            print(f"[YouTubePublisher] Typing title: {title}")
+            title_textbox_selector = "div[aria-label='Add a title that describes your video (required)']"
+            page.locator(title_textbox_selector).wait_for(state="visible", timeout=15000)
+            self.human_type(page, title_textbox_selector, title[:100])
+            time.sleep(1.5)
+
+            # 5. Điền mô tả (Description)
+            print(f"[YouTubePublisher] Typing description...")
+            desc_textbox_selector = "div[aria-label='Tell viewers about your video']"
+            page.locator(desc_textbox_selector).wait_for(state="visible", timeout=10000)
+            self.human_type(page, desc_textbox_selector, description[:5000])
+            time.sleep(1.5)
+
+            # 6. Thiết lập Không dành cho trẻ em (Not Made for Kids)
+            print("[YouTubePublisher] Selecting 'Not Made For Kids' option...")
+            not_for_kids_selector = "paper-radio-button[name='NOT_MADE_FOR_KIDS']"
+            page.locator(not_for_kids_selector).scroll_into_view_if_needed()
+            page.locator(not_for_kids_selector).click()
+            time.sleep(1.0)
+
+            # 7. Nhấp "Show more" để thêm thẻ tags
+            print("[YouTubePublisher] Expanding tags panel...")
+            show_more_btn = page.locator("ytcp-button#toggle-button")
+            if show_more_btn.is_visible():
+                show_more_btn.click()
+                time.sleep(1.0)
+
+            # 8. Nhập danh sách Tags
+            if tags:
+                print(f"[YouTubePublisher] Typing tags: {tags}")
+                tags_input_selector = "input[aria-label='Tags']"
+                page.locator(tags_input_selector).scroll_into_view_if_needed()
+                tags_string = ",".join(tags) + ","
+                self.human_type(page, tags_input_selector, tags_string)
+                time.sleep(1.0)
+
+            # 9. Bấm Next bước 1: Video Elements
+            print("[YouTubePublisher] Progressing through Next buttons...")
+            next_btn = page.locator("#next-button")
+            next_btn.click()
+            time.sleep(1.5)
+
+            # Bấm Next bước 2: Checks
+            next_btn.click()
+            time.sleep(1.5)
+
+            # Bấm Next bước 3: Visibility
+            next_btn.click()
+            time.sleep(2.0)
+
+            # 10. Chọn chế độ Public trực tiếp (Shorts đề xuất đăng ngay lập tức)
+            print("[YouTubePublisher] Setting visibility to Public...")
+            public_radio = page.locator("paper-radio-button[name='PUBLIC']")
+            public_radio.wait_for(state="visible", timeout=10000)
+            public_radio.click()
+            time.sleep(1.5)
+
+            # 11. Bấm PUBLISH kết thúc
+            print("[YouTubePublisher] Clicking Done/Publish button...")
+            publish_btn = page.locator("#done-button")
+            publish_btn.wait_for(state="visible", timeout=10000)
+            publish_btn.click()
+            print("[YouTubePublisher] Upload sequence completed. Waiting for dialog closure...")
+            time.sleep(8.0) # Đợi YouTube đóng gói và sinh link
+
+            # 12. Trích xuất liên kết video ngắn đã sinh ra từ giao diện thành công
+            video_url = "https://youtube.com/shorts/"
+            try:
+                link_element = page.locator("a.style-scope.ytcp-video-share-dialog")
+                if link_element.is_visible():
+                    raw_href = link_element.get_attribute("href")
+                    if raw_href:
+                        video_url = raw_href
+            except Exception:
+                pass
+                
+            print(f"[YouTubePublisher Success] Published Video URL: {video_url}")
+            return video_url
+
+        except Exception as e:
+            # Chụp ảnh màn hình lưu vết lỗi để gửi cảnh báo qua Telegram
+            screenshot_path = os.path.join(os.getcwd(), "worker", "output_videos", f"yt_error_{int(time.time())}.png")
+            try:
+                page.screenshot(path=screenshot_path)
+                print(f"[YouTubePublisher Error] Saved debug screenshot to: {screenshot_path}")
+            except Exception:
+                pass
+            raise e
+        finally:
+            context.close()
+            playwright.stop()

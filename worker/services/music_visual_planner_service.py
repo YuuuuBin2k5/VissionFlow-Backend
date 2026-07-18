@@ -22,10 +22,26 @@ class MusicVisualPlannerService:
         visual_mode = self._choose_visual_mode(requested_mode, mood, energy_profile)
         intensity = metadata.get("effect_intensity") or self._choose_intensity(mood, energy_profile)
         theme = self._theme_for(mood, visual_mode, intensity)
+        typography = metadata.get("typography_style") or metadata.get("text_effect_style") or self._choose_typography(
+            mood,
+            visual_mode,
+            intensity,
+            energy_profile,
+        )
 
         return {
             "visual_mode": visual_mode,
             "effect_intensity": intensity,
+            "typography_style": typography,
+            "typography_sequence": metadata.get("typography_sequence") or self._typography_sequence(typography, intensity),
+            "layout_sequence": metadata.get("layout_sequence") or self._layout_sequence(visual_mode, intensity),
+            "text_reveal_style": metadata.get("text_reveal_style") or self._choose_text_reveal(intensity, energy_profile),
+            "caption_style": metadata.get("caption_style"),
+            "hook_duration_s": metadata.get("hook_duration_s"),
+            "grain_overlay": metadata.get("grain_overlay", 0.08),
+            "bloom": metadata.get("bloom", 0.08),
+            "blur": metadata.get("blur", 0.0),
+            "style_pack": metadata.get("style_pack"),
             "asset_keywords": metadata.get("visual_keywords") or theme["keywords"],
             "portrait_keywords": metadata.get("portrait_keywords") or theme["portrait_keywords"],
             "color_grade": metadata.get("color_grade") or theme["color_grade"],
@@ -73,6 +89,37 @@ class MusicVisualPlannerService:
         if energy.get("bass_peak", 0) > 0.78 or energy.get("onset_density", 0) > 0.07:
             return "medium"
         return "soft"
+
+    def _choose_typography(self, mood: str, visual_mode: str, intensity: str, energy: dict) -> str:
+        mood_key = (mood or "").upper()
+        if intensity == "hard" or mood_key in {"REMIX", "DANCE", "CYBERPUNK_NIGHT", "TRENDING"}:
+            return "glass_chrome"
+        if visual_mode == "portrait_lyric" and mood_key in {"SAD_RAIN", "BALLAD", "EMOTIONAL"}:
+            return "liquid_glass"
+        if energy.get("treble_mean", 0) > 0.28:
+            return "neon_kinetic"
+        return "glass_chrome"
+
+    def _choose_text_reveal(self, intensity: str, energy: dict) -> str:
+        if intensity == "hard":
+            return "strobe_cut"
+        if energy.get("onset_density", 0) > 0.06:
+            return "wipe_reveal"
+        return "float_blur"
+
+    def _typography_sequence(self, base_style: str, intensity: str) -> list:
+        if intensity == "hard":
+            return [base_style, "neon_kinetic", "sticker_pop", "chrome_noir"]
+        if intensity == "medium":
+            return [base_style, "liquid_glass", "neon_kinetic"]
+        return [base_style, "pearl_minimal", "liquid_glass"]
+
+    def _layout_sequence(self, visual_mode: str, intensity: str) -> list:
+        if visual_mode == "portrait_lyric":
+            return ["bottom_center", "center_title", "side_stack"]
+        if intensity == "hard":
+            return ["bottom_center", "center_burst", "top_stamp", "split_caption"]
+        return ["bottom_center", "center_title", "top_stamp"]
 
     def _theme_for(self, mood: str, visual_mode: str, intensity: str) -> dict:
         mood_key = (mood or "").upper()

@@ -9,14 +9,17 @@ generator client {
 
 model ChannelsCampaign {
   id               Int                   @id @default(autoincrement())
+  user_id          Int?
   telegram_chat_id BigInt
   topic            String                @db.VarChar(255)
   target_audience  String?               @db.Text
   status           String                @default("INITIALIZING") @db.VarChar(50)
+  auto_publish     Boolean               @default(false)
   created_at       DateTime              @default(now()) @db.DateTime(0)
   updated_at       DateTime              @default(now()) @updatedAt @db.DateTime(0)
   pipeline_jobs    VideoPipelineJobs[]
 
+  @@index([user_id], map: "idx_channels_campaign_user")
   @@map("channels_campaign")
 }
 
@@ -31,6 +34,7 @@ model VideoPipelineJobs {
   hook_text_3s        String?              @db.Text
   full_voice_script   String?              @db.Text
   scenes_layout_json  String?              @db.LongText
+  scenes_script_json  String?              @db.LongText
   seo_tags_metadata   Json?
   
   // Dữ liệu Media đầu ra
@@ -39,7 +43,21 @@ model VideoPipelineJobs {
   
   // Trạng thái điều phối dòng việc (State Machine)
   pipeline_state      String               @default("QUEUED") @db.VarChar(50)
+  auto_publish        Boolean              @default(false)
   
+  // Cấu hình bổ sung cho giọng đọc và ngôn ngữ
+  voice_profile       String?              @db.VarChar(100)
+  video_language      String?              @default("vi") @db.VarChar(10)
+  distribution_channels String?            @default("TIKTOK") @db.VarChar(255)
+
+  // Cấu hình Split-screen matrix
+  split_mode          String               @default("FULLY_GENERATIVE") @db.VarChar(50)
+  top_video_path      String?              @db.VarChar(512)
+  bottom_video_path   String?              @db.VarChar(512)
+  raw_prompt_input    String?              @db.Text
+  style_preset        String?              @db.VarChar(100)
+  border_config       String?              @db.VarChar(255)
+
   retry_count         Int                  @default(0)
   max_retries         Int                  @default(3)
   error_log_trace     String?              @db.Text
@@ -49,6 +67,7 @@ model VideoPipelineJobs {
   campaign            ChannelsCampaign?    @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
   realtime_logs       ProcessRealtimeLogs[]
   publish_targets     PublishTargets[]
+  performance_metrics VideoPerformanceTimeseries[]
 
   @@index([pipeline_state], map: "idx_pipeline_state")
   @@index([scheduled_post_time], map: "idx_scheduled_time")
@@ -57,6 +76,8 @@ model VideoPipelineJobs {
 
 model PublishTargets {
   id                     Int                @id @default(autoincrement())
+  user_id                Int?
+  platform_connection_id Int?
   job_id                 Int
   platform               String             @db.VarChar(30)
   status                 String             @default("PENDING_APPROVAL") @db.VarChar(50)
@@ -74,9 +95,55 @@ model PublishTargets {
   job                    VideoPipelineJobs  @relation(fields: [job_id], references: [id], onDelete: Cascade)
 
   @@index([job_id], map: "idx_publish_targets_job")
+  @@index([user_id, platform], map: "idx_publish_targets_user_platform")
   @@index([platform, status], map: "idx_publish_targets_platform_status")
   @@index([scheduled_publish_time], map: "idx_publish_targets_scheduled")
   @@map("publish_targets")
+}
+
+model BotUsers {
+  id               Int      @id @default(autoincrement())
+  telegram_user_id BigInt   @unique
+  telegram_chat_id BigInt?
+  display_name     String?  @db.VarChar(255)
+  role             String   @default("user") @db.VarChar(30)
+  created_at       DateTime @default(now()) @db.DateTime(0)
+  updated_at       DateTime @default(now()) @updatedAt @db.DateTime(0)
+
+  @@map("bot_users")
+}
+
+model PlatformConnections {
+  id                      Int      @id @default(autoincrement())
+  user_id                 Int
+  platform                String   @db.VarChar(30)
+  status                  String   @default("connected") @db.VarChar(50)
+  external_account_id     String?  @db.VarChar(255)
+  account_name            String?  @db.VarChar(255)
+  access_token_encrypted  String?  @db.Text
+  refresh_token_encrypted String?  @db.Text
+  expires_at              DateTime? @db.DateTime(0)
+  scopes                  Json?
+  error_log               String?  @db.Text
+  created_at              DateTime @default(now()) @db.DateTime(0)
+  updated_at              DateTime @default(now()) @updatedAt @db.DateTime(0)
+
+  @@unique([user_id, platform, external_account_id], map: "platform_connections_user_platform_account_key")
+  @@index([platform, status], map: "idx_platform_connections_platform_status")
+  @@map("platform_connections")
+}
+
+model UserApiKeys {
+  id            Int      @id @default(autoincrement())
+  user_id       Int
+  provider      String   @db.VarChar(50)
+  encrypted_key String   @db.Text
+  status        String   @default("active") @db.VarChar(50)
+  created_at    DateTime @default(now()) @db.DateTime(0)
+  updated_at    DateTime @default(now()) @updatedAt @db.DateTime(0)
+
+  @@unique([user_id, provider], map: "user_api_keys_user_provider_key")
+  @@map("user_api_keys")
 }
 
 model ProcessRealtimeLogs {
@@ -135,4 +202,86 @@ model LegacyOutbox {
   @@index([status, next_attempt_at, id], map: "idx_legacy_outbox_due")
   @@index([lease_expires_at], map: "idx_legacy_outbox_lease")
   @@map("legacy_outbox")
+}
+
+model BotAccounts {
+  id                   Int      @id @default(autoincrement())
+  bot_id               String   @unique @db.VarChar(255)
+  username             String   @db.VarChar(255)
+  proxy_ip             String   @db.VarChar(100)
+  proxy_port           Int
+  proxy_user           String?  @db.VarChar(100)
+  proxy_pass           String?  @db.VarChar(100)
+  account_status       String   @default("ACTIVE") @db.VarChar(50)
+  niche_category       String?  @db.VarChar(255)
+  cookies_session_json String?  @db.Text
+  updated_at           DateTime @default(now()) @updatedAt @db.DateTime(0)
+
+  @@map("bot_accounts")
+}
+
+model CockpitSystemMetrics {
+  id                   Int      @id @default(autoincrement())
+  revenue_eth          Decimal  @default(0.0000) @db.Decimal(10, 4)
+  avg_acquisition_eth  Decimal  @default(0.0000) @db.Decimal(10, 4)
+  bot_efficiency       Decimal  @default(0.00) @db.Decimal(5, 2)
+  fleet_uptime         Decimal  @default(0.00) @db.Decimal(5, 2)
+  updated_at           DateTime @default(now()) @updatedAt @db.DateTime(0)
+
+  @@map("cockpit_system_metrics")
+}
+
+model VideoPerformanceTimeseries {
+  id               Int               @id @default(autoincrement())
+  job_id           Int
+  timestamp_marker String            @db.VarChar(10)
+  reach_count      Int               @default(0)
+  retention_rate   Int               @default(0)
+  job              VideoPipelineJobs @relation(fields: [job_id], references: [id], onDelete: Cascade)
+
+  @@index([job_id], map: "idx_performance_job")
+  @@map("video_performance_timeseries")
+}
+
+model AgentPromptTemplate {
+  id                 Int                  @id @default(autoincrement())
+  prompt_key         String               @unique @db.VarChar(100)
+  name               String               @db.VarChar(160)
+  description        String               @db.Text
+  production_version Int?
+  created_at         DateTime             @default(now()) @db.DateTime(0)
+  updated_at         DateTime             @default(now()) @updatedAt @db.DateTime(0)
+  versions           AgentPromptVersion[]
+  audit_logs         AgentPromptAuditLog[]
+
+  @@map("agent_prompt_templates")
+}
+
+model AgentPromptAuditLog {
+  id                 Int                 @id @default(autoincrement())
+  prompt_template_id Int
+  prompt_version     Int?
+  action             String              @db.VarChar(50)
+  actor_subject      String?             @db.VarChar(255)
+  details_json       Json?
+  created_at         DateTime            @default(now()) @db.DateTime(0)
+  template           AgentPromptTemplate @relation(fields: [prompt_template_id], references: [id], onDelete: Cascade)
+
+  @@index([prompt_template_id, created_at], map: "idx_agent_prompt_audit_template_created")
+  @@map("agent_prompt_audit_logs")
+}
+
+model AgentPromptVersion {
+  id                 Int                 @id @default(autoincrement())
+  prompt_template_id Int
+  version            Int
+  content            String              @db.LongText
+  config_json        Json?
+  change_note        String?             @db.VarChar(500)
+  created_by         String?             @db.VarChar(255)
+  created_at         DateTime            @default(now()) @db.DateTime(0)
+  template           AgentPromptTemplate @relation(fields: [prompt_template_id], references: [id], onDelete: Cascade)
+
+  @@unique([prompt_template_id, version])
+  @@map("agent_prompt_versions")
 }

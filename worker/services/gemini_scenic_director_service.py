@@ -32,14 +32,14 @@ class GeminiScenicDirectorService:
             return fallback
 
         try:
-            import google.generativeai as genai
+            from google import genai
 
-            genai.configure(api_key=GEMINI_API_KEY)
+            client = genai.Client(api_key=GEMINI_API_KEY)
             prompt = self._build_prompt(song_title, artist_name, caption_timeline, selected_viral_segment, mood)
             errors = []
             for model_name in self._candidate_models():
                 try:
-                    response = genai.GenerativeModel(model_name).generate_content(prompt)
+                    response = client.models.generate_content(model=model_name, contents=prompt)
                     text = getattr(response, "text", "") or ""
                     parsed = self._extract_json(text)
                     keywords = parsed.get("scenic_keywords") or parsed.get("keywords") or []
@@ -94,10 +94,10 @@ Rules:
         raw = [
             os.environ.get("GEMINI_MODEL"),
             os.environ.get("GEMINI_AUDIO_MODEL"),
-            "gemini-2.0-flash",
             "gemini-2.5-flash",
-            "gemini-1.5-flash-latest",
-            "gemini-1.5-flash",
+            "gemini-2.5-flash-lite",
+            "gemini-2.5-pro",
+            "gemini-2.0-flash",
         ]
         candidates = []
         for model_name in raw:

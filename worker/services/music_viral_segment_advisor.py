@@ -20,10 +20,10 @@ class MusicViralSegmentAdvisor:
         if not source.exists():
             raise RuntimeError(f"Không tìm thấy file audio để Gemini phân tích đoạn viral: {audio_path}")
 
-        import google.generativeai as genai
+        from google import genai
 
-        genai.configure(api_key=GEMINI_API_KEY)
-        uploaded = genai.upload_file(str(source))
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        uploaded = client.files.upload(file=str(source))
         prompt = (
             "Bạn là editor TikTok chuyên chọn đoạn viral của bài nhạc. "
             f"Bài hát: {song_title or 'không rõ'} - {artist_name or 'không rõ'}. "
@@ -35,15 +35,20 @@ class MusicViralSegmentAdvisor:
             "Chỉ trả JSON hợp lệ, không markdown."
         )
         errors = []
-        for model_name in self._candidate_models():
+        try:
+            for model_name in self._candidate_models():
+                try:
+                    response = client.models.generate_content(model=model_name, contents=[uploaded, prompt])
+                    text = getattr(response, "text", "") or ""
+                    parsed = self._extract_json_object(text)
+                    return self._normalize_hint(parsed, model_name)
+                except Exception as exc:
+                    errors.append(f"{model_name}: {exc}")
+        finally:
             try:
-                model = genai.GenerativeModel(model_name)
-                response = model.generate_content([uploaded, prompt])
-                text = getattr(response, "text", "") or ""
-                parsed = self._extract_json_object(text)
-                return self._normalize_hint(parsed, model_name)
-            except Exception as exc:
-                errors.append(f"{model_name}: {exc}")
+                client.files.delete(name=uploaded.name)
+            except Exception:
+                pass
 
         raise RuntimeError("Gemini không gợi ý được đoạn viral: " + " | ".join(errors))
 
@@ -51,10 +56,10 @@ class MusicViralSegmentAdvisor:
         raw = [
             os.environ.get("GEMINI_AUDIO_MODEL"),
             os.environ.get("GEMINI_MODEL"),
-            "gemini-2.0-flash",
             "gemini-2.5-flash",
-            "gemini-1.5-flash-latest",
-            "gemini-1.5-flash",
+            "gemini-2.5-flash-lite",
+            "gemini-2.5-pro",
+            "gemini-2.0-flash",
         ]
         candidates = []
         for name in raw:

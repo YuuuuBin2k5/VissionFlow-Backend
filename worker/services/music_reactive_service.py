@@ -15,6 +15,9 @@ from worker.services.music_visual_planner_service import MusicVisualPlannerServi
 from worker.services.gemini_scenic_director_service import GeminiScenicDirectorService
 from worker.services.scenic_beat_composer_service import ScenicBeatComposerService
 from worker.services.trending_music_service import TrendingMusicService
+from worker.services.retention_director_service import RetentionDirectorService
+from worker.services.video_style_director_service import VideoStyleDirectorService
+from worker.services.video_quality_scoring_service import VideoQualityScoringService
 
 
 class MusicReactiveService:
@@ -31,8 +34,13 @@ class MusicReactiveService:
         self.visual_planner = MusicVisualPlannerService()
         self.scenic_director = GeminiScenicDirectorService()
         self.scenic_composer = ScenicBeatComposerService()
+        self.style_director = VideoStyleDirectorService()
+        self.retention_director = RetentionDirectorService()
+        self.quality_scorer = VideoQualityScoringService()
 
     def render_music_reactive_video(self, job: dict, metadata: dict, job_id: int, progress=None) -> dict:
+        metadata = self.style_director.apply_music_pack(metadata)
+
         # 1. Dọn dẹp bộ nhớ đệm (Cache Purge) của các file kết xuất cũ thuộc Job ID này
         import glob
         from worker.config import ASSETS_DIR
@@ -83,6 +91,8 @@ class MusicReactiveService:
 
         requested_render_mode = metadata.get("render_mode") or "music_reactive"
         provided_audio_path = metadata.get("audio_path") or job.get("audio_file_path")
+        if provided_audio_path and ("music_segment_" in str(provided_audio_path) or "viral_segment_" in str(provided_audio_path)):
+            provided_audio_path = job.get("audio_file_path")
         has_provided_audio = bool(provided_audio_path and Path(str(provided_audio_path)).exists())
         is_standalone = (metadata.get("is_standalone_music_video") and not has_provided_audio) or (
             requested_render_mode == "music_reactive" and not has_provided_audio
@@ -197,6 +207,7 @@ class MusicReactiveService:
                 progress("SIGNAL_PROCESSING", "Phân tích năng lượng audio và chốt đoạn viral không cắt cụt cao trào...")
             selected_viral_segment = self.audio_signal.select_viral_segment(
                 audio_path,
+                target_duration=60.0,
                 advisor_hint=gemini_segment_hint,
             )
             audio_path = self.audio_signal.trim_audio_segment(audio_path, job_id, selected_viral_segment)
@@ -213,6 +224,24 @@ class MusicReactiveService:
             metadata["caption_timeline"] = caption_timeline
             metadata["viral_segment_audio_path"] = audio_path
             metadata["caption_mode"] = "synced_lyrics"
+        elif metadata.get("render_audio_source") == "provided_audio":
+            if not caption_timeline:
+                if progress:
+                    progress("SIGNAL_PROCESSING", "Nhận diện lời hát toàn bộ bài và tạo lyric caption đồng bộ...")
+                try:
+                    caption_timeline = self.lyrics.transcribe_lyrics(audio_path)
+                except Exception as trans_err:
+                    print(f"[MusicReactiveService Warning] Full song transcription failed: {trans_err}")
+                    if metadata.get("lyric_captions_required"):
+                        raise
+                    # fallback caption timeline for the whole song
+                    librosa = self.audio_signal._load_librosa()
+                    y, sr = librosa.load(audio_path, sr=22050, mono=True)
+                    duration = float(librosa.get_duration(y=y, sr=sr))
+                    caption_timeline = self.audio_signal.build_caption_timeline(caption, {"duration": duration})
+            metadata["caption_timeline"] = caption_timeline
+            metadata["caption_mode"] = "synced_lyrics"
+
 
         if progress:
             progress("SIGNAL_PROCESSING", "Trích xuất bass/mid/treble energy từ audio...")
@@ -226,6 +255,15 @@ class MusicReactiveService:
             artist_name=artist_name,
             audio_data=audio_data,
         )
+        visual_plan = self._merge_music_style_fields(visual_plan, metadata)
+        retention_plan = self.retention_director.build_music_plan(
+            metadata=metadata,
+            audio_data=audio_data,
+            selected_viral_segment=selected_viral_segment,
+            caption_timeline=caption_timeline,
+            visual_plan=visual_plan,
+        )
+        visual_plan["retention_plan"] = retention_plan
         if visual_plan.get("visual_mode") == "scenic_beat_cut" and not visual_plan.get("scenic_keywords"):
             scenic_plan = self.scenic_director.suggest_scenic_plan(
                 song_title=song_title,
@@ -261,12 +299,22 @@ class MusicReactiveService:
                 visual_assets=visual_assets,
                 progress=progress,
             )
+            quality_report = self.quality_scorer.score_music_plan(
+                audio_data=audio_data,
+                visual_plan=visual_plan,
+                retention_plan=retention_plan,
+                caption_timeline=caption_timeline,
+            )
             metadata.update({
                 "render_mode": requested_render_mode,
                 "mood": mood,
                 "audio_path": audio_path,
                 "selected_viral_segment": selected_viral_segment,
                 "caption_timeline": caption_timeline,
+                "retention_plan": retention_plan,
+                "quality_score": quality_report["quality_score"],
+                "quality_warnings": quality_report["quality_warnings"],
+                "quality_passed": quality_report["quality_passed"],
                 "require_tiktok_music": metadata.get("require_tiktok_music", True),
                 "tiktok_sound_volume_percent": metadata.get("tiktok_sound_volume_percent", 2),
                 "original_video_volume_percent": metadata.get("original_video_volume_percent", 100),
@@ -275,6 +323,7 @@ class MusicReactiveService:
                 "effect_intensity": visual_plan.get("effect_intensity"),
                 "color_grade": visual_plan.get("color_grade"),
                 "visual_plan": visual_plan,
+                "visual_style_plan": visual_plan,
                 "visual_assets": visual_assets,
                 "beat_events": audio_data.get("beat_events", []),
                 "cut_events": audio_data.get("cut_events", []),
@@ -312,6 +361,12 @@ class MusicReactiveService:
         if progress:
             progress("QUALITY_CHECK", "Kiểm tra dung lượng, duration sync và blackout frame...")
         self.quality_gate.validate_video(video_path, audio_path, job_id)
+        quality_report = self.quality_scorer.score_music_plan(
+            audio_data=audio_data,
+            visual_plan=visual_plan,
+            retention_plan=retention_plan,
+            caption_timeline=caption_timeline,
+        )
 
         metadata.update({
             "render_mode": requested_render_mode,
@@ -319,6 +374,10 @@ class MusicReactiveService:
             "audio_path": audio_path,
             "selected_viral_segment": selected_viral_segment,
             "caption_timeline": caption_timeline,
+            "retention_plan": retention_plan,
+            "quality_score": quality_report["quality_score"],
+            "quality_warnings": quality_report["quality_warnings"],
+            "quality_passed": quality_report["quality_passed"],
             "require_tiktok_music": metadata.get("require_tiktok_music", True),
             "tiktok_sound_volume_percent": metadata.get("tiktok_sound_volume_percent", 2),
             "original_video_volume_percent": metadata.get("original_video_volume_percent", 100),
@@ -328,6 +387,7 @@ class MusicReactiveService:
             "effect_intensity": visual_plan.get("effect_intensity"),
             "color_grade": visual_plan.get("color_grade"),
             "visual_plan": visual_plan,
+            "visual_style_plan": visual_plan,
             "visual_assets": visual_assets,
             "beat_events": audio_data.get("beat_events", []),
             "cut_events": audio_data.get("cut_events", []),
@@ -340,11 +400,40 @@ class MusicReactiveService:
             "metadata": metadata,
         }
 
+    def _merge_music_style_fields(self, visual_plan: dict, metadata: dict) -> dict:
+        merged = dict(visual_plan or {})
+        for key in [
+            "typography_style",
+            "typography_sequence",
+            "layout_sequence",
+            "text_reveal_style",
+            "caption_style",
+            "hook_duration_s",
+            "grain_overlay",
+            "bloom",
+            "blur",
+            "style_pack",
+            "visual_template",
+        ]:
+            if key in metadata:
+                merged[key] = metadata[key]
+        return merged
+
     def _prepare_visual_assets(self, job_id: int, metadata: dict, visual_plan: dict) -> dict:
         existing_assets = metadata.get("visual_assets")
         if isinstance(existing_assets, dict):
             if self._visual_assets_exist(existing_assets, visual_plan.get("visual_mode")):
                 return existing_assets
+
+        visual_template = visual_plan.get("visual_template") or metadata.get("visual_template") or visual_plan.get("music_video_template") or metadata.get("music_video_template") or "type_1"
+        
+        if visual_template == "lofi_anime":
+            visual_plan["visual_mode"] = "lofi_anime_loop"
+            background_video_path = self.assets.search_and_download_lofi_loop(job_id)
+            return {
+                "background_video_path": background_video_path,
+                "background_video_paths": [background_video_path],
+            }
 
         visual_mode = visual_plan.get("visual_mode") or "portrait_lyric"
         keywords = visual_plan.get("asset_keywords") or metadata.get("visual_keywords") or "aesthetic vertical"

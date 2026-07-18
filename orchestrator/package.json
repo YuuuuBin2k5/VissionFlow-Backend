@@ -6,10 +6,13 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/main.js",
+    "dev:infra": "docker compose -f ../docker-compose.yml up -d mysql redis",
     "dev": "nodemon src/main.ts",
     "youtube:oauth": "ts-node src/youtube_oauth_setup.ts",
+    "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev --name init"
+    "prisma:migrate": "prisma migrate dev --name init",
+    "prisma:deploy": "prisma migrate deploy"
   },
   "dependencies": {
     "@prisma/client": "^5.14.0",

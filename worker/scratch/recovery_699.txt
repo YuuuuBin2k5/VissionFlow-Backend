@@ -1,0 +1,68 @@
+Created At: 2026-06-12T15:42:46Z
+Completed At: 2026-06-12T15:42:46Z
+File Path: `file:///d:/Folder_Learning_2025_2026/MyProject_DuAnCaNhan/AgentBot/worker/services/publisher_service.py`
+Total Lines: 1031
+Total Bytes: 49968
+Showing lines 800 to 900
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+800:                 page,
+801:                 tiktok_volume_percent=tiktok_volume_percent,
+802:                 original_volume_percent=original_volume_percent,
+803:                 required=False,
+804:             )
+805:             self._save_editor_if_open(page, required=required)
+806:             return True
+807: 
+808:         message = f"Đã tìm nhạc '{query}' nhưng không chọn được sound trong TikTok editor."
+809:         if required:
+810:             raise Exception(message)
+811:         print(f"[PublisherService Warning] {message}")
+812:         return False
+813: 
+814:     def publish_video_to_tiktok(self, video_path: str, caption: str, hashtags: list, force_headful: bool = True, music_metadata: dict = None) -> bool:
+815:         """
+816:         Quy trình tự động hóa xuất bản video lên TikTok Studio qua Playwright Stealth.
+817:         Hỗ trợ chế độ chạy hiển thị giao diện ở lần đầu tiên.
+818:         """
+819:         print(f"[PublisherService] Dispatching video upload for: {video_path}")
+820:         
+821:         # Nếu lần đầu tiên hoặc có yêu cầu, bắt buộc phải chạy có giao diện (headless=False)
+822:         headless = False if force_headful else True
+823:         
+824:         playwright, context, page = self.create_stealth_browser_instance(headless=headless)
+825:         
+826:         try:
+827:             # 1. Điều hướng đến TikTok Studio Upload
+828:             upload_url = "https
+<truncated 2996 bytes>
+ud... Waiting for upload to complete...")
+872:             uploaded = False
+873:             for attempt in range(150):  # Chờ tối đa 300 giây (5 phút)
+874:                 time.sleep(2.0)
+875:                 
+876:                 # 1. Kiểm tra xem nút đăng bài đã sẵn sàng và được kích hoạt chưa
+877:                 buttons = page.query_selector_all("button")
+878:                 publish_btn = None
+879:                 for btn in buttons:
+880:                     btn_text = btn.inner_text()
+881:                     if "Đăng" in btn_text or "Post" in btn_text or "Publish" in btn_text:
+882:                         publish_btn = btn
+883:                         break
+884:                 
+885:                 if publish_btn and publish_btn.is_enabled():
+886:                     # Đảm bảo không còn ký tự phần trăm tải lên hiển thị
+887:                     page_content = page.content()
+888:                     if "Tải lên" in page_content and "%" in page_content:
+889:                         continue
+890:                     print("[PublisherService] Upload complete: 'Publish' button is now active! 🎉")
+891:                     uploaded = True
+892:                     break
+893:                 
+894:                 # 2. Kiểm tra các câu chữ thông báo thành công
+895:                 page_content = page.content()
+896:                 if "Tải lên thành công" in page_content or "Tải lên hoàn tất" in page_content or "Upload successful" in page_content or "Upload complete" in page_content:
+897:                     print("[PublisherService] Upload complete: Detected success status on page! 🎉")
+898:                     uploaded = True
+899:                     time.sleep(3.0)
+900:                     break
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

@@ -1,0 +1,62 @@
+Created At: 2026-06-12T15:47:00Z
+Completed At: 2026-06-12T15:47:00Z
+File Path: `file:///d:/Folder_Learning_2025_2026/MyProject_DuAnCaNhan/AgentBot/worker/scratch/recovery_648.txt`
+Total Lines: 69
+Total Bytes: 4188
+Showing lines 1 to 69
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: Created At: 2026-06-12T15:42:46Z
+2: Completed At: 2026-06-12T15:42:46Z
+3: File Path: `file:///d:/Folder_Learning_2025_2026/MyProject_DuAnCaNhan/AgentBot/worker/services/publisher_service.py`
+4: Total Lines: 1031
+5: Total Bytes: 49968
+6: Showing lines 800 to 900
+7: The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+8: 800:                 page,
+9: 801:                 tiktok_volume_percent=tiktok_volume_percent,
+10: 802:                 original_volume_percent=original_volume_percent,
+11: 803:                 required=False,
+12: 804:             )
+13: 805:             self._save_editor_if_open(page, required=required)
+14: 806:             return True
+15: 807: 
+16: 808:         message = f"Đã tìm nhạc '{query}' nhưng không chọn được sound trong TikTok editor."
+17: 809:         if required:
+18: 810:             raise Exception(message)
+19: 811:         print(f"[PublisherService Warning] {message}")
+20: 812:         return False
+21: 813: 
+22: 814:     def publish_video_to_tiktok(self, video_path: str, caption: str, hashtags: list, force_headful: bool = True, music_metadata: dict = None) -> bool:
+23: 815:         """
+24: 816:         Quy trình tự động hóa xuất bản video lên TikTok Studio qua Playwright Stealth.
+25: 817:         Hỗ trợ chế độ chạy hiển thị giao di
+<truncated 920 bytes>
+       
+43: 876:                 # 1. Kiểm tra xem nút đăng bài đã sẵn sàng và được kích hoạt chưa
+44: 877:                 buttons = page.query_selector_all("button")
+45: 878:                 publish_btn = None
+46: 879:                 for btn in buttons:
+47: 880:                     btn_text = btn.inner_text()
+48: 881:                     if "Đăng" in btn_text or "Post" in btn_text or "Publish" in btn_text:
+49: 882:                         publish_btn = btn
+50: 883:                         break
+51: 884:                 
+52: 885:                 if publish_btn and publish_btn.is_enabled():
+53: 886:                     # Đảm bảo không còn ký tự phần trăm tải lên hiển thị
+54: 887:                     page_content = page.content()
+55: 888:                     if "Tải lên" in page_content and "%" in page_content:
+56: 889:                         continue
+57: 890:                     print("[PublisherService] Upload complete: 'Publish' button is now active! 🎉")
+58: 891:                     uploaded = True
+59: 892:                     break
+60: 893:                 
+61: 894:                 # 2. Kiểm tra các câu chữ thông báo thành công
+62: 895:                 page_content = page.content()
+63: 896:                 if "Tải lên thành công" in page_content or "Tải lên hoàn tất" in page_content or "Upload successful" in page_content or "Upload complete" in page_content:
+64: 897:                     print("[PublisherService] Upload complete: Detected success status on page! 🎉")
+65: 898:                     uploaded = True
+66: 899:                     time.sleep(3.0)
+67: 900:                     break
+68: The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.
+69: 
+The above content shows the entire, complete file contents of the requested file.

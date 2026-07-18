@@ -1,0 +1,58 @@
+Created At: 2026-06-12T15:48:39Z
+Completed At: 2026-06-12T15:48:39Z
+File Path: `file:///C:/Users/Admin/.gemini/antigravity/brain/1bc864e6-5ce1-4e03-82a4-5b4a9e7760e1/implementation_plan.md`
+Total Lines: 60
+Total Bytes: 4111
+Showing lines 1 to 60
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: # Implementation Plan - TikTok Publishing Fixes & Auto-Comment Feature
+2: 
+3: This plan details the technical changes required to fix the TikTok publishing bugs (separating music selection/titles from voiceover-based videos) and add an automated, meaningful 2-3 paragraph philosophical comment posting feature.
+4: 
+5: ---
+6: 
+7: ## User Review Required
+8: 
+9: > [!IMPORTANT]
+10: > - **Music Selection Restriction**: We will restrict the TikTok Studio music search and selection step (as well as caption/music-title blending) strictly to `music_reactive` job types. Non-music voiceover videos (like split-screen or dubs) will no longer prompt for music on TikTok, keeping their clean voice/sound mixed in during rendering.
+11: > - **Self-Healing AI Comments**: If a pre-generated deep comment is missing or too short in the database, the publisher will dynamically generate one using the LLM service prior to uploading.
+12: 
+13: ---
+14: 
+15: ## Proposed Changes
+16: 
+17: We will modify 5 files in the Python Worker codebase.
+18: 
+19: ### 1. Caption & Music Policy
+20: 
+21: #### [MODIFY] [caption_policy.py](file:///d:/Folder_Learning_2025_2026/MyProject_DuAnCaNhan/AgentBot/worker/domain/caption_policy.py)
+22: - Import `is_music_reactive_job` from `worker.domain.job_metadata`.
+23: - Update `extract_publish_music_metadata(job)` to return `{}` immediately if the job is not classified as a `music_reactive` job.
+24: - This prevents title-music mixing in `build_publish_caption_and_hashtags` and removes the redundant music search on TikTok.
+25: 
+26: ---
+27:
+<truncated 817 bytes>
+ Playwright Automation
+40: 
+41: #### [MODIFY] [publisher_service.py](file:///d:/Folder_Learning_2025_2026/MyProject_DuAnCaNhan/AgentBot/worker/services/publisher_service.py)
+42: - Add `_find_published_video_url(self, page) -> str` to extract the public URL of the uploaded video (by scanning success modals or checking the posts manager at `https://www.tiktok.com/tiktokstudio/posts`).
+43: - Add `post_comment_to_video(self, page, video_url: str, comment_text: str) -> bool` to navigate to the public video URL, locate the comment input field, fill it with the AI-generated comment, and submit it.
+44: - Modify `publish_video_to_tiktok` to accept an optional `comment_text` argument and trigger the comment posting flow right after successful video publication before closing the browser.
+45: 
+46: #### [MODIFY] [publish_use_case.py](file:///d:/Folder_Learning_2025_2026/MyProject_DuAnCaNhan/AgentBot/worker/application/publish_use_case.py)
+47: - Read `pinned_comment` or `philosophical_comment` from `seo_tags_metadata`.
+48: - If the comment text is missing or too short (< 80 characters), invoke `LLMService().generate_philosophical_comment()` to generate a high-quality comment.
+49: - Pass the final comment text to `publisher.publish_video_to_tiktok`.
+50: 
+51: ---
+52: 
+53: ## Verification Plan
+54: 
+55: ### Automated / Manual Tests
+56: - Create a test script `worker/scratch/test_publish_fixes.py`.
+57: - **Test Case 1: Metadata Extraction**: Mock a split-screen job and verify `extract_publish_music_metadata` returns `{}` and `build_publish_caption_and_hashtags` returns a clean caption without background music titles.
+58: - **Test Case 2: AI Comment Generation**: Verify `LLMService().generate_philosophical_comment` outputs a valid 2-3 paragraph text.
+59: - **Test Case 3: Playwright Commenting**: Run a dry-run test navigating to a mock video page using the persistent chrome profile to confirm Playwright locates and interacts with the comment box.
+60: 
+The above content shows the entire, complete file contents of the requested file.

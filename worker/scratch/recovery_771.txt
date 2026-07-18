@@ -1,0 +1,37 @@
+Created At: 2026-06-12T15:48:45Z
+Completed At: 2026-06-12T15:48:45Z
+File Path: `file:///d:/Folder_Learning_2025_2026/MyProject_DuAnCaNhan/AgentBot/worker/scratch/recover_publisher_service.py`
+Total Lines: 29
+Total Bytes: 1353
+Showing lines 1 to 29
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: import json
+2: 
+3: log_path = r"C:\Users\Admin\.gemini\antigravity\brain\1bc864e6-5ce1-4e03-82a4-5b4a9e7760e1\.system_generated\logs\transcript.jsonl"
+4: 
+5: def search():
+6:     with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
+7:         for idx, line in enumerate(f):
+8:             try:
+9:                 data = json.loads(line)
+10:                 content = str(data)
+11:                 if "publisher_service.py" in content and "publish_video_to_tiktok" in content:
+12:                     print(f"Line {idx} matches!")
+13:                     # Let's print keys or some summary
+14:                     print("Type:", data.get("type"), "Status:", data.get("status"))
+15:                     # If it's a tool output, print length
+16:                     tool_calls = data.get("tool_calls", [])
+17:                     print(f"Tool calls: {len(tool_calls)}")
+18:                     tool_output = data.get("content", "")
+19:                     if "Total Lines:" in tool_output or "class PublisherService" in tool_output:
+20:                         print(f"Content snippet: {tool_output[:200]}...")
+21:                         # Write to a recovery file
+22:                         with open(f"worker/scratch/recovery_{idx}.txt", "w", encoding="utf-8") as rf:
+23:                             rf.write(tool_output)
+24:             except Exception as e:
+25:                 pass
+26: 
+27: if __name__ == "__main__":
+28:     search()
+29: 
+The above content shows the entire, complete file contents of the requested file.

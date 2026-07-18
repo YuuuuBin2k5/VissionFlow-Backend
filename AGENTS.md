@@ -72,6 +72,12 @@ Do not commit:
 
 Only document required variables in `.env.example`.
 
+Before committing or pushing, run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/security-scan.ps1
+```
+
 ## Required Checks
 
 Before finishing code changes in `orchestrator`, run:

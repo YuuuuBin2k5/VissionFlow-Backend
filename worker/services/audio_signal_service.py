@@ -16,6 +16,20 @@ class AudioSignalService:
                 "Missing audio-reactive dependencies. Install librosa, scipy, and soundfile from worker/requirements.txt."
             ) from exc
 
+    def _smooth_ema(self, data: list, alpha_attack: float = 0.7, alpha_decay: float = 0.25) -> list:
+        """Bộ lọc làm mượt chuyển động thông minh (Exponential Moving Average) tránh rung giật đồ họa"""
+        if not data:
+            return []
+        smoothed = [data[0]]
+        for val in data[1:]:
+            prev = smoothed[-1]
+            if val > prev:
+                alpha = alpha_attack
+            else:
+                alpha = alpha_decay
+            smoothed.append(alpha * val + (1.0 - alpha) * prev)
+        return smoothed
+
     def extract_audio_reactive_data(self, audio_path: str, fps: int = 24) -> dict:
         librosa = self._load_librosa()
         y, sr = librosa.load(audio_path, sr=22050, mono=True)
@@ -28,26 +42,49 @@ class AudioSignalService:
             mask = (freqs >= low) & (freqs <= high)
             if not np.any(mask):
                 return [0.0] * stft.shape[1]
-            energy = np.mean(stft[mask, :], axis=0)
-            max_value = float(np.max(energy)) if len(energy) else 0.0
-            if max_value > 0:
-                energy = energy / max_value
-            return np.clip(energy, 0.0, 1.0).astype(float).tolist()
+            
+            # 1. THAY ĐỔI THUẬT TOÁN CHUẨN HÓA SANG LOGARIT (dB Scaling)
+            # Quy đổi giá trị năng lượng sang Decibel (thang đo Logarit) bằng công thức stft_db
+            stft_db = 20 * np.log10(np.maximum(stft, 1e-5))
+            db_energy = np.mean(stft_db[mask, :], axis=0)
+            
+            # Chuẩn hóa dải dB về khoảng mịn từ [0.0, 1.0] dựa trên min/max thực tế
+            min_val = np.min(db_energy)
+            max_val = np.max(db_energy)
+            diff = max_val - min_val
+            if diff > 0:
+                normalized_db = (db_energy - min_val) / diff
+            else:
+                normalized_db = np.zeros_like(db_energy)
+                
+            return np.clip(normalized_db, 0.0, 1.0).astype(float).tolist()
+
+        # Tính toán mảng năng lượng cơ sở
+        bass_raw = band_energy(20, 250)
+        mid_raw = band_energy(250, 4000)
+        treble_raw = band_energy(4000, 10000)
+        
+        # 2. TÍCH HỢP BỘ LỌC LÀM MƯỢT ĐỘNG (EMA Smoothing Filter)
+        bass_smoothed = self._smooth_ema(bass_raw, alpha_attack=0.7, alpha_decay=0.25)
+        mid_smoothed = self._smooth_ema(mid_raw, alpha_attack=0.7, alpha_decay=0.25)
+        treble_smoothed = self._smooth_ema(treble_raw, alpha_attack=0.7, alpha_decay=0.25)
 
         rms = librosa.feature.rms(y=y, frame_length=2048, hop_length=hop_length)[0]
         onset = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop_length)
         frame_times = librosa.frames_to_time(np.arange(len(onset)), sr=sr, hop_length=hop_length)
         beat_times = self._detect_beat_times(librosa, y, sr)
+        
+        # 3. N NG CẤP CHỈ SỐ DROP_EVENTS THEO TIẾT TẤU
         onset_events = self._detect_onset_events(onset, frame_times)
         cut_events = self._build_cut_events(onset_events, beat_times, duration)
-        drop_events = self._build_drop_events(onset_events, rms, frame_times)
+        drop_events = self._build_drop_events(onset_events, rms, frame_times, bass_energy=bass_smoothed)
 
         return {
             "fps": fps,
             "duration": duration,
-            "bass": band_energy(20, 250),
-            "mid": band_energy(250, 4000),
-            "treble": band_energy(4000, 10000),
+            "bass": bass_smoothed,
+            "mid": mid_smoothed,
+            "treble": treble_smoothed,
             "beat_events": beat_times,
             "onset_events": onset_events,
             "cut_events": cut_events,
@@ -65,7 +102,8 @@ class AudioSignalService:
         if len(onset) == 0:
             return []
         normalized = onset / (np.max(onset) or 1.0)
-        threshold = max(0.42, float(np.percentile(normalized, 88)))
+        # Hạ ngưỡng phát hiện xuống một chút để bắt nhịp nhạy hơn (từ 0.42 xuống 0.35, percentile 88 xuống 82)
+        threshold = max(0.35, float(np.percentile(normalized, 82)))
         candidates = []
         for index in range(1, len(normalized) - 1):
             value = float(normalized[index])
@@ -83,18 +121,19 @@ class AudioSignalService:
             if time_value < 0.7 or time_value > duration - 0.5:
                 continue
             gap = time_value - last_cut
-            if gap < 1.2:
+            # Hạ khoảng cách tối thiểu giữa 2 lần cut (từ 1.2s xuống 1.0s) để nhạy bén hơn với nhịp nhanh
+            if gap < 1.0:
                 continue
             if gap > 3.5 and cuts:
                 bridged = min(duration - 0.5, last_cut + 3.2)
-                if bridged - last_cut >= 1.2:
+                if bridged - last_cut >= 1.0:
                     cuts.append({"time": round(bridged, 3), "strength": 0.35, "type": "bridge"})
                     last_cut = bridged
             cuts.append({"time": round(time_value, 3), "strength": float(event.get("strength", 0.5)), "type": "onset"})
             last_cut = time_value
         return cuts[:32]
 
-    def _build_drop_events(self, onset_events: list, rms: np.ndarray, frame_times: np.ndarray) -> list:
+    def _build_drop_events(self, onset_events: list, rms: np.ndarray, frame_times: np.ndarray, bass_energy: list = None) -> list:
         if len(rms) == 0:
             return []
         normalized_rms = rms / (np.max(rms) or 1.0)
@@ -104,11 +143,20 @@ class AudioSignalService:
             frame_index = int(np.searchsorted(frame_times, time_value))
             frame_index = min(max(0, frame_index), len(normalized_rms) - 1)
             bass_proxy = float(normalized_rms[frame_index])
+            
+            # Tích hợp thêm trọng số RMS dải trầm (bass_energy) nếu có
+            if bass_energy and frame_index < len(bass_energy):
+                bass_weight = float(bass_energy[frame_index])
+                combined_bass = 0.6 * bass_proxy + 0.4 * bass_weight
+            else:
+                combined_bass = bass_proxy
+                
             strength = float(event.get("strength", 0.0))
-            if strength >= 0.72 or (strength >= 0.58 and bass_proxy >= 0.68):
+            # Hạ ngưỡng phát hiện xuống một chút để bắt các nhịp drop phiêu nhất (0.72 -> 0.65, 0.58 -> 0.52, 0.68 -> 0.60)
+            if strength >= 0.65 or (strength >= 0.52 and combined_bass >= 0.60):
                 drops.append({
                     "time": round(time_value, 3),
-                    "strength": round(max(strength, bass_proxy), 4),
+                    "strength": round(max(strength, combined_bass), 4),
                     "type": "drop",
                 })
         return drops[:24]

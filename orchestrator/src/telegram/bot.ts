@@ -15,10 +15,22 @@ import {
   getStatusReport,
   parseScheduleTime,
   resolveJobId,
+  createOrUpdateTikTokPublishTarget,
 } from './botActions';
 import { cancelConfirmation, consumeConfirmation, createConfirmation } from './confirmationStore';
 import * as fs from 'fs';
 import * as path from 'path';
+import {
+  upsertTelegramUser,
+  getAllPlatformConnections,
+  getConnectedPlatformConnection,
+} from '../database/userConnectionRepo';
+import {
+  buildActiveSessionLockMessage,
+  buildContentHubMessage,
+  tiktokContentKeyboard,
+} from './botUxCatalog';
+import { resolveProductionPromptWithConfig } from '../services/promptRegistry';
 
 dotenv.config();
 
@@ -63,6 +75,22 @@ const GEMINI_MODEL_CANDIDATES = [
   'gemini-1.5-flash-latest',
   'gemini-1.5-flash',
 ].filter(Boolean) as string[];
+
+function getGeminiGenerationConfig(config: Record<string, unknown>, fallbackTemperature: number) {
+  const temperature = typeof config.temperature === 'number' && config.temperature >= 0 && config.temperature <= 2
+    ? config.temperature
+    : fallbackTemperature;
+  const responseMimeType = typeof config.response_mime_type === 'string' && config.response_mime_type.trim()
+    ? config.response_mime_type.trim()
+    : 'application/json';
+  const maxOutputTokens = typeof config.max_output_tokens === 'number'
+    && Number.isInteger(config.max_output_tokens)
+    && config.max_output_tokens >= 1
+    && config.max_output_tokens <= 8192
+    ? config.max_output_tokens
+    : undefined;
+  return { temperature, responseMimeType, ...(maxOutputTokens ? { maxOutputTokens } : {}) };
+}
 const AMBIGUOUS_MUSIC_TITLE_NORMALIZED = new Set([
   'tunglacuaanhau',
 ]);
@@ -128,7 +156,7 @@ const calendarInputStates = new Map<number, { step: 'awaiting_date' }>();
 
 interface ActiveCreationSession {
   chatId: number;
-  kind: 'single_video' | 'music_video' | 'render_music' | 'campaign';
+  kind: 'single_video' | 'music_video' | 'render_music' | 'campaign' | 'translate_dub';
   title: string;
   subtitle: string;
   jobId?: number;
@@ -136,6 +164,10 @@ interface ActiveCreationSession {
   messageId?: number;
   startedAt: number;
   timer?: NodeJS.Timeout;
+  tempSourceType?: 'file' | 'link';
+  tempSourcePath?: string;
+  tempSourceUrl?: string;
+  tempFileName?: string;
 }
 
 const activeCreationSessions = new Map<number, ActiveCreationSession>();
@@ -668,43 +700,68 @@ async function resolveConcreteMusicIdea(songTitle: string, artistName: string) {
   }
 
   try {
-    const prompt = hasSpecificTitle && !hasSpecificArtist ? `
+    const fixedTitleFallback = `
 Bạn là giám đốc dữ liệu âm nhạc Việt Nam.
 Người dùng đã cung cấp TÊN BÀI HÁT CỐ ĐỊNH. Bạn chỉ được tìm/điền đúng ca sĩ hoặc nghệ sĩ của bài đó.
 TUYỆT ĐỐI KHÔNG đổi sang bài hát khác.
 
 ĐẦU VÀO:
-- Tên bài cố định: "${songTitle}"
-- Ca sĩ hiện tại: "${artistName}"
+- Tên bài cố định: "{{song_title}}"
+- Ca sĩ hiện tại: "{{artist_name}}"
 
 ĐẦU RA JSON DUY NHẤT:
-{"song_title":"${songTitle.replace(/"/g, '\\"')}","artist_name":"Ca sĩ cụ thể của đúng bài này","mood":"SAD_RAIN|CYBERPUNK_NIGHT|COZY_CHILL|FOCUS_LOFI","confidence":0.0,"ambiguous":false,"candidates":[]}
+{"song_title":{{song_title_json}},"artist_name":"Ca sĩ cụ thể của đúng bài này","mood":"SAD_RAIN|CYBERPUNK_NIGHT|COZY_CHILL|FOCUS_LOFI","confidence":0.0,"ambiguous":false,"candidates":[]}
 
 Nếu tên bài có nhiều ca sĩ/phiên bản phổ biến hoặc bạn không chắc trên 90%, bắt buộc trả:
-{"song_title":"${songTitle.replace(/"/g, '\\"')}","artist_name":"","mood":"COZY_CHILL","confidence":0.0,"ambiguous":true,"candidates":["Tên bài - Ca sĩ 1","Tên bài - Ca sĩ 2"]}
-` : `
+{"song_title":{{song_title_json}},"artist_name":"","mood":"COZY_CHILL","confidence":0.0,"ambiguous":true,"candidates":["Tên bài - Ca sĩ 1","Tên bài - Ca sĩ 2"]}
+`;
+    const automaticFallback = `
 Bạn là giám đốc âm nhạc TikTok Việt Nam.
 Hãy chọn đúng 1 bài nhạc Việt/TikTok trend cụ thể để người dùng có thể tự cung cấp file audio.
 Nếu đã có tên bài nhưng thiếu ca sĩ, hãy điền ca sĩ phù hợp.
 
 ĐẦU VÀO:
-- Tên bài: "${songTitle}"
-- Ca sĩ: "${artistName}"
+- Tên bài: "{{song_title}}"
+- Ca sĩ: "{{artist_name}}"
 
 ĐẦU RA JSON DUY NHẤT:
 {"song_title":"Tên bài cụ thể","artist_name":"Ca sĩ cụ thể","mood":"SAD_RAIN|CYBERPUNK_NIGHT|COZY_CHILL|FOCUS_LOFI","confidence":0.0,"ambiguous":false,"candidates":[]}
 `;
+    const promptKey = hasSpecificTitle && !hasSpecificArtist
+      ? 'music_song_resolver_fixed_title'
+      : 'music_song_selector';
+    const fallbackPrompt = hasSpecificTitle && !hasSpecificArtist ? fixedTitleFallback : automaticFallback;
+    const resolved = await resolveProductionPromptWithConfig(
+      promptKey,
+      {
+        song_title: songTitle,
+        artist_name: artistName,
+        song_title_json: JSON.stringify(songTitle),
+      },
+      fallbackPrompt
+        .replace(/{{song_title}}/g, songTitle)
+        .replace(/{{artist_name}}/g, artistName)
+        .replace(/{{song_title_json}}/g, JSON.stringify(songTitle)),
+      { model_candidates: GEMINI_MODEL_CANDIDATES, temperature: 0.55, response_mime_type: 'application/json' },
+    );
+    const configuredModels = typeof resolved.config.model === 'string' && resolved.config.model.trim()
+      ? [resolved.config.model.trim()]
+      : Array.isArray(resolved.config.model_candidates)
+        ? resolved.config.model_candidates.filter((model): model is string => typeof model === 'string' && model.length > 0)
+        : [];
+    const models = configuredModels.length ? configuredModels : GEMINI_MODEL_CANDIDATES;
+    const generationConfig = getGeminiGenerationConfig(resolved.config, 0.55);
     let raw = '';
     const errors: string[] = [];
-    for (const model of GEMINI_MODEL_CANDIDATES) {
+    for (const model of models) {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       try {
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.55, responseMimeType: 'application/json' },
+            contents: [{ parts: [{ text: resolved.content }] }],
+            generationConfig,
           }),
         });
         if (!response.ok) {
@@ -1166,6 +1223,166 @@ bot.help((ctx) => {
   );
 });
 
+async function getOrCreateBotUser(ctx: any) {
+  const from = ctx.from;
+  const chat = ctx.chat;
+  if (!from?.id) throw new Error('Khong xac dinh duoc Telegram user.');
+  const displayName = [from.first_name, from.last_name].filter(Boolean).join(' ') || from.username || null;
+  return upsertTelegramUser({
+    telegramUserId: from.id,
+    telegramChatId: chat?.id || null,
+    displayName,
+  });
+}
+
+async function showAccountsReport(ctx: any) {
+  const user = await getOrCreateBotUser(ctx);
+  const connections = await getAllPlatformConnections(user.id, 'tiktok');
+
+  if (connections.length === 0) {
+    return ctx.replyWithHTML(
+      `<b>DANH SACH TAI KHOAN TIKTOK LIEN KET</b>\n` +
+      `──────────────────────────────\n` +
+      `Chua co tai khoan nao duoc ket noi.\n\n` +
+      `Vui long lien he quan tri vien de ket noi tai khoan TikTok moi.`,
+      Markup.inlineKeyboard([
+        [Markup.button.callback('Quay lai Menu', 'quick:menu')]
+      ])
+    );
+  }
+
+  const lines = connections.map((conn, idx) => {
+    const name = conn.account_name || `Kenh #${conn.id}`;
+    const channelId = conn.external_account_id || 'N/A';
+    const statusIcon = conn.status === 'connected' ? '✅' : '❌';
+    return `${idx + 1}. ${statusIcon} <b>${escapeHtml(name)}</b>\n   ID: <code>${escapeHtml(channelId)}</code>\n   Trang thai: ${conn.status}`;
+  });
+
+  const report =
+    `<b>DANH SACH TAI KHOAN TIKTOK LIEN KET</b>\n` +
+    `──────────────────────────────\n\n` +
+    lines.join('\n\n');
+
+  const inlineButtons: any[] = [];
+  connections.forEach((conn) => {
+    inlineButtons.push([
+      Markup.button.callback(`Ngat ket noi ${conn.account_name || 'TikTok'}`, `tt:disconnect:${conn.id}`)
+    ]);
+  });
+  inlineButtons.push([
+    Markup.button.callback('Quay lai Menu', 'quick:menu')
+  ]);
+
+  const keyboard = Markup.inlineKeyboard(inlineButtons);
+
+  if (ctx.callbackQuery) {
+    try {
+      await ctx.editMessageText(report, {
+        parse_mode: 'HTML',
+        reply_markup: keyboard.reply_markup,
+      });
+      return;
+    } catch {
+      // Fallback
+    }
+  }
+  return ctx.replyWithHTML(report, keyboard);
+}
+
+async function startTranslateDubSession(ctx: any) {
+  try {
+    const chatId = ctx.chat?.id;
+    if (!chatId) return;
+
+    if (activeCreationSessions.has(chatId)) {
+      activeCreationSessions.delete(chatId);
+    }
+
+    const session: ActiveCreationSession = {
+      chatId,
+      kind: 'translate_dub',
+      title: 'Dich thuat & Long tieng AI',
+      subtitle: 'Long tieng Viet cho video nguon',
+      startedAt: Date.now(),
+    };
+    activeCreationSessions.set(chatId, session);
+
+    await ctx.replyWithHTML(
+      `<b>Dich & long tieng video (TikTok/Douyin)</b>\n` +
+      `Gui mot file video <code>.mp4</code>/<code>.mov</code> hoac dan link YouTube/TikTok/Douyin nguon.\n\n` +
+      `Sau khi nhan nguon, bot se hoi ty le hien thi de tao ban long tieng phu hop TikTok/Shorts.\n\n` +
+      `Go <b>/cancel</b> de huy.`,
+    );
+  } catch (error: any) {
+    console.error('[Bot Error] Error starting translate dub session:', error);
+    await ctx.reply(`Khong the khoi tao phien long tieng: ${error.message}`);
+  }
+}
+
+async function handleIncomingDubVideoUpload(ctx: any) {
+  const chatId = ctx.chat?.id;
+  if (!chatId) return false;
+
+  const session = activeCreationSessions.get(chatId);
+  if (!session || session.kind !== 'translate_dub') return false;
+
+  let fileId = '';
+  let fileName = 'dub_video.mp4';
+
+  if (ctx.message?.video) {
+    fileId = ctx.message.video.file_id;
+    fileName = ctx.message.video.file_name || `dub_${Date.now()}.mp4`;
+  } else if (ctx.message?.video_note) {
+    fileId = ctx.message.video_note.file_id;
+    fileName = `dub_note_${Date.now()}.mp4`;
+  } else if (ctx.message?.document) {
+    const doc = ctx.message.document;
+    const mime = doc.mime_type || '';
+    if (mime.includes('video') || (doc.file_name && doc.file_name.match(/\.(mp4|mov|avi|mkv|webm)$/i))) {
+      fileId = doc.file_id;
+      fileName = doc.file_name;
+    }
+  }
+
+  if (!fileId) {
+    await ctx.reply('Vui long gui file video (dang .mp4, .mov, .avi,...) hoac dan duong dan YouTube/TikTok/Douyin.');
+    return true;
+  }
+
+  await ctx.reply('Da nhan file video nguon! Dang tai xuong may chu...');
+
+  const uploadsDir = path.resolve(__dirname, '../../../shared/assets/uploads/dub_sources');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  const uniqueName = `job_dub_${Date.now()}_${fileName.replace(/\s+/g, '_')}`;
+  const outputPath = path.join(uploadsDir, uniqueName);
+
+  await downloadTelegramFile(ctx, fileId, outputPath);
+
+  session.tempSourceType = 'file';
+  session.tempSourcePath = outputPath;
+  session.tempFileName = fileName;
+
+  await ctx.reply(
+    `Da tai video thanh cong!\nVui long chon ty le kich thuoc man hinh de long tieng (tranh meo hinh, phu hop TikTok/Shorts):`,
+    Markup.inlineKeyboard([
+      [
+        Markup.button.callback('Giu nguyen goc (Original)', 'tt:dub_ratio:original'),
+        Markup.button.callback('Doc 9:16 (Blur Padding)', 'tt:dub_ratio:vertical_blur')
+      ],
+      [
+        Markup.button.callback('Huy bo', 'tt:cancel_active:pending')
+      ]
+    ])
+  );
+
+  return true;
+}
+
+bot.command('translate_dub', async (ctx) => startTranslateDubSession(ctx));
+bot.command('accounts', async (ctx) => showAccountsReport(ctx));
+
 bot.command('menu', async (ctx) => {
   await ctx.reply(getControlCenterMessage(), controlCenterKeyboard);
 });
@@ -1477,10 +1694,10 @@ async function generateSingleVideoIdea(topic: string, targetAudience: string): P
       mood: 'educational',
     };
   }
-  const prompt = `
+  const fallbackPrompt = `
 Bạn là chuyên gia sáng tạo nội dung TikTok viral hàng đầu Việt Nam. Hãy đề xuất 1 ý tưởng video ngắn cực kỳ hấp dẫn dựa trên thông tin sau:
-- Chủ đề: "${topic}"
-- Đối tượng xem mục tiêu: "${targetAudience}"
+- Chủ đề: "{{topic}}"
+- Đối tượng xem mục tiêu: "{{target_audience}}"
 
 Hãy trả về kết quả dưới dạng JSON duy nhất, có cấu trúc:
 {
@@ -1490,14 +1707,22 @@ Hãy trả về kết quả dưới dạng JSON duy nhất, có cấu trúc:
 }
 Lưu ý quan trọng: Phần "mood" phải chọn một trong các giá trị: "educational", "energetic", "lofi", "chill", "dramatic". Chỉ trả về chuỗi JSON thô hợp lệ, không bọc trong markdown tam giác hay bất cứ ký tự nào khác.
 `;
+  const resolved = await resolveProductionPromptWithConfig(
+    'short_video_idea_generator',
+    { topic, target_audience: targetAudience },
+    fallbackPrompt.replace('{{topic}}', topic).replace('{{target_audience}}', targetAudience),
+    { model: 'gemini-1.5-flash', temperature: 0.7, response_mime_type: 'application/json' },
+  );
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const model = typeof resolved.config.model === 'string' && resolved.config.model ? resolved.config.model : 'gemini-1.5-flash';
+    const generationConfig = getGeminiGenerationConfig(resolved.config, 0.7);
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.7, responseMimeType: 'application/json' },
+        contents: [{ parts: [{ text: resolved.content }] }],
+        generationConfig,
       }),
     });
     if (!response.ok) throw new Error(`Gemini status ${response.status}`);
@@ -1809,12 +2034,12 @@ async function generateSmartSuggestions(songTitle: string, artistName: string): 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
   try {
-    const prompt = `
+    const fallbackPrompt = `
 Bạn là giám đốc sáng tạo kênh âm nhạc TikTok hàng đầu Việt Nam.
 Phân tích bài hát và đề xuất thông số kỹ thuật phù hợp nhất:
 
-BÀI HÁT: "${songTitle}"
-NGHỆ SĨ: "${artistName}"
+BÀI HÁT: "{{song_title}}"
+NGHỆ SĨ: "{{artist_name}}"
 
 Trả về JSON DUY NHẤT (không markdown):
 {
@@ -1826,13 +2051,21 @@ Trả về JSON DUY NHẤT (không markdown):
   "rationale": "<lý do ngắn gọn 1 câu>"
 }
 `;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const resolved = await resolveProductionPromptWithConfig(
+      'music_visual_suggestions',
+      { song_title: songTitle, artist_name: artistName },
+      fallbackPrompt.replace('{{song_title}}', songTitle).replace('{{artist_name}}', artistName),
+      { model: 'gemini-1.5-flash', temperature: 0.3, response_mime_type: 'application/json' },
+    );
+    const model = typeof resolved.config.model === 'string' && resolved.config.model ? resolved.config.model : 'gemini-1.5-flash';
+    const generationConfig = getGeminiGenerationConfig(resolved.config, 0.3);
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3, responseMimeType: 'application/json' },
+        contents: [{ parts: [{ text: resolved.content }] }],
+        generationConfig,
       }),
     });
     if (!resp.ok) return null;
@@ -2266,14 +2499,17 @@ bot.command('create_music_video', async (ctx) => {
   }
 });
 
-bot.on(['audio', 'document', 'photo'], async (ctx) => {
+bot.on(['audio', 'document', 'photo', 'video', 'video_note'], async (ctx) => {
   try {
+    const dubHandled = await handleIncomingDubVideoUpload(ctx);
+    if (dubHandled) return;
+
     const handled = await handleWaitingMusicAttachmentUpload(ctx);
     if (!handled) {
       await ctx.reply('Hiện không có video âm nhạc nào đang chờ file nhạc/ảnh. Hãy tạo video âm nhạc trước rồi gửi ảnh tùy chọn hoặc file .mp3, .wav, .m4a.');
     }
   } catch (error: any) {
-    console.error('[Bot Error] Error handling music attachment upload:', error);
+    console.error('[Bot Error] Error handling attachment upload:', error);
     await ctx.reply(`❌ Không thể nhận file: ${error.message}`);
   }
 });
@@ -2634,6 +2870,51 @@ bot.on('text', async (ctx) => {
     const text = ctx.message.text.trim();
     const chatId = ctx.chat?.id;
 
+    // Active session check for translation and dubbing
+    if (chatId && activeCreationSessions.has(chatId)) {
+      const session = activeCreationSessions.get(chatId)!;
+      if (session.kind === 'translate_dub') {
+        if (text.toLowerCase() === 'cancel' || text.toLowerCase() === '/cancel') {
+          activeCreationSessions.delete(chatId);
+          await ctx.reply('Da huy phien long tieng AI.');
+          return;
+        }
+
+        const isUrl = /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=]*)?$/i.test(text) || text.startsWith('http');
+        if (isUrl) {
+          await ctx.reply('Da nhan duong link video nguon! Dang luu thong tin...');
+          session.tempSourceType = 'link';
+          session.tempSourceUrl = text;
+          session.tempFileName = text.length > 45 ? `${text.slice(0, 45)}...` : text;
+
+          await ctx.reply(
+            `Da luu thong tin duong dan nguon!\nVui long chon ty le kich thuoc man hinh de long tieng (tranh meo hinh, phu hop TikTok/Shorts):`,
+            Markup.inlineKeyboard([
+              [
+                Markup.button.callback('Giu nguyen goc (Original)', 'tt:dub_ratio:original'),
+                Markup.button.callback('Doc 9:16 (Blur Padding)', 'tt:dub_ratio:vertical_blur')
+              ],
+              [
+                Markup.button.callback('Huy bo', 'tt:cancel_active:pending')
+              ]
+            ])
+          );
+          return;
+        } else {
+          await ctx.reply('Tep tin hoac duong dan chua hop le. Vui long gui mot file video (.mp4/.mov) hoac mot duong dan YouTube/TikTok/Douyin.');
+          return;
+        }
+      }
+
+      // Check locked active operations
+      const pipelineJob = session.jobId ? await prisma.videoPipelineJobs.findUnique({ where: { id: session.jobId } }) : null;
+      const isWaitingForMusic = pipelineJob?.pipeline_state === MUSIC_AUDIO_WAITING_STATE;
+      if (!isWaitingForMusic) {
+        await ctx.replyWithHTML(buildActiveSessionLockMessage(session.subtitle));
+        return;
+      }
+    }
+
     // --- Ưu tiên 1: Xử lý nhập tiêu đề mới khi đang chỉnh sửa Calendar Job ---
     if (chatId && calendarEditStates.has(chatId)) {
       if (!text.startsWith('/')) {
@@ -2831,6 +3112,107 @@ bot.on('callback_query', async (ctx) => {
 
   const parts = callbackData.split(':');
   const [action, jobIdStr] = parts;
+
+  if (action === 'content') {
+    await ctx.answerCbQuery().catch(() => {});
+    if (jobIdStr === 'hub') {
+      return ctx.replyWithHTML(
+        buildContentHubMessage('tiktok'),
+        tiktokContentKeyboard()
+      );
+    }
+    if (jobIdStr === 'music_video') {
+      return handleCreateMusicVideoLogic(ctx, 'HOT TRENDING', 'AUTO DETECT');
+    }
+    if (jobIdStr === 'translate_dub') {
+      return startTranslateDubSession(ctx);
+    }
+    if (jobIdStr === 'analyze_viral') {
+      return ctx.reply('Gui /analyze_viral de mo cong cu phan tich.', Markup.inlineKeyboard([[Markup.button.callback('⬅️ Quay lai', 'create:menu')]]));
+    }
+  }
+
+  if (action === 'tt') {
+    const chatId = ctx.chat?.id;
+    if (jobIdStr === 'accounts') {
+      await ctx.answerCbQuery();
+      return showAccountsReport(ctx);
+    }
+    if (jobIdStr === 'disconnect') {
+      const connId = parseInt(parts[2], 10);
+      try {
+        const user = await getOrCreateBotUser(ctx);
+        const conn = await prisma.platformConnections.findUnique({ where: { id: connId } });
+        if (!conn || conn.user_id !== user.id) {
+          await ctx.answerCbQuery('Khong tim thay lien ket tai khoan.', { show_alert: true });
+          return;
+        }
+        await prisma.$executeRawUnsafe(`DELETE FROM platform_connections WHERE id = ${connId}`);
+        await ctx.answerCbQuery(`Da ngat ket noi: ${conn.account_name || 'Kenh'}`);
+        return showAccountsReport(ctx);
+      } catch (e: any) {
+        await ctx.answerCbQuery(`Loi: ${e.message}`, { show_alert: true });
+        return;
+      }
+    }
+    if (jobIdStr === 'dub_ratio') {
+      try {
+        const ratioMode = parts[2];
+        const session = chatId ? activeCreationSessions.get(chatId) : undefined;
+        if (!session || session.kind !== 'translate_dub' || !session.tempSourceType) {
+          await ctx.answerCbQuery('Phien long tieng khong con hieu luc.', { show_alert: true });
+          return;
+        }
+
+        await ctx.answerCbQuery('Dang thiet lap va khoi tao tien trinh...');
+        await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => {});
+
+        const user = await getOrCreateBotUser(ctx);
+        const isFile = session.tempSourceType === 'file';
+        const scenesLayout = {
+          render_mode: 'translate_dub',
+          dub_source_type: session.tempSourceType,
+          dub_source_path: isFile ? session.tempSourcePath : undefined,
+          dub_source_url: !isFile ? session.tempSourceUrl : undefined,
+          voice_gender: 'female',
+          target_language: 'vi',
+          aspect_ratio: ratioMode,
+          platform: 'tiktok'
+        };
+
+        const job = await prisma.videoPipelineJobs.create({
+          data: {
+            day_number: 1,
+            scheduled_post_time: new Date(),
+            video_title_idea: isFile ? `[DUB] ${session.tempFileName}` : `[DUB LINK] ${session.tempFileName}`,
+            pipeline_state: 'QUEUED',
+            scenes_layout_json: JSON.stringify(scenesLayout)
+          }
+        });
+
+        const connection = await getConnectedPlatformConnection(user.id, 'tiktok');
+        if (connection) {
+          await createOrUpdateTikTokPublishTarget(job.id, new Date(), 'shorts', user.id, connection.id);
+        }
+
+        await addJobToQueue(job.id, 'RENDER');
+        await auditBotAction(job.id, 'TIKTOK_BOT_DUB_VIDEO_UPLOAD', 'SUCCESS', `Created TikTok dubbing Job #${job.id} with ratio ${ratioMode}.`);
+
+        session.jobId = job.id;
+        session.subtitle = isFile ? `[DUB] ${session.tempFileName}` : `[DUB LINK] ${session.tempFileName}`;
+        
+        delete session.tempSourceType;
+        delete session.tempSourcePath;
+        delete session.tempSourceUrl;
+        delete session.tempFileName;
+
+        await beginActiveOperation(ctx, session);
+      } catch (e: any) {
+        await ctx.answerCbQuery(`Loi: ${e.message}`, { show_alert: true });
+      }
+      return;
+    }
+  }
 
   if (action === 'cancel_active') {
     const chatId = ctx.chat?.id;

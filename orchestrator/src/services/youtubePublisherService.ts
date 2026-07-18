@@ -5,6 +5,7 @@ export interface YouTubeUploadInput {
   title: string;
   description: string;
   tags: string[];
+  refreshToken?: string;
   privacyStatus?: string;
   scheduledPublishTime?: Date | null;
 }
@@ -28,10 +29,10 @@ function detectMimeType(videoPath: string) {
 }
 
 export class YouTubePublisherService {
-  private async getAccessToken() {
+  private async getAccessToken(refreshTokenOverride?: string) {
     const clientId = requireEnv('YOUTUBE_CLIENT_ID');
     const clientSecret = requireEnv('YOUTUBE_CLIENT_SECRET');
-    const refreshToken = requireEnv('YOUTUBE_REFRESH_TOKEN');
+    const refreshToken = refreshTokenOverride || requireEnv('YOUTUBE_REFRESH_TOKEN');
 
     const body = new URLSearchParams({
       client_id: clientId,
@@ -61,7 +62,7 @@ export class YouTubePublisherService {
       throw new Error(`Video file does not exist: ${input.videoPath}`);
     }
 
-    const accessToken = await this.getAccessToken();
+    const accessToken = await this.getAccessToken(input.refreshToken);
     const stats = fs.statSync(input.videoPath);
     const mimeType = detectMimeType(input.videoPath);
     const publishAt = input.scheduledPublishTime && input.scheduledPublishTime.getTime() > Date.now()

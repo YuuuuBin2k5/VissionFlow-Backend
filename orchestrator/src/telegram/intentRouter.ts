@@ -1,3 +1,5 @@
+import { generateContentWithFallback, cleanAndParseJson } from './geminiHelper';
+
 export type BotIntentName =
   | 'view_schedule'
   | 'view_status'
@@ -22,7 +24,7 @@ export type BotIntentName =
 export interface BotIntent {
   intent: BotIntentName;
   confidence: number;
-  period?: 'today' | 'week';
+  period?: 'today' | 'tomorrow' | 'week';
   jobId?: number;
   campaignId?: number;
   target?: 'latest_rendered' | 'latest_pending' | 'specific';
@@ -35,6 +37,9 @@ export interface BotIntent {
   targetAudience?: string;
   platform?: 'tiktok' | 'youtube';
   contentType?: 'shorts' | 'video';
+  formatPreset?: 'cooking_philosophy' | 'daily_life_healing' | 'satisfying_stoic';
+  topVisualType?: 'cooking' | 'daily_life' | 'satisfying';
+  tone?: 'healing' | 'stoic' | 'motivational' | 'relationship';
 }
 
 const SENSITIVE_INTENTS = new Set<BotIntentName>([
@@ -123,13 +128,45 @@ function extractQuickVideoTopic(text: string) {
   return undefined;
 }
 
-function ruleBasedIntent(text: string): BotIntent {
+function detectSplitScreenFormat(text: string): Pick<BotIntent, 'formatPreset' | 'topVisualType' | 'tone'> {
+  const plain = stripVietnameseTones(text);
+  const mentionsSplit =
+    hasAny(plain, ['nua tren', 'phia tren', 'tren la', 'ben tren', 'nua duoi', 'phia duoi', 'duoi la']) ||
+    (hasAny(plain, ['split screen', 'split-screen', 'shorts']) && hasAny(plain, ['triet ly', 'cau noi', 'doi song', 'nau an']));
+
+  const mentionsPhilosophy = hasAny(plain, ['triet ly', 'triet hoc', 'cau noi', 'cham ngon', 'chua lanh', 'truong thanh', 'suy ngam']);
+  if (!mentionsSplit || !mentionsPhilosophy) return {};
+
+  let topVisualType: BotIntent['topVisualType'] = 'daily_life';
+  if (hasAny(plain, ['nau an', 'nau mon', 'che bien', 'cooking', 'mon an', 'pha ca phe'])) {
+    topVisualType = 'cooking';
+  } else if (hasAny(plain, ['satisfying', 'lau don', 'gap quan ao', 'rua xe', 'sap xep', 'dong goi'])) {
+    topVisualType = 'satisfying';
+  }
+
+  let tone: BotIntent['tone'] = 'healing';
+  if (hasAny(plain, ['ky luat', 'stoic', 'khac nghiet', 'manh me', 'ban linh'])) tone = 'stoic';
+  if (hasAny(plain, ['dong luc', 'truyen cam hung', 'vuot len'])) tone = 'motivational';
+  if (hasAny(plain, ['tinh yeu', 'moi quan he', 'chia tay'])) tone = 'relationship';
+
+  const formatPreset: BotIntent['formatPreset'] =
+    topVisualType === 'cooking' ? 'cooking_philosophy' :
+    topVisualType === 'satisfying' ? 'satisfying_stoic' :
+    'daily_life_healing';
+
+  return { formatPreset, topVisualType, tone };
+}
+
+function ruleBasedIntent(text: string, defaultPlatform: 'tiktok' | 'youtube' = 'tiktok'): BotIntent {
   const lower = normalize(text);
   const plain = stripVietnameseTones(text);
   const haystack = `${lower} ${plain}`;
   const jobId = firstNumber(lower);
-  const platform = hasAny(haystack, ['youtube', 'yt', 'shorts', 'youtube short']) ? 'youtube' : undefined;
+  const platform = hasAny(haystack, ['youtube', 'yt', 'shorts', 'youtube short'])
+    ? 'youtube'
+    : (hasAny(haystack, ['tiktok', 'tik tok', 'tt']) ? 'tiktok' : defaultPlatform);
   const contentType = hasAny(haystack, ['shorts', 'short ', 'youtube short']) ? 'shorts' : undefined;
+  const splitScreenFormat = detectSplitScreenFormat(text);
 
   // Nhận diện ý định tạo video nhanh cho hôm nay/ngày mai
   if (
@@ -154,14 +191,34 @@ function ruleBasedIntent(text: string): BotIntent {
       topic: extractQuickVideoTopic(text),
       platform,
       contentType,
+      ...splitScreenFormat,
+    };
+  }
+
+  if (splitScreenFormat.formatPreset) {
+    return {
+      intent: 'quick_create_video',
+      confidence: 0.88,
+      newTimeText: extractTimeText(text) || 'today',
+      topic: extractQuickVideoTopic(text) || text.trim(),
+      targetAudience: 'Người trưởng thành chiêm nghiệm cuộc sống',
+      platform,
+      contentType: contentType || 'shorts',
+      ...splitScreenFormat,
     };
   }
 
   if (hasAny(haystack, ['lịch', 'lich', 'schedule', 'ke hoach', 'hen gio', 'gio dang', 'dang luc nao'])) {
+    let period: 'today' | 'tomorrow' | 'week' = 'today';
+    if (hasAny(haystack, ['tuần', 'tuan', 'week', '7 ngay', 'bay ngay'])) {
+      period = 'week';
+    } else if (hasAny(haystack, ['ngày mai', 'ngay mai', 'tomorrow', 'mai'])) {
+      period = 'tomorrow';
+    }
     return {
       intent: 'view_schedule',
       confidence: 0.8,
-      period: hasAny(haystack, ['tuần', 'tuan', 'week', '7 ngay', 'bay ngay']) ? 'week' : 'today',
+      period,
       platform,
     };
   }
@@ -260,6 +317,7 @@ function ruleBasedIntent(text: string): BotIntent {
       confidence: 0.75,
       jobId,
       target: jobId ? 'specific' : 'latest_rendered',
+      newTimeText: extractTimeText(text),
       requiresConfirmation: true,
       platform,
     };
@@ -271,18 +329,6 @@ function ruleBasedIntent(text: string): BotIntent {
 
   if (hasAny(haystack, ['preview', 'xem video', 'xem truoc', 'cho xem', 'mo video', 'video dau'])) {
     return { intent: 'preview_video', confidence: 0.7, jobId, target: jobId ? 'specific' : 'latest_rendered' };
-  }
-
-  if (hasAny(haystack, ['tạm dừng', 'tam dung', 'pause', 'dung lai']) && hasAny(haystack, ['campaign', 'chien dich'])) {
-    return { intent: 'pause_campaign', confidence: 0.75, campaignId: jobId, requiresConfirmation: true };
-  }
-
-  if (hasAny(haystack, ['tiếp tục', 'tiep tuc', 'resume', 'chay lai']) && hasAny(haystack, ['campaign', 'chien dich'])) {
-    return { intent: 'resume_campaign', confidence: 0.75, campaignId: jobId, requiresConfirmation: true };
-  }
-
-  if (hasAny(haystack, ['hủy', 'huy', 'cancel', 'xoa bo']) && hasAny(haystack, ['campaign', 'chien dich'])) {
-    return { intent: 'cancel_campaign', confidence: 0.75, campaignId: jobId, requiresConfirmation: true };
   }
 
   if (hasAny(haystack, ['hủy', 'huy', 'cancel', 'bo job', 'xoa job'])) {
@@ -305,8 +351,8 @@ function coerceIntent(value: any, fallback: BotIntent): BotIntent {
   const intent = value.intent as BotIntentName;
   const valid: BotIntentName[] = [
     'view_schedule', 'view_status', 'list_pending_approval', 'preview_video',
-    'approve_publish', 'force_publish', 'reschedule_video', 'pause_campaign',
-    'resume_campaign', 'cancel_job', 'cancel_campaign', 'explain_job',
+    'approve_publish', 'force_publish', 'reschedule_video',
+    'cancel_job', 'explain_job',
     'recommend_schedule', 'render_music', 'remix_music', 'render_remix_music',
     'create_music_video', 'quick_create_video', 'unknown',
   ];
@@ -316,7 +362,7 @@ function coerceIntent(value: any, fallback: BotIntent): BotIntent {
   return {
     intent,
     confidence: typeof value.confidence === 'number' ? value.confidence : 0.6,
-    period: value.period === 'week' ? 'week' : value.period === 'today' ? 'today' : fallback.period,
+    period: value.period === 'week' ? 'week' : value.period === 'tomorrow' ? 'tomorrow' : value.period === 'today' ? 'today' : fallback.period,
     jobId: typeof value.jobId === 'number' ? value.jobId : fallback.jobId,
     campaignId: typeof value.campaignId === 'number' ? value.campaignId : fallback.campaignId,
     target: value.target || fallback.target,
@@ -329,43 +375,53 @@ function coerceIntent(value: any, fallback: BotIntent): BotIntent {
     targetAudience: typeof value.targetAudience === 'string' ? value.targetAudience : fallback.targetAudience,
     platform: value.platform === 'youtube' ? 'youtube' : value.platform === 'tiktok' ? 'tiktok' : fallback.platform,
     contentType: value.contentType === 'shorts' ? 'shorts' : value.contentType === 'video' ? 'video' : fallback.contentType,
+    formatPreset: value.formatPreset || fallback.formatPreset,
+    topVisualType: value.topVisualType || fallback.topVisualType,
+    tone: value.tone || fallback.tone,
   };
 }
 
-async function callGeminiIntent(text: string, fallback: BotIntent): Promise<BotIntent | null> {
+async function callGeminiIntent(text: string, fallback: BotIntent, defaultPlatform: 'tiktok' | 'youtube' = 'tiktok'): Promise<BotIntent | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
 
   const prompt = `
-Bạn là intent router cho Telegram bot quản lý kênh TikTok. Chỉ trả JSON hợp lệ, không markdown.
+Bạn là intent router cho Telegram bot quản lý kênh ${defaultPlatform === 'youtube' ? 'YouTube' : 'TikTok'}. Chỉ trả JSON hợp lệ, không markdown.
 Người dùng có thể viết sai dấu, thiếu dấu, typo, nói tắt hoặc nói vòng. Hãy suy luận ý định gần nhất, nhưng không bịa jobId/campaignId nếu người dùng không nói rõ.
 Nếu hành động thay đổi dữ liệu hoặc đăng video mà target mơ hồ, trả target="latest_pending" hoặc "latest_rendered" theo ngữ cảnh và để hệ thống xác nhận sau.
 - Nếu người dùng muốn tạo một video âm nhạc / video nhạc / clip nhạc hoặc nhắc tới bài hát cụ thể (ví dụ: "tạo video nhạc", "làm clip nhạc", "tạo music video", "lên video bài hát..."), trả về intent="create_music_video" và trích xuất "songTitle", "artistName".
+  LƯU Ý CỰC KỲ QUAN TRỌNG: Chỉ trích xuất "songTitle" và "artistName" khi người dùng nói rõ tên bài hát thực tế cụ thể nào đó (ví dụ: "làm video bài Nơi này có anh", "tạo music video Hãy trao cho anh"). Nếu người dùng chỉ nói chung chung như "hãy tạo video âm nhạc cho tôi và đăng sáng mai" mà KHÔNG hề nhắc đến tên một bài hát thực tế nào, bạn phải trả về "songTitle": null và "artistName": null (tuyệt đối không lấy các từ hành động, từ chỉ lệnh, hoặc thời gian làm tên bài hát).
 - Nếu người dùng muốn tạo/lên kịch bản/lên nội dung/lên lịch nhanh cho 1 video đơn lẻ nói chung (ví dụ: "lên kịch bản video cho hôm nay vào lúc 5h chiều", "làm clip ngày mai", "tạo video về học tiếng Anh hôm nay 17h"), trả về intent="quick_create_video". Hãy suy luận giờ Việt Nam: "5h chiều" = "today 17:00", "8h tối" = "today 20:00".
-- Nếu câu nhắc YouTube/YT/Shorts, trả "platform"="youtube"; nếu nhắc TikTok, trả "platform"="tiktok". Nếu câu nhắc Shorts, trả "contentType"="shorts", ngược lại có thể là "video".
+- Nếu tin nhắn của người dùng chứa một câu trích dẫn, câu châm ngôn, câu nói triết lý hoặc chiêm nghiệm cuộc sống dài (ví dụ: "Gieo hành vi gặt thói quen...", "Cuộc sống là...", "Thất bại là mẹ thành công"), kể cả khi không có từ khóa lệnh như "làm video" hay "tạo video", hãy tự động nhận diện đây là ý định tạo video nhanh và trả về intent="quick_create_video" với "topic" chính là toàn bộ câu nói đó, và "targetAudience" là "Người trưởng thành chiêm nghiệm cuộc sống".
+- Nếu câu nhắc YouTube/YT/Shorts, trả "platform"="youtube"; nếu nhắc TikTok, trả "platform"="tiktok". Nếu không đề cập cụ thể nền tảng nào, hãy mặc định trả "platform"="${defaultPlatform}".
+- Nếu câu nhắc Shorts, trả "contentType"="shorts", ngược lại có thể là "video".
+- Nếu người dùng mô tả video chia đôi màn hình như "nửa trên/phía trên/trên là nấu ăn/đời sống/satisfying" và "nửa dưới/phía dưới/dưới là triết lý/câu nói/chữa lành", trả intent="quick_create_video", contentType="shorts", formatPreset là "cooking_philosophy" hoặc "daily_life_healing" hoặc "satisfying_stoic", topVisualType là "cooking"|"daily_life"|"satisfying", tone là "healing"|"stoic"|"motivational"|"relationship".
 - Nếu câu có chủ đề sau các cụm "về...", "chủ đề...", "nội dung...", trích xuất vào "topic". Nếu có đối tượng xem, trích xuất vào "targetAudience"; nếu không có thì bỏ trống.
 - Nếu câu chỉ hỏi mẫu/gợi ý/cách làm, ưu tiên recommend_schedule.
 
 Intent hợp lệ:
 view_schedule, view_status, list_pending_approval, preview_video, approve_publish, force_publish,
-reschedule_video, pause_campaign, resume_campaign, cancel_job, cancel_campaign, explain_job,
+reschedule_video, cancel_job, explain_job,
 recommend_schedule, render_music, remix_music, render_remix_music, create_music_video, quick_create_video, unknown.
 
 Schema:
 {
   "intent": "view_schedule",
   "confidence": 0.0,
-  "period": "today|week",
+  "period": "today|tomorrow|week",
   "jobId": 12,
   "campaignId": 1,
   "target": "latest_rendered|latest_pending|specific",
   "newTimeText": "YYYY-MM-DD HH:mm hoặc today 22:00 hoặc tomorrow 19:30 hoặc today hoặc tomorrow",
-  "songTitle": "Tên bài hát nếu tạo video âm nhạc độc lập mới",
-  "artistName": "Tên ca sĩ nếu tạo video âm nhạc độc lập mới",
+  "songTitle": "Tên bài hát cụ thể thực tế nếu người dùng nhắc đến rõ ràng, tuyệt đối để null nếu chỉ nói chung chung không có tên bài hát cụ thể (không lấy từ ngữ lệnh/thời gian làm tên bài)",
+  "artistName": "Tên ca sĩ cụ thể thực tế, tuyệt đối để null nếu không có ca sĩ cụ thể",
   "topic": "Chủ đề video nếu người dùng đã nói rõ",
   "targetAudience": "Đối tượng xem nếu người dùng đã nói rõ",
   "platform": "tiktok|youtube",
   "contentType": "shorts|video",
+  "formatPreset": "cooking_philosophy|daily_life_healing|satisfying_stoic",
+  "topVisualType": "cooking|daily_life|satisfying",
+  "tone": "healing|stoic|motivational|relationship",
   "reason": "ngắn gọn"
 }
 
@@ -373,30 +429,37 @@ Tin nhắn người dùng: "${text.replace(/"/g, '\\"')}"
 `;
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.1, responseMimeType: 'application/json' },
-      }),
-    });
-
-    if (!response.ok) return null;
-    const data: any = await response.json();
-    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const result = await generateContentWithFallback(prompt, { temperature: 0.1, responseMimeType: 'application/json' });
+    const raw = result.text;
     if (!raw) return null;
 
-    return coerceIntent(JSON.parse(raw), fallback);
+    return coerceIntent(cleanAndParseJson(raw), fallback);
   } catch (error) {
     console.error('[IntentRouter] Gemini intent parse failed:', error);
     return null;
   }
 }
 
-export async function parseBotIntent(text: string): Promise<BotIntent> {
-  const fallback = ruleBasedIntent(text);
-  const geminiIntent = await callGeminiIntent(text, fallback);
-  return geminiIntent || fallback;
+export async function parseBotIntent(text: string, defaultPlatform: 'tiktok' | 'youtube' = 'tiktok'): Promise<BotIntent> {
+  const fallback = ruleBasedIntent(text, defaultPlatform);
+  const geminiIntent = await callGeminiIntent(text, fallback, defaultPlatform);
+  const resolved = geminiIntent || fallback;
+
+  // Strong rule override: If there's an explicit jobId mentioned, it should NEVER be quick_create_video!
+  if (resolved.intent === 'quick_create_video' && fallback.jobId) {
+    if (fallback.intent === 'approve_publish' || fallback.intent === 'force_publish') {
+      resolved.intent = fallback.intent;
+    } else {
+      resolved.intent = 'reschedule_video';
+    }
+    resolved.jobId = fallback.jobId;
+  }
+
+  // Also if they ask to cancel/delete a specific job, override to cancel_job
+  if (resolved.intent === 'unknown' && fallback.intent === 'cancel_job' && fallback.jobId) {
+    resolved.intent = 'cancel_job';
+    resolved.jobId = fallback.jobId;
+  }
+
+  return resolved;
 }

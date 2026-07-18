@@ -25,8 +25,7 @@ orchestrator/.npm-cache/
 
 # Project specific paths (Sensitive session data & large media)
 worker/.env
-worker/chrome_profile/
-worker/chrome_profile_test/
+worker/chrome_profile*/
 worker/temp_assets/
 worker/output_videos/
 orchestrator/.env

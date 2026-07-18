@@ -11,24 +11,42 @@ import {
   updateActiveYouTubeTargets,
   updateYouTubeTarget,
 } from '../database/publishTargetRepo';
+import { decryptConnectionRefreshToken, getConnectedPlatformConnection, getPlatformConnectionById } from '../database/userConnectionRepo';
+import { Prisma } from '@prisma/client';
+import { schedulePublishWithSpacing } from '../scheduler/postingPolicy';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 const redisHost = process.env.REDIS_HOST || 'localhost';
 const redisPort = parseInt(process.env.REDIS_PORT || '6379', 10);
+let lastRedisErrorLogAt = 0;
+
+function logRedisConnectionIssue(error: any) {
+  const now = Date.now();
+  if (now - lastRedisErrorLogAt < 30000) return;
+  lastRedisErrorLogAt = now;
+
+  const message = error?.message || String(error);
+  console.warn(
+    `[Redis Warning] Worker chưa kết nối được Redis tại ${redisHost}:${redisPort}. ` +
+    `Hãy chạy "npm run dev:infra" trong thư mục orchestrator hoặc "docker compose up -d mysql redis" tại thư mục AgentTiktok. ` +
+    `Chi tiết: ${message}`
+  );
+}
 
 const connection = new IORedis({
   host: redisHost,
   port: redisPort,
   maxRetriesPerRequest: null,
 });
+connection.on('error', logRedisConnectionIssue);
 
 // Khởi tạo BullMQ Worker
 export const tiktokWorker = new Worker(
   'tiktok_jobs',
   async (job: Job) => {
-    const { jobId, type } = job.data;
+    const { jobId, type, publishTargetId } = job.data;
     const platform = job.data.platform || 'tiktok';
     console.log(`[Queue Worker] Received job #${jobId} (Type: ${type}, Platform: ${platform})`);
 
@@ -42,97 +60,80 @@ export const tiktokWorker = new Worker(
       },
     });
 
-    if (type === 'PUBLISH' && platform === 'youtube') {
-      try {
-        const publishTarget = await findActiveYouTubeTarget(jobId, ['APPROVED', 'PUBLISH_QUEUED', 'PUBLISHING']);
+    return new Promise(async (resolve, reject) => {
+      let proxyIp = '';
+      let proxyPort = 0;
+      let proxyUser = '';
+      let proxyPass = '';
 
-        if (!publishTarget) {
-          throw new Error(`No approved YouTube publish target found for job #${jobId}.`);
-        }
-
-        const jobForPublish = await prisma.videoPipelineJobs.findUnique({
-          where: { id: jobId },
-          include: { campaign: true },
-        });
-        if (!jobForPublish) throw new Error(`Video job #${jobId} was not found.`);
-
-        const videoPath = jobForPublish.video_output_path;
-        if (!videoPath || !fs.existsSync(videoPath)) {
-          throw new Error(`Rendered video file was not found for job #${jobId}: ${videoPath || 'empty path'}`);
-        }
-
-        await updateYouTubeTarget(publishTarget.id, { status: 'PUBLISHING', error_log: null });
-
-        const tags = parseTargetTags(publishTarget.tags);
-        const publisher = new YouTubePublisherService();
-        const result = await publisher.uploadVideo({
-          videoPath,
-          title: publishTarget.title || jobForPublish.video_title_idea || `Video #${jobId}`,
-          description: publishTarget.description || '',
-          tags,
-          privacyStatus: publishTarget.privacy_status,
-          scheduledPublishTime: publishTarget.scheduled_publish_time,
-        });
-
-        await updateYouTubeTarget(publishTarget.id, {
-          status: 'PUBLISHED',
-          external_video_id: result.videoId,
-          external_url: result.url,
-          error_log: null,
-        });
-
-        await prisma.processRealtimeLogs.create({
-          data: {
-            job_id: jobId,
-            execution_step: 'YOUTUBE_PUBLISH_SUCCESS',
-            status_level: 'SUCCESS',
-            log_message: `Published YouTube video: ${result.url}`,
-          },
-        });
-
+      if (type === 'PUBLISH') {
         try {
-          const { youtubeBot } = require('../telegram/youtubeBot');
-          const chatId = jobForPublish.campaign?.telegram_chat_id;
-          if (chatId && youtubeBot) {
-            await youtubeBot.telegram.sendMessage(
-              chatId.toString(),
-              `✅ ĐĂNG YOUTUBE THÀNH CÔNG (JOB #${jobId})\n━━━━━━━━━━━━━━━━━━━━━\n` +
-              `▪️ Tiêu đề: ${publishTarget.title || jobForPublish.video_title_idea || 'Video'}\n` +
-              `▪️ Link: ${result.url}`,
+          let publishTarget: any = null;
+          if (publishTargetId) {
+            const rows = await prisma.$queryRaw<any[]>(
+              Prisma.sql`SELECT * FROM publish_targets WHERE id = ${publishTargetId} LIMIT 1`
             );
+            publishTarget = rows[0] || null;
+          } else {
+            const rows = await prisma.$queryRaw<any[]>(
+              Prisma.sql`SELECT * FROM publish_targets WHERE job_id = ${jobId} AND status IN ('APPROVED', 'PUBLISH_QUEUED', 'PUBLISHING') LIMIT 1`
+            );
+            publishTarget = rows[0] || null;
           }
-        } catch (botErr) {
-          console.error('[Queue Worker] Failed to send YouTube success notification:', botErr);
+
+          if (publishTarget && publishTarget.platform_connection_id) {
+            const connRecord = await prisma.platformConnections.findUnique({
+              where: { id: publishTarget.platform_connection_id }
+            });
+            if (connRecord) {
+              // Find matching BotAccount
+              let botAccount = await prisma.botAccounts.findFirst({
+                where: {
+                  OR: [
+                    { bot_id: connRecord.external_account_id || undefined },
+                    { username: connRecord.account_name || undefined }
+                  ]
+                }
+              });
+
+              if (!botAccount && connRecord.account_name) {
+                const cleanName = connRecord.account_name.replace('@', '').toLowerCase();
+                const allBots = await prisma.botAccounts.findMany();
+                botAccount = allBots.find(b => {
+                  const bName = b.username.replace('@', '').toLowerCase();
+                  return bName.includes(cleanName) || cleanName.includes(bName);
+                }) || null;
+              }
+
+              if (botAccount) {
+                proxyIp = botAccount.proxy_ip || '';
+                proxyPort = botAccount.proxy_port || 0;
+                proxyUser = botAccount.proxy_user || '';
+                proxyPass = botAccount.proxy_pass || '';
+                console.log(`[Queue Worker] Dynamic proxy matched: ${proxyIp}:${proxyPort}`);
+              }
+            }
+          }
+        } catch (proxyErr) {
+          console.warn('[Queue Worker Warning] Failed to fetch proxy info:', proxyErr);
         }
-
-        return { success: true, platform: 'youtube', url: result.url };
-      } catch (error: any) {
-        const message = error?.message || String(error);
-        await updateActiveYouTubeTargets(jobId, ['APPROVED', 'PUBLISH_QUEUED', 'PUBLISHING'], 'FAILED', message);
-        await prisma.processRealtimeLogs.create({
-          data: {
-            job_id: jobId,
-            execution_step: 'YOUTUBE_PUBLISH_FAILED',
-            status_level: 'ERROR',
-            log_message: message,
-          },
-        });
-        throw error;
       }
-    }
 
-    return new Promise((resolve, reject) => {
       // Đường dẫn đến file main.py của Python Worker
       const pythonScriptPath = path.resolve(__dirname, '../../../worker/main.py');
       
       const projectRoot = path.resolve(__dirname, '../../..');
       const venvPythonPathWin = path.resolve(projectRoot, 'venv/Scripts/python.exe');
+      const venvPythonPathWin2 = path.resolve(projectRoot, 'AgentTiktok/venv/Scripts/python.exe');
       const venvPythonPathUnix = path.resolve(projectRoot, 'venv/bin/python');
       
       let pythonExecutable = 'python';
       if (fs.existsSync(venvPythonPathWin)) {
         pythonExecutable = venvPythonPathWin;
         console.log(`[Queue Worker] Using Windows virtualenv Python: ${pythonExecutable}`);
+      } else if (fs.existsSync(venvPythonPathWin2)) {
+        pythonExecutable = venvPythonPathWin2;
+        console.log(`[Queue Worker] Using Windows AgentTiktok virtualenv Python: ${pythonExecutable}`);
       } else if (fs.existsSync(venvPythonPathUnix)) {
         pythonExecutable = venvPythonPathUnix;
         console.log(`[Queue Worker] Using Unix virtualenv Python: ${pythonExecutable}`);
@@ -140,16 +141,31 @@ export const tiktokWorker = new Worker(
         console.log(`[Queue Worker] Virtualenv Python not found. Falling back to global 'python' executable.`);
       }
 
-      console.log(`[Queue Worker] Spawning Python worker: ${pythonScriptPath} --job-id ${jobId} --type ${type}`);
-
-      // Kích hoạt tiến trình Python
-      const pythonProcess = spawn(pythonExecutable, [
+      const pythonArgs = [
         pythonScriptPath,
         '--job-id',
         jobId.toString(),
         '--type',
         type,
-      ]);
+      ];
+      if (publishTargetId) {
+        pythonArgs.push('--publish-target-id', publishTargetId.toString());
+      }
+      if (proxyIp) {
+        pythonArgs.push('--proxy-ip', proxyIp);
+        pythonArgs.push('--proxy-port', proxyPort.toString());
+        if (proxyUser) {
+          pythonArgs.push('--proxy-user', proxyUser);
+        }
+        if (proxyPass) {
+          pythonArgs.push('--proxy-pass', proxyPass);
+        }
+      }
+
+      console.log(`[Queue Worker] Spawning Python worker: ${pythonExecutable} ${pythonArgs.join(' ')}`);
+
+      // Kích hoạt tiến trình Python
+      const pythonProcess = spawn(pythonExecutable, pythonArgs);
 
       let stdoutData = '';
       let stderrData = '';
@@ -240,50 +256,102 @@ export const tiktokWorker = new Worker(
                 where: { id: jobId },
                 include: { campaign: true }
               });
-              if (jobObj && jobObj.campaign) {
-                let isMusicVideo = false;
-                let songTitle = '';
-                let artistName = '';
-                let mood = '';
-                let remixStyle = 'Nguyên bản';
-                let caption = '';
-                
-                try {
-                  const meta = jobObj.scenes_layout_json 
-                    ? (typeof jobObj.scenes_layout_json === 'string' ? JSON.parse(jobObj.scenes_layout_json) : jobObj.scenes_layout_json)
-                    : {};
-                  const renderMode = meta.render_mode || '';
-                  if (meta && (meta.is_standalone_music_video || renderMode === 'music_reactive' || renderMode === 'music_remix_reactive')) {
-                    isMusicVideo = true;
-                    songTitle = meta.song_title || jobObj.video_title_idea;
-                    artistName = meta.artist_name || 'N/A';
-                    mood = meta.mood || meta.music_mood || 'N/A';
-                    remixStyle = meta.remix_style || 'Nguyên bản';
-                    caption = meta.caption || 'N/A';
-                  }
-                } catch (e) {}
+              if (jobObj) {
+                const campaign = jobObj.campaign;
+                const autoPublish = jobObj.auto_publish || campaign?.auto_publish;
 
-                if (isMusicVideo) {
-                  await bot.telegram.sendMessage(
-                    jobObj.campaign.telegram_chat_id.toString(),
-                    `🎵 *THÔNG BÁO HỆ THỐNG: KẾT XUẤT THÀNH CÔNG VIDEO ÂM NHẠC (JOB #${jobId})*\n━━━━━━━━━━━━━━━━━━━━━\n` +
-                    `▪️ Tên bài hát: *"${songTitle}"*\n` +
-                    `▪️ Ca sĩ/Nghệ sĩ: *"${artistName}"*\n` +
-                    `▪️ Cảm xúc (Mood): *"${mood}"*\n` +
-                    `▪️ Style Remix: *"${remixStyle}"*\n` +
-                    `▪️ Caption/Mô tả: _"${caption}"_\n\n` +
-                    `👉 *Yêu cầu thực thi:* Sử dụng liên kết nhanh /preview\\_${jobId} hoặc gửi lệnh \`/preview ${jobId}\` để thực hiện kiểm duyệt và phê duyệt xuất bản lên TikTok Studio.`,
-                    { parse_mode: 'Markdown' }
-                  );
-                } else {
-                  await bot.telegram.sendMessage(
-                    jobObj.campaign.telegram_chat_id.toString(),
-                    `🎬 *THÔNG BÁO HỆ THỐNG: KẾT XUẤT THÀNH CÔNG VIDEO NGÀY ${jobObj.day_number} (JOB #${jobId})*\n━━━━━━━━━━━━━━━━━━━━━\n` +
-                    `▪️ Tiêu đề/Ý tưởng: *"${jobObj.video_title_idea}"*\n` +
-                    `▪️ Cấu trúc Hook (3s): *"${jobObj.hook_text_3s}"*\n\n` +
-                    `👉 *Yêu cầu thực thi:* Sử dụng liên kết nhanh /preview\\_${jobId} hoặc gửi lệnh \`/preview ${jobId}\` để thực hiện kiểm duyệt và phê duyệt xuất bản lên TikTok Studio.`,
-                    { parse_mode: 'Markdown' }
-                  );
+                if (autoPublish) {
+                  console.log(`[Queue Worker] Auto-publish enabled for Job #${jobId}. Automatically scheduling publish...`);
+                  try {
+                    const { safePublishTime, delayMs } = await schedulePublishWithSpacing(jobId);
+                    const targetChatId = campaign?.telegram_chat_id || process.env.TELEGRAM_CHAT_ID;
+                    if (targetChatId) {
+                      await bot.telegram.sendMessage(
+                        targetChatId.toString(),
+                        `🎬 *THÔNG BÁO HỆ THỐNG: KẾT XUẤT THÀNH CÔNG & TỰ ĐỘNG PHÊ DUYỆT (JOB #${jobId})*\n━━━━━━━━━━━━━━━━━━━━━\n` +
+                        `▪️ Tiêu đề/Ý tưởng: *"${jobObj.video_title_idea}"*\n` +
+                        `▪️ Trạng thái: *Đã tự động duyệt (Auto-Publish)*\n` +
+                        `▪️ Giờ phát sóng: *${safePublishTime.toLocaleString('vi-VN')}* (sau ${Math.round(delayMs / 60000)} phút)\n\n` +
+                        `🔗 Video đã được xếp vào hàng đợi đăng tải có giãn cách an toàn.`,
+                        { parse_mode: 'Markdown' }
+                      );
+                    }
+                  } catch (spacingErr) {
+                    console.error('[Queue Worker Error] Failed to schedule auto-publish:', spacingErr);
+                  }
+                } else if (campaign) {
+                  let isMusicVideo = false;
+                  let songTitle = '';
+                  let artistName = '';
+                  let mood = '';
+                  let remixStyle = 'Nguyên bản';
+                  let caption = '';
+                  
+                  try {
+                    const meta = jobObj.scenes_layout_json 
+                      ? (typeof jobObj.scenes_layout_json === 'string' ? JSON.parse(jobObj.scenes_layout_json) : jobObj.scenes_layout_json)
+                      : {};
+                    const renderMode = meta.render_mode || '';
+                    if (meta && (meta.is_standalone_music_video || renderMode === 'music_reactive' || renderMode === 'music_remix_reactive')) {
+                      isMusicVideo = true;
+                      songTitle = meta.song_title || jobObj.video_title_idea;
+                      artistName = meta.artist_name || 'N/A';
+                      mood = meta.mood || meta.music_mood || 'N/A';
+                      remixStyle = meta.remix_style || 'Nguyên bản';
+                      caption = meta.caption || 'N/A';
+                    }
+                  } catch (e) {}
+
+                  if (isMusicVideo) {
+                    await bot.telegram.sendMessage(
+                      campaign.telegram_chat_id.toString(),
+                      `🎵 *THÔNG BÁO HỆ THỐNG: KẾT XUẤT THÀNH CÔNG VIDEO AM NHẠC (JOB #${jobId})*\n━━━━━━━━━━━━━━━━━━━━━\n` +
+                      `▪️ Tên bài hát: *"${songTitle}"*\n` +
+                      `▪️ Ca sĩ/Nghệ sĩ: *"${artistName}"*\n` +
+                      `▪️ Cảm xúc (Mood): *"${mood}"*\n` +
+                      `▪️ Style Remix: *"${remixStyle}"*\n` +
+                      `▪️ Caption/Mô tả: _"${caption}"_\n\n` +
+                      `👉 *Yêu cầu thực thi:* Sử dụng liên kết nhanh /preview\\_${jobId} hoặc gửi lệnh \`/preview ${jobId}\` để thực hiện kiểm duyệt và phê duyệt xuất bản lên TikTok Studio.`,
+                      { parse_mode: 'Markdown' }
+                    );
+                  } else {
+                    // Kiểm tra nếu là tác vụ dịch thuật lồng tiếng (DUB)
+                    const isDubJob = String(jobObj.video_title_idea || '').includes('[DUB]') || jobObj.scenes_layout_json?.toString().includes('translate_dub');
+                    
+                    if (isDubJob) {
+                      try {
+                        // Tự động tải lên và phân phối video thành phẩm trực tiếp cho người dùng
+                        const { handlePreviewLogic } = require('../telegram/bot');
+                        const mockCtx = {
+                          chat: { id: campaign.telegram_chat_id },
+                          reply: (msg: string) => bot.telegram.sendMessage(campaign.telegram_chat_id.toString(), msg),
+                          replyWithHTML: (msg: string, kb: any) => bot.telegram.sendMessage(campaign.telegram_chat_id.toString(), msg, { parse_mode: 'HTML', reply_markup: kb?.reply_markup }),
+                          replyWithVideo: (source: any, extra: any) => bot.telegram.sendVideo(campaign.telegram_chat_id.toString(), source.source, extra),
+                          replyWithDocument: (source: any, extra: any) => bot.telegram.sendDocument(campaign.telegram_chat_id.toString(), source.source, extra),
+                        };
+                        await handlePreviewLogic(mockCtx, jobId);
+                      } catch (dubErr) {
+                        console.error('[Queue Worker Error] Failed to auto-deliver dub video:', dubErr);
+                        // Fallback gửi tin nhắn báo thành công tiêu chuẩn
+                        await bot.telegram.sendMessage(
+                          campaign.telegram_chat_id.toString(),
+                          `🎬 *THÔNG BÁO HỆ THỐNG: KẾT XUẤT THÀNH CÔNG VIDEO LỒNG TIẾNG (JOB #${jobId})*\n━━━━━━━━━━━━━━━━━━━━━\n` +
+                          `▪️ Tiêu đề: *"${jobObj.video_title_idea}"*\n\n` +
+                          `👉 Sử dụng lệnh \`/preview ${jobId}\` để tải video về!`,
+                          { parse_mode: 'Markdown' }
+                        );
+                      }
+                    } else {
+                      await bot.telegram.sendMessage(
+                        campaign.telegram_chat_id.toString(),
+                        `🎬 *THÔNG BÁO HỆ THỐNG: KẾT XUẤT THÀNH CÔNG VIDEO NGÀY ${jobObj.day_number} (JOB #${jobId})*\n━━━━━━━━━━━━━━━━━━━━━\n` +
+                        `▪️ Tiêu đề/Ý tưởng: *"${jobObj.video_title_idea}"*\n` +
+                        `▪️ Cấu trúc Hook (3s): *"${jobObj.hook_text_3s}"*\n\n` +
+                        `👉 *Yêu cầu thực thi:* Sử dụng liên kết nhanh /preview\\_${jobId} hoặc gửi lệnh \`/preview ${jobId}\` để thực hiện kiểm duyệt và phê duyệt xuất bản lên TikTok Studio.`,
+                        { parse_mode: 'Markdown' }
+                      );
+                    }
+                  }
                 }
               }
             } else if (type === 'PUBLISH') {
@@ -292,11 +360,21 @@ export const tiktokWorker = new Worker(
                 include: { campaign: true }
               });
               if (jobObj && jobObj.campaign) {
+                let platformName = 'TikTok Studio';
+                try {
+                  const rows = await prisma.$queryRaw<any[]>(
+                    Prisma.sql`SELECT platform FROM publish_targets WHERE job_id = ${jobId} LIMIT 1`
+                  );
+                  if (rows[0] && rows[0].platform === 'youtube') {
+                    platformName = 'YouTube Studio';
+                  }
+                } catch (e) {}
+
                 await bot.telegram.sendMessage(
                   jobObj.campaign.telegram_chat_id.toString(),
                   `🚀 *THÔNG BÁO HỆ THỐNG: XUẤT BẢN THÀNH CÔNG VIDEO NGÀY ${jobObj.day_number} (JOB #${jobId})*\n━━━━━━━━━━━━━━━━━━━━━\n` +
                   `▪️ Tiêu đề/Ý tưởng: *"${jobObj.video_title_idea}"*\n\n` +
-                  `🔗 *Xác nhận:* Tác vụ đã được tự động đăng tải thành công lên TikTok Studio. Vui lòng truy cập trang quản trị để xác minh trạng thái hiển thị của bài viết.`,
+                  `🔗 *Xác nhận:* Tác vụ đã được tự động đăng tải thành công lên ${platformName}. Vui lòng truy cập trang quản trị để xác minh trạng thái hiển thị của bài viết.`,
                   { parse_mode: 'Markdown' }
                 );
               }
