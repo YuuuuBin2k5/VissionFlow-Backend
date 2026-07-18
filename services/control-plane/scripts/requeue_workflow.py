@@ -1,12 +1,16 @@
 """
-Manual re-queue script: push a new QUEUED state_changed event to Redis
-for a workflow that is stuck (event was already acked but processing failed).
+Manual re-queue script: push QUEUED state_changed events to Redis
+for workflows that are stuck (event was already acked but processing failed).
 
 Usage:
+    # Re-queue a specific workflow
     python services/control-plane/scripts/requeue_workflow.py \
         --workflow-run-id 1db3e73f-cd36-4355-8569-19f1528bb137
 
-Env vars required (same as relay_outbox.py):
+    # Auto re-queue ALL workflows currently stuck in QUEUED state
+    python services/control-plane/scripts/requeue_workflow.py --all
+
+Env vars required:
     DATABASE_URL   — PostgreSQL connection string
     REDIS_URL      — Redis connection string
 """
@@ -27,93 +31,112 @@ SERVICE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SERVICE_ROOT))
 
 from app.infrastructure.database import get_engine  # noqa: E402
-from app.infrastructure.models import OutboxEvent, VideoProject, WorkflowRun  # noqa: E402
+from app.infrastructure.models import VideoProject, WorkflowRun  # noqa: E402
 from app.infrastructure.redis_stream_publisher import RedisStreamSettings  # noqa: E402
 
 
+def requeue_one(run: WorkflowRun, project: VideoProject, redis_client: Redis, stream: str, dry_run: bool) -> bool:
+    """Push one QUEUED workflow event back into Redis. Returns True on success."""
+    if not project.brief or not str(project.brief).strip():
+        print(f"  SKIP {run.id}: brief is empty")
+        return False
+
+    event_id = uuid.uuid4()
+    payload = {
+        "workflow_run_id": str(run.id),
+        "organization_id": str(project.organization_id),
+        "from_state": "READY",
+        "to_state": "QUEUED",
+        "step_key": "queue",
+        "intake": {
+            "title": project.title,
+            "brief": project.brief,
+            "format_profile": project.format_profile,
+            "timezone": project.timezone,
+            "input_payload": run.input_payload,
+            "prompt_manifest": run.prompt_manifest,
+        },
+    }
+
+    fields = {
+        "event_id": str(event_id),
+        "event_type": "visionflow.workflow_run.state_changed.v1",
+        "aggregate_type": "workflow_run",
+        "aggregate_id": str(run.id),
+        "trace_id": uuid.uuid4().hex,
+        "payload": json.dumps(payload, separators=(",", ":"), sort_keys=True),
+    }
+
+    if dry_run:
+        print(f"  DRY RUN: would push event for {run.id} ({project.title[:50]})")
+        return True
+
+    msg_id = redis_client.xadd(stream, fields)
+    print(f"  OK: pushed {run.id} ({project.title[:50]}) -> Redis msg {msg_id}")
+    return True
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Re-queue a stuck QUEUED workflow into Redis stream")
-    parser.add_argument("--workflow-run-id", required=True, help="UUID of the WorkflowRun to re-queue")
+    parser = argparse.ArgumentParser(description="Re-queue stuck QUEUED workflows into Redis stream")
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--workflow-run-id", help="UUID of a specific WorkflowRun to re-queue")
+    group.add_argument("--all", action="store_true", help="Re-queue ALL workflows currently in QUEUED state")
     parser.add_argument("--dry-run", action="store_true", help="Print payload without pushing to Redis")
     args = parser.parse_args()
 
-    workflow_run_id = uuid.UUID(args.workflow_run_id)
+    redis_settings = RedisStreamSettings.from_env()
+    redis_client = Redis.from_url(redis_settings.url, decode_responses=True) if not args.dry_run else None
 
     with Session(get_engine()) as session:
-        run = session.scalar(
-            select(WorkflowRun)
-            .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
-            .where(WorkflowRun.id == workflow_run_id)
-        )
-        if run is None:
-            print(f"ERROR: WorkflowRun {workflow_run_id} not found")
-            return 1
+        if args.all:
+            # Find all workflows stuck in QUEUED
+            rows = session.execute(
+                select(WorkflowRun, VideoProject)
+                .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
+                .where(WorkflowRun.state == "QUEUED")
+            ).all()
 
-        project = session.get(VideoProject, run.project_id)
-        if project is None:
-            print(f"ERROR: VideoProject for workflow {workflow_run_id} not found")
-            return 1
+            if not rows:
+                print("No workflows in QUEUED state. Nothing to do.")
+                return 0
 
-        print(f"WorkflowRun: {run.id}")
-        print(f"State: {run.state}")
-        print(f"Title: {project.title}")
-        print(f"Brief preview: {str(project.brief)[:80]}...")
+            print(f"Found {len(rows)} QUEUED workflow(s) to re-queue:")
+            success = 0
+            for run, project in rows:
+                ok = requeue_one(run, project, redis_client, redis_settings.stream, args.dry_run)
+                if ok:
+                    success += 1
 
-        if run.state != "QUEUED":
-            print(f"WARNING: Workflow is in state '{run.state}', not QUEUED.")
-            print("Only re-queue workflows that are stuck in QUEUED state.")
-            if run.state in ("PLANNING", "SCRIPTED", "STORYBOARDED", "ASSETS_READY", "RENDERING"):
-                print("Workflow is already being processed — do not re-queue.")
+            print(f"\nRe-queued {success}/{len(rows)} workflows.")
+            if success > 0 and not args.dry_run:
+                print("Now run consume_visionflow_events.py --once to process them.")
+        else:
+            # Single workflow
+            workflow_run_id = uuid.UUID(args.workflow_run_id)
+            run = session.scalar(
+                select(WorkflowRun)
+                .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
+                .where(WorkflowRun.id == workflow_run_id)
+            )
+            if run is None:
+                print(f"ERROR: WorkflowRun {workflow_run_id} not found")
                 return 1
 
-        # Build event payload — same structure as workflow_progression_repository
-        event_id = uuid.uuid4()
-        payload = {
-            "workflow_run_id": str(run.id),
-            "organization_id": str(project.organization_id),
-            "from_state": "READY",
-            "to_state": "QUEUED",
-            "step_key": "queue",
-            "intake": {
-                "title": project.title,
-                "brief": project.brief,
-                "format_profile": project.format_profile,
-                "timezone": project.timezone,
-                "input_payload": run.input_payload,
-                "prompt_manifest": run.prompt_manifest,
-            },
-        }
+            project = session.get(VideoProject, run.project_id)
+            if project is None:
+                print(f"ERROR: VideoProject for workflow {workflow_run_id} not found")
+                return 1
 
-        # Validate brief is present
-        if not payload["intake"]["brief"] or not str(payload["intake"]["brief"]).strip():
-            print("ERROR: Brief is empty — cannot re-queue. Check project.brief in database.")
-            return 1
+            print(f"WorkflowRun: {run.id} | State: {run.state} | Title: {project.title}")
 
-        fields = {
-            "event_id": str(event_id),
-            "event_type": "visionflow.workflow_run.state_changed.v1",
-            "aggregate_type": "workflow_run",
-            "aggregate_id": str(run.id),
-            "trace_id": uuid.uuid4().hex,
-            "payload": json.dumps(payload, separators=(",", ":"), sort_keys=True),
-        }
+            if run.state != "QUEUED":
+                print(f"ERROR: Workflow is '{run.state}', not QUEUED. Aborting.")
+                return 1
 
-        print("\n--- Event payload ---")
-        print(json.dumps(payload, indent=2, default=str))
-        print("---------------------\n")
+            ok = requeue_one(run, project, redis_client, redis_settings.stream, args.dry_run)
+            return 0 if ok else 1
 
-        if args.dry_run:
-            print("DRY RUN — not pushing to Redis.")
-            return 0
-
-        redis_settings = RedisStreamSettings.from_env()
-        client = Redis.from_url(redis_settings.url, decode_responses=True)
-        msg_id = client.xadd(redis_settings.stream, fields)
-        print(f"SUCCESS: Pushed event to Redis stream '{redis_settings.stream}'")
-        print(f"Message ID: {msg_id}")
-        print(f"Event ID: {event_id}")
-        print("\nNow run consume_visionflow_events.py --once to process it.")
-        return 0
+    return 0
 
 
 if __name__ == "__main__":

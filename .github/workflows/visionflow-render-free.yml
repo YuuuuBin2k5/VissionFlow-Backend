@@ -19,11 +19,6 @@ on:
           - "1"
           - "2"
           - "3"
-      requeue_workflow_run_id:
-        description: "Optional: UUID of a QUEUED workflow to re-inject into Redis (use when event was acked but worker crashed)."
-        required: false
-        type: string
-        default: ""
 
 permissions:
   contents: read
@@ -74,13 +69,11 @@ jobs:
       - name: Install relay and render dependencies
         run: python -m pip install --upgrade pip && python -m pip install -r services/control-plane/requirements.txt -r worker/requirements.txt
 
-      - name: Re-inject stuck QUEUED workflow into Redis (if requeue_workflow_run_id provided)
-        if: ${{ inputs.requeue_workflow_run_id != '' }}
+      - name: Auto-requeue all QUEUED workflows into Redis (handles acked-but-unprocessed events)
         shell: bash
         run: |
-          echo "Re-queuing stuck workflow: ${{ inputs.requeue_workflow_run_id }}"
-          python services/control-plane/scripts/requeue_workflow.py \
-            --workflow-run-id "${{ inputs.requeue_workflow_run_id }}"
+          echo "Checking for QUEUED workflows stuck in Redis..."
+          python services/control-plane/scripts/requeue_workflow.py --all
 
       - name: Relay and execute bounded short-form work
         shell: bash
