@@ -63,7 +63,7 @@ class CreateProposalRequest(BaseModel):
 
 class AcceptProposalRequest(BaseModel):
     organization_id: uuid.UUID
-    expected_revision: int
+    expected_session_revision: int
     idempotency_key: str = Field(min_length=16, max_length=128)
 
 
@@ -426,7 +426,7 @@ def accept_proposal(
             session_id=session_id,
             proposal_id=proposal_id,
             organization_id=body.organization_id,
-            expected_revision=body.expected_revision,
+            expected_revision=body.expected_session_revision,
             idempotency_key=body.idempotency_key,
         )
         return res

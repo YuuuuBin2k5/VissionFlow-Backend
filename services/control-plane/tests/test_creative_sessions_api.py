@@ -476,7 +476,7 @@ class CreativeSessionsApiTests(unittest.TestCase):
             f"/api/v1/creative-sessions/{sess_id}/proposals/{proposal.id}/accept",
             json={
                 "organization_id": str(self.org_id),
-                "expected_revision": 0,
+                "expected_session_revision": 0,
                 "idempotency_key": "accept-idemp-unique-5555",
             }
         )
