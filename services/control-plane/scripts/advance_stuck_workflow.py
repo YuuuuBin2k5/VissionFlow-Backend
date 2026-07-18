@@ -29,7 +29,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]  # VisionFlow_Bakend root
 sys.path.insert(0, str(SERVICE_ROOT))
+sys.path.insert(0, str(REPO_ROOT))
 
 
 def main() -> int:
