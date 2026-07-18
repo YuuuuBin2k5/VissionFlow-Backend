@@ -75,6 +75,12 @@ jobs:
           echo "Checking for QUEUED workflows stuck in Redis..."
           python services/control-plane/scripts/requeue_workflow.py --all
 
+      - name: Advance workflows stuck in PLANNING state (worker crashed mid-intelligence)
+        shell: bash
+        run: |
+          echo "Checking for PLANNING workflows stuck mid-intelligence..."
+          python services/control-plane/scripts/advance_stuck_workflow.py --all
+
       - name: Relay and execute bounded short-form work
         shell: bash
         run: |
