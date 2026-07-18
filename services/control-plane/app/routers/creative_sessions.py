@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import uuid
 from typing import Any
@@ -33,6 +33,7 @@ router = APIRouter(tags=["creative_sessions"])
 
 # Request models
 class CreateSessionRequest(BaseModel):
+    title: str | None = None
     creation_spec: dict
     idempotency_key: str = Field(min_length=16, max_length=128)
 
@@ -202,13 +203,40 @@ def create_session(
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
             identity.subject, organization_id, Permission.WORKFLOW_CREATE
         )
+        spec = dict(body.creation_spec)
+        if not spec.get("title") and body.title:
+            spec["title"] = body.title.strip()
+        if not spec.get("brief") and spec.get("title"):
+            spec["brief"] = spec["title"]
+        if not spec.get("timezone"):
+            spec["timezone"] = "Asia/Bangkok"
+
         manager = _get_manager(session)
         sess_id = manager.create_session(
             organization_id=organization_id,
-            creation_spec_dict=body.creation_spec,
+            creation_spec_dict=spec,
             idempotency_key=body.idempotency_key,
         )
-        return {"session_id": str(sess_id)}
+
+        details = manager.get_session_details(
+            session_id=sess_id,
+            organization_id=organization_id,
+            message_limit=1,
+            message_offset=0,
+            proposal_limit=1,
+            proposal_offset=0,
+        )
+
+        from datetime import datetime, UTC
+        return {
+            "session_id": str(sess_id),
+            "organization_id": str(organization_id),
+            "title": details.get("creation_spec", {}).get("title", ""),
+            "creation_spec": details.get("creation_spec"),
+            "session_revision": details.get("revision", 0),
+            "created": True,
+            "created_at": datetime.now(UTC).isoformat(),
+        }
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
     except Exception as exc:
