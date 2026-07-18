@@ -25,20 +25,29 @@ class LegacyLlmShortFormGenerator:
     """Anti-corruption adapter around the existing Gemini/LLM implementation."""
 
     def generate(self, intake: dict[str, Any]) -> dict[str, Any]:
-        from worker.services.llm_service import LLMService
-
         input_payload = intake.get("input_payload", {})
         if not isinstance(input_payload, dict):
             raise ValueError("intake input_payload must be an object")
-        creative_draft = input_payload.get("creative_draft")
+
+        # Priority 1: use locked creative document from Control Plane
         creative_document = intake.get("creative_document")
         if isinstance(creative_document, dict) and creative_document.get("state") == "locked":
             script = creative_document.get("script")
             scenes = creative_document.get("scenes")
             if isinstance(script, str) and isinstance(scenes, list):
                 return {"full_voice_script": script, "scenes_layout_json": scenes}
+            raise ValueError(
+                f"Creative document is locked but missing script/scenes. "
+                f"script={type(script)}, scenes={type(scenes)}"
+            )
+
+        # Priority 2: use creative_draft from input_payload
+        creative_draft = input_payload.get("creative_draft")
         if isinstance(creative_draft, dict) and isinstance(creative_draft.get("script"), str) and isinstance(creative_draft.get("scenes"), list):
             return {"full_voice_script": creative_draft["script"], "scenes_layout_json": creative_draft["scenes"]}
+
+        # Fallback: call LLM (only when no pre-approved content exists)
+        from worker.services.llm_service import LLMService
         return LLMService().generate_video_details(
             day_number=1,
             topic=str(intake["brief"]),
