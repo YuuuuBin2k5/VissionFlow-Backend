@@ -64,12 +64,21 @@ class VisionFlowShortFormIntelligence:
         self._gateway = gateway
         self._generator = generator
 
-    def execute(self, workflow_run_id: str, intake: dict[str, Any], *, event_id: str, trace_id: str | None) -> VisionFlowIntelligenceResult:
-        planning = self._gateway.advance_workflow(
-            workflow_run_id, "QUEUED", "PLANNING", {"event_id": event_id, "worker": "visionflow-intelligence"}, trace_id=trace_id,
-        )
+    def execute(self, workflow_run_id: str, intake: dict[str, Any], *, event_id: str, trace_id: str | None) -> VisionFlowIntelligenceResult | None:
+        try:
+            planning = self._gateway.advance_workflow(
+                workflow_run_id, "QUEUED", "PLANNING", {"event_id": event_id, "worker": "visionflow-intelligence"}, trace_id=trace_id,
+            )
+        except Exception as exc:
+            msg = str(exc)
+            if "409" in msg or "state conflict" in msg.lower():
+                print(f"Workflow {workflow_run_id} is already claimed or beyond QUEUED state ({exc}); skipping intelligence step.")
+                return None
+            raise
+
         if not planning.get("changed", False):
-            raise RuntimeError("workflow was already claimed; refusing to repeat intelligence generation")
+            print(f"Workflow {workflow_run_id} QUEUED->PLANNING transition did not change state; skipping intelligence step.")
+            return None
         generated = self._generator.generate(intake)
         script, scenes = _validate_generated(generated)
         self._gateway.advance_workflow(
