@@ -120,6 +120,7 @@ class VisionFlowVideoRendererStylePlanTests(unittest.TestCase):
             "A script suitable for a caption compositor integration test.",
             [{"scene_id": "scene-01", "duration": 5, "visual_search_keywords": "city"}],
             {"state": "locked", "version_id": "composition-version-1", "aspect_ratio": "9:16", "tracks": []},
+            authoritative_render_plan_fingerprint="a" * 64,
         )
         storage, captions = Storage(), Captions()
         with tempfile.TemporaryDirectory() as workspace_root:

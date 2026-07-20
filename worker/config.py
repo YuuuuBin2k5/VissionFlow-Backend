@@ -90,12 +90,12 @@ BROWSER_EXTRA_ARGS = [
 ]
 
 # PostgreSQL Control Plane Adapter Feature Flag & URL
-VISIONFLOW_USE_PG_ADAPTER = os.environ.get("VISIONFLOW_USE_PG_ADAPTER", "false").lower() == "true"
-VISIONFLOW_CONTROL_PLANE_URL = os.environ.get("VISIONFLOW_CONTROL_PLANE_URL", "http://localhost:8000/api/v1")
-VISIONFLOW_ORGANIZATION_ID = os.environ.get("VISIONFLOW_ORGANIZATION_ID", "")
+VISIONFLOW_USE_PG_ADAPTER = os.environ.get("VISIONFLOW_USE_PG_ADAPTER", "true").lower() == "true"
+VISIONFLOW_CONTROL_PLANE_URL = os.environ.get("VISIONFLOW_CONTROL_PLANE_URL", "https://visionflow-control-plane-free.onrender.com/api/v1")
+VISIONFLOW_ORGANIZATION_ID = os.environ.get("VISIONFLOW_ORGANIZATION_ID", "7b91598c-6c3e-4e5d-8247-d3efa203984a")
 
 # Narration handoff mode config & validation
-VISIONFLOW_NARRATION_HANDOFF_MODE = os.environ.get("VISIONFLOW_NARRATION_HANDOFF_MODE", "legacy").lower()
+VISIONFLOW_NARRATION_HANDOFF_MODE = os.environ.get("VISIONFLOW_NARRATION_HANDOFF_MODE", "control_plane").lower()
 APP_ENV = os.environ.get("APP_ENV", "development").lower()
 
 
