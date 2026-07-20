@@ -35,7 +35,7 @@ class VideoQualityScoringService:
             warnings.append("Hook card lasts too long; target 1.0-1.5s for short-form.")
             score -= 5
 
-        long_captions = [chunk.get("text", "") for chunk in subtitle_chunks if len(str(chunk.get("text", "")).split()) > 6]
+        long_captions = [self._extract_chunk_text(chunk) for chunk in subtitle_chunks if len(self._extract_chunk_text(chunk).split()) > 6]
         if long_captions:
             warnings.append(f"{len(long_captions)} subtitle chunk(s) exceed the 3-6 word target.")
             score -= min(12, len(long_captions) * 3)
@@ -54,6 +54,27 @@ class VideoQualityScoringService:
             score -= 8
 
         return self._report(score, warnings)
+
+    def _extract_chunk_text(self, chunk: object) -> str:
+        if isinstance(chunk, dict):
+            return str(chunk.get("text", ""))
+        if isinstance(chunk, list):
+            return " ".join(str(w.get("word", "")) for w in chunk if isinstance(w, dict))
+        return ""
+
+    def _extract_chunk_start_s(self, chunk: object) -> float:
+        if isinstance(chunk, dict):
+            return float(chunk.get("start_s", 0) or chunk.get("start_ms", 0) / 1000.0 or 0)
+        if isinstance(chunk, list) and chunk and isinstance(chunk[0], dict):
+            return float(chunk[0].get("start_s", 0) or chunk[0].get("start_ms", 0) / 1000.0 or 0)
+        return 0.0
+
+    def _extract_chunk_end_s(self, chunk: object) -> float:
+        if isinstance(chunk, dict):
+            return float(chunk.get("end_s", 0) or chunk.get("end_ms", 0) / 1000.0 or 0)
+        if isinstance(chunk, list) and chunk and isinstance(chunk[-1], dict):
+            return float(chunk[-1].get("end_s", 0) or chunk[-1].get("end_ms", 0) / 1000.0 or 0)
+        return 0.0
 
     def score_music_plan(
         self,
@@ -105,12 +126,12 @@ class VideoQualityScoringService:
     def _dead_gaps(self, chunks: list, total_duration: float, limit: float) -> list:
         if not chunks:
             return [(0.0, total_duration)] if total_duration > limit else []
-        sorted_chunks = sorted(chunks, key=lambda chunk: float(chunk.get("start_s", 0) or 0))
+        sorted_chunks = sorted(chunks, key=lambda chunk: self._extract_chunk_start_s(chunk))
         gaps = []
         cursor = 0.0
         for chunk in sorted_chunks:
-            start = float(chunk.get("start_s", 0) or 0)
-            end = float(chunk.get("end_s", start) or start)
+            start = self._extract_chunk_start_s(chunk)
+            end = max(start, self._extract_chunk_end_s(chunk))
             if start - cursor > limit:
                 gaps.append((round(cursor, 3), round(start, 3)))
             cursor = max(cursor, end)
