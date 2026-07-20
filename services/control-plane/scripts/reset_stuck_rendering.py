@@ -160,7 +160,7 @@ def requeue_to_redis(run: WorkflowRun, project: VideoProject, redis_client: Redi
 # Core reset logic
 # ---------------------------------------------------------------------------
 
-RECOVERABLE_STATES = ("RENDERING", "ASSETS_READY")
+RECOVERABLE_STATES = ("RENDERING", "ASSETS_READY", "FAILED")
 
 def reset_one(
     run: WorkflowRun,
@@ -180,7 +180,7 @@ def reset_one(
         return False
 
     if dry_run:
-        print(f"  DRY RUN: would reset {current_state} → STORYBOARDED → requeue to QUEUED")
+        print(f"  DRY RUN: would reset {current_state} → requeue to QUEUED")
         return True
 
     # Step 1: Fetch storyboard output from execution context to rebuild output_payload
@@ -191,22 +191,11 @@ def reset_one(
         scenes = storyboard_output.get("scenes", [])
         scene_count = storyboard_output.get("scene_count", len(scenes))
     except Exception as exc:
-        # If we can't get context, use minimal placeholder — transition will still work
         print(f"  WARN: Could not fetch execution context ({exc}), using empty storyboard payload")
         scenes = []
         scene_count = 0
 
-    # Step 2: Reset to STORYBOARDED (via intermediate states if needed)
     if current_state == "RENDERING":
-        # RENDERING → STORYBOARDED: not a direct legal transition.
-        # We must go RENDERING → ASSETS_READY → STORYBOARDED.
-        # Actually the cleanest approach is to reset state directly; but the
-        # Control Plane enforces state machine rules. So we use the FAILED
-        # escape hatch then requeue.
-        #
-        # Alternative (used here): mark as FAILED then immediately push
-        # a fresh QUEUED event to Redis, which the next worker pass will
-        # pick up and treat as a brand-new run starting from QUEUED→PLANNING.
         print(f"  Marking RENDERING → FAILED (escape hatch)...")
         try:
             client.transition(
@@ -223,21 +212,15 @@ def reset_one(
             print(f"  ERROR: Could not mark as FAILED: {exc}")
             return False
 
-        # Step 3: Push a fresh QUEUED event to Redis so the next worker
-        # sees it and starts the full pipeline again.
         try:
             msg_id = requeue_to_redis(run, project, redis_client, redis_stream)
             print(f"  ✓ Re-queued to Redis → msg {msg_id}")
-            print(f"  NOTE: Full pipeline will re-run (QUEUED → PLANNING → SCRIPTED → STORYBOARDED → RENDERING)")
-            print(f"  NOTE: AI content will be regenerated; existing composition will be reused if locked.")
         except Exception as exc:
             print(f"  ERROR: Could not push to Redis: {exc}")
             return False
 
-    elif current_state == "ASSETS_READY":
-        # ASSETS_READY → RENDERING is valid. Just push to Redis.
-        # The worker will pick up and start from ASSETS_READY (after requeue).
-        print(f"  State is ASSETS_READY — pushing to Redis for immediate retry...")
+    elif current_state in ("ASSETS_READY", "FAILED"):
+        print(f"  State is {current_state} — pushing to Redis for re-attempt...")
         try:
             msg_id = requeue_to_redis(run, project, redis_client, redis_stream)
             print(f"  ✓ Re-queued to Redis → msg {msg_id}")
