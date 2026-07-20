@@ -165,6 +165,7 @@ RECOVERABLE_STATES = ("RENDERING", "ASSETS_READY", "FAILED")
 def reset_one(
     run: WorkflowRun,
     project: VideoProject,
+    session: Session,
     client: ControlPlaneClient,
     redis_client: Redis | None,
     redis_stream: str,
@@ -180,53 +181,27 @@ def reset_one(
         return False
 
     if dry_run:
-        print(f"  DRY RUN: would reset {current_state} → requeue to QUEUED")
+        print(f"  DRY RUN: would reset {current_state} → QUEUED")
         return True
 
-    # Step 1: Fetch storyboard output from execution context to rebuild output_payload
+    # Directly set DB state back to QUEUED so Control Plane API and Web UI see QUEUED
     try:
-        ctx = client.get_execution_context(str(run.id))
-        steps = ctx.get("steps", {})
-        storyboard_output = steps.get("storyboard") or {}
-        scenes = storyboard_output.get("scenes", [])
-        scene_count = storyboard_output.get("scene_count", len(scenes))
+        run.state = "QUEUED"
+        run.failure_code = None
+        session.commit()
+        print(f"  ✓ Direct DB reset {current_state} → QUEUED")
     except Exception as exc:
-        print(f"  WARN: Could not fetch execution context ({exc}), using empty storyboard payload")
-        scenes = []
-        scene_count = 0
+        session.rollback()
+        print(f"  ERROR: Could not update DB state to QUEUED: {exc}")
+        return False
 
-    if current_state == "RENDERING":
-        print(f"  Marking RENDERING → FAILED (escape hatch)...")
-        try:
-            client.transition(
-                str(run.id),
-                expected_state="RENDERING",
-                target_state="FAILED",
-                output_payload={
-                    "failure_code": "RENDER_RUNNER_INTERRUPTED",
-                    "failure_reason": "Worker runner was interrupted mid-render. Reset by reset_stuck_rendering.py for re-attempt.",
-                },
-            )
-            print(f"  ✓ FAILED")
-        except Exception as exc:
-            print(f"  ERROR: Could not mark as FAILED: {exc}")
-            return False
-
-        try:
-            msg_id = requeue_to_redis(run, project, redis_client, redis_stream)
-            print(f"  ✓ Re-queued to Redis → msg {msg_id}")
-        except Exception as exc:
-            print(f"  ERROR: Could not push to Redis: {exc}")
-            return False
-
-    elif current_state in ("ASSETS_READY", "FAILED"):
-        print(f"  State is {current_state} — pushing to Redis for re-attempt...")
-        try:
-            msg_id = requeue_to_redis(run, project, redis_client, redis_stream)
-            print(f"  ✓ Re-queued to Redis → msg {msg_id}")
-        except Exception as exc:
-            print(f"  ERROR: Could not push to Redis: {exc}")
-            return False
+    # Push to Redis Stream for worker consumption
+    try:
+        msg_id = requeue_to_redis(run, project, redis_client, redis_stream)
+        print(f"  ✓ Re-queued to Redis → msg {msg_id}")
+    except Exception as exc:
+        print(f"  ERROR: Could not push to Redis: {exc}")
+        return False
 
     return True
 
@@ -237,7 +212,7 @@ def reset_one(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Reset RENDERING/ASSETS_READY stuck workflows for re-attempt"
+        description="Reset RENDERING/ASSETS_READY/FAILED stuck workflows for re-attempt"
     )
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--all", action="store_true", help="Reset ALL recoverable-state workflows")
@@ -264,17 +239,17 @@ def main() -> int:
                 .where(WorkflowRun.id == run_id)
             ).all()
 
-    if not rows:
-        print(f"No workflows in {RECOVERABLE_STATES} state found. Nothing to do.")
-        return 0
+        if not rows:
+            print(f"No workflows in {RECOVERABLE_STATES} state found. Nothing to do.")
+            return 0
 
-    print(f"Found {len(rows)} workflow(s) to reset:\n")
-    success = 0
-    for run, project in rows:
-        ok = reset_one(run, project, client, redis_client, redis_settings.stream, args.dry_run)
-        if ok:
-            success += 1
-        print()
+        print(f"Found {len(rows)} workflow(s) to reset:\n")
+        success = 0
+        for run, project in rows:
+            ok = reset_one(run, project, session, client, redis_client, redis_settings.stream, args.dry_run)
+            if ok:
+                success += 1
+            print()
 
     print(f"Reset {success}/{len(rows)} workflows.")
     if success > 0 and not args.dry_run:
