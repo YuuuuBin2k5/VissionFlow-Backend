@@ -1,4 +1,4 @@
-﻿import os
+import os
 import uuid
 import logging
 
@@ -21,8 +21,8 @@ if origins:
         CORSMiddleware,
         allow_origins=origins,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "PATCH", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "X-Request-ID"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["*"],
     )
 
 app.include_router(system.router, prefix=settings.api_prefix)
