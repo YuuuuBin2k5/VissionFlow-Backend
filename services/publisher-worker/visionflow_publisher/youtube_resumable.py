@@ -23,7 +23,12 @@ class YouTubeUploadMetadata:
     description: str
     tags: tuple[str, ...]
     privacy_status: str = "public"
+    publish_at_iso: str | None = None
     self_declared_made_for_kids: bool = False
+    category_id: str = "28"  # Science & Technology (24 = Entertainment)
+    default_language: str = "vi"
+    embeddable: bool = True
+    license: str = "youtube"
 
 
 @dataclass(frozen=True)
@@ -45,16 +50,32 @@ class YouTubeResumableUploader:
             raise ValueError("access_token is required")
         if not video_path.is_file() or video_path.suffix.lower() not in {".mp4", ".mov", ".webm"}:
             raise ValueError("video_path must be a readable video export")
+
+        snippet = {
+            "title": metadata.title,
+            "description": metadata.description,
+            "tags": list(metadata.tags),
+            "categoryId": metadata.category_id,
+            "defaultLanguage": metadata.default_language,
+            "defaultAudioLanguage": metadata.default_language,
+        }
+
+        status = {
+            "selfDeclaredMadeForKids": metadata.self_declared_made_for_kids,
+            "embeddable": metadata.embeddable,
+            "license": metadata.license,
+        }
+
+        # If a future ISO timestamp is specified for scheduled publishing:
+        if metadata.publish_at_iso:
+            status["privacyStatus"] = "private"  # Required by YouTube API when publishAt is set
+            status["publishAt"] = metadata.publish_at_iso
+        else:
+            status["privacyStatus"] = metadata.privacy_status
+
         body = {
-            "snippet": {
-                "title": metadata.title,
-                "description": metadata.description,
-                "tags": list(metadata.tags),
-            },
-            "status": {
-                "privacyStatus": metadata.privacy_status,
-                "selfDeclaredMadeForKids": metadata.self_declared_made_for_kids,
-            },
+            "snippet": snippet,
+            "status": status,
         }
         size = video_path.stat().st_size
         init = self._http.post(self._INIT_URL, headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json; charset=UTF-8", "X-Upload-Content-Length": str(size), "X-Upload-Content-Type": "video/mp4"}, json=body, timeout=(5, 30))

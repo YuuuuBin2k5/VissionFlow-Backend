@@ -32,18 +32,44 @@ def _upload_manifest(session: requests.Session, manifest: dict[str, object]) -> 
     with tempfile.TemporaryDirectory(prefix="visionflow-publish-") as directory:
         artifact_path = Path(directory) / "final.mp4"
         _download_verified_artifact(session, manifest, artifact_path)
+
+        # Professional SEO Hashtags & Title formatting
+        raw_title = str(manifest.get("title", "VisionFlow Short"))
+        title = f"{raw_title} #Shorts" if "#Shorts" not in raw_title else raw_title
+
+        raw_desc = str(manifest.get("description") or "")
+        description = f"{raw_desc}\n\n#Shorts #Short #AI #VisionFlow #Automation".strip()
+
+        # Check future scheduled ISO timestamp for YouTube publishAt feature
+        publish_at_iso = None
+        raw_publish_at = manifest.get("publish_at_iso") or manifest.get("scheduled_at_iso")
+        if isinstance(raw_publish_at, str) and raw_publish_at.strip():
+            try:
+                from datetime import datetime, timezone
+                dt_publish = datetime.fromisoformat(raw_publish_at.replace("Z", "+00:00"))
+                if dt_publish > datetime.now(timezone.utc):
+                    publish_at_iso = dt_publish.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+            except Exception:
+                publish_at_iso = None
+
         privacy = str(manifest.get("privacy_status") or os.getenv("YOUTUBE_DEFAULT_PRIVACY_STATUS") or "public").strip()
         if privacy not in {"public", "unlisted", "private"}:
             privacy = "public"
+
         uploaded = YouTubeResumableUploader(session).upload(
             access_token=str(manifest["access_token"]),
             video_path=artifact_path,
             metadata=YouTubeUploadMetadata(
-                title=str(manifest["title"]),
-                description=str(manifest["description"]),
-                tags=("Shorts",),
+                title=title[:100],
+                description=description[:5000],
+                tags=("Shorts", "AI", "VisionFlow", "Short", "Trending"),
                 privacy_status=privacy,
+                publish_at_iso=publish_at_iso,
                 self_declared_made_for_kids=False,
+                category_id="28",
+                default_language="vi",
+                embeddable=True,
+                license="youtube",
             ),
         )
     return uploaded.video_id, uploaded.url
