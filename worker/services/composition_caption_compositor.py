@@ -27,9 +27,22 @@ class CaptionCue:
     pop: bool
 
 
+def resolve_ffmpeg_executable(executable: str = "ffmpeg") -> str:
+    import shutil
+    if executable != "ffmpeg" and shutil.which(executable):
+        return executable
+    if shutil.which("ffmpeg"):
+        return "ffmpeg"
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return executable
+
+
 class FfmpegCaptionCompositor:
-    def __init__(self, executable: str = "ffmpeg") -> None:
-        self._executable = executable
+    def __init__(self, executable: str | None = None) -> None:
+        self._executable = resolve_ffmpeg_executable(executable or "ffmpeg")
 
     def apply(self, source_path: str, render_plan: CompositionRenderPlan, workspace: Path) -> str:
         cues = caption_cues(render_plan)

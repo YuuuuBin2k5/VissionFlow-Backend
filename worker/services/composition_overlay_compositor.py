@@ -52,9 +52,12 @@ class OverlayAssetMaterializer:
         return tuple(resolved)
 
 
+from worker.services.composition_caption_compositor import resolve_ffmpeg_executable
+
+
 class FfmpegOverlayCompositor:
-    def __init__(self, executable: str = "ffmpeg") -> None:
-        self._executable = executable
+    def __init__(self, executable: str | None = None) -> None:
+        self._executable = resolve_ffmpeg_executable(executable or "ffmpeg")
 
     def apply(self, source_path: str, layers: tuple[ResolvedOverlayLayer, ...], workspace: Path) -> str:
         if not layers:

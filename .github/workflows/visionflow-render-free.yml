@@ -69,7 +69,9 @@ jobs:
           printf 'VISIONFLOW_TOKEN_URL=%s\n' "$VISIONFLOW_TOKEN_URL" >> "$GITHUB_ENV"
 
       - name: Install relay and render dependencies
-        run: python -m pip install --upgrade pip && python -m pip install -r services/control-plane/requirements.txt -r worker/requirements.txt
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+          python -m pip install --upgrade pip && python -m pip install -r services/control-plane/requirements.txt -r worker/requirements.txt
 
       - name: Reset workflows stuck in RENDERING, ASSETS_READY, or FAILED
         shell: bash
