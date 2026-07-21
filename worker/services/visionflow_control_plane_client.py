@@ -56,10 +56,28 @@ class VisionFlowWorkerSettings:
         )
 
 
+from urllib3.util import Retry
+from requests.adapters import HTTPAdapter
+
+
+def _create_http_session() -> requests.Session:
+    session = requests.Session()
+    retries = Retry(
+        total=3,
+        backoff_factor=1.5,
+        status_forcelist=[500, 502, 503, 504],
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retries)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
+
 class VisionFlowControlPlaneClient:
     def __init__(self, settings: VisionFlowWorkerSettings, *, http: requests.Session | None = None) -> None:
         self._settings = settings
-        self._http = http or requests.Session()
+        self._http = http or _create_http_session()
         self._access_token: str | None = None
         self._access_token_expires_at = 0.0
 
@@ -96,7 +114,7 @@ class VisionFlowControlPlaneClient:
                 "Authorization": f"Bearer {self._get_access_token()}",
                 "X-Request-ID": trace_id or uuid.uuid4().hex,
             },
-            timeout=(3, 20),
+            timeout=(15, 90),
         )
         if response.status_code != 200:
             detail = _response_detail(response)
@@ -131,7 +149,7 @@ class VisionFlowControlPlaneClient:
                 "Authorization": f"Bearer {self._get_access_token()}",
                 "X-Request-ID": trace_id or uuid.uuid4().hex,
             },
-            timeout=(3, 20),
+            timeout=(15, 90),
         )
         if response.status_code not in (200, 201):
             detail = _response_detail(response)
@@ -160,7 +178,7 @@ class VisionFlowControlPlaneClient:
                 "Authorization": f"Bearer {self._get_access_token()}",
                 "X-Request-ID": trace_id or uuid.uuid4().hex,
             },
-            timeout=(3, 20),
+            timeout=(15, 90),
         )
         if response.status_code not in (200, 201):
             detail = _response_detail(response)
@@ -192,7 +210,7 @@ class VisionFlowControlPlaneClient:
                 "Authorization": f"Bearer {self._get_access_token()}",
                 "X-Request-ID": trace_id or uuid.uuid4().hex,
             },
-            timeout=(3, 20),
+            timeout=(15, 90),
         )
         if response.status_code != 200:
             detail = _response_detail(response)
@@ -210,7 +228,7 @@ class VisionFlowControlPlaneClient:
             f"{self._settings.api_url}/workflows/{workflow_run_id}/creative-document",
             params={"organization_id": self._settings.organization_id},
             headers={"Authorization": f"Bearer {self._get_access_token()}", "X-Request-ID": trace_id or uuid.uuid4().hex},
-            timeout=(3, 20),
+            timeout=(15, 90),
         )
         if response.status_code != 200:
             raise VisionFlowControlPlaneError(f"Control Plane creative document failed with HTTP {response.status_code}: {_response_detail(response)}")
@@ -224,7 +242,7 @@ class VisionFlowControlPlaneClient:
             f"{self._settings.api_url}/workflows/{workflow_run_id}/composition",
             params={"organization_id": self._settings.organization_id},
             headers={"Authorization": f"Bearer {self._get_access_token()}", "X-Request-ID": trace_id or uuid.uuid4().hex},
-            timeout=(3, 20),
+            timeout=(15, 90),
         )
         if response.status_code != 200:
             raise VisionFlowControlPlaneError(f"Control Plane composition failed with HTTP {response.status_code}: {_response_detail(response)}")
@@ -237,7 +255,7 @@ class VisionFlowControlPlaneClient:
         response = self._http.get(
             f"{self._settings.api_url}/organizations/{self._settings.organization_id}/provider-credentials/{provider}/resolve",
             headers={"Authorization": f"Bearer {self._get_access_token()}", "X-Request-ID": trace_id or uuid.uuid4().hex},
-            timeout=(3, 20),
+            timeout=(15, 90),
         )
         if response.status_code != 200:
             raise VisionFlowControlPlaneError(f"Control Plane provider credential resolution failed with HTTP {response.status_code}")
@@ -252,7 +270,7 @@ class VisionFlowControlPlaneClient:
             f"{self._settings.api_url}/workflows/{workflow_run_id}/composition/render-plan",
             params={"organization_id": self._settings.organization_id},
             headers={"Authorization": f"Bearer {self._get_access_token()}", "X-Request-ID": trace_id or uuid.uuid4().hex},
-            timeout=(3, 20),
+            timeout=(15, 90),
         )
         if response.status_code != 200:
             raise VisionFlowControlPlaneError(
@@ -293,7 +311,7 @@ class VisionFlowControlPlaneClient:
                 "Authorization": f"Bearer {self._get_access_token()}",
                 "X-Request-ID": trace_id or uuid.uuid4().hex,
             },
-            timeout=(3, 20),
+            timeout=(15, 90),
         )
         if response.status_code not in (200, 201):
             detail = _response_detail(response)
