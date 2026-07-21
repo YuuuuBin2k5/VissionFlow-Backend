@@ -31,6 +31,8 @@ def _process_pending_db_requested_attempts() -> None:
     db_url = (os.getenv("DATABASE_URL") or "").strip()
     if not db_url:
         return
+    if db_url.startswith("postgresql://"):
+        db_url = f"postgresql+psycopg://{db_url.removeprefix('postgresql://')}"
     try:
         from sqlalchemy import create_engine, text
         engine = create_engine(db_url)
