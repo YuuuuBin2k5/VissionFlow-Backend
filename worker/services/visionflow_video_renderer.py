@@ -20,7 +20,7 @@ class VisionFlowVideoRenderer:
     def render(self, contract, assets: PreparedAssets) -> RenderedArtifact:
         workspace = RenderWorkspace(self._workspace_root, contract.workflow_run_id).create()
         background_paths = self._materializer.download(assets, workspace)
-        speech = self._tts.synthesize(contract.script, contract.voice_code, workspace)
+        speech = self._tts.synthesize(contract.script, contract.voice_code, workspace, voice_rate=getattr(contract, "voice_rate", 1.12))
         scene_layout = build_renderable_scene_layout(contract.scenes, contract.render_plan)
         output_path = self._media_service.render_final_video(
             scene_layout, speech.word_timestamps, speech.audio_path, background_paths,

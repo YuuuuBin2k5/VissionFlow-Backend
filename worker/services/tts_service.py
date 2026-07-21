@@ -186,12 +186,12 @@ class TTSService:
             print(f"[TTSService Warning] Google Translate TTS synthesis failed: {e}")
             return False
 
-    async def generate_speech_with_timestamps(self, text: str, output_audio_path: str, gender: str = "female", age_group: str = "adult") -> list:
+    async def generate_speech_with_timestamps(self, text: str, output_audio_path: str, gender: str = "female", age_group: str = "adult", rate_str: str = "+12%") -> list:
         """
         Chuyển đổi Text sang Speech với cơ chế dự phòng đa tầng ưu việt:
         Tầng 1 (ElevenLabs) -> Tầng 2 (Local valtec-tts) -> Tầng 3 (TikTok TTS) -> Tầng 4 (Edge-TTS) -> Tầng 5 (gTTS).
         """
-        print(f"[TTSService] Synthesizing speech using Multi-Tier Fallback.")
+        print(f"[TTSService] Synthesizing speech using Multi-Tier Fallback with rate={rate_str}.")
         print(f"[TTSService] Target profile: Gender={gender}, Age={age_group}")
         print(f"[TTSService] Text length: {len(text)} characters.")
         print(f"[TTSService] Text content: '{text}'")
@@ -229,20 +229,20 @@ class TTSService:
             return self._estimate_word_timestamps(text, output_audio_path)
 
         # TẦNG 4: Edge-TTS (Cơ chế websocket ổn định cũ, có tích hợp cơ chế tự động thử lại nâng cao)
-        edge_voice = DEFAULT_TTS_VOICE
-        if gender == "male":
+        edge_voice = self.voice or DEFAULT_TTS_VOICE
+        if gender == "male" and not self.voice:
             from worker.config import BACKUP_TTS_VOICE
             edge_voice = BACKUP_TTS_VOICE
         
         max_edge_retries = 3
         for attempt in range(1, max_edge_retries + 1):
             try:
-                print(f"[TTSService] Attempting Edge-TTS with voice: {edge_voice} (Attempt {attempt}/{max_edge_retries})")
+                print(f"[TTSService] Attempting Edge-TTS with voice: {edge_voice}, rate={rate_str} (Attempt {attempt}/{max_edge_retries})")
                 word_timestamps = []
                 sentence_timestamps = []
                 audio_data = bytearray()
                 
-                communicate = edge_tts.Communicate(text, edge_voice, rate="+8%")
+                communicate = edge_tts.Communicate(text, edge_voice, rate=rate_str)
                 async for chunk in communicate.stream():
                     if chunk["type"] == "audio":
                         audio_data.extend(chunk["data"])

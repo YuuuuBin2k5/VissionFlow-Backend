@@ -31,12 +31,14 @@ class VisionFlowSpeech:
     word_timestamps: list[dict]
 
 class VisionFlowTts:
-    def synthesize(self, script: str, voice_code: str, workspace: RenderWorkspace) -> VisionFlowSpeech:
+    def synthesize(self, script: str, voice_code: str, workspace: RenderWorkspace, voice_rate: float = 1.12) -> VisionFlowSpeech:
         from worker.services.tts_service import TTSService
         resolved_voice = resolve_voice(voice_code)
+        rate_percent = int((voice_rate - 1.0) * 100)
+        rate_str = f"+{rate_percent}%" if rate_percent >= 0 else f"{rate_percent}%"
         workspace.create()
         audio_path = str(workspace.path / "voice.mp3")
-        timestamps = asyncio.run(TTSService(resolved_voice).generate_speech_with_timestamps(script, audio_path))
+        timestamps = asyncio.run(TTSService(resolved_voice).generate_speech_with_timestamps(script, audio_path, rate_str=rate_str))
         if not timestamps:
             raise RuntimeError("TTS returned no timestamps")
         return VisionFlowSpeech(audio_path, timestamps)
