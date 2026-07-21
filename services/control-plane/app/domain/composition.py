@@ -26,6 +26,11 @@ class EffectDefinition:
 EFFECT_REGISTRY: dict[str, EffectDefinition] = {
     "cinematic_push": EffectDefinition("cinematic_push", frozenset({"video"})),
     "impact_shake": EffectDefinition("impact_shake", frozenset({"video"})),
+    "beat_push": EffectDefinition("beat_push", frozenset({"video", "caption", "overlay"})),
+    "zoom_in": EffectDefinition("zoom_in", frozenset({"video", "overlay"})),
+    "zoom_out": EffectDefinition("zoom_out", frozenset({"video", "overlay"})),
+    "fade_in": EffectDefinition("fade_in", frozenset({"video", "caption", "overlay", "audio"})),
+    "pulse": EffectDefinition("pulse", frozenset({"video", "caption", "overlay"})),
     "caption_pop": EffectDefinition("caption_pop", frozenset({"video", "caption"})),
     "soft_glow": EffectDefinition("soft_glow", frozenset({"video", "overlay"})),
     "motion_blur": EffectDefinition("motion_blur", frozenset({"video", "overlay"})),
