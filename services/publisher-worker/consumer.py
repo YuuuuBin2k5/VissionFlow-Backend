@@ -27,6 +27,32 @@ def _redis() -> Redis:
     return Redis.from_url(url, decode_responses=True)
 
 
+def _process_pending_db_requested_attempts() -> None:
+    db_url = (os.getenv("DATABASE_URL") or "").strip()
+    if not db_url:
+        return
+    try:
+        from sqlalchemy import create_engine, text
+        engine = create_engine(db_url)
+        with engine.connect() as conn:
+            rows = conn.execute(text("""
+                SELECT pa.id, pa.workflow_run_id, vp.organization_id 
+                FROM publication_attempts pa 
+                JOIN workflow_runs wr ON pa.workflow_run_id = wr.id 
+                JOIN video_projects vp ON wr.project_id = vp.id 
+                WHERE pa.state = 'requested'
+            """)).fetchall()
+            for row in rows:
+                attempt_id, wf_id, org_id = str(row[0]), str(row[1]), str(row[2])
+                print(f"[PUBLISHER] Found requested publication attempt {attempt_id} in DB (workflow: {wf_id}). Executing...")
+                try:
+                    execute_publication_attempt(attempt_id, org_id)
+                except Exception as err:
+                    print(f"[PUBLISHER] Attempt {attempt_id} execution notice: {err}")
+    except Exception as exc:
+        print(f"[PUBLISHER] Notice querying requested attempts from DB: {exc}")
+
+
 def main(*, once: bool = False) -> None:
     client = _redis()
     try:
@@ -34,10 +60,15 @@ def main(*, once: bool = False) -> None:
     except Exception as exc:
         if "BUSYGROUP" not in str(exc):
             raise
+
+    # Always process requested attempts in PostgreSQL first
+    _process_pending_db_requested_attempts()
+
+    idle_ms = 0 if once else CLAIM_IDLE_MS
     while True:
-        reclaimed = client.xautoclaim(STREAM, GROUP, CONSUMER, CLAIM_IDLE_MS, "0-0", count=10)
+        reclaimed = client.xautoclaim(STREAM, GROUP, CONSUMER, idle_ms, "0-0", count=10)
         reclaimed_events = reclaimed[1] if len(reclaimed) > 1 else []
-        messages = client.xreadgroup(GROUP, CONSUMER, {STREAM: ">"}, count=10, block=5000)
+        messages = client.xreadgroup(GROUP, CONSUMER, {STREAM: ">"}, count=10, block=2000)
         new_events = [event for _, events in messages for event in events]
         for event_id, fields in [*reclaimed_events, *new_events]:
             _process(client, event_id, fields)

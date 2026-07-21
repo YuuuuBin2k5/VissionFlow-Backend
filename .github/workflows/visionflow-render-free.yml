@@ -44,6 +44,8 @@ jobs:
       VISIONFLOW_CONTROL_PLANE_URL: ${{ secrets.VISIONFLOW_CONTROL_PLANE_URL }}
       VISIONFLOW_WORKER_CLIENT_ID: ${{ secrets.VISIONFLOW_WORKER_CLIENT_ID }}
       VISIONFLOW_WORKER_CLIENT_SECRET: ${{ secrets.VISIONFLOW_WORKER_CLIENT_SECRET }}
+      VISIONFLOW_PUBLISHER_CLIENT_ID: ${{ secrets.VISIONFLOW_PUBLISHER_CLIENT_ID }}
+      VISIONFLOW_PUBLISHER_CLIENT_SECRET: ${{ secrets.VISIONFLOW_PUBLISHER_CLIENT_SECRET }}
       VISIONFLOW_ORGANIZATION_ID: ${{ secrets.VISIONFLOW_ORGANIZATION_ID }}
       VISIONFLOW_AUTH_AUDIENCE: visionflow-control-plane
       VISIONFLOW_OBJECT_STORE_ENDPOINT: ${{ secrets.VISIONFLOW_OBJECT_STORE_ENDPOINT }}
@@ -112,4 +114,6 @@ jobs:
           # Persist final QA/review state events (e.g. APPROVAL_PENDING)
           echo "Final relay pass..."
           python services/control-plane/scripts/relay_outbox.py --limit 10
+          echo "Executing publisher consumer for requested publication attempts..."
+          python services/publisher-worker/consumer.py --once || true
           echo "Done."
