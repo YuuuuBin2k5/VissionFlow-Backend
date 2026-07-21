@@ -30,7 +30,7 @@ class VisionFlowVideoRenderer:
         )
         overlays = self._overlay_materializer.download(contract.render_plan, workspace.path)
         output_path = self._overlay_compositor.apply(output_path, overlays, workspace.path)
-        output_path = self._caption_compositor.apply(output_path, contract.render_plan, workspace.path)
+        output_path = self._caption_compositor.apply(output_path, contract.render_plan, workspace.path, caption_preset=getattr(contract, "caption_preset", "hormozi"))
         uploaded = self._storage.upload_export(contract.workflow_run_id, output_path)
         return RenderedArtifact(**uploaded)
 

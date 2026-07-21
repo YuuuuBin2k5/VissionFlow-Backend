@@ -44,14 +44,14 @@ class FfmpegCaptionCompositor:
     def __init__(self, executable: str | None = None) -> None:
         self._executable = resolve_ffmpeg_executable(executable or "ffmpeg")
 
-    def apply(self, source_path: str, render_plan: CompositionRenderPlan, workspace: Path) -> str:
+    def apply(self, source_path: str, render_plan: CompositionRenderPlan, workspace: Path, caption_preset: str = "hormozi") -> str:
         cues = caption_cues(render_plan)
         if not cues:
             return source_path
         workspace.mkdir(parents=True, exist_ok=True)
         ass_path = workspace / "composition-captions.ass"
         output_path = workspace / "composition-captioned.mp4"
-        ass_path.write_text(build_ass_script(cues), encoding="utf-8")
+        ass_path.write_text(build_ass_script(cues, caption_preset), encoding="utf-8")
         command = build_ffmpeg_command(self._executable, Path(source_path), ass_path, output_path)
         completed = subprocess.run(command, capture_output=True, text=True, check=False)
         if completed.returncode != 0 or not output_path.is_file():
@@ -79,7 +79,18 @@ def caption_cues(render_plan: CompositionRenderPlan) -> tuple[CaptionCue, ...]:
     return tuple(sorted(cues, key=lambda cue: (cue.start_ms, cue.end_ms, cue.text)))
 
 
-def build_ass_script(cues: tuple[CaptionCue, ...]) -> str:
+def build_ass_script(cues: tuple[CaptionCue, ...], caption_preset: str = "hormozi") -> str:
+    # ASS Style definitions: Format is BGR alpha
+    # hormozi: Bold Yellow text, high-contrast black outline
+    # clean_news: Crisp white text, subtle outline
+    # cinematic_quote: Italicized white text, soft shadow
+    if caption_preset == "clean_news":
+        style_line = "Style: VisionFlow,Arial,52,&H00FFFFFF,&H0000FFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,2,1,2,80,80,160,1"
+    elif caption_preset == "cinematic_quote":
+        style_line = "Style: VisionFlow,Arial,54,&H00F0F0F0,&H0000FFFF,&H00101010,&H80000000,1,1,0,0,100,100,0,0,1,2,3,2,80,80,200,1"
+    else:  # hormozi (default)
+        style_line = "Style: VisionFlow,Arial,66,&H0000FFFF,&H00FFFFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,4,2,2,80,80,220,1"
+
     lines = [
         "[Script Info]",
         "ScriptType: v4.00+",
@@ -88,7 +99,7 @@ def build_ass_script(cues: tuple[CaptionCue, ...]) -> str:
         "",
         "[V4+ Styles]",
         "Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding",
-        "Style: VisionFlow,Arial,62,&H00FFFFFF,&H0000FFFF,&H00101010,&H80000000,1,0,0,0,100,100,0,0,1,3,2,2,80,80,190,1",
+        style_line,
         "",
         "[Events]",
         "Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text",

@@ -18,6 +18,7 @@ class VisionFlowRenderContract:
     duration_seconds: int
     aspect_ratio: str
     voice_code: str
+    caption_preset: str
     visual_preset: str
     render_plan: CompositionRenderPlan
     render_plan_hash: str
@@ -57,8 +58,9 @@ def build_visionflow_render_contract(
         scenes=tuple(scenes),
         duration_seconds=duration,
         aspect_ratio="9:16",
-        voice_code=str(payload.get("voice_code", "edge-nam-minh")),
-        visual_preset=str(payload.get("visual_preset", "clean_explainer")),
+        voice_code=str(payload.get("voice") or payload.get("voice_code") or "edge-nam-minh"),
+        caption_preset=str(payload.get("caption_preset") or "hormozi"),
+        visual_preset=str(payload.get("visual_preset") or "clean_explainer"),
         render_plan=render_plan,
         render_plan_hash=authoritative_render_plan_fingerprint,
         workspace_key=f"visionflow/{workflow_run_id}/render",
