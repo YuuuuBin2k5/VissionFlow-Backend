@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import uuid
 import logging
@@ -863,15 +863,37 @@ class ManageCreativeSession:
             # Map CreationSpec properties to CreateShortFormCommand
             creation_spec = sess.creation_spec
 
+            # Calculate dynamic total duration from accepted proposal scenes
+            proposal_total_duration = sum(int(sc.get("duration_seconds", 5)) for sc in proposal.scenes) if proposal.scenes else 0
+            actual_duration = max(15, min(90, proposal_total_duration)) if proposal_total_duration > 0 else int(creation_spec.get("duration_seconds", 45))
+
             # Map input payload
             input_payload = {
-                "format_profile": creation_spec["format_profile"],
+                "format_profile": creation_spec.get("format_profile", "short_vertical"),
                 "aspect_ratio": "9:16",
-                "target_language": creation_spec["language"],
-                "duration_seconds": creation_spec["duration_seconds"],
-                "voice_code": creation_spec["voice"],
-                "subtitle_preset": creation_spec["caption_preset"],
-                "visual_preset": creation_spec["visual_preset"],
+                "target_language": creation_spec.get("language", "vi"),
+                "duration_seconds": actual_duration,
+                "voice_code": creation_spec.get("voice", "edge-nam-minh"),
+                "voice_rate": creation_spec.get("voice_rate", 1.12),
+                "enable_sfx": creation_spec.get("enable_sfx", True),
+                "logo_url": creation_spec.get("logo_url", ""),
+                "logo_handle": creation_spec.get("logo_handle", "@VisionFlowAI"),
+                "logo_position": creation_spec.get("logo_position", "top_left"),
+                "logo_opacity": creation_spec.get("logo_opacity", 0.85),
+                "show_title_banner": creation_spec.get("show_title_banner", True),
+                "title_banner_style": creation_spec.get("title_banner_style", "neon"),
+                "caption_preset": creation_spec.get("caption_preset", "hormozi"),
+                "subtitle_preset": creation_spec.get("caption_preset", "hormozi"),
+                "caption_position": creation_spec.get("caption_position", "bottom"),
+                "caption_color": creation_spec.get("caption_color", "#FFFF00"),
+                "enable_karaoke": creation_spec.get("enable_karaoke", True),
+                "enable_auto_emoji": creation_spec.get("enable_auto_emoji", True),
+                "visual_preset": creation_spec.get("visual_preset", "clean_explainer"),
+                "color_grading": creation_spec.get("color_grading", "cyber_teal"),
+                "enable_vignette": creation_spec.get("enable_vignette", True),
+                "enable_progress_bar": creation_spec.get("enable_progress_bar", True),
+                "enable_follow_cta": creation_spec.get("enable_follow_cta", True),
+                "enable_outro_card": creation_spec.get("enable_outro_card", True),
                 "target_platforms": ["tiktok", "youtube_shorts", "reels"],
                 "session_id": str(session_id),
                 "accepted_proposal_id": str(accepted_proposal_id),

@@ -25,9 +25,9 @@ class VisionFlowAssetPreparer:
     def prepare(self, contract: VisionFlowRenderContract) -> PreparedAssets:
         keys: list[str] = []
         for ordinal, scene in enumerate(contract.scenes, start=1):
-            keywords = str(scene.get("visual_search_keywords", "")).strip()
-            if not keywords:
-                raise ValueError(f"scene {ordinal} has no visual_search_keywords")
+            keywords = str(
+                scene.get("visual_search_keywords") or scene.get("visual_prompt") or scene.get("narration") or contract.title or "aesthetic vertical"
+            ).strip()
             temporary_path = self._downloader.search_and_download_video(keywords, ordinal)
             try:
                 uploaded = self._storage.upload_asset(contract.workflow_run_id, ordinal, temporary_path)
