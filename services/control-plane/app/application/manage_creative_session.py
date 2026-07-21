@@ -35,17 +35,17 @@ logger = logging.getLogger(__name__)
 
 # Pydantic schemas for strict validation
 class CreationSpecSchema(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     title: str = Field(min_length=1, max_length=240)
     brief: str = Field(min_length=1, max_length=50000)
     format_profile: Literal["short_vertical"] = Field(default="short_vertical")
-    timezone: str = Field(min_length=1, max_length=100)
+    timezone: str = Field(default="Asia/Bangkok", min_length=1, max_length=100)
     language: Literal["vi", "en"] = Field(default="vi")
-    voice: str = Field(min_length=1, max_length=100)
-    caption_preset: str = Field(min_length=1, max_length=100)
-    visual_preset: str = Field(min_length=1, max_length=100)
-    duration_seconds: int = Field(ge=15, le=90)
+    voice: str = Field(default="edge-nam-minh", min_length=1, max_length=100)
+    caption_preset: str = Field(default="hormozi", min_length=1, max_length=100)
+    visual_preset: str = Field(default="warm_cinematic", min_length=1, max_length=100)
+    duration_seconds: int = Field(default=30, ge=5, le=300)
 
 
 # Custom Exceptions
