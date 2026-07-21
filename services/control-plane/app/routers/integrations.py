@@ -426,13 +426,34 @@ def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organizatio
     project = session.get(VideoProject, workflow.project_id)
     if connection is None or project is None:
         raise LookupError()
+    # Build professional YouTube description from AI script/narration or project brief
+    script_narration = ""
+    intel_step = session.scalar(
+        select(WorkflowStep).where(
+            WorkflowStep.workflow_run_id == workflow.id,
+            WorkflowStep.step_key.in_(["intelligence", "storyboard", "script"])
+        ).order_by(WorkflowStep.created_at.desc())
+    )
+    if intel_step and isinstance(intel_step.output_payload, dict):
+        payload = intel_step.output_payload
+        if "script" in payload and isinstance(payload["script"], str) and payload["script"].strip():
+            script_narration = payload["script"].strip()
+        elif "scenes" in payload and isinstance(payload["scenes"], list):
+            lines = [str(s.get("narration", "")).strip() for s in payload["scenes"] if isinstance(s, dict) and s.get("narration")]
+            script_narration = "\n".join([line for line in lines if line]).strip()
+
+    if script_narration:
+        rich_description = f"🎬 KỊCH BẢN / LỜI THOẠI VIDEO:\n{script_narration}\n\n---\n📌 Chủ đề: {project.brief}"
+    else:
+        rich_description = project.brief
+
     preview = PrivateObjectPreviewIssuer.from_env().issue_final_export(workflow_run_id=workflow.id, object_key=artifact.object_key)
     token = YouTubeAccessTokenRefresher(requests, PublisherTokenCipher.from_env(), YouTubePublisherSettings.from_env()).refresh(connection.encrypted_refresh_token)
     return YouTubePublishManifest(
         workflow_run_id=workflow.id,
         publisher_connection_id=connection.id,
         title=project.title[:100],
-        description=project.brief[:5000],
+        description=rich_description[:5000],
         artifact_download_url=preview.download_url,
         artifact_expires_in_seconds=preview.expires_in_seconds,
         artifact_byte_size=artifact.byte_size,
