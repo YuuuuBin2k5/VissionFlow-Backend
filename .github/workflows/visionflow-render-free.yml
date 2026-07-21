@@ -13,7 +13,7 @@ on:
       passes:
         description: "Relay/worker passes (1-3). Two passes normally cover plan then render."
         required: true
-        default: "2"
+        default: "3"
         type: choice
         options:
           - "1"
@@ -21,6 +21,10 @@ on:
           - "3"
           - "4"
           - "5"
+  schedule:
+    - cron: '*/15 * * * *'
+  repository_dispatch:
+    types: [trigger-render]
 
 permissions:
   contents: read
@@ -31,7 +35,7 @@ concurrency:
 
 jobs:
   render-approved-work:
-    if: ${{ inputs.confirmed == 'RENDER' }}
+    if: ${{ inputs.confirmed == 'RENDER' || github.event_name == 'schedule' || github.event_name == 'repository_dispatch' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -94,7 +98,7 @@ jobs:
       - name: Relay and execute bounded short-form work
         shell: bash
         run: |
-          for ((pass=1; pass<=${{ inputs.passes }}; pass++)); do
+          for ((pass=1; pass<=${{ inputs.passes || '3' }}; pass++)); do
             echo "============================================"
             echo "Starting VisionFlow relay/worker pass $pass"
             echo "============================================"
