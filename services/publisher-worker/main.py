@@ -32,7 +32,20 @@ def _upload_manifest(session: requests.Session, manifest: dict[str, object]) -> 
     with tempfile.TemporaryDirectory(prefix="visionflow-publish-") as directory:
         artifact_path = Path(directory) / "final.mp4"
         _download_verified_artifact(session, manifest, artifact_path)
-        uploaded = YouTubeResumableUploader(session).upload(access_token=str(manifest["access_token"]), video_path=artifact_path, metadata=YouTubeUploadMetadata(str(manifest["title"]), str(manifest["description"]), ("Shorts",)))
+        privacy = str(manifest.get("privacy_status") or os.getenv("YOUTUBE_DEFAULT_PRIVACY_STATUS") or "public").strip()
+        if privacy not in {"public", "unlisted", "private"}:
+            privacy = "public"
+        uploaded = YouTubeResumableUploader(session).upload(
+            access_token=str(manifest["access_token"]),
+            video_path=artifact_path,
+            metadata=YouTubeUploadMetadata(
+                title=str(manifest["title"]),
+                description=str(manifest["description"]),
+                tags=("Shorts",),
+                privacy_status=privacy,
+                self_declared_made_for_kids=False,
+            ),
+        )
     return uploaded.video_id, uploaded.url
 
 
