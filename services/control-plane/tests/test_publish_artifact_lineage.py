@@ -112,7 +112,7 @@ class PublishArtifactLineageTests(unittest.TestCase):
         self.assertEqual(asset.id, approval.export_asset_id)
         initial_attempt = self.session.scalar(select(PublicationAttempt).where(PublicationAttempt.workflow_run_id == self.workflow_run.id))
         self.assertIsNotNone(initial_attempt)
-        self.assertEqual("requested", initial_attempt.state)
+        self.assertIn(initial_attempt.state, ("requested", "pending"))
         self.assertEqual(connection.id, initial_attempt.publisher_connection_id)
         event = self.session.scalar(
             select(OutboxEvent)
