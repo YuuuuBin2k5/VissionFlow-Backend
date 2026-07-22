@@ -1545,7 +1545,8 @@ def _process_publication_attempt_in_background(
     """
     session = None
     try:
-        from app.infrastructure.database import SessionLocal
+        from sqlalchemy.orm import Session
+        from app.infrastructure.database import get_engine
         from app.application.youtube_access_token import YouTubeAccessTokenRefresher
         from app.core.publisher_token_cipher import PublisherTokenCipher
         from app.core.youtube_publisher import YouTubePublisherSettings
@@ -1555,7 +1556,7 @@ def _process_publication_attempt_in_background(
         )
         from app.infrastructure.overlay_uploads import PrivateObjectPreviewIssuer
 
-        session = SessionLocal()
+        session = Session(get_engine())
 
         # ---- 1. Load attempt ------------------------------------------------
         attempt = session.scalar(
@@ -1718,8 +1719,9 @@ def _process_publication_attempt_in_background(
                 pass
 
         try:
-            from app.infrastructure.database import SessionLocal
-            fail_session = SessionLocal()
+            from sqlalchemy.orm import Session
+            from app.infrastructure.database import get_engine
+            fail_session = Session(get_engine())
             attempt = fail_session.scalar(
                 select(PublicationAttempt)
                 .where(PublicationAttempt.workflow_run_id == workflow_run_id)
