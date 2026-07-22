@@ -1543,18 +1543,20 @@ def _process_publication_attempt_in_background(
     PUBLISHED. On any failure the attempt is marked "failed" and the workflow reverts
     to APPROVED so the operator can retry.
     """
-    from app.infrastructure.database import SessionLocal
-    from app.application.youtube_access_token import YouTubeAccessTokenRefresher
-    from app.core.publisher_token_cipher import PublisherTokenCipher
-    from app.core.youtube_publisher import YouTubePublisherSettings
-    from app.core.youtube_resumable_uploader import (
-        YouTubeResumableUploader,
-        YouTubeUploadMetadata,
-    )
-    from app.infrastructure.overlay_uploads import PrivateObjectPreviewIssuer
-
-    session = SessionLocal()
+    session = None
     try:
+        from app.infrastructure.database import SessionLocal
+        from app.application.youtube_access_token import YouTubeAccessTokenRefresher
+        from app.core.publisher_token_cipher import PublisherTokenCipher
+        from app.core.youtube_publisher import YouTubePublisherSettings
+        from app.core.youtube_resumable_uploader import (
+            YouTubeResumableUploader,
+            YouTubeUploadMetadata,
+        )
+        from app.infrastructure.overlay_uploads import PrivateObjectPreviewIssuer
+
+        session = SessionLocal()
+
         # ---- 1. Load attempt ------------------------------------------------
         attempt = session.scalar(
             select(PublicationAttempt)
@@ -1708,11 +1710,16 @@ def _process_publication_attempt_in_background(
         _bg_logger.exception(
             "Publication background task failed for workflow %s: %s", workflow_run_id, exc
         )
-        session.rollback()
-        session.close()
+        if session is not None:
+            try:
+                session.rollback()
+                session.close()
+            except Exception:
+                pass
 
-        fail_session = SessionLocal()
         try:
+            from app.infrastructure.database import SessionLocal
+            fail_session = SessionLocal()
             attempt = fail_session.scalar(
                 select(PublicationAttempt)
                 .where(PublicationAttempt.workflow_run_id == workflow_run_id)
@@ -1728,11 +1735,17 @@ def _process_publication_attempt_in_background(
             _bg_logger.info("Successfully persisted failure for workflow %s", workflow_run_id)
         except Exception as inner_exc:
             _bg_logger.exception("Failed to record publication failure in DB: %s", inner_exc)
-            fail_session.rollback()
         finally:
-            fail_session.close()
+            try:
+                fail_session.close()
+            except Exception:
+                pass
     finally:
-        session.close()
+        if session is not None:
+            try:
+                session.close()
+            except Exception:
+                pass
 
 
 @router.post(
