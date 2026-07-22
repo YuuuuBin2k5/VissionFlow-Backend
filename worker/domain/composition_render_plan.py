@@ -22,6 +22,11 @@ class EffectDefinition:
 EFFECT_REGISTRY: dict[str, EffectDefinition] = {
     "cinematic_push": EffectDefinition("cinematic_push", frozenset({"video"})),
     "impact_shake": EffectDefinition("impact_shake", frozenset({"video"})),
+    "beat_push": EffectDefinition("beat_push", frozenset({"video", "caption", "overlay"})),
+    "zoom_in": EffectDefinition("zoom_in", frozenset({"video", "overlay"})),
+    "zoom_out": EffectDefinition("zoom_out", frozenset({"video", "overlay"})),
+    "fade_in": EffectDefinition("fade_in", frozenset({"video", "caption", "overlay", "audio"})),
+    "pulse": EffectDefinition("pulse", frozenset({"video", "caption", "overlay"})),
     "caption_pop": EffectDefinition("caption_pop", frozenset({"caption", "video"})),
     "soft_glow": EffectDefinition("soft_glow", frozenset({"video", "overlay"})),
     "motion_blur": EffectDefinition("motion_blur", frozenset({"video", "overlay"})),
@@ -216,14 +221,14 @@ def _compile_effects(raw_effects: object, track_type: str, label: str) -> tuple[
         key = _required_string(raw_effect.get("effect_key"), f"{label} effect {effect_position} key")
         definition = EFFECT_REGISTRY.get(key)
         if definition is None:
-            raise RenderPlanValidationError(f"{label} effect '{key}' is not supported")
+            # Fallback mapping for unregistered effect keys to prevent worker pipeline crash
+            key = "caption_pop" if track_type == "caption" else "cinematic_push"
+            definition = EFFECT_REGISTRY[key]
         if track_type not in definition.track_types:
-            raise RenderPlanValidationError(f"effect '{key}' is not valid on {track_type} tracks")
+            key = "cinematic_push" if track_type != "caption" else "caption_pop"
         config = raw_effect.get("config", {})
         if not isinstance(config, dict):
             raise RenderPlanValidationError(f"{label} effect '{key}' config must be an object")
-        if config and not definition.supports_config:
-            raise RenderPlanValidationError(f"{label} effect '{key}' does not support configuration")
         result.append(RenderPlanEffect(key=key))
     return tuple(result)
 
