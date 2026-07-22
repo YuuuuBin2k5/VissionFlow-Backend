@@ -85,11 +85,11 @@ def build_ass_script(cues: tuple[CaptionCue, ...], caption_preset: str = "hormoz
     # clean_news: Crisp white text, subtle outline
     # cinematic_quote: Italicized white text, soft shadow
     if caption_preset == "clean_news":
-        style_line = "Style: VisionFlow,Arial,52,&H00FFFFFF,&H0000FFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,2,1,2,80,80,160,1"
+        style_line = "Style: VisionFlow,Arial,48,&H00FFFFFF,&H0000FFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,2,1,8,80,80,260,1"
     elif caption_preset == "cinematic_quote":
-        style_line = "Style: VisionFlow,Arial,54,&H00F0F0F0,&H0000FFFF,&H00101010,&H80000000,1,1,0,0,100,100,0,0,1,2,3,2,80,80,200,1"
+        style_line = "Style: VisionFlow,Arial,50,&H00F0F0F0,&H0000FFFF,&H00101010,&H80000000,1,1,0,0,100,100,0,0,1,2,3,8,80,80,260,1"
     else:  # hormozi (default)
-        style_line = "Style: VisionFlow,Arial,66,&H0000FFFF,&H00FFFFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,4,2,2,80,80,220,1"
+        style_line = "Style: VisionFlow,Arial,56,&H0000FFFF,&H00FFFFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,4,2,8,80,80,280,1"
 
     lines = [
         "[Script Info]",
