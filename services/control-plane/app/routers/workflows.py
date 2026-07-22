@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
+import threading
 import uuid
 from dataclasses import asdict
 from datetime import datetime
@@ -1784,12 +1785,11 @@ def begin_manual_publish(
                 publish_step.output_payload = payload
                 session.commit()
 
-            background_tasks.add_task(
-                _process_publication_attempt_in_background,
-                workflow_run_id,
-                request.organization_id,
-                connection.id,
-            )
+            threading.Thread(
+                target=_process_publication_attempt_in_background,
+                args=(workflow_run_id, request.organization_id, connection.id),
+                daemon=True,
+            ).start()
             return WorkflowTransitionResponse(
                 workflow_run_id=workflow_run_id,
                 state=WorkflowState.PUBLISHING.value,
@@ -1817,12 +1817,11 @@ def begin_manual_publish(
             )
         )
 
-        background_tasks.add_task(
-            _process_publication_attempt_in_background,
-            workflow_run_id,
-            request.organization_id,
-            connection.id,
-        )
+        threading.Thread(
+            target=_process_publication_attempt_in_background,
+            args=(workflow_run_id, request.organization_id, connection.id),
+            daemon=True,
+        ).start()
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
     except LookupError as exc:
