@@ -433,7 +433,7 @@ class ApproveManualApprovalRequest(BaseModel):
 
 
 class BeginManualPublishRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     organization_id: uuid.UUID
     publisher_connection_id: uuid.UUID
