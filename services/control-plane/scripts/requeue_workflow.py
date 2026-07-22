@@ -36,18 +36,19 @@ from app.infrastructure.redis_stream_publisher import RedisStreamSettings  # noq
 
 
 def requeue_one(run: WorkflowRun, project: VideoProject, redis_client: Redis, stream: str, dry_run: bool) -> bool:
-    """Push one QUEUED workflow event back into Redis. Returns True on success."""
+    """Push one QUEUED or STORYBOARDED workflow event back into Redis. Returns True on success."""
     if not project.brief or not str(project.brief).strip():
         print(f"  SKIP {run.id}: brief is empty")
         return False
 
+    is_storyboarded = (run.state == "STORYBOARDED")
     event_id = uuid.uuid4()
     payload = {
         "workflow_run_id": str(run.id),
         "organization_id": str(project.organization_id),
-        "from_state": "READY",
-        "to_state": "QUEUED",
-        "step_key": "queue",
+        "from_state": "SCRIPTED" if is_storyboarded else "READY",
+        "to_state": "STORYBOARDED" if is_storyboarded else "QUEUED",
+        "step_key": "storyboard" if is_storyboarded else "queue",
         "intake": {
             "title": project.title,
             "brief": project.brief,
@@ -68,19 +69,19 @@ def requeue_one(run: WorkflowRun, project: VideoProject, redis_client: Redis, st
     }
 
     if dry_run:
-        print(f"  DRY RUN: would push event for {run.id} ({project.title[:50]})")
+        print(f"  DRY RUN: would push event for {run.id} [{run.state}] ({project.title[:50]})")
         return True
 
     msg_id = redis_client.xadd(stream, fields)
-    print(f"  OK: pushed {run.id} ({project.title[:50]}) -> Redis msg {msg_id}")
+    print(f"  OK: pushed {run.id} [{run.state}] ({project.title[:50]}) -> Redis msg {msg_id}")
     return True
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Re-queue stuck QUEUED workflows into Redis stream")
+    parser = argparse.ArgumentParser(description="Re-queue stuck QUEUED/STORYBOARDED workflows into Redis stream")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--workflow-run-id", help="UUID of a specific WorkflowRun to re-queue")
-    group.add_argument("--all", action="store_true", help="Re-queue ALL workflows currently in QUEUED state")
+    group.add_argument("--all", action="store_true", help="Re-queue ALL workflows currently in QUEUED or STORYBOARDED state")
     parser.add_argument("--dry-run", action="store_true", help="Print payload without pushing to Redis")
     args = parser.parse_args()
 
@@ -89,15 +90,15 @@ def main() -> int:
 
     with Session(get_engine()) as session:
         if args.all:
-            # Find all workflows stuck in QUEUED
+            # Find all workflows stuck in QUEUED or STORYBOARDED
             rows = session.execute(
                 select(WorkflowRun, VideoProject)
                 .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
-                .where(WorkflowRun.state == "QUEUED")
+                .where(WorkflowRun.state.in_(["QUEUED", "STORYBOARDED"]))
             ).all()
 
             if not rows:
-                print("No workflows in QUEUED state. Nothing to do.")
+                print("No workflows in QUEUED or STORYBOARDED state. Nothing to do.")
                 return 0
 
             print(f"Found {len(rows)} QUEUED workflow(s) to re-queue:")
@@ -129,8 +130,8 @@ def main() -> int:
 
             print(f"WorkflowRun: {run.id} | State: {run.state} | Title: {project.title}")
 
-            if run.state != "QUEUED":
-                print(f"ERROR: Workflow is '{run.state}', not QUEUED. Aborting.")
+            if run.state not in ("QUEUED", "STORYBOARDED"):
+                print(f"ERROR: Workflow is '{run.state}', not QUEUED or STORYBOARDED. Aborting.")
                 return 1
 
             ok = requeue_one(run, project, redis_client, redis_settings.stream, args.dry_run)
