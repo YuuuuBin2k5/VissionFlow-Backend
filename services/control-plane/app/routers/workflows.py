@@ -1805,43 +1805,27 @@ def begin_manual_publish(
                 publish_step.output_payload = payload
                 session.commit()
 
-            threading.Thread(
-                target=_process_publication_attempt_in_background,
-                args=(workflow_run_id, request.organization_id, connection.id),
-                daemon=True,
-            ).start()
-            return WorkflowTransitionResponse(
-                workflow_run_id=workflow_run_id,
-                state=WorkflowState.PUBLISHING.value,
-                changed=False,
-            )
+        # Execute publication attempt synchronously in the request cycle
+        _process_publication_attempt_in_background(workflow_run_id, request.organization_id, connection.id)
 
-        if wf.state == WorkflowState.PUBLISHED:
-            return WorkflowTransitionResponse(
-                workflow_run_id=workflow_run_id,
-                state=WorkflowState.PUBLISHED.value,
-                changed=False,
-            )
+        session.expire_all()
+        wf_final = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
+        final_state = wf_final.state if wf_final else WorkflowState.APPROVED.value
 
-        result = BeginManualPublish(AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(session))).execute(
-            BeginManualPublishCommand(
-                organization_id=request.organization_id,
-                workflow_run_id=workflow_run_id,
-                publisher_connection_id=connection.id,
-                publisher_provider=connection.provider,
-                publisher_account_id=connection.provider_account_id,
-                requested_by_subject=identity.subject,
-                note=request.note,
-                scheduled_at_iso=request.scheduled_at_iso,
-                trace_id=_trace_id(request_id),
+        if final_state == WorkflowState.APPROVED.value:
+            attempt_final = session.scalar(
+                select(PublicationAttempt)
+                .where(PublicationAttempt.workflow_run_id == workflow_run_id)
+                .order_by(PublicationAttempt.attempt_number.desc())
             )
+            err_msg = attempt_final.failure_code if attempt_final and attempt_final.failure_code else "YouTube upload failed"
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=err_msg)
+
+        return WorkflowTransitionResponse(
+            workflow_run_id=workflow_run_id,
+            state=final_state,
+            changed=True,
         )
-
-        threading.Thread(
-            target=_process_publication_attempt_in_background,
-            args=(workflow_run_id, request.organization_id, connection.id),
-            daemon=True,
-        ).start()
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
     except LookupError as exc:
@@ -1850,12 +1834,6 @@ def begin_manual_publish(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Workflow is not approved for publishing") from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
-
-    return WorkflowTransitionResponse(
-        workflow_run_id=result.workflow_run_id,
-        state=result.state.value,
-        changed=result.changed,
-    )
 
 
 @router.post(
