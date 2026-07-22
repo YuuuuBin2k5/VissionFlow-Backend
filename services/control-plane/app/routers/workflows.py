@@ -438,6 +438,7 @@ class BeginManualPublishRequest(BaseModel):
     organization_id: uuid.UUID
     publisher_connection_id: uuid.UUID
     note: str | None = Field(default=None, max_length=2_000)
+    scheduled_at_iso: str | None = Field(default=None, max_length=64)
 
 
 class WorkflowExecutionContextResponse(BaseModel):
@@ -1386,8 +1387,18 @@ def get_review_artifact_preview(
         )
         if workflow is None:
             raise LookupError()
-        if workflow.state != WorkflowState.APPROVAL_PENDING.value:
-            raise WorkflowStateConflict("Workflow is not awaiting human approval")
+        # Allow review artifact preview for any state that has a rendered export
+        allowed_states = {
+            WorkflowState.APPROVAL_PENDING.value,
+            WorkflowState.APPROVED.value,
+            WorkflowState.PUBLISHING.value,
+            WorkflowState.PUBLISHED.value,
+            WorkflowState.RENDERING.value,
+            WorkflowState.QA_PENDING.value,
+            WorkflowState.RENDERED.value,
+        }
+        if workflow.state not in allowed_states:
+            raise WorkflowStateConflict(f"Workflow state '{workflow.state}' does not support review artifact preview")
         artifact = session.scalar(
             select(MediaAsset)
             .where(
@@ -1547,6 +1558,7 @@ def begin_manual_publish(
                 publisher_account_id=connection.provider_account_id,
                 requested_by_subject=identity.subject,
                 note=request.note,
+                scheduled_at_iso=request.scheduled_at_iso,
                 trace_id=_trace_id(request_id),
             )
         )

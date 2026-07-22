@@ -24,6 +24,8 @@ class YouTubePublisher(SocialPublisher):
 
     def publish(self, video_path: str, payload: PublishPayload) -> PublishResult:
         print(f"[YouTubePublisher] Bắt đầu đăng YouTube Shorts: {payload.title[:80]}")
+        if payload.scheduled_at:
+            print(f"[YouTubePublisher] Schedule mode: {payload.scheduled_at}")
 
         try:
             service = YouTubeStudioPublisherService(profile_dir=self.profile_dir)
@@ -37,6 +39,7 @@ class YouTubePublisher(SocialPublisher):
                 proxy_user=payload.proxy_user,
                 proxy_pass=payload.proxy_pass,
                 headless=payload.headless,
+                scheduled_at=payload.scheduled_at,
             )
 
             if not video_url:
