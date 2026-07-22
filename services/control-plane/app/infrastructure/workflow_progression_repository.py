@@ -217,7 +217,7 @@ class SqlAlchemyWorkflowProgressionRepository:
             select(PublicationAttempt)
             .where(
                 PublicationAttempt.workflow_run_id == workflow_run.id,
-                PublicationAttempt.state.in_(["requested", "created", "uploading"]),
+                PublicationAttempt.state.in_(["requested", "created", "uploading", "pending"]),
             )
             .order_by(PublicationAttempt.attempt_number.desc())
         )
@@ -237,7 +237,7 @@ class SqlAlchemyWorkflowProgressionRepository:
             workflow_run_id=workflow_run.id,
             publisher_connection_id=uuid.UUID(connection_id),
             attempt_number=next_attempt_number,
-            state="requested",
+            state="pending",
             requested_by_subject=requested_by.strip(),
         )
         self._session.add(attempt)

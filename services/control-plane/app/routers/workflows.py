@@ -1310,7 +1310,7 @@ def create_publication_attempt(workflow_run_id: uuid.UUID, request: CreatePublic
         if active_attempt is not None:
             raise ActivePublicationAttemptError()
         number = len(list(session.scalars(select(PublicationAttempt).where(PublicationAttempt.workflow_run_id == workflow_run_id)))) + 1
-        attempt = PublicationAttempt(workflow_run_id=workflow_run_id, publisher_connection_id=connection.id, attempt_number=number, state="requested", requested_by_subject=identity.subject)
+        attempt = PublicationAttempt(workflow_run_id=workflow_run_id, publisher_connection_id=connection.id, attempt_number=number, state="pending", requested_by_subject=identity.subject)
         session.add(attempt); session.flush()
         session.add(OutboxEvent(aggregate_type="publication_attempt", aggregate_id=attempt.id, event_type="visionflow.publication_attempt.requested.v1", payload={"publication_attempt_id": str(attempt.id), "workflow_run_id": str(workflow_run_id), "organization_id": str(request.organization_id), "publisher_connection_id": str(connection.id)}, trace_id=uuid.uuid4().hex)); session.commit()
     except PermissionError as exc: raise HTTPException(status_code=403, detail="Organization permission denied") from exc
