@@ -38,7 +38,7 @@ router = APIRouter(prefix="/integrations", tags=["integrations"])
 
 class OAuthStartResponse(BaseModel): authorization_url: str
 class PublisherConnectionResponse(BaseModel): id: uuid.UUID; provider: str; provider_account_id: str; display_name: str; status: str
-class YouTubePublishManifest(BaseModel): workflow_run_id: uuid.UUID; publisher_connection_id: uuid.UUID; title: str; description: str; artifact_download_url: str; artifact_expires_in_seconds: int; artifact_byte_size: int; artifact_checksum_sha256: str; access_token: str; access_token_expires_in_seconds: int
+class YouTubePublishManifest(BaseModel): workflow_run_id: uuid.UUID; publisher_connection_id: uuid.UUID; title: str; description: str; artifact_download_url: str; artifact_expires_in_seconds: int; artifact_byte_size: int; artifact_checksum_sha256: str; access_token: str; access_token_expires_in_seconds: int; scheduled_at_iso: str | None = None; publish_at_iso: str | None = None
 class CompleteYouTubePublishRequest(BaseModel): organization_id: uuid.UUID; publisher_connection_id: uuid.UUID; video_id: str; video_url: str
 class FailYouTubePublishRequest(BaseModel): organization_id: uuid.UUID; publisher_connection_id: uuid.UUID; failure_code: str
 class ClaimPublicationAttemptRequest(BaseModel): organization_id: uuid.UUID
@@ -447,6 +447,17 @@ def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organizatio
     else:
         rich_description = project.brief
 
+    # Check if a scheduled publish timestamp was recorded in the publish step payload
+    publish_step = session.scalar(
+        select(WorkflowStep).where(
+            WorkflowStep.workflow_run_id == workflow.id,
+            WorkflowStep.step_key == "publish",
+        )
+    )
+    scheduled_at_iso = None
+    if publish_step and isinstance(publish_step.output_payload, dict):
+        scheduled_at_iso = publish_step.output_payload.get("scheduled_at_iso")
+
     preview = PrivateObjectPreviewIssuer.from_env().issue_final_export(workflow_run_id=workflow.id, object_key=artifact.object_key)
     token = YouTubeAccessTokenRefresher(requests, PublisherTokenCipher.from_env(), YouTubePublisherSettings.from_env()).refresh(connection.encrypted_refresh_token)
     return YouTubePublishManifest(
@@ -460,6 +471,8 @@ def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organizatio
         artifact_checksum_sha256=artifact.checksum_sha256,
         access_token=token.value,
         access_token_expires_in_seconds=token.expires_in_seconds,
+        scheduled_at_iso=scheduled_at_iso,
+        publish_at_iso=scheduled_at_iso,
     )
 
 

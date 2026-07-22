@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
+from typing import Optional
 
 from app.application.advance_workflow import AdvanceWorkflow, AdvanceWorkflowCommand, WorkflowTransitionResult
 from app.domain.workflow import WorkflowState
@@ -24,6 +25,10 @@ class BeginManualPublishCommand:
     requested_by_subject: str
     note: str | None = None
     trace_id: str = field(default_factory=lambda: uuid.uuid4().hex)
+    # ISO-8601 future datetime string (e.g. '2026-07-22T20:00:00+07:00').
+    # When set, the publisher worker will schedule the video on YouTube
+    # instead of publishing immediately (publishAt in YouTube Data API).
+    scheduled_at_iso: Optional[str] = None
 
 
 class BeginManualPublish:
@@ -55,6 +60,9 @@ class BeginManualPublish:
                     "publisher_account_id": command.publisher_account_id,
                     "requested_by_subject": requested_by_subject,
                     "note": command.note,
+                    # Forwarded to the publisher worker manifest so YouTube
+                    # Data API can set publishAt for native scheduled posting.
+                    "scheduled_at_iso": command.scheduled_at_iso,
                 },
                 trace_id=command.trace_id,
             )

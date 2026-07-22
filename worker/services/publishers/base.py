@@ -37,6 +37,10 @@ class PublishPayload:
     headless: bool = False
     force_headful: bool = True
 
+    # Lên lịch đăng (ISO 8601 string, e.g. '2026-07-22T20:00:00+07:00')
+    # Nếu None => đăng PUBLIC ngay lập tức. Nếu có => set Scheduled trên YouTube Studio.
+    scheduled_at: Optional[str] = None
+
 
 @dataclass
 class PublishResult:

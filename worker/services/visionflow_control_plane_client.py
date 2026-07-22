@@ -128,6 +128,25 @@ class VisionFlowControlPlaneClient:
             )
         return payload
 
+    def _request_with_retry(
+        self,
+        method: str,
+        url: str,
+        *,
+        max_attempts: int = 3,
+        **kwargs: Any,
+    ) -> requests.Response:
+        last_err: Exception | None = None
+        for attempt in range(1, max_attempts + 1):
+            try:
+                return self._http.request(method, url, **kwargs)
+            except requests.exceptions.RequestException as err:
+                last_err = err
+                if attempt < max_attempts:
+                    time.sleep(2.0 * attempt)
+                else:
+                    raise
+
     def advance_workflow(
         self,
         workflow_run_id: str,
@@ -137,7 +156,8 @@ class VisionFlowControlPlaneClient:
         *,
         trace_id: str | None = None,
     ) -> dict[str, Any]:
-        response = self._http.post(
+        response = self._request_with_retry(
+            "POST",
             f"{self._settings.api_url}/workflows/{workflow_run_id}/transitions",
             json={
                 "organization_id": self._settings.organization_id,
@@ -171,7 +191,8 @@ class VisionFlowControlPlaneClient:
         worker.  It keeps the human-review policy and its audit semantics in
         one service boundary.
         """
-        response = self._http.post(
+        response = self._request_with_retry(
+            "POST",
             f"{self._settings.api_url}/workflows/{workflow_run_id}/approval/open",
             json={"organization_id": self._settings.organization_id},
             headers={

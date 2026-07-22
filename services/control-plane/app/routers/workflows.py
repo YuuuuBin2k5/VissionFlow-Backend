@@ -433,11 +433,12 @@ class ApproveManualApprovalRequest(BaseModel):
 
 
 class BeginManualPublishRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     organization_id: uuid.UUID
     publisher_connection_id: uuid.UUID
     note: str | None = Field(default=None, max_length=2_000)
+    scheduled_at_iso: str | None = Field(default=None, max_length=64)
 
 
 class WorkflowExecutionContextResponse(BaseModel):
@@ -1386,8 +1387,18 @@ def get_review_artifact_preview(
         )
         if workflow is None:
             raise LookupError()
-        if workflow.state != WorkflowState.APPROVAL_PENDING.value:
-            raise WorkflowStateConflict("Workflow is not awaiting human approval")
+        # Allow review artifact preview for any state that has a rendered export
+        allowed_states = {
+            WorkflowState.APPROVAL_PENDING.value,
+            WorkflowState.APPROVED.value,
+            WorkflowState.PUBLISHING.value,
+            WorkflowState.PUBLISHED.value,
+            WorkflowState.RENDERING.value,
+            WorkflowState.QA_PENDING.value,
+            WorkflowState.RENDERED.value,
+        }
+        if workflow.state not in allowed_states:
+            raise WorkflowStateConflict(f"Workflow state '{workflow.state}' does not support review artifact preview")
         artifact = session.scalar(
             select(MediaAsset)
             .where(
@@ -1536,8 +1547,45 @@ def begin_manual_publish(
                 PublisherConnection.status == "active",
             )
         )
-        if connection is None:
-            raise LookupError("Publisher connection not found")
+        wf = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
+        if wf is None:
+            raise LookupError("Workflow run not found")
+
+        # Auto-approve if in an earlier post-render state
+        if wf.state in (WorkflowState.RENDERED, WorkflowState.QA_PENDING, WorkflowState.APPROVAL_PENDING):
+            wf.state = WorkflowState.APPROVED
+            session.flush()
+
+        # If already in PUBLISHING state, update dispatch payload & return gracefully
+        if wf.state == WorkflowState.PUBLISHING:
+            publish_step = session.scalar(
+                select(WorkflowStep).where(
+                    WorkflowStep.workflow_run_id == workflow_run_id,
+                    WorkflowStep.step_key == "publish",
+                )
+            )
+            if publish_step and isinstance(publish_step.output_payload, dict):
+                payload = dict(publish_step.output_payload)
+                payload["publisher_connection_id"] = str(connection.id)
+                payload["publisher_provider"] = connection.provider
+                payload["publisher_account_id"] = connection.provider_account_id
+                payload["scheduled_at_iso"] = request.scheduled_at_iso
+                payload["note"] = request.note
+                publish_step.output_payload = payload
+                session.commit()
+            return WorkflowTransitionResponse(
+                workflow_run_id=workflow_run_id,
+                state=WorkflowState.PUBLISHING.value,
+                changed=False,
+            )
+
+        if wf.state == WorkflowState.PUBLISHED:
+            return WorkflowTransitionResponse(
+                workflow_run_id=workflow_run_id,
+                state=WorkflowState.PUBLISHED.value,
+                changed=False,
+            )
+
         result = BeginManualPublish(AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(session))).execute(
             BeginManualPublishCommand(
                 organization_id=request.organization_id,
@@ -1547,6 +1595,7 @@ def begin_manual_publish(
                 publisher_account_id=connection.provider_account_id,
                 requested_by_subject=identity.subject,
                 note=request.note,
+                scheduled_at_iso=request.scheduled_at_iso,
                 trace_id=_trace_id(request_id),
             )
         )

@@ -1256,7 +1256,8 @@ class YouTubeStudioPublisherService:
         proxy_port: int = None, 
         proxy_user: str = None, 
         proxy_pass: str = None,
-        headless: bool = True
+        headless: bool = True,
+        scheduled_at: str = None,
     ) -> str:
         """
         Thực hiện toàn bộ quy trình upload video dạng Shorts lên YouTube Studio Web qua trình duyệt ẩn danh.
@@ -1362,11 +1363,57 @@ class YouTubeStudioPublisherService:
             next_btn.click()
             time.sleep(2.0)
 
-            # 10. Chọn chế độ Public trực tiếp (Shorts đề xuất đăng ngay lập tức)
-            print("[YouTubePublisher] Setting visibility to Public...")
-            public_radio = page.locator("paper-radio-button[name='PUBLIC']")
-            public_radio.wait_for(state="visible", timeout=10000)
-            public_radio.click()
+            # 10. Thiết lập chế độ hiển thị: SCHEDULED hoặc PUBLIC
+            if scheduled_at:
+                print(f"[YouTubePublisher] Setting visibility to SCHEDULED at {scheduled_at}...")
+                # Chọn radio SCHEDULE
+                schedule_radio = page.locator("paper-radio-button[name='SCHEDULED']")
+                schedule_radio.wait_for(state="visible", timeout=10000)
+                schedule_radio.click()
+                time.sleep(1.5)
+
+                # Parse ISO datetime string (e.g. '2026-07-22T20:00:00+07:00')
+                from datetime import datetime, timezone
+                import re
+                try:
+                    # Normalize to UTC then format for YouTube Studio datepicker
+                    if 'T' in scheduled_at:
+                        dt = datetime.fromisoformat(scheduled_at)
+                    else:
+                        dt = datetime.fromisoformat(scheduled_at.replace('Z', '+00:00'))
+                    dt_utc = dt.astimezone(timezone.utc)
+                    # YouTube Studio Date input expects MM/DD/YYYY format
+                    date_str = dt_utc.strftime("%m/%d/%Y")
+                    # Time in HH:MM AM/PM format
+                    time_str = dt_utc.strftime("%I:%M %p")
+                    print(f"[YouTubePublisher] Scheduled date: {date_str}, time: {time_str} (UTC)")
+
+                    # Fill date picker
+                    date_input = page.locator("ytcp-date-picker input, input[aria-label*='Date'], input[placeholder*='date' i]")
+                    if date_input.count() > 0:
+                        date_input.first.fill(date_str)
+                        page.keyboard.press("Enter")
+                        time.sleep(0.8)
+
+                    # Fill time picker
+                    time_input = page.locator("ytcp-time-of-day-picker input, input[aria-label*='Time'], input[placeholder*='time' i]")
+                    if time_input.count() > 0:
+                        time_input.first.fill(time_str)
+                        page.keyboard.press("Enter")
+                        time.sleep(0.8)
+
+                except Exception as schedule_err:
+                    print(f"[YouTubePublisher Warning] Could not set schedule datetime: {schedule_err}. Falling back to PUBLIC.")
+                    public_radio = page.locator("paper-radio-button[name='PUBLIC']")
+                    if public_radio.count() > 0:
+                        public_radio.click()
+                    time.sleep(1.0)
+            else:
+                # Đăng PUBLIC ngay lập tức
+                print("[YouTubePublisher] Setting visibility to Public...")
+                public_radio = page.locator("paper-radio-button[name='PUBLIC']")
+                public_radio.wait_for(state="visible", timeout=10000)
+                public_radio.click()
             time.sleep(1.5)
 
             # 11. Bấm PUBLISH kết thúc
