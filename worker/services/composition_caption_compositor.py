@@ -60,23 +60,8 @@ class FfmpegCaptionCompositor:
 
 
 def caption_cues(render_plan: CompositionRenderPlan) -> tuple[CaptionCue, ...]:
-    cues: list[CaptionCue] = []
-    for track in render_plan.tracks:
-        if track.track_type != "caption" or track.muted:
-            continue
-        for clip in track.clips:
-            if clip.source_type != "text":
-                continue
-            text = clip.source_ref.strip()
-            if not text:
-                continue
-            cues.append(CaptionCue(
-                start_ms=clip.timeline_start_ms,
-                end_ms=clip.timeline_start_ms + clip.duration_ms,
-                text=text,
-                pop=any(effect.key == "caption_pop" for effect in clip.effects),
-            ))
-    return tuple(sorted(cues, key=lambda cue: (cue.start_ms, cue.end_ms, cue.text)))
+    # Suppress static summary banners per user preference; dynamic Vietsub Karaoke subtitles are rendered by SubtitleRenderer
+    return ()
 
 
 def build_ass_script(cues: tuple[CaptionCue, ...], caption_preset: str = "hormozi") -> str:
