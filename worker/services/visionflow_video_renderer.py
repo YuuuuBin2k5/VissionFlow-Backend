@@ -96,9 +96,12 @@ def _style_plan(contract) -> dict:
     ]
     applied_effects: list[str] = []
 
-    # MediaService supports these motion names through _apply_scene_motion.
-    # A beat push is the closest currently implemented treatment for the
-    # editor's impact preset; it is intentionally preferred over slow zoom.
+    # Check if composition contains active operator-created caption clips
+    has_composition_caption_clips = any(
+        track.track_type == "caption" and not track.muted and any(c.source_type == "text" and c.source_ref.strip() for c in track.clips)
+        for track in contract.render_plan.tracks
+    )
+
     if "impact_shake" in video_effects:
         scene_motion = "beat_push"
         applied_effects.append("impact_shake")
@@ -108,8 +111,6 @@ def _style_plan(contract) -> dict:
     else:
         scene_motion = "static"
 
-    # SubtitleRenderer contains a real sticker_pop style.  This is a caption
-    # treatment, not a generic clip transform, so only map caption_pop here.
     caption_style = "sticker_pop" if "caption_pop" in caption_effects else None
     if caption_style:
         applied_effects.append("caption_pop")
@@ -125,15 +126,26 @@ def _style_plan(contract) -> dict:
         if keyframe.property_key == "scale"
     ]
     plan = {
-        "visual_preset": contract.visual_preset,
+        "visual_preset": getattr(contract, "visual_preset", "warm_cinematic"),
         "scene_motion": scene_motion,
         "render_plan_hash": contract.render_plan_hash,
         "composition_applied_effects": applied_effects,
         "composition_frame_effects": frame_effects,
         "composition_keyframes": keyframes,
-        # Overlay/audio sources are not yet materialized independently by the
-        # V1 asset pipeline, so do not claim they changed the resulting MP4.
         "composition_deferred_effects": [effect for effect in effects if effect not in applied_effects],
+        # Visual Title Banner & Watermark Logo directives
+        "hook_text": contract.title if getattr(contract, "show_title_banner", True) else None,
+        "show_title_banner": getattr(contract, "show_title_banner", True),
+        "title_banner_style": getattr(contract, "title_banner_style", "neon"),
+        "logo_handle": getattr(contract, "logo_handle", "@VisionFlowAI"),
+        "logo_position": getattr(contract, "logo_position", "top_left"),
+        "logo_opacity": getattr(contract, "logo_opacity", 0.85),
+        "show_logo": True,
+        "caption_preset": getattr(contract, "caption_preset", "hormozi"),
+        "caption_position": getattr(contract, "caption_position", "bottom"),
+        "caption_color": getattr(contract, "caption_color", "#FFFF00"),
+        # Deduplication flag: Suppress base word-by-word subtitles if composition ASS caption tracks exist
+        "render_word_subtitles": not has_composition_caption_clips,
     }
     if caption_style:
         plan["caption_style"] = caption_style

@@ -525,20 +525,21 @@ class SubtitleRenderer:
             self._draw_text_panel(draw, lines, font, (margin_x, y1, size[0] - margin_x, y2), subtitle_style)
 
         elif overlay_kind == "hook":
-            hook_style = visual_style_plan.get("hook_style", "center_hook")
-            max_width = size[0] - (margin_x * 2) - 70
-            font, lines = self._fit_font(text, max_width=max_width, max_lines=3, start_size=72, min_size=42)
-            if hook_style == "top_headline":
-                box = (margin_x, 150, size[0] - margin_x, 410)
-                align = "left"
-            elif hook_style == "headline_panel":
-                box = (margin_x, 250, size[0] - margin_x, 560)
-                align = "center"
-            else:
-                box = (margin_x, 540, size[0] - margin_x, 850)
-                align = "center"
+            hook_style = visual_style_plan.get("hook_style") or visual_style_plan.get("title_banner_style") or "neon"
+            max_width = size[0] - (margin_x * 2) - 40
+            font, lines = self._fit_font(text, max_width=max_width, max_lines=2, start_size=58, min_size=36)
+            box = (margin_x, 140, size[0] - margin_x, 340)
+            align = "center"
             style = dict(subtitle_style)
-            style.update({"font_size": 72, "box": (0, 0, 0, 178), "box_outline": (255, 255, 255, 48)})
+            style.update({
+                "font_size": 58,
+                "fill": "#FFFFFF",
+                "stroke": "#000000",
+                "stroke_width": 4,
+                "box": (10, 18, 38, 220), # Deep dark glass
+                "box_outline": (0, 212, 255, 200) if hook_style == "neon" else (255, 255, 255, 120),
+                "accent": "#00d4ff" if hook_style == "neon" else "#3a82ff",
+            })
             self._draw_text_panel(draw, lines, font, box, style, align=align)
 
         elif overlay_kind == "cta":
@@ -546,6 +547,39 @@ class SubtitleRenderer:
             style = dict(subtitle_style)
             style.update({"box": (255, 255, 255, 220), "fill": "#101010", "stroke": "white", "stroke_width": 2})
             self._draw_text_panel(draw, lines, font, (150, 1450, 930, 1605), style)
+
+        image.save(output_path, "PNG")
+        return output_path
+
+    def _create_logo_watermark_png(self, logo_handle: str, output_path: str, visual_style_plan: dict, size=(1080, 1920)) -> str:
+        """Create a premium 2026 Glassmorphism logo watermark pill overlay."""
+        image = Image.new("RGBA", size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(image)
+
+        pos = visual_style_plan.get("logo_position", "top_left")
+        handle_text = f"⚡ {logo_handle.strip()}" if not logo_handle.startswith("⚡") else logo_handle.strip()
+
+        fontsize = 28
+        try:
+            font = ImageFont.truetype(self.font_path, fontsize)
+        except Exception:
+            font = ImageFont.load_default()
+
+        bbox = draw.textbbox((0, 0), handle_text, font=font)
+        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        pad_x, pad_y = 20, 10
+        bw, bh = tw + pad_x * 2, th + pad_y * 2
+
+        if "right" in pos:
+            x1 = size[0] - 60 - bw
+        else:
+            x1 = 60
+        y1 = 80
+        x2, y2 = x1 + bw, y1 + bh
+
+        # Semi-transparent dark glass background pill
+        draw.rounded_rectangle((x1, y1, x2, y2), radius=16, fill=(10, 15, 28, 200), outline=(0, 212, 255, 160), width=2)
+        draw.text((x1 + pad_x, y1 + pad_y - 2), handle_text, font=font, fill="#FFFFFF", stroke_width=1, stroke_fill="#000000")
 
         image.save(output_path, "PNG")
         return output_path

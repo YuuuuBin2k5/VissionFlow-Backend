@@ -424,81 +424,97 @@ class MediaService:
         sub_temp_dir.mkdir(exist_ok=True)
         retention_plan = visual_style_plan.get("retention_plan") or {}
         hook_text = visual_style_plan.get("hook_text")
-        hook_duration = float(retention_plan.get("hook_duration_s") or visual_style_plan.get("hook_duration_s") or 1.5)
+        hook_duration = float(retention_plan.get("hook_duration_s") or visual_style_plan.get("hook_duration_s") or 2.5)
 
-        subtitle_word_chunks = self.sub_renderer.group_words_into_chunks(
-            word_timestamps,
-            max_words=int(visual_style_plan.get("caption_max_words", 5)),
-            max_gap_ms=int(visual_style_plan.get("caption_max_gap_ms", 520)),
-        )
+        # Check if base word subtitles should be rendered (suppressed if FFmpeg caption compositor handles composition captions)
+        render_word_subs = visual_style_plan.get("render_word_subtitles", True)
+        if render_word_subs:
+            subtitle_word_chunks = self.sub_renderer.group_words_into_chunks(
+                word_timestamps,
+                max_words=int(visual_style_plan.get("caption_max_words", 5)),
+                max_gap_ms=int(visual_style_plan.get("caption_max_gap_ms", 520)),
+            )
 
-        sub_idx_global = 0
-        for chunk in subtitle_word_chunks:
-            for i, active_w in enumerate(chunk):
-                try:
-                    active_word_str = active_w["word"]
-                    start_s = max(float(active_w["start_ms"]) / 1000.0, hook_duration)
+            sub_idx_global = 0
+            for chunk in subtitle_word_chunks:
+                for i, active_w in enumerate(chunk):
+                    try:
+                        active_word_str = active_w["word"]
+                        start_s = max(float(active_w["start_ms"]) / 1000.0, hook_duration if hook_text else 0.0)
 
-                    if i < len(chunk) - 1:
-                        end_s = float(chunk[i+1]["start_ms"]) / 1000.0
-                    else:
-                        end_s = float(chunk[-1]["end_ms"]) / 1000.0
+                        if i < len(chunk) - 1:
+                            end_s = float(chunk[i+1]["start_ms"]) / 1000.0
+                        else:
+                            end_s = float(chunk[-1]["end_ms"]) / 1000.0
 
-                    duration = end_s - start_s
-                    if duration <= 0:
-                        continue
+                        duration = end_s - start_s
+                        if duration <= 0:
+                            continue
 
-                    png_normal_path = str(sub_temp_dir / f"sub_{sub_idx_global}_normal.png")
-                    png_glow_path = str(sub_temp_dir / f"sub_{sub_idx_global}_glow.png")
+                        png_normal_path = str(sub_temp_dir / f"sub_{sub_idx_global}_normal.png")
+                        png_glow_path = str(sub_temp_dir / f"sub_{sub_idx_global}_glow.png")
 
-                    self.sub_renderer._create_hormozi_subtitle_png(chunk, active_word_str, png_normal_path, visual_style_plan=visual_style_plan, glow=False)
-                    self.sub_renderer._create_hormozi_subtitle_png(chunk, active_word_str, png_glow_path, visual_style_plan=visual_style_plan, glow=True)
+                        self.sub_renderer._create_hormozi_subtitle_png(chunk, active_word_str, png_normal_path, visual_style_plan=visual_style_plan, glow=False)
+                        self.sub_renderer._create_hormozi_subtitle_png(chunk, active_word_str, png_glow_path, visual_style_plan=visual_style_plan, glow=True)
 
-                    sub_clip_normal = (
-                        ImageClip(png_normal_path)
-                        .with_start(start_s)
-                        .with_duration(duration)
-                        .with_position((0, 0))
-                    )
-                    subtitle_clips.append(sub_clip_normal)
-
-                    sub_clip_glow = (
-                        ImageClip(png_glow_path)
-                        .with_start(start_s)
-                        .with_duration(duration)
-                        .with_position((0, 0))
-                    )
-
-                    if mid_data:
-                        def make_mask_opacity_filter(start_s, mid_data, fps=24):
-                            threshold = 0.45
-                            def mask_filter(gf, t):
-                                mask_frame = gf(t)
-                                absolute_t = start_s + t
-                                frame_idx = min(len(mid_data) - 1, int(absolute_t * fps))
-                                mid_val = float(mid_data[frame_idx]) if mid_data else 0.0
-                                if mid_val <= threshold:
-                                    return np.zeros_like(mask_frame)
-                                alpha = np.clip((mid_val - threshold) / (1.0 - threshold), 0.0, 1.0)
-                                return mask_frame * alpha
-                            return mask_filter
-
-                        sub_clip_glow = sub_clip_glow.with_mask(
-                            sub_clip_glow.mask.transform(make_mask_opacity_filter(start_s, mid_data, fps=24))
+                        sub_clip_normal = (
+                            ImageClip(png_normal_path)
+                            .with_start(start_s)
+                            .with_duration(duration)
+                            .with_position((0, 0))
                         )
-                        subtitle_clips.append(sub_clip_glow)
+                        subtitle_clips.append(sub_clip_normal)
 
-                    sub_idx_global += 1
-                except Exception as sub_err:
-                    print(f"[MediaService Error] Failed to process subtitle word chunk: {sub_err}")
+                        sub_clip_glow = (
+                            ImageClip(png_glow_path)
+                            .with_start(start_s)
+                            .with_duration(duration)
+                            .with_position((0, 0))
+                        )
 
-        if hook_text:
+                        if mid_data:
+                            def make_mask_opacity_filter(start_s, mid_data, fps=24):
+                                threshold = 0.45
+                                def mask_filter(gf, t):
+                                    mask_frame = gf(t)
+                                    absolute_t = start_s + t
+                                    frame_idx = min(len(mid_data) - 1, int(absolute_t * fps))
+                                    mid_val = float(mid_data[frame_idx]) if mid_data else 0.0
+                                    if mid_val <= threshold:
+                                        return np.zeros_like(mask_frame)
+                                    alpha = np.clip((mid_val - threshold) / (1.0 - threshold), 0.0, 1.0)
+                                    return mask_frame * alpha
+                                return mask_filter
+
+                            sub_clip_glow = sub_clip_glow.with_mask(
+                                sub_clip_glow.mask.transform(make_mask_opacity_filter(start_s, mid_data, fps=24))
+                            )
+                            subtitle_clips.append(sub_clip_glow)
+
+                        sub_idx_global += 1
+                    except Exception as sub_err:
+                        print(f"[MediaService Error] Failed to process subtitle word chunk: {sub_err}")
+
+        # Render Title Banner Header Overlay
+        if hook_text and visual_style_plan.get("show_title_banner", True):
             hook_path = str(sub_temp_dir / "hook_overlay.png")
             self.sub_renderer._create_text_overlay_png(hook_text, hook_path, visual_style_plan, "hook")
             subtitle_clips.append(
                 ImageClip(hook_path)
                 .with_start(0)
                 .with_duration(min(hook_duration, TOTAL_AUDIO_DURATION))
+                .with_position((0, 0))
+            )
+
+        # Render Logo Watermark Overlay
+        logo_handle = visual_style_plan.get("logo_handle") or "@VisionFlowAI"
+        if logo_handle and visual_style_plan.get("show_logo", True):
+            logo_path = str(sub_temp_dir / "logo_watermark.png")
+            self.sub_renderer._create_logo_watermark_png(logo_handle, logo_path, visual_style_plan)
+            subtitle_clips.append(
+                ImageClip(logo_path)
+                .with_start(0)
+                .with_duration(TOTAL_AUDIO_DURATION)
                 .with_position((0, 0))
             )
 
