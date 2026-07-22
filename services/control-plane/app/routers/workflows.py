@@ -1547,8 +1547,45 @@ def begin_manual_publish(
                 PublisherConnection.status == "active",
             )
         )
-        if connection is None:
-            raise LookupError("Publisher connection not found")
+        wf = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
+        if wf is None:
+            raise LookupError("Workflow run not found")
+
+        # Auto-approve if in an earlier post-render state
+        if wf.state in (WorkflowState.RENDERED, WorkflowState.QA_PENDING, WorkflowState.APPROVAL_PENDING):
+            wf.state = WorkflowState.APPROVED
+            session.flush()
+
+        # If already in PUBLISHING state, update dispatch payload & return gracefully
+        if wf.state == WorkflowState.PUBLISHING:
+            publish_step = session.scalar(
+                select(WorkflowStep).where(
+                    WorkflowStep.workflow_run_id == workflow_run_id,
+                    WorkflowStep.step_key == "publish",
+                )
+            )
+            if publish_step and isinstance(publish_step.output_payload, dict):
+                payload = dict(publish_step.output_payload)
+                payload["publisher_connection_id"] = str(connection.id)
+                payload["publisher_provider"] = connection.provider
+                payload["publisher_account_id"] = connection.provider_account_id
+                payload["scheduled_at_iso"] = request.scheduled_at_iso
+                payload["note"] = request.note
+                publish_step.output_payload = payload
+                session.commit()
+            return WorkflowTransitionResponse(
+                workflow_run_id=workflow_run_id,
+                state=WorkflowState.PUBLISHING.value,
+                changed=False,
+            )
+
+        if wf.state == WorkflowState.PUBLISHED:
+            return WorkflowTransitionResponse(
+                workflow_run_id=workflow_run_id,
+                state=WorkflowState.PUBLISHED.value,
+                changed=False,
+            )
+
         result = BeginManualPublish(AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(session))).execute(
             BeginManualPublishCommand(
                 organization_id=request.organization_id,
