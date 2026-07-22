@@ -117,5 +117,18 @@ class VisionFlowRenderDispatcherTests(unittest.TestCase):
         self.assertEqual(("approval", "run-1", "b" * 32), gateway.calls[-1])
 
 
+    def test_matches_scenes_by_visual_prompt_or_fallback(self):
+        scenes = [
+            {"scene_id": "scene_1", "visual_prompt": "Cinematic vertical 9:16 shot, dark boardroom..."},
+            {"scene_id": "scene_2", "prompt": "LEGO bricks tumbling..."},
+        ]
+        composition = {"tracks": [{"track_type": "video", "clips": [
+            {"source_type": "scene", "source_ref": "Cinematic vertical 9:16 shot, dark boardroom...", "timeline_start_ms": 0, "duration_ms": 5000},
+            {"source_type": "scene", "source_ref": "LEGO bricks tumbling...", "timeline_start_ms": 5000, "duration_ms": 5000},
+        ]}]}
+        result = _apply_locked_timeline(scenes, composition)
+        self.assertEqual(["scene_1", "scene_2"], [scene["scene_id"] for scene in result])
+
+
 if __name__ == "__main__":
     unittest.main()

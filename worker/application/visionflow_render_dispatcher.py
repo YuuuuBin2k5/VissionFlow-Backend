@@ -102,11 +102,24 @@ def _apply_locked_timeline(scenes: list[dict[str, Any]], composition: dict[str, 
     keeps that boundary while making track ordering and clip duration an
     actual render input instead of only editor metadata.
     """
-    by_id = {
-        str(scene.get("scene_id") or scene.get("id")): scene
-        for scene in scenes
-        if str(scene.get("scene_id") or scene.get("id") or "").strip()
-    }
+    by_id: dict[str, dict[str, Any]] = {}
+    for idx, scene in enumerate(scenes):
+        sid = str(scene.get("scene_id") or scene.get("id") or "").strip()
+        if sid:
+            by_id[sid] = scene
+
+        by_id[str(idx + 1)] = scene
+        by_id[f"scene_{idx + 1}"] = scene
+        by_id[f"scene-{idx + 1}"] = scene
+        if isinstance(scene.get("index"), (int, str)):
+            by_id[str(scene["index"])] = scene
+            by_id[f"scene_{scene['index']}"] = scene
+
+        for key in ("prompt", "visual_prompt", "description", "title", "text"):
+            val = str(scene.get(key) or "").strip()
+            if val:
+                by_id[val] = scene
+
     video_clips = [
         clip for track in composition.get("tracks", []) if isinstance(track, dict) and track.get("track_type") == "video"
         for clip in track.get("clips", []) if isinstance(clip, dict) and clip.get("source_type") == "scene"
@@ -114,11 +127,26 @@ def _apply_locked_timeline(scenes: list[dict[str, Any]], composition: dict[str, 
     if not video_clips:
         raise ValueError("locked composition has no video scene clips")
     materialized: list[dict[str, Any]] = []
-    for clip in sorted(video_clips, key=lambda item: int(item.get("timeline_start_ms", 0))):
-        source_ref = str(clip.get("source_ref", ""))
+    sorted_clips = sorted(video_clips, key=lambda item: int(item.get("timeline_start_ms", 0)))
+    for clip_idx, clip in enumerate(sorted_clips):
+        source_ref = str(clip.get("source_ref", "")).strip()
         scene = by_id.get(source_ref)
         if scene is None:
+            for s in scenes:
+                for key in ("visual_prompt", "prompt", "description", "title"):
+                    p = str(s.get(key) or "").strip()
+                    if p and (source_ref.startswith(p[:30]) or p.startswith(source_ref[:30])):
+                        scene = s
+                        break
+                if scene is not None:
+                    break
+
+        if scene is None and clip_idx < len(scenes):
+            scene = scenes[clip_idx]
+
+        if scene is None:
             raise ValueError(f"composition references unavailable scene '{source_ref}'")
+
         duration_ms = clip.get("duration_ms")
         if not isinstance(duration_ms, int) or not 1_000 <= duration_ms <= 90_000:
             raise ValueError("composition video clip duration must be between 1 and 90 seconds")
