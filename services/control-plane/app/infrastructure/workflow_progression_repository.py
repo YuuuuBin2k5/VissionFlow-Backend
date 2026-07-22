@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from app.application.advance_workflow import (
@@ -206,15 +206,37 @@ class SqlAlchemyWorkflowProgressionRepository:
         )
 
     def _create_initial_publication_attempt(self, workflow_run: WorkflowRun, command: AdvanceWorkflowCommand) -> None:
-        """Create the first publish lease and its outbox event in the state-change transaction."""
+        """Create or reuse the publish lease and its outbox event in the state-change transaction."""
         connection_id = command.output_payload.get("publisher_connection_id")
         requested_by = command.output_payload.get("requested_by_subject")
         if not isinstance(connection_id, str) or not isinstance(requested_by, str) or not requested_by.strip():
             raise ValueError("PUBLISHING requires publisher connection and requester")
+
+        # Check if an active attempt already exists for this workflow run
+        existing_attempt = self._session.scalar(
+            select(PublicationAttempt)
+            .where(
+                PublicationAttempt.workflow_run_id == workflow_run.id,
+                PublicationAttempt.state.in_(["requested", "created", "uploading"]),
+            )
+            .order_by(PublicationAttempt.attempt_number.desc())
+        )
+        if existing_attempt:
+            existing_attempt.publisher_connection_id = uuid.UUID(connection_id)
+            existing_attempt.requested_by_subject = requested_by.strip()
+            self._session.flush()
+            return
+
+        max_attempt = self._session.scalar(
+            select(func.max(PublicationAttempt.attempt_number))
+            .where(PublicationAttempt.workflow_run_id == workflow_run.id)
+        )
+        next_attempt_number = (max_attempt or 0) + 1
+
         attempt = PublicationAttempt(
             workflow_run_id=workflow_run.id,
             publisher_connection_id=uuid.UUID(connection_id),
-            attempt_number=1,
+            attempt_number=next_attempt_number,
             state="requested",
             requested_by_subject=requested_by.strip(),
         )
