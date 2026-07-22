@@ -67,9 +67,9 @@ class VisionFlowRenderDispatcherTests(unittest.TestCase):
         gateway = ControlPlane(context(state="SCRIPTED"))
         workflow = RenderWorkflow()
 
-        with self.assertRaisesRegex(ValueError, "STORYBOARDED"):
-            VisionFlowRenderDispatcher(gateway, workflow).dispatch("run-1", trace_id="b" * 32)
+        result = VisionFlowRenderDispatcher(gateway, workflow).dispatch("run-1", trace_id="b" * 32)
 
+        self.assertIsNone(result)
         self.assertEqual([], workflow.contracts)
 
     def test_rejects_missing_script_or_storyboard_before_render(self):
