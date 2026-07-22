@@ -1,17 +1,24 @@
 from __future__ import annotations
 
+import logging
 import os
+import tempfile
 import uuid
 from dataclasses import asdict
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
+import requests as _requests_mod
+
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+
+_bg_logger = logging.getLogger(__name__)
 
 from app.application.advance_workflow import (
     AdvanceWorkflow,
@@ -1518,6 +1525,202 @@ def approve_manual_approval(
     )
 
 
+def _process_publication_attempt_in_background(
+    workflow_run_id: uuid.UUID,
+    organization_id: uuid.UUID,
+    publisher_connection_id: uuid.UUID,
+) -> None:
+    """
+    Background task: authenticate with YouTube, download the exported MP4 from R2,
+    upload it via the YouTube Data API v3 resumable upload, then mark the workflow
+    PUBLISHED. On any failure the attempt is marked "failed" and the workflow reverts
+    to APPROVED so the operator can retry.
+    """
+    from app.infrastructure.database import SessionLocal
+    from app.application.youtube_access_token import YouTubeAccessTokenRefresher
+    from app.core.publisher_token_cipher import PublisherTokenCipher
+    from app.core.youtube_publisher import YouTubePublisherSettings
+    from app.core.youtube_resumable_uploader import (
+        YouTubeResumableUploader,
+        YouTubeUploadMetadata,
+    )
+    from app.infrastructure.overlay_uploads import PrivateObjectPreviewIssuer
+
+    session = SessionLocal()
+    try:
+        # ---- 1. Load attempt ------------------------------------------------
+        attempt = session.scalar(
+            select(PublicationAttempt)
+            .where(PublicationAttempt.workflow_run_id == workflow_run_id)
+            .order_by(PublicationAttempt.attempt_number.desc())
+        )
+        if not attempt or attempt.state in ("succeeded", "published", "completed"):
+            _bg_logger.info(
+                "Publication attempt for %s already done or missing; skipping.",
+                workflow_run_id,
+            )
+            return
+
+        attempt.state = "uploading"
+        session.commit()
+
+        # ---- 2. Load connection & publisher credentials ---------------------
+        connection = session.scalar(
+            select(PublisherConnection).where(PublisherConnection.id == publisher_connection_id)
+        )
+        if not connection or not connection.encrypted_refresh_token:
+            raise RuntimeError(
+                f"Publisher connection {publisher_connection_id} not found or has no refresh token"
+            )
+
+        # ---- 3. Exchange refresh_token -> access_token ----------------------
+        http_session = _requests_mod.Session()
+        cipher = PublisherTokenCipher.from_env()
+        settings = YouTubePublisherSettings.from_env()
+        refresher = YouTubeAccessTokenRefresher(http_session, cipher, settings)
+        token = refresher.refresh(connection.encrypted_refresh_token)
+        _bg_logger.info(
+            "YouTube access token obtained for workflow %s (expires_in=%s)",
+            workflow_run_id,
+            token.expires_in_seconds,
+        )
+
+        # ---- 4. Find the exported MP4 object key in R2 ----------------------
+        export_asset = session.scalar(
+            select(MediaAsset).where(
+                MediaAsset.workflow_run_id == workflow_run_id,
+                MediaAsset.media_kind == "final_export",
+            )
+        )
+        if not export_asset:
+            raise RuntimeError(
+                f"No final_export media asset found for workflow {workflow_run_id}"
+            )
+
+        # ---- 5. Download MP4 from R2 via presigned URL ----------------------
+        preview = PrivateObjectPreviewIssuer.from_env().issue_final_export(
+            workflow_run_id=workflow_run_id,
+            object_key=export_asset.object_key,
+        )
+        _bg_logger.info(
+            "Downloading final export from R2: %s", preview.download_url[:80]
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mp4_path = Path(tmpdir) / "final.mp4"
+            dl_resp = http_session.get(preview.download_url, stream=True, timeout=(10, 120))
+            dl_resp.raise_for_status()
+            with open(mp4_path, "wb") as fh:
+                for chunk in dl_resp.iter_content(chunk_size=1024 * 1024):
+                    fh.write(chunk)
+            _bg_logger.info(
+                "Downloaded %d bytes for workflow %s",
+                mp4_path.stat().st_size,
+                workflow_run_id,
+            )
+
+            # ---- 6. Load project metadata for title/description -------------
+            wf_for_project = session.scalar(
+                select(WorkflowRun).where(WorkflowRun.id == workflow_run_id)
+            )
+            project = None
+            if wf_for_project:
+                project = session.get(VideoProject, wf_for_project.project_id)
+            title = (project.title if project else str(workflow_run_id))[:100]
+            if "#Shorts" not in title and "#shorts" not in title:
+                title = (title[:95] + " #Shorts") if len(title) > 95 else (title + " #Shorts")
+            description_parts = []
+            if project and project.brief:
+                description_parts.append(project.brief[:4800])
+            description_parts.append("\n\n#Shorts #AI #VisionFlow")
+            description = "\n".join(description_parts)[:5000]
+
+            # ---- 7. Upload to YouTube via Resumable API ----------------------
+            uploader = YouTubeResumableUploader(http_session)
+            result = uploader.upload(
+                access_token=token.value,
+                video_path=mp4_path,
+                metadata=YouTubeUploadMetadata(
+                    title=title,
+                    description=description,
+                    tags=("Shorts", "AI", "VisionFlow", "KhoaHoc"),
+                    privacy_status="public",
+                    category_id="28",
+                    default_language="vi",
+                    self_declared_made_for_kids=False,
+                    publish_at_iso=None,
+                    embeddable=True,
+                    license="youtube",
+                ),
+            )
+            _bg_logger.info(
+                "YouTube upload succeeded: video_id=%s url=%s",
+                result.video_id,
+                result.url,
+            )
+
+        # ---- 8. Persist success & advance workflow state --------------------
+        attempt.state = "succeeded"
+        attempt.external_video_id = result.video_id
+        attempt.external_url = result.url
+        attempt.failure_code = None
+        attempt.lease_token = None
+        attempt.lease_expires_at = None
+        session.flush()
+
+        wf = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
+        if wf and wf.state == WorkflowState.PUBLISHING:
+            wf.state = WorkflowState.PUBLISHED
+
+        publish_step = session.scalar(
+            select(WorkflowStep).where(
+                WorkflowStep.workflow_run_id == workflow_run_id,
+                WorkflowStep.step_key == "publish",
+            )
+        )
+        if publish_step:
+            publish_step.state = WorkflowState.PUBLISHED
+            if isinstance(publish_step.output_payload, dict):
+                payload = dict(publish_step.output_payload)
+            else:
+                payload = {}
+            payload["provider"] = "youtube"
+            payload["publisher_connection_id"] = str(publisher_connection_id)
+            payload["external_video_id"] = result.video_id
+            payload["external_url"] = result.url
+            publish_step.output_payload = payload
+
+        session.commit()
+        _bg_logger.info(
+            "Workflow %s advanced to PUBLISHED. Video: %s",
+            workflow_run_id,
+            result.url,
+        )
+
+    except Exception as exc:
+        _bg_logger.exception(
+            "Publication background task failed for workflow %s: %s", workflow_run_id, exc
+        )
+        session.rollback()
+        try:
+            attempt = session.scalar(
+                select(PublicationAttempt)
+                .where(PublicationAttempt.workflow_run_id == workflow_run_id)
+                .order_by(PublicationAttempt.attempt_number.desc())
+            )
+            if attempt and attempt.state not in ("succeeded", "published", "completed"):
+                attempt.state = "failed"
+                attempt.failure_code = str(exc)[:250]
+            wf = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
+            if wf and wf.state == WorkflowState.PUBLISHING:
+                wf.state = WorkflowState.APPROVED
+            session.commit()
+        except Exception:
+            session.rollback()
+    finally:
+        session.close()
+
+
 @router.post(
     "/workflows/{workflow_run_id}/publication/manual-dispatch",
     response_model=WorkflowTransitionResponse,
@@ -1526,6 +1729,7 @@ def approve_manual_approval(
 def begin_manual_publish(
     workflow_run_id: uuid.UUID,
     request: BeginManualPublishRequest,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     request_id: str | None = Header(default=None, alias="X-Request-ID", max_length=64),
     identity: VerifiedIdentity = Depends(require_identity),
     session: Session = Depends(get_session),
@@ -1573,6 +1777,13 @@ def begin_manual_publish(
                 payload["note"] = request.note
                 publish_step.output_payload = payload
                 session.commit()
+
+            background_tasks.add_task(
+                _process_publication_attempt_in_background,
+                workflow_run_id,
+                request.organization_id,
+                connection.id,
+            )
             return WorkflowTransitionResponse(
                 workflow_run_id=workflow_run_id,
                 state=WorkflowState.PUBLISHING.value,
@@ -1598,6 +1809,13 @@ def begin_manual_publish(
                 scheduled_at_iso=request.scheduled_at_iso,
                 trace_id=_trace_id(request_id),
             )
+        )
+
+        background_tasks.add_task(
+            _process_publication_attempt_in_background,
+            workflow_run_id,
+            request.organization_id,
+            connection.id,
         )
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
