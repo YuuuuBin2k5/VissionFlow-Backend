@@ -14,7 +14,7 @@ import requests as _requests_mod
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -1217,7 +1217,13 @@ def list_publication_queue(
         .join(VideoProject, WorkflowRun.project_id == VideoProject.id)
         .where(
             VideoProject.organization_id == organization_id,
-            WorkflowRun.state == WorkflowState.APPROVED.value,
+            or_(
+                WorkflowRun.state == WorkflowState.APPROVED.value,
+                WorkflowRun.state == WorkflowState.PUBLISHING.value,
+                WorkflowRun.state == WorkflowState.RENDERED.value,
+                WorkflowRun.state == WorkflowState.QA_PENDING.value,
+                WorkflowRun.state == WorkflowState.APPROVAL_PENDING.value,
+            ),
         )
         .order_by(WorkflowRun.created_at.desc())
         .limit(limit)
