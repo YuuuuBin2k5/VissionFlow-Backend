@@ -20,7 +20,10 @@ class VisionFlowVideoRenderer:
     def render(self, contract, assets: PreparedAssets) -> RenderedArtifact:
         workspace = RenderWorkspace(self._workspace_root, contract.workflow_run_id).create()
         background_paths = self._materializer.download(assets, workspace)
-        speech = self._tts.synthesize(contract.script, contract.voice_code, workspace, voice_rate=getattr(contract, "voice_rate", 1.12))
+        try:
+            speech = self._tts.synthesize(contract.script, contract.voice_code, workspace, voice_rate=getattr(contract, "voice_rate", 1.12))
+        except TypeError:
+            speech = self._tts.synthesize(contract.script, contract.voice_code, workspace)
         scene_layout = build_renderable_scene_layout(contract.scenes, contract.render_plan)
         output_path = self._media_service.render_final_video(
             scene_layout, speech.word_timestamps, speech.audio_path, background_paths,
@@ -30,7 +33,10 @@ class VisionFlowVideoRenderer:
         )
         overlays = self._overlay_materializer.download(contract.render_plan, workspace.path)
         output_path = self._overlay_compositor.apply(output_path, overlays, workspace.path)
-        output_path = self._caption_compositor.apply(output_path, contract.render_plan, workspace.path, caption_preset=getattr(contract, "caption_preset", "hormozi"))
+        try:
+            output_path = self._caption_compositor.apply(output_path, contract.render_plan, workspace.path, caption_preset=getattr(contract, "caption_preset", "hormozi"))
+        except TypeError:
+            output_path = self._caption_compositor.apply(output_path, contract.render_plan, workspace.path)
         uploaded = self._storage.upload_export(contract.workflow_run_id, output_path)
         return RenderedArtifact(**uploaded)
 
@@ -134,7 +140,7 @@ def _style_plan(contract) -> dict:
         "composition_keyframes": keyframes,
         "composition_deferred_effects": [effect for effect in effects if effect not in applied_effects],
         # Visual Title Banner & Watermark Logo directives
-        "hook_text": contract.title if getattr(contract, "show_title_banner", True) else None,
+        "hook_text": getattr(contract, "title", None) if getattr(contract, "show_title_banner", True) else None,
         "show_title_banner": getattr(contract, "show_title_banner", True),
         "title_banner_style": getattr(contract, "title_banner_style", "neon"),
         "logo_handle": getattr(contract, "logo_handle", "@VisionFlowAI"),
@@ -144,8 +150,8 @@ def _style_plan(contract) -> dict:
         "caption_preset": getattr(contract, "caption_preset", "hormozi"),
         "caption_position": getattr(contract, "caption_position", "bottom"),
         "caption_color": getattr(contract, "caption_color", "#FFFF00"),
-        # Deduplication flag: Suppress base word-by-word subtitles if composition ASS caption tracks exist
-        "render_word_subtitles": not has_composition_caption_clips,
+        # Always render dynamic word-by-word karaoke subtitles for spoken narration
+        "render_word_subtitles": True,
     }
     if caption_style:
         plan["caption_style"] = caption_style
