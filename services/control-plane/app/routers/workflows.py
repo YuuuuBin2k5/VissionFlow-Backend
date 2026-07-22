@@ -1709,21 +1709,28 @@ def _process_publication_attempt_in_background(
             "Publication background task failed for workflow %s: %s", workflow_run_id, exc
         )
         session.rollback()
+        session.close()
+
+        fail_session = SessionLocal()
         try:
-            attempt = session.scalar(
+            attempt = fail_session.scalar(
                 select(PublicationAttempt)
                 .where(PublicationAttempt.workflow_run_id == workflow_run_id)
                 .order_by(PublicationAttempt.attempt_number.desc())
             )
             if attempt and attempt.state not in ("succeeded", "published", "completed"):
                 attempt.state = "failed"
-                attempt.failure_code = str(exc)[:250]
-            wf = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
+                attempt.failure_code = f"{type(exc).__name__}: {exc}"[:250]
+            wf = fail_session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
             if wf and wf.state == WorkflowState.PUBLISHING:
                 wf.state = WorkflowState.APPROVED
-            session.commit()
-        except Exception:
-            session.rollback()
+            fail_session.commit()
+            _bg_logger.info("Successfully persisted failure for workflow %s", workflow_run_id)
+        except Exception as inner_exc:
+            _bg_logger.exception("Failed to record publication failure in DB: %s", inner_exc)
+            fail_session.rollback()
+        finally:
+            fail_session.close()
     finally:
         session.close()
 
