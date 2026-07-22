@@ -497,26 +497,32 @@ class MediaService:
 
         # Render Title Banner Header Overlay
         if hook_text and visual_style_plan.get("show_title_banner", True):
-            hook_path = str(sub_temp_dir / "hook_overlay.png")
-            self.sub_renderer._create_text_overlay_png(hook_text, hook_path, visual_style_plan, "hook")
-            subtitle_clips.append(
-                ImageClip(hook_path)
-                .with_start(0)
-                .with_duration(min(hook_duration, TOTAL_AUDIO_DURATION))
-                .with_position((0, 0))
-            )
+            try:
+                hook_path = str(sub_temp_dir / "hook_overlay.png")
+                self.sub_renderer._create_text_overlay_png(hook_text, hook_path, visual_style_plan, "hook")
+                subtitle_clips.append(
+                    ImageClip(hook_path)
+                    .with_start(0)
+                    .with_duration(min(hook_duration, TOTAL_AUDIO_DURATION))
+                    .with_position((0, 0))
+                )
+            except Exception as e_hook:
+                print(f"[MediaService Error] Failed to render Title Banner: {e_hook}")
 
         # Render Logo Watermark Overlay
         logo_handle = visual_style_plan.get("logo_handle") or "@VisionFlowAI"
         if logo_handle and visual_style_plan.get("show_logo", True):
-            logo_path = str(sub_temp_dir / "logo_watermark.png")
-            self.sub_renderer._create_logo_watermark_png(logo_handle, logo_path, visual_style_plan)
-            subtitle_clips.append(
-                ImageClip(logo_path)
-                .with_start(0)
-                .with_duration(TOTAL_AUDIO_DURATION)
-                .with_position((0, 0))
-            )
+            try:
+                logo_path = str(sub_temp_dir / "logo_watermark.png")
+                self.sub_renderer._create_logo_watermark_png(logo_handle, logo_path, visual_style_plan)
+                subtitle_clips.append(
+                    ImageClip(logo_path)
+                    .with_start(0)
+                    .with_duration(TOTAL_AUDIO_DURATION)
+                    .with_position((0, 0))
+                )
+            except Exception as e_logo:
+                print(f"[MediaService Error] Failed to render Logo Watermark: {e_logo}")
 
         cta_text = visual_style_plan.get("cta_text")
         if cta_text and TOTAL_AUDIO_DURATION > 5:

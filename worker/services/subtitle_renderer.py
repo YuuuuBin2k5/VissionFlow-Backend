@@ -565,8 +565,12 @@ class SubtitleRenderer:
         except Exception:
             font = ImageFont.load_default()
 
-        bbox = draw.textbbox((0, 0), handle_text, font=font)
-        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        try:
+            bbox = draw.textbbox((0, 0), handle_text, font=font)
+            tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        except Exception:
+            tw, th = len(handle_text) * 16, 30
+
         pad_x, pad_y = 20, 10
         bw, bh = tw + pad_x * 2, th + pad_y * 2
 
