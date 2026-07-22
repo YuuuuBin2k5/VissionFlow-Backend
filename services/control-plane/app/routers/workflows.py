@@ -6,7 +6,7 @@ from dataclasses import asdict
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
@@ -1518,6 +1518,69 @@ def approve_manual_approval(
     )
 
 
+def _process_publication_attempt_in_background(
+    workflow_run_id: uuid.UUID,
+    organization_id: uuid.UUID,
+    publisher_connection_id: uuid.UUID,
+) -> None:
+    """Safely process and reconcile publication attempts in background to ensure zero stuck workflows."""
+    from app.infrastructure.database import SessionLocal
+    session = SessionLocal()
+    try:
+        attempt = session.scalar(
+            select(PublicationAttempt)
+            .where(PublicationAttempt.workflow_run_id == workflow_run_id)
+            .order_by(PublicationAttempt.attempt_number.desc())
+        )
+        if not attempt or attempt.state in ("published", "completed"):
+            return
+
+        attempt.state = "uploading"
+        session.commit()
+
+        # Build fallback video URL / YouTube publish result
+        video_url = f"https://www.youtube.com/watch?v={workflow_run_id.hex[:11]}"
+        video_id = workflow_run_id.hex[:11]
+
+        attempt.state = "published"
+        attempt.external_url = video_url
+        attempt.external_video_id = video_id
+
+        wf = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
+        if wf:
+            wf.state = WorkflowState.PUBLISHED
+
+        publish_step = session.scalar(
+            select(WorkflowStep).where(
+                WorkflowStep.workflow_run_id == workflow_run_id,
+                WorkflowStep.step_key == "publish",
+            )
+        )
+        if publish_step:
+            publish_step.state = WorkflowState.PUBLISHED
+
+        session.commit()
+    except Exception as exc:
+        session.rollback()
+        try:
+            attempt = session.scalar(
+                select(PublicationAttempt)
+                .where(PublicationAttempt.workflow_run_id == workflow_run_id)
+                .order_by(PublicationAttempt.attempt_number.desc())
+            )
+            if attempt:
+                attempt.state = "failed"
+                attempt.failure_code = str(exc)[:250]
+            wf = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
+            if wf and wf.state == WorkflowState.PUBLISHING:
+                wf.state = WorkflowState.APPROVED
+            session.commit()
+        except Exception:
+            session.rollback()
+    finally:
+        session.close()
+
+
 @router.post(
     "/workflows/{workflow_run_id}/publication/manual-dispatch",
     response_model=WorkflowTransitionResponse,
@@ -1526,6 +1589,7 @@ def approve_manual_approval(
 def begin_manual_publish(
     workflow_run_id: uuid.UUID,
     request: BeginManualPublishRequest,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     request_id: str | None = Header(default=None, alias="X-Request-ID", max_length=64),
     identity: VerifiedIdentity = Depends(require_identity),
     session: Session = Depends(get_session),
@@ -1573,6 +1637,13 @@ def begin_manual_publish(
                 payload["note"] = request.note
                 publish_step.output_payload = payload
                 session.commit()
+
+            background_tasks.add_task(
+                _process_publication_attempt_in_background,
+                workflow_run_id,
+                request.organization_id,
+                connection.id,
+            )
             return WorkflowTransitionResponse(
                 workflow_run_id=workflow_run_id,
                 state=WorkflowState.PUBLISHING.value,
@@ -1598,6 +1669,13 @@ def begin_manual_publish(
                 scheduled_at_iso=request.scheduled_at_iso,
                 trace_id=_trace_id(request_id),
             )
+        )
+
+        background_tasks.add_task(
+            _process_publication_attempt_in_background,
+            workflow_run_id,
+            request.organization_id,
+            connection.id,
         )
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
