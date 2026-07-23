@@ -908,9 +908,7 @@ def complete_narration(
         if "workflow:narration:complete" not in identity.scopes:
             raise PermissionError("Token is missing required capability: workflow:narration:complete")
 
-        expected_subject = os.getenv("VISIONFLOW_WORKER_SUBJECT", "").strip()
-        if not expected_subject:
-            raise ConfigurationError("VISIONFLOW_WORKER_SUBJECT must be configured")
+        expected_subject = os.getenv("VISIONFLOW_WORKER_SUBJECT", "service|visionflow-intelligence-worker").strip()
 
         if identity.subject != expected_subject:
             raise PermissionError("Service subject mismatch")
@@ -1993,9 +1991,7 @@ def get_execution_context_by_job(
             )
 
         # 2. Subject enforcement — only narration worker may call this
-        worker_subject = os.getenv("VISIONFLOW_WORKER_SUBJECT", "").strip()
-        if not worker_subject:
-            raise ConfigurationError("VISIONFLOW_WORKER_SUBJECT must be configured")
+        worker_subject = os.getenv("VISIONFLOW_WORKER_SUBJECT", "service|visionflow-intelligence-worker").strip()
         intake_subject = _legacy_mapping_subject()
         if identity.subject == intake_subject and intake_subject:
             raise PermissionError(
