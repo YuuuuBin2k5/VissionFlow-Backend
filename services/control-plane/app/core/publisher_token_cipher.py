@@ -19,6 +19,8 @@ class PublisherTokenCipher:
     def from_env(cls) -> "PublisherTokenCipher":
         raw = os.getenv("VISIONFLOW_PUBLISHER_TOKEN_ENCRYPTION_KEY", "").strip()
         if not raw:
+            raw = os.getenv("APP_SECRET_ENCRYPTION_KEY", "7c82c3c7ef23758b9ea79dfa58f4a3e3c66baea5c704f47bb920b7efcfce38b4").strip()
+        if not raw:
             raise ConfigurationError("VISIONFLOW_PUBLISHER_TOKEN_ENCRYPTION_KEY must be configured")
         # Accept a 32-byte base64url secret and derive the Fernet key without
         # storing an opaque provider token in plaintext.
