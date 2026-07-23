@@ -133,6 +133,8 @@ class ReviewQueueItemResponse(BaseModel):
     title: str
     state: str
     created_at: datetime
+    scheduled_at_iso: str | None = None
+    published_at_iso: str | None = None
 
 
 class ReviewQueueResponse(BaseModel):
@@ -1248,7 +1250,23 @@ def list_publication_history(organization_id: uuid.UUID, limit: int = Query(defa
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
     rows = session.execute(select(WorkflowRun, VideoProject, WorkflowStep).join(VideoProject, WorkflowRun.project_id == VideoProject.id).join(WorkflowStep, (WorkflowStep.workflow_run_id == WorkflowRun.id) & (WorkflowStep.step_key == "publish")).where(VideoProject.organization_id == organization_id, WorkflowRun.state == WorkflowState.PUBLISHED.value).order_by(WorkflowRun.created_at.desc()).limit(limit)).all()
-    return PublicationHistoryResponse(items=[PublishedVideoResponse(workflow_run_id=workflow.id, project_id=project.id, title=project.title, state=workflow.state, created_at=workflow.created_at, external_url=str(step.output_payload.get("external_url", "")), external_video_id=str(step.output_payload.get("external_video_id", ""))) for workflow, project, step in rows if isinstance(step.output_payload, dict)])
+    return PublicationHistoryResponse(
+        items=[
+            PublishedVideoResponse(
+                workflow_run_id=workflow.id,
+                project_id=project.id,
+                title=project.title,
+                state=workflow.state,
+                created_at=workflow.created_at,
+                scheduled_at_iso=str(step.output_payload.get("scheduled_at_iso")) if step.output_payload.get("scheduled_at_iso") else (workflow.updated_at.isoformat() if workflow.updated_at else None),
+                published_at_iso=str(step.output_payload.get("published_at_iso")) if step.output_payload.get("published_at_iso") else (workflow.updated_at.isoformat() if workflow.updated_at else None),
+                external_url=str(step.output_payload.get("external_url", "")),
+                external_video_id=str(step.output_payload.get("external_video_id", "")),
+            )
+            for workflow, project, step in rows
+            if isinstance(step.output_payload, dict)
+        ]
+    )
 
 
 @router.get("/organizations/{organization_id}/failed-publications", response_model=FailedPublicationQueueResponse)
@@ -1696,6 +1714,10 @@ def _process_publication_attempt_in_background(
             payload["publisher_connection_id"] = str(publisher_connection_id)
             payload["external_video_id"] = result.video_id
             payload["external_url"] = result.url
+            now_iso = datetime.now(UTC).isoformat()
+            if not payload.get("scheduled_at_iso"):
+                payload["scheduled_at_iso"] = now_iso
+            payload["published_at_iso"] = now_iso
             publish_step.output_payload = payload
 
         session.commit()
@@ -1806,6 +1828,9 @@ def begin_manual_publish(
             wf.state = WorkflowState.APPROVED
             session.flush()
 
+        # Set current timestamp for manual immediate publish if scheduled_at_iso is omitted
+        pub_timestamp_iso = request.scheduled_at_iso or datetime.now(UTC).isoformat()
+
         # If in APPROVED state, execute state transition to PUBLISHING & create initial PublicationAttempt
         if wf.state == WorkflowState.APPROVED:
             BeginManualPublish(AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(session))).execute(
@@ -1817,7 +1842,7 @@ def begin_manual_publish(
                     publisher_account_id=connection.provider_account_id,
                     requested_by_subject=identity.subject,
                     note=request.note,
-                    scheduled_at_iso=request.scheduled_at_iso,
+                    scheduled_at_iso=pub_timestamp_iso,
                     trace_id=_trace_id(request_id),
                 )
             )
@@ -1835,7 +1860,8 @@ def begin_manual_publish(
                 payload["publisher_connection_id"] = str(connection.id)
                 payload["publisher_provider"] = connection.provider
                 payload["publisher_account_id"] = connection.provider_account_id
-                payload["scheduled_at_iso"] = request.scheduled_at_iso
+                payload["scheduled_at_iso"] = pub_timestamp_iso
+                payload["published_at_iso"] = pub_timestamp_iso
                 payload["note"] = request.note
                 publish_step.output_payload = payload
                 session.commit()
