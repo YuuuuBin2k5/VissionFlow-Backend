@@ -1926,6 +1926,107 @@ def begin_manual_publish(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
 
+class RevertToQueueRequest(BaseModel):
+    organization_id: uuid.UUID
+    note: str | None = Field(default=None, max_length=2_000)
+
+
+@router.post(
+    "/workflows/{workflow_run_id}/revert-to-queue",
+    response_model=WorkflowTransitionResponse,
+    summary="Admin endpoint: revert a published or failed video back to approved scheduling queue",
+)
+def revert_to_queue(
+    workflow_run_id: uuid.UUID,
+    request: RevertToQueueRequest,
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> WorkflowTransitionResponse:
+    """Admin feature: Revert a workflow run from PUBLISHED/FAILED back to APPROVED state so it can be re-scheduled."""
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject, request.organization_id, Permission.WORKFLOW_VIEW
+        )
+        wf = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
+        if wf is None:
+            raise LookupError("Workflow run not found")
+
+        wf.state = WorkflowState.APPROVED.value
+        wf.failure_code = None
+
+        publish_step = session.scalar(
+            select(WorkflowStep).where(
+                WorkflowStep.workflow_run_id == workflow_run_id,
+                WorkflowStep.step_key == "publish",
+            )
+        )
+        if publish_step:
+            publish_step.state = WorkflowState.APPROVED.value
+            if isinstance(publish_step.output_payload, dict):
+                payload = dict(publish_step.output_payload)
+                payload.pop("published_at_iso", None)
+                payload.pop("external_video_id", None)
+                payload.pop("external_url", None)
+                publish_step.output_payload = payload
+
+        attempt = session.scalar(
+            select(PublicationAttempt)
+            .where(PublicationAttempt.workflow_run_id == workflow_run_id)
+            .order_by(PublicationAttempt.attempt_number.desc())
+        )
+        if attempt:
+            attempt.state = "reverted"
+
+        session.commit()
+        return WorkflowTransitionResponse(
+            workflow_run_id=workflow_run_id,
+            state=WorkflowState.APPROVED.value,
+            changed=True,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow run not found") from exc
+
+
+@router.delete(
+    "/workflows/{workflow_run_id}",
+    summary="Admin endpoint: delete or cancel a video workflow run",
+)
+def delete_workflow(
+    workflow_run_id: uuid.UUID,
+    organization_id: uuid.UUID = Query(...),
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> dict[str, str]:
+    """Admin feature: Mark a workflow run as CANCELED so it is completely hidden from queues and calendar."""
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject, organization_id, Permission.WORKFLOW_VIEW
+        )
+        wf = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
+        if wf is None:
+            raise LookupError("Workflow run not found")
+
+        wf.state = WorkflowState.CANCELED.value
+
+        publish_step = session.scalar(
+            select(WorkflowStep).where(
+                WorkflowStep.workflow_run_id == workflow_run_id,
+                WorkflowStep.step_key == "publish",
+            )
+        )
+        if publish_step:
+            publish_step.state = WorkflowState.CANCELED.value
+
+        session.commit()
+        return {"workflow_run_id": str(workflow_run_id), "status": "canceled"}
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow run not found") from exc
+
+
 @router.post(
     "/workflows/{workflow_run_id}/legacy-job-mapping",
     response_model=RegisterLegacyJobMappingResponse,
