@@ -1552,6 +1552,7 @@ def _process_publication_attempt_in_background(
     workflow_run_id: uuid.UUID,
     organization_id: uuid.UUID,
     publisher_connection_id: uuid.UUID,
+    scheduled_at_iso: str | None = None,
 ) -> None:
     """
     Background task: authenticate with YouTube, download the exported MP4 from R2,
@@ -1662,6 +1663,19 @@ def _process_publication_attempt_in_background(
             description = "\n".join(description_parts)[:5000]
 
             # ---- 7. Upload to YouTube via Resumable API ----------------------
+            # Determine whether this is a scheduled or immediate publish
+            _publish_at_iso: str | None = None
+            _privacy_status = "public"
+            if scheduled_at_iso:
+                try:
+                    _scheduled_dt = datetime.fromisoformat(scheduled_at_iso.replace("Z", "+00:00"))
+                    _now_dt = datetime.now(timezone.utc)
+                    if _scheduled_dt > _now_dt:
+                        # Future datetime => use YouTube scheduled private upload
+                        _publish_at_iso = _scheduled_dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+                        _privacy_status = "private"  # YouTube requires private for scheduled
+                except (ValueError, TypeError):
+                    pass  # fallback to immediate public
             uploader = YouTubeResumableUploader(http_session)
             result = uploader.upload(
                 access_token=token.value,
@@ -1670,11 +1684,11 @@ def _process_publication_attempt_in_background(
                     title=title,
                     description=description,
                     tags=("Shorts", "AI", "VisionFlow", "KhoaHoc"),
-                    privacy_status="public",
+                    privacy_status=_privacy_status,
                     category_id="28",
                     default_language="vi",
                     self_declared_made_for_kids=False,
-                    publish_at_iso=None,
+                    publish_at_iso=_publish_at_iso,
                     embeddable=True,
                     license="youtube",
                 ),
@@ -1867,19 +1881,34 @@ def begin_manual_publish(
                 session.commit()
 
         # Execute publication attempt synchronously in the request cycle
-        _process_publication_attempt_in_background(workflow_run_id, request.organization_id, connection.id)
+        _process_publication_attempt_in_background(
+            workflow_run_id,
+            request.organization_id,
+            connection.id,
+            scheduled_at_iso=pub_timestamp_iso,
+        )
 
-        session.expire_all()
-        wf_final = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
-        final_state = wf_final.state if wf_final else WorkflowState.APPROVED.value
+        # Re-open a fresh DB session to read the final committed state
+        from sqlalchemy.orm import Session as _FreshSession
+        from app.infrastructure.database import get_engine as _get_engine
+        _fresh_session = _FreshSession(_get_engine())
+        try:
+            wf_final = _fresh_session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
+            final_state = wf_final.state if wf_final else WorkflowState.APPROVED.value
+        finally:
+            _fresh_session.close()
 
-        if final_state == WorkflowState.APPROVED.value:
-            attempt_final = session.scalar(
-                select(PublicationAttempt)
-                .where(PublicationAttempt.workflow_run_id == workflow_run_id)
-                .order_by(PublicationAttempt.attempt_number.desc())
-            )
-            err_msg = attempt_final.failure_code if attempt_final and attempt_final.failure_code else "YouTube upload failed"
+        if final_state not in (WorkflowState.PUBLISHED.value, WorkflowState.PUBLISHING.value):
+            attempt_final_session = _FreshSession(_get_engine())
+            try:
+                attempt_final = attempt_final_session.scalar(
+                    select(PublicationAttempt)
+                    .where(PublicationAttempt.workflow_run_id == workflow_run_id)
+                    .order_by(PublicationAttempt.attempt_number.desc())
+                )
+                err_msg = attempt_final.failure_code if attempt_final and attempt_final.failure_code else "YouTube upload failed"
+            finally:
+                attempt_final_session.close()
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=err_msg)
 
         return WorkflowTransitionResponse(
