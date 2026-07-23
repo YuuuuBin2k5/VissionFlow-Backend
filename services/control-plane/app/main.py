@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
 from app.core.config import Settings
-from app.routers import auth, credentials, integrations, prompts, system, workflows, creative_sessions
+from app.routers import auth, credentials, integrations, prompts, system, workflows, creative_sessions, ai_video
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +32,7 @@ app.include_router(prompts.router, prefix=settings.api_prefix)
 app.include_router(credentials.router, prefix=settings.api_prefix)
 app.include_router(integrations.router, prefix=settings.api_prefix)
 app.include_router(creative_sessions.router, prefix=settings.api_prefix)
+app.include_router(ai_video.router, prefix=settings.api_prefix)
 
 
 # ---------------------------------------------------------------------------
