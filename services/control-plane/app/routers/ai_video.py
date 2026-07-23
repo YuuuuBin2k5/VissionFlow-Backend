@@ -10,7 +10,7 @@ from app.application.generate_ai_video_scene import (
     GenerateSceneVideoCommand,
 )
 
-router = APIRouter(prefix="/api/v1/ai-video", tags=["AI Video Generation"])
+router = APIRouter(prefix="/ai-video", tags=["AI Video Generation"])
 
 # Shared singleton router engine in memory
 _router_engine = AIVideoRouterEngine(lockout_minutes=60)
