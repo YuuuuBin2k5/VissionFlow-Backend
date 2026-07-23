@@ -1731,6 +1731,15 @@ def _process_publication_attempt_in_background(
             wf = fail_session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
             if wf and wf.state == WorkflowState.PUBLISHING:
                 wf.state = WorkflowState.APPROVED
+
+            # Mark connection status as expired if refresh token is invalid or expired
+            if "YOUTUBE_SESSION_EXPIRED" in str(exc) or "decrypted" in str(exc) or "invalid_grant" in str(exc):
+                conn_obj = fail_session.scalar(
+                    select(PublisherConnection).where(PublisherConnection.id == publisher_connection_id)
+                )
+                if conn_obj:
+                    conn_obj.status = "expired"
+
             fail_session.commit()
             _bg_logger.info("Successfully persisted failure for workflow %s", workflow_run_id)
         except Exception as inner_exc:
