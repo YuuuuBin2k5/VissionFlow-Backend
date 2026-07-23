@@ -1221,9 +1221,6 @@ def list_publication_queue(
             or_(
                 WorkflowRun.state == WorkflowState.APPROVED.value,
                 WorkflowRun.state == WorkflowState.PUBLISHING.value,
-                WorkflowRun.state == WorkflowState.RENDERED.value,
-                WorkflowRun.state == WorkflowState.QA_PENDING.value,
-                WorkflowRun.state == WorkflowState.APPROVAL_PENDING.value,
             ),
         )
         .order_by(WorkflowRun.created_at.desc())
