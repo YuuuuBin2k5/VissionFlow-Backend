@@ -40,12 +40,43 @@ class ResetProviderRequest(BaseModel):
     provider_name: str = Field(..., min_length=2, max_length=32)
 
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.infrastructure.database import get_session
+from app.infrastructure.models import ProviderCredential
+from app.core.credential_cipher import ProviderCredentialCipher
+
 @router.post("/render-scene", response_model=RenderSceneResponse)
 async def render_scene_video(
     request: RenderSceneRequest,
+    organization_id: Optional[str] = None,
     engine: AIVideoRouterEngine = Depends(get_router_engine),
+    session: Session = Depends(get_session),
 ) -> RenderSceneResponse:
-    """Generate an AI video scene clip with automatic provider routing and circuit-breaker resilience."""
+    """Generate an AI video scene clip with automatic provider routing, Vault key resolution, and circuit-breaker resilience."""
+    resolved_keys = dict(request.custom_api_keys or {})
+
+    # Auto-resolve keys from Database Credential Vault if organization_id is available
+    if organization_id and len(organization_id) >= 32:
+        try:
+            cipher = ProviderCredentialCipher.from_env()
+            records = session.scalars(
+                select(ProviderCredential).where(
+                    ProviderCredential.status == "active",
+                    ProviderCredential.provider.in_(("fal", "replicate", "kling", "runway", "luma", "minimax"))
+                ).order_by(ProviderCredential.priority)
+            ).all()
+
+            for rec in records:
+                if rec.provider not in resolved_keys:
+                    try:
+                        resolved_keys[rec.provider] = cipher.decrypt(rec.encrypted_secret)
+                    except Exception:
+                        pass
+        except Exception as e_vault:
+            pass
+
     use_case = GenerateAIVideoScene(engine)
     result = await use_case.execute(
         GenerateSceneVideoCommand(
@@ -53,7 +84,7 @@ async def render_scene_video(
             duration_seconds=request.duration_seconds,
             aspect_ratio=request.aspect_ratio,
             custom_category=request.custom_category,
-            custom_api_keys=request.custom_api_keys,
+            custom_api_keys=resolved_keys,
         )
     )
     return RenderSceneResponse(
