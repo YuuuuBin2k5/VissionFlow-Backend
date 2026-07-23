@@ -36,7 +36,13 @@ class YouTubeAccessTokenRefresher:
             data={"client_id": self._settings.client_id, "client_secret": self._settings.client_secret, "refresh_token": refresh_token, "grant_type": "refresh_token"},
             timeout=(3, 20),
         )
-        data = response.json() if response.status_code == 200 else {}
+        if response.status_code != 200:
+            data = response.json() if hasattr(response, "json") else {}
+            err_code = data.get("error") if isinstance(data, dict) else ""
+            if err_code == "invalid_grant":
+                raise RuntimeError("YOUTUBE_SESSION_EXPIRED: Token YouTube đã hết hạn (Google OAuth)")
+            raise RuntimeError(f"YouTube token refresh failed: {err_code or response.status_code}")
+        data = response.json() if hasattr(response, "json") else {}
         value = data.get("access_token") if isinstance(data, dict) else None
         expires = data.get("expires_in") if isinstance(data, dict) else None
         if not isinstance(value, str) or not value or not isinstance(expires, int) or expires < 60:

@@ -1729,7 +1729,7 @@ def _process_publication_attempt_in_background(
             )
             if attempt and attempt.state not in ("succeeded", "published", "completed"):
                 attempt.state = "failed"
-                attempt.failure_code = f"{type(exc).__name__}: {exc}"[:250]
+                attempt.failure_code = f"{type(exc).__name__}: {exc}"[:90]
             wf = fail_session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
             if wf and wf.state == WorkflowState.PUBLISHING:
                 wf.state = WorkflowState.APPROVED
@@ -1780,17 +1780,43 @@ def begin_manual_publish(
                 PublisherConnection.status == "active",
             )
         )
+        if connection is None:
+            raise LookupError("Active publisher connection not found")
+
         wf = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
         if wf is None:
             raise LookupError("Workflow run not found")
+
+        if wf.state == WorkflowState.PUBLISHED:
+            return WorkflowTransitionResponse(
+                workflow_run_id=workflow_run_id,
+                state=WorkflowState.PUBLISHED.value,
+                changed=False,
+            )
 
         # Auto-approve if in an earlier post-render state
         if wf.state in (WorkflowState.RENDERED, WorkflowState.QA_PENDING, WorkflowState.APPROVAL_PENDING):
             wf.state = WorkflowState.APPROVED
             session.flush()
 
-        # If already in PUBLISHING state, update dispatch payload & return gracefully
-        if wf.state == WorkflowState.PUBLISHING:
+        # If in APPROVED state, execute state transition to PUBLISHING & create initial PublicationAttempt
+        if wf.state == WorkflowState.APPROVED:
+            BeginManualPublish(AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(session))).execute(
+                BeginManualPublishCommand(
+                    organization_id=request.organization_id,
+                    workflow_run_id=workflow_run_id,
+                    publisher_connection_id=connection.id,
+                    publisher_provider=connection.provider,
+                    publisher_account_id=connection.provider_account_id,
+                    requested_by_subject=identity.subject,
+                    note=request.note,
+                    scheduled_at_iso=request.scheduled_at_iso,
+                    trace_id=_trace_id(request_id),
+                )
+            )
+
+        # If in PUBLISHING state, update dispatch payload
+        elif wf.state == WorkflowState.PUBLISHING:
             publish_step = session.scalar(
                 select(WorkflowStep).where(
                     WorkflowStep.workflow_run_id == workflow_run_id,
