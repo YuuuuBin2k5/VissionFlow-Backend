@@ -24,7 +24,11 @@ from app.core.oidc import VerifiedIdentity
 
 router = APIRouter(tags=["provider-credentials"])
 
-SUPPORTED_PROVIDERS = frozenset({"gemini", "groq", "openrouter", "pexels", "pixabay", "coverr"})
+SUPPORTED_PROVIDERS = frozenset({
+    "gemini", "groq", "openrouter",
+    "fal", "replicate", "kling", "runway", "luma", "minimax",
+    "pexels", "pixabay", "coverr"
+})
 MUTABLE_STATUSES = frozenset({"active", "disabled"})
 
 
