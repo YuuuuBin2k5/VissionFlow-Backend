@@ -121,24 +121,22 @@ class PrivateObjectPreviewIssuer:
 
     def issue_final_export(self, *, workflow_run_id: uuid.UUID, object_key: str) -> PrivateObjectPreviewTicket:
         target_key = object_key if (object_key and object_key.startswith("visionflow/")) else f"visionflow/{workflow_run_id}/exports/final.mp4"
+        if object_key and (object_key.startswith("http://") or object_key.startswith("https://")):
+            return PrivateObjectPreviewTicket(object_key, object_key, self._expires_in_seconds)
+        expected_prefix = f"visionflow/{workflow_run_id}/"
+        if not target_key.startswith(expected_prefix) or ".." in target_key.split("/"):
+            raise OverlayUploadVerificationError("Preview object does not belong to this workflow")
         try:
             self._client.head_object(Bucket=self._bucket, Key=target_key)
-            url = self._client.generate_presigned_url(
-                "get_object",
-                Params={"Bucket": self._bucket, "Key": target_key},
-                ExpiresIn=self._expires_in_seconds,
-                HttpMethod="GET",
-            )
-            return PrivateObjectPreviewTicket(target_key, url, self._expires_in_seconds)
-        except Exception:
-            fallback_key = "visionflow/d8194449-f102-4080-95c7-94ca683fea88/exports/final.mp4"
-            url = self._client.generate_presigned_url(
-                "get_object",
-                Params={"Bucket": self._bucket, "Key": fallback_key},
-                ExpiresIn=self._expires_in_seconds,
-                HttpMethod="GET",
-            )
-            return PrivateObjectPreviewTicket(fallback_key, url, self._expires_in_seconds)
+        except Exception as exc:
+            raise OverlayUploadVerificationError("Rendered preview object could not be verified") from exc
+        url = self._client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": self._bucket, "Key": target_key},
+            ExpiresIn=self._expires_in_seconds,
+            HttpMethod="GET",
+        )
+        return PrivateObjectPreviewTicket(target_key, url, self._expires_in_seconds)
 
 
 def composition_overlay_object_keys(composition: dict[str, object]) -> tuple[str, ...]:
