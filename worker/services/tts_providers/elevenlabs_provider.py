@@ -140,6 +140,7 @@ class ElevenLabsProvider(TTSProvider):
             "text": text,
             "model_id": model,
             "voice_settings": voice_settings,
+            "language_code": "vi",  # Bắt buộc cho eleven_v3 phát âm tiếng Việt chuẩn xác
         }
 
         last_err: Exception | None = None
