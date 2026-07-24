@@ -197,11 +197,18 @@ class ElevenLabsProvider(TTSProvider):
         word_start: float | None = None
         word_end: float | None = None
 
+        import re
+
         for char, start, end in zip(characters, start_times, end_times):
             if char == " ":
                 if current_chars:
-                    word_str = "".join(current_chars).strip(".,!?;:\"'()[]{}""")
-                    if word_str and word_start is not None:
+                    raw_word = "".join(current_chars).strip()
+                    word_str = raw_word.strip(".,!?;:\"'()[]{}“”")
+                    # Lọc bỏ hoàn toàn các Audio Tags dạng [excited], [dramatic], [whispers], [pause]
+                    is_tag = (raw_word.startswith("[") and raw_word.endswith("]")) or bool(
+                        re.match(r"^(excited|dramatic|whispers|pause|sighs|hesitates)$", word_str, re.IGNORECASE)
+                    )
+                    if word_str and not is_tag and word_start is not None:
                         word_timestamps.append({
                             "word": word_str,
                             "start_ms": int(word_start * 1000) + time_offset_ms,
@@ -218,8 +225,12 @@ class ElevenLabsProvider(TTSProvider):
 
         # Flush từ cuối cùng
         if current_chars:
-            word_str = "".join(current_chars).strip(".,!?;:\"'()[]{}""")
-            if word_str and word_start is not None:
+            raw_word = "".join(current_chars).strip()
+            word_str = raw_word.strip(".,!?;:\"'()[]{}“”")
+            is_tag = (raw_word.startswith("[") and raw_word.endswith("]")) or bool(
+                re.match(r"^(excited|dramatic|whispers|pause|sighs|hesitates)$", word_str, re.IGNORECASE)
+            )
+            if word_str and not is_tag and word_start is not None:
                 word_timestamps.append({
                     "word": word_str,
                     "start_ms": int(word_start * 1000) + time_offset_ms,
