@@ -43,7 +43,24 @@ class SubtitleRenderer:
         1. Ưu tiên ngắt dòng tại dấu câu (,, ., !, ?, ;, :, —, ...)
         2. Giới hạn tối đa 3-4 từ hoặc ≤ 26 ký tự (tránh ngắt dở dang từ ghép tiếng Việt)
         3. Tự động ngắt cụm khi có khoảng nghỉ âm thanh (gap > 320ms)
+        4. Tự động lọc sạch Audio Tags [excited], [dramatic], [whispers] khỏi phụ đề.
         """
+        if not word_timestamps:
+            return []
+
+        # Lọc bỏ bất kỳ Audio Tag nào còn sót trong word_timestamps trước khi render phụ đề
+        clean_word_timestamps = []
+        for item in word_timestamps:
+            w_str = str(item.get("word", "")).strip()
+            clean_token = w_str.strip(".,!?;:\"'()[]{}“”")
+            if (
+                w_str
+                and not (w_str.startswith("[") and w_str.endswith("]"))
+                and not re.match(r"^(excited|dramatic|whispers|pause|sighs|hesitates)$", clean_token, re.IGNORECASE)
+            ):
+                clean_word_timestamps.append(item)
+        word_timestamps = clean_word_timestamps
+
         if not word_timestamps:
             return []
 

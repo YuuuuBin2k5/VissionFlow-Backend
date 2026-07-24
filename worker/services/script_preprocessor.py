@@ -13,6 +13,23 @@ from __future__ import annotations
 import re
 
 
+def strip_audio_tags(text: str) -> str:
+    """
+    Loại bỏ hoàn toàn các Audio Tags dạng [excited], [dramatic], [whispers], [pause] 
+    và các thẻ SSML <break .../> khỏi văn bản kịch bản trước khi tạo phụ đề (subtitles/timestamps).
+    """
+    if not text:
+        return ""
+    # Lọc bỏ [tag] hoặc [tag_name] (ví dụ: [excited], [dramatic], [whispers], [pause])
+    text = re.sub(r'\[[a-zA-Z0-9_\-\s]+\]', '', text)
+    # Lọc bỏ thẻ SSML <tag ...> hoặc </tag>
+    text = re.sub(r'<[^>]+>', '', text)
+    # Dọn dẹp khoảng trắng thừa
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # 1. NUMBER → WORDS (số → chữ) — Hỗ trợ tiếng Việt
 # ═══════════════════════════════════════════════════════════════════════════

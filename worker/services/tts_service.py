@@ -7,6 +7,7 @@ from worker.services.script_preprocessor import (
     preprocess_for_elevenlabs,
     ELEVENLABS_PARAMS_MAP,
     resolve_model_for_genre,
+    strip_audio_tags,
 )
 
 # ElevenLabs default voice IDs
@@ -56,7 +57,8 @@ class TTSService:
         except Exception as e:
             print(f"[TTSService Warning] Failed to probe duration for estimation: {e}")
 
-        words = text.split()
+        clean_text = strip_audio_tags(text)
+        words = clean_text.split()
         if not words:
             return []
 
@@ -325,20 +327,22 @@ class TTSService:
                 if self._call_elevenlabs(text, voice_id, output_audio_path, genre=genre):
                     return self._estimate_word_timestamps(text, output_audio_path)
 
+        clean_text_for_fallbacks = strip_audio_tags(text)
+
         # TẦNG 2: Local valtec-tts
         if self.valtec_url and not (self.voice and "pNInz" in self.voice):
-            if self._call_valtec(text, output_audio_path):
-                return self._estimate_word_timestamps(text, output_audio_path)
+            if self._call_valtec(clean_text_for_fallbacks, output_audio_path):
+                return self._estimate_word_timestamps(clean_text_for_fallbacks, output_audio_path)
 
         # TẦNG 3: TikTok TTS (skip if explicit English/ElevenLabs voice requested)
         if not (self.voice and ("pNInz" in self.voice or "en-" in self.voice.lower())):
             tiktok_speaker = TIKTOK_DEFAULT_VOICES.get(gender, "vi_vn_female")
-            if self._call_tiktok(text, tiktok_speaker, output_audio_path):
-                return self._estimate_word_timestamps(text, output_audio_path)
+            if self._call_tiktok(clean_text_for_fallbacks, tiktok_speaker, output_audio_path):
+                return self._estimate_word_timestamps(clean_text_for_fallbacks, output_audio_path)
 
         # TẦNG 4: Edge-TTS
         vi_chars = "àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
-        is_vietnamese = any(c in vi_chars for c in text.lower())
+        is_vietnamese = any(c in vi_chars for c in clean_text_for_fallbacks.lower())
         if self.voice and "-" in self.voice and "Neural" in self.voice:
             edge_voice = self.voice
         elif self.voice and ("pNInz" in self.voice or "adam" in self.voice.lower()):
@@ -357,7 +361,7 @@ class TTSService:
                 sentence_timestamps = []
                 audio_data = bytearray()
                 
-                communicate = edge_tts.Communicate(text, edge_voice, rate=rate_str)
+                communicate = edge_tts.Communicate(clean_text_for_fallbacks, edge_voice, rate=rate_str)
                 async for chunk in communicate.stream():
                     if chunk["type"] == "audio":
                         audio_data.extend(chunk["data"])
@@ -406,8 +410,8 @@ class TTSService:
                     await asyncio.sleep(sleep_time)
 
         # TẦNG 5: gTTS (Google Translate)
-        if self._call_gtts(text, output_audio_path):
-            return self._estimate_word_timestamps(text, output_audio_path)
+        if self._call_gtts(clean_text_for_fallbacks, output_audio_path):
+            return self._estimate_word_timestamps(clean_text_for_fallbacks, output_audio_path)
 
         # FALLBACK CỐI THƯỢNG: Tạo tệp im lặng
         print(f"[TTSService Fatal] All TTS providers failed. Creating silent fallback...")
