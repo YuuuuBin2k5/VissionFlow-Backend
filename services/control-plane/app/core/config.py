@@ -10,15 +10,6 @@ class ConfigurationError(ValueError):
 
 def _require_postgres_url(name: str, value: str | None) -> str:
     if not value:
-        from pathlib import Path
-        from dotenv import load_dotenv
-        env_path = Path(__file__).resolve().parent.parent.parent.parent / "orchestrator" / ".env"
-        if env_path.exists():
-            load_dotenv(env_path)
-            value = os.getenv(name)
-    if not value and name == "DATABASE_URL":
-        value = "postgresql+psycopg://neondb_owner:npg_gY0lTh4bOqVp@ep-silent-hill-a1h22l2l-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
-    if not value:
         raise ConfigurationError(f"{name} must be configured")
     normalized = value.strip()
     if not normalized.startswith(("postgresql://", "postgresql+psycopg://")):

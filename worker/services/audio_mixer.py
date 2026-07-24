@@ -1,8 +1,19 @@
+"""
+AudioMixer — Hòa Âm Phối Khí Chuyên Nghiệp Viral Audio 2026
+=============================================================
+Nâng cấp theo tài liệu ToiUuGiongDocAI.docx:
+  - Thay thế MoviePy ducking thủ công bằng FFmpeg Sidechain Ducking tự động
+  - Tích hợp viral_audio_master 2-Pass Studio Master:
+      Signal Flow: Denoise → HPF 80Hz → EQ → Compressor → Sidechain → 2-Pass Loudnorm
+  - Fallback sang MoviePy nếu FFmpeg không khả dụng
+"""
 import os
+import tempfile
 import numpy as np
 from pathlib import Path
 from moviepy.audio.io.AudioFileClip import AudioFileClip
 from moviepy.audio.AudioClip import CompositeAudioClip
+
 
 class AudioMixer:
     def __init__(self):
@@ -33,7 +44,7 @@ class AudioMixer:
 
     def apply_ducking_to_music(self, music_clip: AudioFileClip, word_timestamps: list, total_duration: float) -> AudioFileClip:
         """
-        Tự động giảm âm lượng nhạc nền (Auto-Ducking) trong khi nói.
+        MoviePy-based Auto-Ducking (Fallback khi FFmpeg không khả dụng).
         """
         intervals = self.get_speech_intervals(word_timestamps)
 
@@ -47,17 +58,83 @@ class AudioMixer:
 
         return music_clip.transform(duck_filter)
 
-    def mix_audio_tracks(self, voice_audio_path: str, background_music_path: str, total_duration: float, word_timestamps: list, assets_dir: Path, cut_points: list = None) -> CompositeAudioClip:
+    def mix_viral_audio_ffmpeg(
+        self,
+        voice_audio_path: str,
+        background_music_path: str | None,
+        output_path: str,
+        total_duration: float = 0,
+    ) -> str:
         """
-        Hòa âm phối khí: Giọng thoại + BGM (ducked) + Sóng não 432Hz + SFX Transitions.
+        🎧 FFmpeg Studio Master 2-Pass Pipeline (Viral Audio 2026).
+        Áp dụng đầy đủ:
+          1. Signal Flow: Denoise → HPF 80Hz → EQ 350Hz(-3dB) → EQ 4kHz(+2dB) → Compressor
+          2. Sidechain Ducking: threshold=0.05, ratio=12:1, attack=10ms, release=300ms
+          3. 2-Pass Loudnorm: I=-14 LUFS, TP=-1.5, LRA=11, linear=true
+        Nguồn: ToiUuGiongDocAI.docx — Two-Pass Loudness Normalization + Sidechain.
+
+        Returns:
+            str: Đường dẫn file audio đã master (aac, 192kbps, 44100Hz).
         """
+        try:
+            from worker.services.viral_audio_master import master_viral_audio
+            result = master_viral_audio(
+                voice_path=voice_audio_path,
+                output_path=output_path,
+                music_path=background_music_path if background_music_path and os.path.exists(background_music_path) else None,
+            )
+            return result
+        except Exception as e:
+            print(f"[AudioMixer Warning] FFmpeg viral_audio_master thất bại, fallback MoviePy: {e}")
+            return ""
+
+    def mix_audio_tracks(
+        self,
+        voice_audio_path: str,
+        background_music_path: str,
+        total_duration: float,
+        word_timestamps: list,
+        assets_dir: Path,
+        cut_points: list = None,
+    ) -> CompositeAudioClip:
+        """
+        Hòa âm phối khí: Giọng thoại + BGM + Sóng não 432Hz + SFX Transitions.
+
+        ⚡ NÂNG CẤP: Thử FFmpeg Studio Master 2-Pass trước.
+        Nếu thành công, trả về AudioFileClip từ file master.
+        Fallback sang MoviePy ducking nếu FFmpeg thất bại.
+        """
+        # ── Thử FFmpeg Studio Master 2-Pass ──────────────────────────────
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".aac", delete=False) as tmp:
+                master_output_path = tmp.name
+
+            result = self.mix_viral_audio_ffmpeg(
+                voice_audio_path=voice_audio_path,
+                background_music_path=background_music_path,
+                output_path=master_output_path,
+                total_duration=total_duration,
+            )
+
+            if result and os.path.exists(result) and os.path.getsize(result) > 5000:
+                print(f"[AudioMixer] ✅ FFmpeg Studio Master 2-Pass thành công → {result}")
+                # Cộng thêm 432Hz + SFX rồi mix cuối
+                audio_clips = [AudioFileClip(result)]
+                self._add_432hz_and_sfx(audio_clips, assets_dir, total_duration, cut_points)
+                return CompositeAudioClip(audio_clips)
+
+        except Exception as e:
+            print(f"[AudioMixer Warning] FFmpeg pipeline thất bại: {e}. Dùng MoviePy fallback.")
+
+        # ── Fallback: MoviePy Ducking ─────────────────────────────────────
+        print("[AudioMixer] Sử dụng MoviePy ducking fallback...")
         audio_clips = []
 
         # 1. Giọng thoại chính
         voice_clip = AudioFileClip(voice_audio_path)
         audio_clips.append(voice_clip)
 
-        # 2. Nhạc nền (Auto-Ducking)
+        # 2. Nhạc nền (MoviePy Auto-Ducking)
         if background_music_path and os.path.exists(background_music_path):
             try:
                 music_clip = AudioFileClip(background_music_path)
@@ -66,12 +143,24 @@ class AudioMixer:
                     music_clip = music_clip.with_effects([afx.AudioLoop(duration=total_duration)])
                 else:
                     music_clip = music_clip.subclipped(0, total_duration)
-
                 music_clip = self.apply_ducking_to_music(music_clip, word_timestamps, total_duration)
                 audio_clips.append(music_clip)
             except Exception as e:
                 print(f"[AudioMixer Warning] Background music mix failed: {e}")
 
+        # 3 + 4: 432Hz + SFX
+        self._add_432hz_and_sfx(audio_clips, assets_dir, total_duration, cut_points)
+
+        return CompositeAudioClip(audio_clips)
+
+    def _add_432hz_and_sfx(
+        self,
+        audio_clips: list,
+        assets_dir: Path,
+        total_duration: float,
+        cut_points: list | None,
+    ) -> None:
+        """Thêm tần số sóng não 432Hz và SFX chuyển cảnh."""
         # 3. Tần số sóng não 432Hz (Tác động tiềm thức giữ chân)
         audio_432hz_path = assets_dir / "audio" / "focus_432hz.mp3"
         if audio_432hz_path.exists():
@@ -99,5 +188,3 @@ class AudioMixer:
                         audio_clips.append(sfx_clip)
                     except Exception as sfx_err:
                         print(f"[AudioMixer Warning] Failed to mix SFX: {sfx_err}")
-
-        return CompositeAudioClip(audio_clips)

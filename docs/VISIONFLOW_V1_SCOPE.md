@@ -1,52 +1,57 @@
-# VisionFlow — V1 Scope Freeze
+# VisionFlow — Current Product Scope
 
-**Status:** Final scope before implementation
-**Product release:** V1 Short-form Studio
-**Operating model:** one creator brief → one auditable short-video workflow run
+**Status:** Current implementation baseline as of 2026-07-24
+**Purpose:** define what the shipped code supports today. This is not a release acceptance claim; production readiness still requires the evidence gates in [VISIONFLOW_ACCEPTANCE_AND_OPERATIONS_RUNBOOK.md](VISIONFLOW_ACCEPTANCE_AND_OPERATIONS_RUNBOOK.md).
 
-## Non-negotiable data platform
+## Product loop
 
-VisionFlow V1 and production use **PostgreSQL on Neon as the only system of record**. MySQL is a legacy source for one-time export/reconciliation only; no MySQL table, direct `pymysql` access, Prisma MySQL writer, campaign record or scheduler state is part of the VisionFlow runtime.
+VisionFlow is an organization-scoped AI video-production console. Its primary loop is:
 
-- Running services use Neon's pooled `DATABASE_URL` with SSL required.
-- Alembic migration jobs use a separate direct `MIGRATION_DATABASE_URL`; application services never run schema creation at startup.
-- Local development uses PostgreSQL too, so SQL semantics, JSONB, constraints, UTC timestamps and migrations match staging/production.
-- The first data implementation phase creates the PostgreSQL schema and repository layer before any legacy endpoint/worker is ported.
+```text
+Readiness → brief → creative plan → storyboard → composition → render →
+review/approval → publish or schedule → publication history/recovery
+```
 
-## Included in V1
+The Control Plane owns business state in PostgreSQL. The Console uses authenticated APIs; workers perform external work and report results through the Control Plane. Browser clients and workers must not write workflow state directly to PostgreSQL.
 
-1. Create a short-form video from one explicit brief in Studio or Telegram.
-2. Run Brief Analysis, Script and Storyboard as separate, inspectable workflow steps with pinned prompt versions.
-3. Collect/generate permitted assets, TTS, captions and a vertical render from the resulting timeline.
-4. Store source/derived/final media in R2 and present a signed preview.
-5. Run automated QA, then require a human approval before publication.
-6. Allow an operator to manually dispatch one approved video to one connected test/production channel and inspect the real result.
-7. Provide prompt administration, audit trail, retry/cancel where safe, failure diagnosis and operational readiness.
+## Implemented capability surface
 
-## Explicitly excluded from V1
+1. **Guided short creation.** The Console provides readiness, brief, AI/manual creative planning, storyboard acceptance and composition hand-off.
+2. **Creative and composition state.** Creative documents and composition snapshots can be edited, locked and used to create a render plan.
+3. **Media workflow.** The product supports TTS/captions, overlay uploads, private preview URLs and rendered-video review artifacts. R2/S3-compatible object storage is the intended durable media boundary.
+4. **AI providers.** Gemini planning and credential-vault managed AI-video providers are exposed through the Control Plane. Current provider support includes fal, Replicate, Kling, Runway, Luma and Minimax. Provider health or configuration is not proof that a generation has succeeded.
+5. **Governed publishing.** Review, approval, YouTube OAuth, manual dispatch, retry/reconciliation, publication history and real resumable uploads are implemented. A scheduled timestamp may be supplied for YouTube publishing.
+6. **Operations.** The Console has Control Tower, queues, credential vault, workflow progress and failure/history surfaces; backend services include authorization, audit-oriented state transitions, outbox/worker contracts and deployment runbooks.
 
-| Excluded capability | Reason | Earliest reconsideration |
-| --- | --- | --- |
-| 30-day plans, content campaign batches and mass job generation | Optimizes volume before the single-video quality/reliability loop is proven | After V1 quality and cost targets are met |
-| Automatic posting calendar and scheduler | Creates a second policy surface before publication reliability is established | V1.1 |
-| Auto-publish / autonomous release | Conflicts with mandatory human review and increases channel/account risk | After audited approval reliability is proven |
-| Multi-account bot fleet and proxy/stealth controls | Not part of a governed video-production core | Separate compliance review |
-| Long-form rendering UI and execution | Larger product, compute and QA scope | V2, using V1 contracts |
-| Advanced analytics, optimization agent and automated feedback loop | Requires trustworthy publication data first | V1.1 or later |
-| WebGL/WasM in the authenticated work loop | Adds performance/maintenance risk without improving core task completion | Only after measured user need |
+## Active product boundary
 
-## Legacy removal list
+The following are in the current codebase and must be treated as supported *implementation surface*, subject to staging acceptance:
 
-During Phase 0/3, remove or retire the legacy paths below instead of porting them into VisionFlow:
+| Capability | Current rule |
+| --- | --- |
+| Scheduled publishing | Only after an explicit approved workflow transition. The server remains the source of truth for schedule and final provider result. |
+| Manual publishing | Requires an approved artifact and a connected destination. A UI action must not claim success before provider confirmation/reconciliation. |
+| Calendar and history | Operational views of approved, publishing and posted work; they are not campaign-planning or autonomous publishing authority. |
+| AI video generation | Provider keys are resolved server-side from the credential vault. Browser code never handles provider secrets. |
+| Long-form/editor expansion | Not an acceptance promise for the current release. The durable short-video path remains the product-critical flow. |
 
-- `worker/application/planning_use_case.py` and the `generate_30_day_plan` flow.
-- Telegram campaign commands and campaign-specific job creation.
-- `startAutoScheduler` and automatic scheduled publication flow.
-- Legacy `ChannelsCampaign`, `campaign_id`, `day_number`, MySQL/Prisma writer configuration and auto-publish state as canonical concepts in the new PostgreSQL model.
-- UI surfaces that imply a calendar, autonomous dispatch or unverified analytics before a V1 backend contract exists.
+## Deliberately not accepted as complete
 
-The removal happens only after the replacement on-demand workflow has passed staging. No legacy campaign state is migrated into the new V1 production schema.
+The project must not represent any of the following as release-complete until its evidence exists:
 
-## V1 success boundary
+- autonomous/batch campaign publishing;
+- cross-provider AI-video quality guarantees or cost governance;
+- a full non-linear long-form editor;
+- analytics/optimization claims based on incomplete publication data;
+- production launch without migration, tenant isolation, real render, approval, provider-failure and recovery evidence.
 
-V1 is complete when an operator can repeatedly create, inspect, render, QA, approve and manually publish a **single short video** without direct database changes, local Docker spawning or fictional UI state. It is not complete merely because it can generate a large batch of videos.
+## Release definition
+
+A release is acceptable only when a staging-like environment proves the full short-video loop with real data: create → render → QA → approval → dispatch or schedule → provider result/reconciliation. Unit tests, an attractive Console, or a queued job alone do not satisfy this definition.
+
+## Document precedence
+
+1. This document describes current product scope.
+2. `VISIONFLOW_ARCHITECTURE.md` and ADRs define architectural decisions.
+3. `VISIONFLOW_ACCEPTANCE_AND_OPERATIONS_RUNBOOK.md` defines release evidence.
+4. `VISIONFLOW_PRODUCT_COMPLETION_PLAN.md` is the backlog and may describe unimplemented work; it must not override current implementation facts.

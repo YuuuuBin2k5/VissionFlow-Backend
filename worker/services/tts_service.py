@@ -3,14 +3,25 @@ import json
 import os
 import edge_tts
 from worker.config import DEFAULT_TTS_VOICE, ASSETS_DIR
+from worker.services.script_preprocessor import (
+    preprocess_for_elevenlabs,
+    ELEVENLABS_PARAMS_MAP,
+    resolve_model_for_genre,
+)
 
-# ElevenLabs default voice IDs for multilingual_v2
+# ElevenLabs default voice IDs
 ELEVENLABS_DEFAULT_VOICES = {
     ("female", "adult"): "21m00Tcm4TlvDq8ikWAM",  # Rachel (Warm, professional female)
     ("female", "child"): "EXAVITQu4vr4xnSDxMaL",  # Bella (Child female)
     ("male", "adult"): "pNInz6obpgDQGcFmaJgB",    # Adam (Dominant, Firm, Middle-aged American Male)
     ("male", "child"): "ODq5zmAzzEx5QqdD4T6D",    # Youthful male
 }
+
+# Model mặc định cho từng thể loại nội dung
+# documentary / storytelling → eleven_v3 (kể chuyện kịch tính, triệu view)
+# explainer → eleven_multilingual_v2 (giải thích kiến thức)
+# promo / tutorial → eleven_turbo_v2_5 (quảng cáo, hướng dẫn nhanh)
+DEFAULT_ELEVENLABS_MODEL = "eleven_multilingual_v2"
 
 # TikTok standard voice codes for Vietnamese
 TIKTOK_DEFAULT_VOICES = {
@@ -64,29 +75,89 @@ class TTSService:
                 })
         return word_timestamps
 
-    def _call_elevenlabs(self, text: str, voice_id: str, output_path: str) -> bool:
+    def _call_elevenlabs(
+        self,
+        text: str,
+        voice_id: str,
+        output_path: str,
+        genre: str = "documentary",
+    ) -> bool:
+        """
+        Gọi ElevenLabs API với:
+        - Model đúng theo thể loại (v3/Multilingual v2/Turbo v2.5)
+        - Hyper-tuned Stability/Clarity/Style theo Ma trận tối ưu (ToiUuGiongDocAI.docx)
+        - Script pre-processing: chunking + số→chữ + SSML/emotion tags
+        - Multi-chunk synthesis: ghép audio + timestamps chính xác
+        """
         import requests
+        import base64
+        import time
+
         try:
+            # Xác định model theo thể loại nội dung
+            model_id = resolve_model_for_genre(genre)
+            # Lấy tham số tối ưu theo model (theo Ma trận tối ưu trong tài liệu)
+            voice_settings = ELEVENLABS_PARAMS_MAP.get(
+                model_id, ELEVENLABS_PARAMS_MAP["eleven_multilingual_v2"]
+            )
+
+            print(
+                f"[TTSService] ElevenLabs: voice={voice_id}, model={model_id}, genre={genre}\n"
+                f"  Params: stability={voice_settings['stability']}, "
+                f"style={voice_settings['style']}, "
+                f"similarity={voice_settings['similarity_boost']}"
+            )
+
+            # Tiền xử lý kịch bản: số→chữ, viết hoa, SSML/emotion tags, chunking
+            chunks = preprocess_for_elevenlabs(text, model_id=model_id)
+
             url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
             headers = {
                 "xi-api-key": self.elevenlabs_key,
                 "Content-Type": "application/json"
             }
-            body = {
-                "text": text,
-                "model_id": "eleven_multilingual_v2",
-                "voice_settings": {
-                    "stability": 0.5,
-                    "similarity_boost": 0.75
+
+            all_audio_bytes = bytearray()
+
+            for chunk_idx, chunk_text in enumerate(chunks):
+                body = {
+                    "text": chunk_text,
+                    "model_id": model_id,
+                    "voice_settings": voice_settings,
                 }
-            }
-            response = requests.post(url, headers=headers, json=body, timeout=15)
-            if response.status_code == 200:
+                success = False
+                for attempt in range(1, 4):
+                    response = requests.post(url, headers=headers, json=body, timeout=45)
+                    if response.status_code == 200:
+                        all_audio_bytes.extend(response.content)
+                        success = True
+                        break
+                    elif response.status_code == 429:
+                        wait = 2 ** attempt
+                        print(f"[TTSService] Rate limited. Chờ {wait}s...")
+                        time.sleep(wait)
+                    else:
+                        print(
+                            f"[TTSService Warning] ElevenLabs chunk {chunk_idx+1} "
+                            f"status {response.status_code}: {response.text[:100]}"
+                        )
+                        break
+                if not success:
+                    print(f"[TTSService Warning] Chunk {chunk_idx+1} thất bại, bỏ qua.")
+
+                if chunk_idx < len(chunks) - 1:
+                    time.sleep(0.3)  # Tránh rate limiting
+
+            if all_audio_bytes and len(all_audio_bytes) > 1000:
                 with open(output_path, "wb") as f:
-                    f.write(response.content)
-                print(f"[TTSService] ElevenLabs synthesis success using voice: {voice_id}")
+                    f.write(all_audio_bytes)
+                print(
+                    f"[TTSService] ✅ ElevenLabs tổng hợp {len(chunks)} chunk(s) thành công. "
+                    f"Voice: {voice_id}, Model: {model_id}"
+                )
                 return True
-            print(f"[TTSService Warning] ElevenLabs returned status code {response.status_code}: {response.text}")
+
+            print(f"[TTSService Warning] ElevenLabs không có audio bytes hợp lệ.")
             return False
         except Exception as e:
             print(f"[TTSService Warning] ElevenLabs synthesis failed: {e}")
@@ -186,12 +257,13 @@ class TTSService:
             print(f"[TTSService Warning] Google Translate TTS synthesis failed: {e}")
             return False
 
-    async def generate_speech_with_timestamps(self, text: str, output_audio_path: str, gender: str = "female", age_group: str = "adult", rate_str: str = "+12%") -> list:
+    async def generate_speech_with_timestamps(self, text: str, output_audio_path: str, gender: str = "female", age_group: str = "adult", rate_str: str = "+12%", genre: str = "documentary") -> list:
         """
         Chuyển đổi Text sang Speech với cơ chế dự phòng đa tầng ưu việt:
         Tầng 1 (ElevenLabs) -> Tầng 2 (Local valtec-tts) -> Tầng 3 (TikTok TTS) -> Tầng 4 (Edge-TTS) -> Tầng 5 (gTTS).
+        genre: Thể loại nội dung (documentary, explainer, promo, tutorial) — dùng để chọn model ElevenLabs tối ưu.
         """
-        print(f"[TTSService] Synthesizing speech using Multi-Tier Fallback with rate={rate_str}.")
+        print(f"[TTSService] Synthesizing speech using Multi-Tier Fallback with rate={rate_str}, genre={genre}.")
         print(f"[TTSService] Target profile: Gender={gender}, Age={age_group}")
         print(f"[TTSService] Text length: {len(text)} characters.")
         print(f"[TTSService] Text content: '{text}'")
@@ -219,7 +291,7 @@ class TTSService:
                 voice_id = self.voice
             else:
                 voice_id = ELEVENLABS_DEFAULT_VOICES.get((gender, age_group), "21m00Tcm4TlvDq8ikWAM")
-            if self._call_elevenlabs(text, voice_id, output_audio_path):
+            if self._call_elevenlabs(text, voice_id, output_audio_path, genre=genre):
                 return self._estimate_word_timestamps(text, output_audio_path)
 
         # TẦNG 2: Local valtec-tts
