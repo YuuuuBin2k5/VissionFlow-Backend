@@ -1,9 +1,10 @@
+import math
 import os
 import random
 from pathlib import Path
 import re
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 from worker.config import ASSETS_DIR, FONTS_DIR
 
@@ -688,56 +689,156 @@ class SubtitleRenderer:
         image.save(output_path, "PNG")
         return output_path
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # WATERMARK HELPERS
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _draw_cappy_face(self, draw: ImageDraw.ImageDraw, cx: int, cy: int, s: float = 1.0) -> None:
+        """Draw a chibi capybara face using pure geometric shapes (no emoji, no font)."""
+        # Head
+        draw.ellipse((int(cx-28*s), int(cy-22*s), int(cx+28*s), int(cy+22*s)), fill=(175, 120, 65, 255))
+        # Ears
+        for ex in [-18, 18]:
+            draw.ellipse((int(cx+ex*s-10*s), int(cy-28*s), int(cx+ex*s+10*s), int(cy-14*s)), fill=(160, 105, 55, 255))
+            draw.ellipse((int(cx+ex*s-6*s), int(cy-26*s), int(cx+ex*s+6*s), int(cy-18*s)), fill=(220, 140, 130, 200))
+        # Snout
+        draw.ellipse((int(cx-18*s), int(cy+4*s), int(cx+18*s), int(cy+22*s)), fill=(205, 160, 110, 255))
+        # Eyes
+        for ex, ey in [(-11, -8), (11, -8)]:
+            draw.ellipse((int(cx+ex*s-7*s), int(cy+ey*s-7*s), int(cx+ex*s+7*s), int(cy+ey*s+7*s)), fill=(50, 35, 20, 255))
+            draw.ellipse((int(cx+ex*s+1*s), int(cy+ey*s-5*s), int(cx+ex*s+4*s), int(cy+ey*s-2*s)), fill=(255, 255, 255, 230))
+        # Nose dots
+        for nx in [-4, 4]:
+            draw.ellipse((int(cx+nx*s-3*s), int(cy+8*s), int(cx+nx*s+3*s), int(cy+12*s)), fill=(90, 50, 30, 255))
+        # Sparkle star beside face
+        sx, sy = int(cx + 33*s), int(cy - 20*s)
+        for angle in range(0, 360, 45):
+            rad = math.radians(angle)
+            length = 5*s if angle % 90 == 0 else 3*s
+            draw.line([(sx, sy), (int(sx + length*math.cos(rad)), int(sy + length*math.sin(rad)))],
+                      fill=(255, 230, 80, 220), width=max(1, int(2*s)))
+        draw.ellipse((int(sx-2*s), int(sy-2*s), int(sx+2*s), int(sy+2*s)), fill=(255, 255, 200, 255))
+
+    def _multi_glow(self, image: Image.Image, text: str, x: int, y: int, font,
+                    color_alphas: list, blur_radii: list) -> None:
+        """Apply multi-pass Gaussian text glow effect."""
+        W, H = image.size
+        for (col, alpha), blur_r in zip(color_alphas, blur_radii):
+            layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+            ImageDraw.Draw(layer).text((x, y), text, font=font, fill=(*col, alpha))
+            image.alpha_composite(layer.filter(ImageFilter.GaussianBlur(radius=blur_r)))
+
     def _create_logo_watermark_png(self, logo_handle: str, output_path: str, visual_style_plan: dict, size=(1080, 1920)) -> str:
-        """Create a premium 2026 Glassmorphism logo watermark pill overlay with vector indicator dot."""
-        image = Image.new("RGBA", size, (0, 0, 0, 0))
-        draw = ImageDraw.Draw(image)
+        """
+        CappyPara Ultimate Watermark — 2026 Premium Design.
+        Features: Chibi capybara face icon + neon cyan glow border + gold inner accent + KE CHUYEN tag.
+        Technique: multi-pass Gaussian glow, gradient pill bg via numpy, geometric face drawing.
+        """
+        W, H = size
+        image = Image.new("RGBA", (W, H), (0, 0, 0, 0))
 
         pos = str(visual_style_plan.get("logo_position", "top_left")).lower()
         handle_text = logo_handle.strip()
+        tag_text = "KE CHUYEN"
 
-        fontsize = 28
+        # Fonts
+        font_main_size = 36
+        font_tag_size  = 16
         try:
-            font = ImageFont.truetype(self.font_path, fontsize)
+            font_main = ImageFont.truetype(self.font_path, font_main_size)
         except Exception:
-            font = ImageFont.load_default()
-
+            font_main = ImageFont.load_default()
         try:
-            bbox = draw.textbbox((0, 0), handle_text, font=font)
+            font_tag = ImageFont.truetype(self.font_path, font_tag_size)
+        except Exception:
+            font_tag = font_main
+
+        # Measure
+        _draw_tmp = ImageDraw.Draw(image)
+        try:
+            bbox = _draw_tmp.textbbox((0, 0), handle_text, font=font_main)
             tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
         except Exception:
-            tw, th = len(handle_text) * 16, 30
+            tw, th = len(handle_text) * 20, 36
+        try:
+            tbbox = _draw_tmp.textbbox((0, 0), tag_text, font=font_tag)
+            tag_w = tbbox[2] - tbbox[0]
+        except Exception:
+            tag_w = len(tag_text) * 9
 
-        icon_space = 24
-        pad_x, pad_y = 20, 12
-        bw, bh = tw + pad_x * 2 + icon_space, th + pad_y * 2
+        # Layout
+        face_w = 72
+        pad_x, pad_y = 22, 14
+        inner_w = face_w + tw + 16
+        pill_w  = max(inner_w, tag_w + 20) + pad_x * 2
+        pill_h  = th + 10 + 20 + pad_y * 2  # main row + divider + tag row
 
+        # Position
+        margin_x, margin_y = 60, 80
         if "right" in pos:
-            x1 = size[0] - 60 - bw
+            x1 = W - margin_x - pill_w
         else:
-            x1 = 60
-
+            x1 = margin_x
         if "bottom" in pos:
-            y1 = size[1] - 240 - bh  # Góc dưới (cách đáy 240px)
+            y1 = H - 240 - pill_h
         else:
-            y1 = 80  # Góc trên (cách đỉnh 80px)
+            y1 = margin_y
+        x2, y2 = x1 + pill_w, y1 + pill_h
 
-        x2, y2 = x1 + bw, y1 + bh
+        # ── DARK GRADIENT BACKGROUND ──
+        bg_arr = np.zeros((pill_h, pill_w, 4), dtype=np.uint8)
+        for row in range(pill_h):
+            t = row / max(pill_h - 1, 1)
+            bg_arr[row, :] = [int(8 + 12*t), int(5 + 8*t), int(18 + 10*t), 220]
+        bg_img = Image.fromarray(bg_arr, "RGBA")
+        mask = Image.new("L", (pill_w, pill_h), 0)
+        ImageDraw.Draw(mask).rounded_rectangle((0, 0, pill_w - 1, pill_h - 1), radius=pill_h // 2, fill=255)
+        bg_masked = Image.new("RGBA", (pill_w, pill_h), (0, 0, 0, 0))
+        bg_masked.paste(bg_img, mask=mask)
+        image.alpha_composite(bg_masked, dest=(x1, y1))
 
-        # Semi-transparent dark glass background pill với viền neon cyan
-        draw.rounded_rectangle((x1, y1, x2, y2), radius=18, fill=(10, 15, 28, 210), outline=(0, 212, 255, 180), width=2)
+        # ── CYAN OUTER GLOW BORDER ──
+        glow_border = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        ImageDraw.Draw(glow_border).rounded_rectangle(
+            (x1 - 3, y1 - 3, x2 + 3, y2 + 3), radius=pill_h // 2 + 3,
+            outline=(0, 210, 255, 70), width=5)
+        image.alpha_composite(glow_border.filter(ImageFilter.GaussianBlur(radius=8)))
 
-        # Vẽ Glowing Vector Dot (thay thế icon emoji bị lỗi font square box)
-        dot_cx = x1 + pad_x + 6
-        dot_cy = y1 + (bh // 2)
-        r = 5
-        draw.ellipse((dot_cx - r - 3, dot_cy - r - 3, dot_cx + r + 3, dot_cy + r + 3), fill=(0, 212, 255, 60))
-        draw.ellipse((dot_cx - r, dot_cy - r, dot_cx + r, dot_cy + r), fill=(0, 240, 255, 255))
+        # ── GOLD INNER SHARP BORDER ──
+        draw = ImageDraw.Draw(image)
+        draw.rounded_rectangle((x1, y1, x2, y2), radius=pill_h // 2, outline=(200, 160, 40, 200), width=2)
 
-        # Vẽ text handle chính xác phía sau dot
-        text_x = x1 + pad_x + icon_space
-        text_y = y1 + pad_y - 2
-        draw.text((text_x, text_y), handle_text, font=font, fill="#FFFFFF", stroke_width=1, stroke_fill="#000000")
+        # ── CHIBI CAPYBARA FACE ──
+        face_cx = x1 + pad_x + face_w // 2
+        face_cy = y1 + pad_y + th // 2 + 2
+        self._draw_cappy_face(draw, face_cx, face_cy, s=0.9)
+
+        # ── HANDLE TEXT with neon cyan multi-glow ──
+        tx = x1 + pad_x + face_w + 8
+        ty = y1 + pad_y
+        self._multi_glow(image, handle_text, tx, ty, font_main,
+                         color_alphas=[((0, 210, 255), 30), ((0, 210, 255), 80), ((0, 210, 255), 140)],
+                         blur_radii=[12, 6, 3])
+        draw = ImageDraw.Draw(image)
+        draw.text((tx, ty), handle_text, font=font_main,
+                  fill=(220, 248, 255, 255), stroke_width=1, stroke_fill=(0, 40, 60, 200))
+
+        # ── CYAN–GOLD DIVIDER with diamond center ──
+        div_y = y1 + pad_y + th + 6
+        mid_x = x1 + pill_w // 2
+        draw.line([(x1 + 20, div_y), (mid_x - 8, div_y)], fill=(0, 210, 255, 100), width=1)
+        draw.polygon([(mid_x, div_y - 3), (mid_x + 3, div_y), (mid_x, div_y + 3), (mid_x - 3, div_y)],
+                     fill=(200, 160, 40, 230))
+        draw.line([(mid_x + 8, div_y), (x2 - 20, div_y)], fill=(200, 160, 40, 100), width=1)
+
+        # ── KE CHUYEN TAG ──
+        tag_x = x1 + (pill_w - tag_w) // 2
+        tag_y = div_y + 5
+        self._multi_glow(image, tag_text, tag_x, tag_y, font_tag,
+                         color_alphas=[((200, 160, 40), 60), ((200, 160, 40), 120)],
+                         blur_radii=[6, 3])
+        draw = ImageDraw.Draw(image)
+        draw.text((tag_x, tag_y), tag_text, font=font_tag, fill=(200, 170, 60, 200))
 
         image.save(output_path, "PNG")
         return output_path
