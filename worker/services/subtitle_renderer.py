@@ -689,12 +689,12 @@ class SubtitleRenderer:
         return output_path
 
     def _create_logo_watermark_png(self, logo_handle: str, output_path: str, visual_style_plan: dict, size=(1080, 1920)) -> str:
-        """Create a premium 2026 Glassmorphism logo watermark pill overlay."""
+        """Create a premium 2026 Glassmorphism logo watermark pill overlay with vector indicator dot."""
         image = Image.new("RGBA", size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(image)
 
-        pos = visual_style_plan.get("logo_position", "top_left")
-        handle_text = f"⚡ {logo_handle.strip()}" if not logo_handle.startswith("⚡") else logo_handle.strip()
+        pos = str(visual_style_plan.get("logo_position", "top_left")).lower()
+        handle_text = logo_handle.strip()
 
         fontsize = 28
         try:
@@ -708,19 +708,36 @@ class SubtitleRenderer:
         except Exception:
             tw, th = len(handle_text) * 16, 30
 
-        pad_x, pad_y = 20, 10
-        bw, bh = tw + pad_x * 2, th + pad_y * 2
+        icon_space = 24
+        pad_x, pad_y = 20, 12
+        bw, bh = tw + pad_x * 2 + icon_space, th + pad_y * 2
 
         if "right" in pos:
             x1 = size[0] - 60 - bw
         else:
             x1 = 60
-        y1 = 80
+
+        if "bottom" in pos:
+            y1 = size[1] - 240 - bh  # Góc dưới (cách đáy 240px)
+        else:
+            y1 = 80  # Góc trên (cách đỉnh 80px)
+
         x2, y2 = x1 + bw, y1 + bh
 
-        # Semi-transparent dark glass background pill
-        draw.rounded_rectangle((x1, y1, x2, y2), radius=16, fill=(10, 15, 28, 200), outline=(0, 212, 255, 160), width=2)
-        draw.text((x1 + pad_x, y1 + pad_y - 2), handle_text, font=font, fill="#FFFFFF", stroke_width=1, stroke_fill="#000000")
+        # Semi-transparent dark glass background pill với viền neon cyan
+        draw.rounded_rectangle((x1, y1, x2, y2), radius=18, fill=(10, 15, 28, 210), outline=(0, 212, 255, 180), width=2)
+
+        # Vẽ Glowing Vector Dot (thay thế icon emoji bị lỗi font square box)
+        dot_cx = x1 + pad_x + 6
+        dot_cy = y1 + (bh // 2)
+        r = 5
+        draw.ellipse((dot_cx - r - 3, dot_cy - r - 3, dot_cx + r + 3, dot_cy + r + 3), fill=(0, 212, 255, 60))
+        draw.ellipse((dot_cx - r, dot_cy - r, dot_cx + r, dot_cy + r), fill=(0, 240, 255, 255))
+
+        # Vẽ text handle chính xác phía sau dot
+        text_x = x1 + pad_x + icon_space
+        text_y = y1 + pad_y - 2
+        draw.text((text_x, text_y), handle_text, font=font, fill="#FFFFFF", stroke_width=1, stroke_fill="#000000")
 
         image.save(output_path, "PNG")
         return output_path
