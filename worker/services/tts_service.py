@@ -37,12 +37,13 @@ class TTSService:
 
     def _estimate_word_timestamps(self, text: str, audio_path: str) -> list:
         """
-        Ước lượng timestamps cấp từ dựa trên tổng thời lượng của tệp âm thanh thực tế
-        (Dành cho ElevenLabs, TikTok TTS, và gTTS không hỗ trợ Word Boundary).
+        Ước lượng timestamps cấp từ theo mô hình phân bổ theo độ dài ký tự
+        (phoneme-weighted duration model) — chính xác hơn nhiều so với phân bổ đều.
+        Dành cho TikTok TTS, gTTS và fallback ElevenLabs không dùng được with-timestamps.
         """
         import subprocess
         import json
-        
+
         duration = 0.5
         try:
             cmd = [
@@ -54,18 +55,33 @@ class TTSService:
             duration = float(data.get("format", {}).get("duration", 0.5))
         except Exception as e:
             print(f"[TTSService Warning] Failed to probe duration for estimation: {e}")
-            
+
         words = text.split()
         if not words:
             return []
-            
+
+        # --- Phoneme-weighted model ---
+        # Phân bổ thời gian theo số ký tự thực (từ dài → chiếm nhiều ms hơn).
+        # Thêm hệ số pause 10ms cho mỗi dấu câu ngắt (,;:) và 30ms cho (.,!?)
+        PAUSE_MS = {",": 10, ";": 10, ":": 10, ".": 30, "!": 30, "?": 30, "—": 20}
+        char_weights = []
+        for w in words:
+            base = max(2, len(w))  # tối thiểu 2 ký tự
+            pause_bonus = PAUSE_MS.get(w[-1], 0) if w else 0
+            char_weights.append(base + pause_bonus * 0.05)  # scale pause xuống
+
+        total_weight = sum(char_weights)
         total_ms = int(duration * 1000)
-        word_duration = total_ms / len(words)
-        
+        # Giữ lại 5% cuối làm padding để tránh phụ đề tràn hết âm thanh
+        usable_ms = int(total_ms * 0.95)
+
         word_timestamps = []
+        cursor_ms = 0
         for idx, word in enumerate(words):
-            start_ms = int(idx * word_duration)
-            end_ms = int((idx + 1) * word_duration)
+            share = char_weights[idx] / total_weight
+            word_dur_ms = max(80, int(share * usable_ms))  # tối thiểu 80ms/từ
+            start_ms = cursor_ms
+            end_ms = cursor_ms + word_dur_ms
             cleaned_word = word.strip(".,!?;:\"'()[]{}“”")
             if cleaned_word:
                 word_timestamps.append({
@@ -73,6 +89,10 @@ class TTSService:
                     "start_ms": start_ms,
                     "end_ms": end_ms
                 })
+            cursor_ms = end_ms
+
+        print(f"[TTSService] Estimated {len(word_timestamps)} word timestamps "
+              f"(phoneme-weighted, total={duration:.2f}s)")
         return word_timestamps
 
     def _call_elevenlabs(
@@ -291,8 +311,18 @@ class TTSService:
                 voice_id = self.voice
             else:
                 voice_id = ELEVENLABS_DEFAULT_VOICES.get((gender, age_group), "21m00Tcm4TlvDq8ikWAM")
-            if self._call_elevenlabs(text, voice_id, output_audio_path, genre=genre):
-                return self._estimate_word_timestamps(text, output_audio_path)
+            try:
+                from worker.services.tts_providers.elevenlabs_provider import ElevenLabsProvider
+                provider = ElevenLabsProvider()
+                voice_profile = {"voice_id": voice_id, "genre": genre}
+                real_timestamps = asyncio.run(provider.synthesize(text, output_audio_path, voice_profile))
+                if real_timestamps:
+                    print(f"[TTSService] ✅ ElevenLabs with-timestamps thành công ({len(real_timestamps)} từ chính xác ms).")
+                    return real_timestamps
+            except Exception as el_err:
+                print(f"[TTSService Warning] ElevenLabsProvider with-timestamps failed: {el_err}. Falling back to estimate...")
+                if self._call_elevenlabs(text, voice_id, output_audio_path, genre=genre):
+                    return self._estimate_word_timestamps(text, output_audio_path)
 
         # TẦNG 2: Local valtec-tts
         if self.valtec_url and not (self.voice and "pNInz" in self.voice):

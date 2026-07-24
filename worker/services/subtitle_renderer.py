@@ -37,7 +37,13 @@ class SubtitleRenderer:
         color = self._get_semantic_color(word, None)
         return color is not None
 
-    def group_words_into_chunks(self, word_timestamps: list, max_words: int = 4, max_gap_ms: int = 500) -> list:
+    def group_words_into_chunks(self, word_timestamps: list, max_words: int = 4, max_gap_ms: int = 320, max_chars_per_chunk: int = 26) -> list:
+        """
+        Nâng cấp thuật toán chia cụm phụ đề chuẩn CapCut Pro / Submagic:
+        1. Ưu tiên ngắt dòng tại dấu câu (,, ., !, ?, ;, :, —, ...)
+        2. Giới hạn tối đa 3-4 từ hoặc ≤ 26 ký tự (tránh ngắt dở dang từ ghép tiếng Việt)
+        3. Tự động ngắt cụm khi có khoảng nghỉ âm thanh (gap > 320ms)
+        """
         if not word_timestamps:
             return []
 
@@ -73,18 +79,46 @@ class SubtitleRenderer:
 
         chunks = []
         current_chunk = []
+
         for item in word_timestamps:
+            word_str = item.get("word", "").strip()
+            if not word_str:
+                continue
+
             if not current_chunk:
                 current_chunk.append(item)
+                continue
+
+            prev_word = current_chunk[-1].get("word", "")
+            prev_end = current_chunk[-1].get("end_ms", 0)
+            curr_start = item.get("start_ms", 0)
+            gap = curr_start - prev_end
+
+            # 1. Dấu câu ngắt tự nhiên: từ trong chunk kết thúc bằng dấu câu
+            #    Loại trừ số dạng 500.000 (có dấu . nhưng theo sau là chữ số)
+            last_char = prev_word[-1] if prev_word else ""
+            has_punctuation = last_char in {",", ".", "!", "?", ";", ":", "—"}
+            # Bỏ qua dấu . nếu là số dạng "1.000" hay "500.000$"
+            if last_char == "." and len(prev_word) > 1 and prev_word[-2].isdigit():
+                has_punctuation = False
+
+            # 2. Kiểm tra độ dài ký tự nếu thêm từ mới
+            candidate_text = " ".join([w["word"] for w in current_chunk] + [word_str])
+            exceeds_chars = len(candidate_text) > max_chars_per_chunk
+
+            # 3. Số từ và khoảng nghỉ âm thanh
+            exceeds_words = len(current_chunk) >= max_words
+            exceeds_gap = gap > max_gap_ms
+
+            if has_punctuation or exceeds_words or exceeds_chars or exceeds_gap:
+                chunks.append(current_chunk)
+                current_chunk = [item]
             else:
-                gap = item["start_ms"] - current_chunk[-1]["end_ms"]
-                if len(current_chunk) >= max_words or gap > max_gap_ms:
-                    chunks.append(current_chunk)
-                    current_chunk = [item]
-                else:
-                    current_chunk.append(item)
+                current_chunk.append(item)
+
         if current_chunk:
             chunks.append(current_chunk)
+
         return chunks
 
     def wrap_text(self, text: str, font: ImageFont.FreeTypeFont, max_width: int) -> list:
@@ -486,8 +520,16 @@ class SubtitleRenderer:
         y1 = y_center - panel_height // 2
         y2 = y_center + panel_height // 2
 
+        # Draw background box (only for styles that have a box)
         if subtitle_style.get("box"):
-            draw.rounded_rectangle((margin_x, y1, size[0] - margin_x, y2), radius=28, fill=subtitle_style["box"], outline=subtitle_style.get("box_outline"), width=2)
+            box_radius = 12 if style_name == "clean_news" else 28
+            draw.rounded_rectangle(
+                (margin_x, y1, size[0] - margin_x, y2),
+                radius=box_radius,
+                fill=subtitle_style["box"],
+                outline=subtitle_style.get("box_outline"),
+                width=2
+            )
             accent_col = subtitle_style.get("accent")
             if accent_col:
                 try:
@@ -495,6 +537,7 @@ class SubtitleRenderer:
                 except Exception:
                     pass
 
+        # Build per-line word lists
         words_in_lines = []
         current_line = []
         dummy_img = Image.new("RGBA", (1, 1))
@@ -523,11 +566,52 @@ class SubtitleRenderer:
         total_height = sum(line_heights) + max(0, len(words_in_lines) - 1) * line_spacing
         y_start = y1 + (panel_height - total_height) // 2
 
+        is_cinematic = style_name in ("cinematic_quote", "cinematic", "warm_story")
+
         for idx, line_words in enumerate(words_in_lines):
             line_text = " ".join([item["word"] for item in line_words])
             bbox = draw.textbbox((0, 0), line_text, font=font)
             line_width = bbox[2] - bbox[0]
             x = margin_x + (max_width - line_width) // 2
+            lh = line_heights[idx]
+
+            # --- Drop shadow for cinematic styles (no box) ---
+            if is_cinematic and subtitle_style.get("box") is None and not glow:
+                shadow_draw = ImageDraw.Draw(image)
+                shadow_draw.text(
+                    (x + 3, y_start + 3),
+                    line_text,
+                    font=font,
+                    fill=(0, 0, 0, 140),
+                    stroke_width=0,
+                )
+
+            # --- For hormozi/word-highlight: draw active pill highlight UNDER text ---
+            if subtitle_style.get("highlight_mode") == "word" and not glow:
+                cursor_pill = x
+                for wi, word_obj in enumerate(line_words):
+                    w_str = word_obj["word"]
+                    tok = w_str + (" " if wi < len(line_words) - 1 else "")
+                    w_clean = w_str.strip(".,!?;:\"'()[]{}""")
+                    a_clean = active_word_str.strip(".,!?;:\"'()[]{}""")
+                    is_active = (w_clean.lower() == a_clean.lower())
+                    w_bbox = dummy_draw.textbbox((0, 0), tok, font=font)
+                    w_width = w_bbox[2] - w_bbox[0]
+                    if is_active:
+                        pill_pad_x, pill_pad_y = 10, 6
+                        pill_x1 = cursor_pill - pill_pad_x
+                        pill_y1 = y_start - pill_pad_y
+                        pill_x2 = cursor_pill + w_width + pill_pad_x
+                        pill_y2 = y_start + lh + pill_pad_y
+                        try:
+                            draw.rounded_rectangle(
+                                (pill_x1, pill_y1, pill_x2, pill_y2),
+                                radius=14,
+                                fill=(0, 255, 102, 230),  # bright green pill, semi-opaque
+                            )
+                        except Exception:
+                            pass
+                    cursor_pill += w_width
 
             self._draw_line_with_hormozi_active_word(
                 draw, image, line_words, active_word_str, x, y_start, font, subtitle_style
