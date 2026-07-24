@@ -310,9 +310,11 @@ NHIỆM VỤ: Hãy dựng lên một kịch bản nói (speech script) mang sắ
    - Toàn bộ kịch bản thuyết minh phải viết liền mạch thành MỘT ĐOẠN VĂN DUY NHẤT (a single continuous paragraph block).
    - Tuyệt đối không chứa bất kỳ tiêu đề phân đoạn nào như "[Mở đầu]", "[Nội dung chính]", "[Cao trào]", "[Kết luận]", hay các thẻ phân cảnh trong kịch bản nói.
    - Tuyệt đối không sử dụng các từ chuyển ý khô khan như "Thứ nhất", "Thứ hai", "Hơn nữa", "Tóm lại". Hãy kết nối tự nhiên bằng dòng cảm xúc trôi chảy.
-   - Tận dụng tối đa dấu phẩy (`,`) để tạo khoảng nghỉ ngắn tự nhiên và dấu ba chấm (`...`) để tạo khoảng lặng sâu lắng đầy suy ngẫm cho công cụ Text-To-Speech (TTS) đọc lên một cách truyền cảm nhất.
-
 3. QUY TẮC NỘI DUNG & KIẾN TRÚC THẨM MỸ RETENTION:
+   - NGHỆ THUẬT NHẤN ÂM GIỌNG ĐỌC ELEVENLABS V3 (BẮT BUỘC):
+      • Hãy chủ động chèn các Audio Tags biểu cảm trong ngoặc vuông như [dramatic], [excited], [whispers] ở các bước ngoặt cảm xúc để giọng AI đọc nhập vai tự nhiên nhất.
+      • VIẾT HOA các từ trọng tâm kịch tính (ví dụ: SỰ THẬT, THẤT BẠI, SỤP ĐỔ, QUYẾT ĐỊNH) để công cụ ElevenLabs v3 tự động nâng tông và nhấn giọng đanh thép.
+      • Sử dụng dấu ba chấm (...) ở các đoạn tĩnh lặng suy ngẫm, dấu gạch ngang (—) ở các đoạn ngắt nhịp thở đột ngột, và ngắt câu ngắn 4-8 từ bằng dấu phẩy (,) để phụ đề karaoke nhảy nhịp nhàng.
    - DYNAMIC CONTRARIAN HOOK (3 Giây Đầu — BẮT BUỘC TUYỆT ĐỐI):
       ❌ KHAI TỬ HOÀN TOÀN — CẤM TUYỆT ĐỐI dùng bất kỳ mẫu câu hỏi sáo rỗng sau:
          • "Bạn có biết..."          • "Bạn có đang mắc lỗi này không?"
