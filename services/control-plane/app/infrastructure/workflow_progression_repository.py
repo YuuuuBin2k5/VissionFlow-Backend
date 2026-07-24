@@ -139,18 +139,32 @@ class SqlAlchemyWorkflowProgressionRepository:
             raise ValueError("QA_PENDING requires a SHA-256 artifact checksum")
         if not isinstance(fingerprint, str) or len(fingerprint) != 64:
             raise ValueError("QA_PENDING requires a render plan fingerprint")
-        self._session.add(
-            MediaAsset(
-                organization_id=command.organization_id,
-                workflow_run_id=workflow_run.id,
-                object_key=object_key,
-                media_kind="final_export",
-                content_type=content_type,
-                byte_size=byte_size,
-                checksum_sha256=checksum,
-                metadata_json={"render_plan_hash": fingerprint},
+
+        existing = self._session.scalar(
+            select(MediaAsset).where(
+                MediaAsset.workflow_run_id == workflow_run.id,
+                MediaAsset.media_kind == "final_export"
             )
         )
+        if existing:
+            existing.object_key = object_key
+            existing.content_type = content_type
+            existing.byte_size = byte_size
+            existing.checksum_sha256 = checksum
+            existing.metadata_json = {"render_plan_hash": fingerprint}
+        else:
+            self._session.add(
+                MediaAsset(
+                    organization_id=command.organization_id,
+                    workflow_run_id=workflow_run.id,
+                    object_key=object_key,
+                    media_kind="final_export",
+                    content_type=content_type,
+                    byte_size=byte_size,
+                    checksum_sha256=checksum,
+                    metadata_json={"render_plan_hash": fingerprint},
+                )
+            )
 
     def _record_publish_approval(self, workflow_run: WorkflowRun, command: AdvanceWorkflowCommand) -> None:
         """Persist the exact final export accepted by the human approval boundary."""
