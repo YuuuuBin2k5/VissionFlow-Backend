@@ -90,11 +90,11 @@ def main() -> int:
 
     with Session(get_engine()) as session:
         if args.all:
-            # Find all workflows stuck in QUEUED or STORYBOARDED
+            # Find all workflows stuck in QUEUED
             rows = session.execute(
                 select(WorkflowRun, VideoProject)
                 .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
-                .where(WorkflowRun.state.in_(["QUEUED", "STORYBOARDED"]))
+                .where(WorkflowRun.state == "QUEUED")
             ).all()
 
             if not rows:
