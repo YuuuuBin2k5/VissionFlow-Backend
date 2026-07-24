@@ -406,8 +406,8 @@ class MediaService:
         # 3. Phụ đề Động Alex Hormozi qua SubtitleRenderer
         subtitle_chunks = self.group_words_into_chunks(
             word_timestamps,
-            max_words=int(visual_style_plan.get("caption_max_words", 5)),
-            max_gap_ms=int(visual_style_plan.get("caption_max_gap_ms", 520)),
+            max_words=int(visual_style_plan.get("caption_max_words", 4)),
+            max_gap_ms=int(visual_style_plan.get("caption_max_gap_ms", 320)),
         )
         quality_report = self.quality_scorer.score_campaign_plan(
             visual_style_plan=visual_style_plan,
@@ -431,8 +431,8 @@ class MediaService:
         if render_word_subs:
             subtitle_word_chunks = self.sub_renderer.group_words_into_chunks(
                 word_timestamps,
-                max_words=int(visual_style_plan.get("caption_max_words", 5)),
-                max_gap_ms=int(visual_style_plan.get("caption_max_gap_ms", 520)),
+                max_words=int(visual_style_plan.get("caption_max_words", 4)),
+                max_gap_ms=int(visual_style_plan.get("caption_max_gap_ms", 320)),
             )
 
             sub_idx_global = 0
