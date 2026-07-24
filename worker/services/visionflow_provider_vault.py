@@ -21,10 +21,14 @@ def hydrate_provider_environment(gateway: ProviderCredentialGateway) -> None:
         "coverr": "COVERR_API_KEY",
     }
     for provider, env_name in mappings.items():
-        records = gateway.resolve_provider_credentials(provider)
-        secrets = [str(record["secret"]).strip() for record in records if str(record.get("secret", "")).strip()]
-        if not secrets:
-            continue
-        # Gemini has native multi-key fallback. Other adapters consume the
-        # first ordered key until their provider-specific retry adapter lands.
-        os.environ[env_name] = ",".join(secrets) if provider == "gemini" else secrets[0]
+        try:
+            records = gateway.resolve_provider_credentials(provider)
+            secrets = [str(record["secret"]).strip() for record in records if str(record.get("secret", "")).strip()]
+            if not secrets:
+                continue
+            # Gemini has native multi-key fallback. Other adapters consume the
+            # first ordered key until their provider-specific retry adapter lands.
+            os.environ[env_name] = ",".join(secrets) if provider == "gemini" else secrets[0]
+        except Exception as err:
+            import logging
+            logging.warning(f"Could not resolve Vault provider credentials for {provider}: {err}. Preserving existing environment variable fallback.")
