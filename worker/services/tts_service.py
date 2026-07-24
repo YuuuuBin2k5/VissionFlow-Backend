@@ -8,7 +8,7 @@ from worker.config import DEFAULT_TTS_VOICE, ASSETS_DIR
 ELEVENLABS_DEFAULT_VOICES = {
     ("female", "adult"): "21m00Tcm4TlvDq8ikWAM",  # Rachel (Warm, professional female)
     ("female", "child"): "EXAVITQu4vr4xnSDxMaL",  # Bella (Child female)
-    ("male", "adult"): "N2lVS1w75zBiw246c17c",    # Dom (Deep, rich male)
+    ("male", "adult"): "pNInz6obpgDQGcFmaJgB",    # Adam (Dominant, Firm, Middle-aged American Male)
     ("male", "child"): "ODq5zmAzzEx5QqdD4T6D",    # Youthful male
 }
 
