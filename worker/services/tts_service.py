@@ -214,25 +214,35 @@ class TTSService:
 
         # TẦNG 1: ElevenLabs
         if self.elevenlabs_key:
-            voice_id = ELEVENLABS_DEFAULT_VOICES.get((gender, age_group), "21m00Tcm4TlvDq8ikWAM")
+            # Use explicit voice ID if provided (e.g. pNInz6obpgDQGcFmaJgB for Adam), otherwise lookup table
+            if self.voice and not ("-" in self.voice and "Neural" in self.voice):
+                voice_id = self.voice
+            else:
+                voice_id = ELEVENLABS_DEFAULT_VOICES.get((gender, age_group), "21m00Tcm4TlvDq8ikWAM")
             if self._call_elevenlabs(text, voice_id, output_audio_path):
                 return self._estimate_word_timestamps(text, output_audio_path)
 
         # TẦNG 2: Local valtec-tts
-        if self.valtec_url:
+        if self.valtec_url and not (self.voice and "pNInz" in self.voice):
             if self._call_valtec(text, output_audio_path):
                 return self._estimate_word_timestamps(text, output_audio_path)
 
-        # TẦNG 3: TikTok TTS
-        tiktok_speaker = TIKTOK_DEFAULT_VOICES.get(gender, "vi_vn_female")
-        if self._call_tiktok(text, tiktok_speaker, output_audio_path):
-            return self._estimate_word_timestamps(text, output_audio_path)
+        # TẦNG 3: TikTok TTS (skip if explicit English/ElevenLabs voice requested)
+        if not (self.voice and ("pNInz" in self.voice or "en-" in self.voice.lower())):
+            tiktok_speaker = TIKTOK_DEFAULT_VOICES.get(gender, "vi_vn_female")
+            if self._call_tiktok(text, tiktok_speaker, output_audio_path):
+                return self._estimate_word_timestamps(text, output_audio_path)
 
-        # TẦNG 4: Edge-TTS (Cơ chế websocket ổn định cũ, có tích hợp cơ chế tự động thử lại nâng cao)
-        edge_voice = self.voice or DEFAULT_TTS_VOICE
-        if gender == "male" and not self.voice:
-            from worker.config import BACKUP_TTS_VOICE
-            edge_voice = BACKUP_TTS_VOICE
+        # TẦNG 4: Edge-TTS
+        if self.voice and "-" in self.voice and "Neural" in self.voice:
+            edge_voice = self.voice
+        elif self.voice and ("pNInz" in self.voice or "adam" in self.voice.lower()):
+            edge_voice = "en-US-ChristopherNeural"
+        else:
+            edge_voice = self.voice or DEFAULT_TTS_VOICE
+            if gender == "male" and not self.voice:
+                from worker.config import BACKUP_TTS_VOICE
+                edge_voice = BACKUP_TTS_VOICE
         
         max_edge_retries = 3
         for attempt in range(1, max_edge_retries + 1):
