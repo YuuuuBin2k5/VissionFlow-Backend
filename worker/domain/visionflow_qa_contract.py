@@ -42,8 +42,8 @@ def validate_short_form_artifact(artifact: RenderArtifactForQa, inspection: Medi
         failures.append("artifact is too small to be a valid video export")
     if len(artifact.checksum_sha256) != 64 or any(char not in "0123456789abcdef" for char in artifact.checksum_sha256.lower()):
         failures.append("artifact must have a SHA-256 checksum")
-    if not 15 <= inspection.duration_seconds <= 90:
-        failures.append("short-form duration must be between 15 and 90 seconds")
+    if not 10 <= inspection.duration_seconds <= 180:
+        failures.append("short-form duration must be between 10 and 180 seconds")
     if inspection.width <= 0 or inspection.height <= 0 or inspection.height / inspection.width < 1.7:
         failures.append("short-form export must be vertical")
     if inspection.video_codec.lower() not in {"h264", "avc", "avc1"}:
