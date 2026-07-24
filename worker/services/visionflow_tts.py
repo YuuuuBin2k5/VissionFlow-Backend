@@ -13,12 +13,19 @@ VOICE_PRESET_MAP: dict[str, str] = {
     # English
     "edge-en-guy":     "en-US-GuyNeural",
     "edge-en-jenny":   "en-US-JennyNeural",
+    "edge-en-adam":    "en-US-ChristopherNeural",  # Free Edge-TTS Adam (Dominant, Firm, Middle-aged American Male)
+    "eleven-adam":     "pNInz6obpgDQGcFmaJgB",     # ElevenLabs Official Adam Voice ID
 }
 
 def resolve_voice(voice_code: str) -> str:
-    """Map preset name → valid edge-tts voice. Falls back to HoaiMyNeural."""
+    """Map preset name → valid edge-tts or ElevenLabs voice. Falls back to HoaiMyNeural."""
     if not voice_code:
         return "vi-VN-HoaiMyNeural"
+    lower_code = voice_code.lower()
+    if "adam" in lower_code:
+        if "eleven" in lower_code:
+            return "pNInz6obpgDQGcFmaJgB"
+        return "en-US-ChristopherNeural"
     # Already a valid IETF voice name (e.g. vi-VN-HoaiMyNeural)
     if "-" in voice_code and "Neural" in voice_code:
         return voice_code
