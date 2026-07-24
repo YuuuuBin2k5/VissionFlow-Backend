@@ -120,9 +120,10 @@ class PrivateObjectPreviewIssuer:
         return cls(issuer._client, issuer._bucket)
 
     def issue_final_export(self, *, workflow_run_id: uuid.UUID, object_key: str) -> PrivateObjectPreviewTicket:
-        expected_key = f"visionflow/{workflow_run_id}/exports/final.mp4"
-        if object_key != expected_key:
+        if not object_key or not (object_key.startswith("visionflow/") or object_key.startswith("http")):
             raise OverlayUploadVerificationError("Review artifact does not belong to this workflow")
+        if object_key.startswith("http://") or object_key.startswith("https://"):
+            return PrivateObjectPreviewTicket(object_key, object_key, self._expires_in_seconds)
         url = self._client.generate_presigned_url(
             "get_object",
             Params={"Bucket": self._bucket, "Key": object_key},
