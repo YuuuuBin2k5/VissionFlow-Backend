@@ -306,10 +306,12 @@ class TTSService:
                 return self._estimate_word_timestamps(text, output_audio_path)
 
         # TẦNG 4: Edge-TTS
+        vi_chars = "àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
+        is_vietnamese = any(c in vi_chars for c in text.lower())
         if self.voice and "-" in self.voice and "Neural" in self.voice:
             edge_voice = self.voice
         elif self.voice and ("pNInz" in self.voice or "adam" in self.voice.lower()):
-            edge_voice = "en-US-ChristopherNeural"
+            edge_voice = "vi-VN-NamMinhNeural" if is_vietnamese else "en-US-ChristopherNeural"
         else:
             edge_voice = self.voice or DEFAULT_TTS_VOICE
             if gender == "male" and not self.voice:
