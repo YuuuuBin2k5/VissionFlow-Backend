@@ -133,19 +133,55 @@ class VisionFlowControlPlaneClient:
         method: str,
         url: str,
         *,
-        max_attempts: int = 3,
+        max_attempts: int = 4,
+        timeout: tuple[int, int] = (15, 90),
         **kwargs: Any,
     ) -> requests.Response:
         last_err: Exception | None = None
         for attempt in range(1, max_attempts + 1):
             try:
-                return self._http.request(method, url, **kwargs)
+                response = self._http.request(method, url, timeout=timeout, **kwargs)
+                if response.status_code in (502, 503, 504) and attempt < max_attempts:
+                    time.sleep(3.0 * attempt)
+                    continue
+                return response
             except requests.exceptions.RequestException as err:
                 last_err = err
                 if attempt < max_attempts:
-                    time.sleep(2.0 * attempt)
+                    time.sleep(3.0 * attempt)
                 else:
                     raise
+        if last_err:
+            raise last_err
+        raise VisionFlowControlPlaneError(f"HTTP request to {url} failed after {max_attempts} attempts")
+
+    def get_execution_context_by_job_id(
+        self,
+        job_id: int | str,
+        *,
+        trace_id: str | None = None,
+    ) -> dict[str, Any]:
+        response = self._request_with_retry(
+            "GET",
+            f"{self._settings.api_url}/workflows/execution-context-by-job/{job_id}",
+            params={"organization_id": self._settings.organization_id},
+            headers={
+                "Authorization": f"Bearer {self._get_access_token()}",
+                "X-Request-ID": trace_id or uuid.uuid4().hex,
+            },
+            timeout=(15, 90),
+        )
+        if response.status_code != 200:
+            detail = _response_detail(response)
+            raise VisionFlowControlPlaneError(
+                f"Control Plane execution-context-by-job failed with HTTP {response.status_code}: {detail}"
+            )
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise VisionFlowControlPlaneError(
+                "Control Plane execution-context-by-job response must be a JSON object"
+            )
+        return payload
 
     def advance_workflow(
         self,
@@ -184,13 +220,6 @@ class VisionFlowControlPlaneClient:
         *,
         trace_id: str | None = None,
     ) -> dict[str, Any]:
-        """Hand a QA-passed export to the Control Plane review boundary.
-
-        This named operation intentionally uses the Control Plane's approval
-        endpoint rather than synthesising a generic state transition in the
-        worker.  It keeps the human-review policy and its audit semantics in
-        one service boundary.
-        """
         response = self._request_with_retry(
             "POST",
             f"{self._settings.api_url}/workflows/{workflow_run_id}/approval/open",
@@ -217,14 +246,8 @@ class VisionFlowControlPlaneClient:
         *,
         trace_id: str | None = None,
     ) -> dict[str, Any]:
-        """Read the organization-scoped execution context for a workflow.
-
-        The worker must use this service API instead of reading the Control
-        Plane database.  ``organization_id`` is sent explicitly because the
-        server treats it as a tenancy boundary rather than trusting an ID in a
-        queue message alone.
-        """
-        response = self._http.get(
+        response = self._request_with_retry(
+            "GET",
             f"{self._settings.api_url}/workflows/{workflow_run_id}/execution-context",
             params={"organization_id": self._settings.organization_id},
             headers={
@@ -244,8 +267,8 @@ class VisionFlowControlPlaneClient:
         return payload
 
     def get_creative_document(self, workflow_run_id: str, *, trace_id: str | None = None) -> dict[str, Any]:
-        """Fetch the immutable operator-approved document through the API."""
-        response = self._http.get(
+        response = self._request_with_retry(
+            "GET",
             f"{self._settings.api_url}/workflows/{workflow_run_id}/creative-document",
             params={"organization_id": self._settings.organization_id},
             headers={"Authorization": f"Bearer {self._get_access_token()}", "X-Request-ID": trace_id or uuid.uuid4().hex},
@@ -259,7 +282,8 @@ class VisionFlowControlPlaneClient:
         return payload
 
     def get_composition(self, workflow_run_id: str, *, trace_id: str | None = None) -> dict[str, Any]:
-        response = self._http.get(
+        response = self._request_with_retry(
+            "GET",
             f"{self._settings.api_url}/workflows/{workflow_run_id}/composition",
             params={"organization_id": self._settings.organization_id},
             headers={"Authorization": f"Bearer {self._get_access_token()}", "X-Request-ID": trace_id or uuid.uuid4().hex},
@@ -273,7 +297,8 @@ class VisionFlowControlPlaneClient:
         return payload
 
     def resolve_provider_credentials(self, provider: str, *, trace_id: str | None = None) -> list[dict[str, Any]]:
-        response = self._http.get(
+        response = self._request_with_retry(
+            "GET",
             f"{self._settings.api_url}/organizations/{self._settings.organization_id}/provider-credentials/{provider}/resolve",
             headers={"Authorization": f"Bearer {self._get_access_token()}", "X-Request-ID": trace_id or uuid.uuid4().hex},
             timeout=(15, 90),
@@ -286,8 +311,8 @@ class VisionFlowControlPlaneClient:
         return payload
 
     def get_composition_render_plan(self, workflow_run_id: str, *, trace_id: str | None = None) -> dict[str, Any]:
-        """Read the Control Plane's authoritative locked-composition plan."""
-        response = self._http.get(
+        response = self._request_with_retry(
+            "GET",
             f"{self._settings.api_url}/workflows/{workflow_run_id}/composition/render-plan",
             params={"organization_id": self._settings.organization_id},
             headers={"Authorization": f"Bearer {self._get_access_token()}", "X-Request-ID": trace_id or uuid.uuid4().hex},
@@ -314,11 +339,11 @@ class VisionFlowControlPlaneClient:
         legacy_job_id: str | None = None,
         trace_id: str | None = None,
     ) -> dict[str, Any]:
-        """Call complete-narration endpoint on the Control Plane."""
         if organization_id != self._settings.organization_id:
             raise ValueError("organization_id mismatch with configured client settings")
         url = f"{self._settings.api_url}/workflows/{workflow_run_id}/complete-narration"
-        response = self._http.post(
+        response = self._request_with_retry(
+            "POST",
             url,
             json={
                 "organization_id": organization_id,
@@ -344,7 +369,8 @@ class VisionFlowControlPlaneClient:
     def _get_access_token(self) -> str:
         if self._access_token and time.monotonic() < self._access_token_expires_at:
             return self._access_token
-        response = self._http.post(
+        response = self._request_with_retry(
+            "POST",
             self._settings.token_url,
             data={
                 "grant_type": "client_credentials",
@@ -353,7 +379,8 @@ class VisionFlowControlPlaneClient:
                 "audience": self._settings.audience,
             },
             headers={"Accept": "application/json"},
-            timeout=(3, 15),
+            timeout=(15, 60),
+            max_attempts=4,
         )
         if response.status_code != 200:
             raise VisionFlowControlPlaneError(
@@ -365,8 +392,6 @@ class VisionFlowControlPlaneClient:
             raise VisionFlowControlPlaneError("OIDC token response did not include access_token")
         expires_in = payload.get("expires_in", 300)
         self._access_token = access_token
-        # Refresh before expiry.  Very short-lived tokens must never be cached
-        # beyond their actual validity window.
         self._access_token_expires_at = time.monotonic() + max(1, int(expires_in) - 60)
         return access_token
 
