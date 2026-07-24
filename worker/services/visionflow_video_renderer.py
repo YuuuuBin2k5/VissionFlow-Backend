@@ -148,6 +148,8 @@ def _style_plan(contract) -> dict:
         "logo_opacity": getattr(contract, "logo_opacity", 0.85),
         "show_logo": True,
         "caption_preset": getattr(contract, "caption_preset", "hormozi"),
+        "caption_style": getattr(contract, "caption_preset", "hormozi"),
+        "subtitle_style": getattr(contract, "caption_preset", "hormozi"),
         "caption_position": getattr(contract, "caption_position", "bottom"),
         "caption_color": getattr(contract, "caption_color", "#FFFF00"),
         # Always render dynamic word-by-word karaoke subtitles for spoken narration

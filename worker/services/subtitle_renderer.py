@@ -131,7 +131,35 @@ class SubtitleRenderer:
         return font, self.wrap_text(text, font, max_width)
 
     def _subtitle_style(self, style_name: str, accent: str) -> dict:
+        aliases = {
+            "cinematic_quote": "cinematic_quote",
+            "cinematic": "cinematic_quote",
+            "clean_news": "clean_news",
+            "news": "clean_news",
+            "hormozi": "moneyprinter_vietsub",
+        }
+        resolved = aliases.get(style_name, style_name)
         styles = {
+            "cinematic_quote": {
+                "fill": "#FFF7ED",          # Warm off-white / cream text
+                "stroke": "#1C1917",        # Dark stroke outline
+                "stroke_width": 4,
+                "box": None,               # NO background box for cinematic subtitle!
+                "box_outline": None,
+                "accent": None,
+                "font_size": 54,
+                "highlight_mode": None,
+            },
+            "clean_news": {
+                "fill": "#0F172A",          # Dark Slate text
+                "stroke": "#FFFFFF",        # White outline
+                "stroke_width": 3,
+                "box": (245, 247, 250, 235), # Crisp white rectangular news banner
+                "box_outline": (15, 23, 42, 220),
+                "accent": None,
+                "font_size": 50,
+                "highlight_mode": None,
+            },
             "moneyprinter_vietsub": {
                 "fill": "white",
                 "stroke": "black",
@@ -164,8 +192,8 @@ class SubtitleRenderer:
                 "fill": "#fff7ed",
                 "stroke": "#2f1d0b",
                 "stroke_width": 4,
-                "box": (54, 36, 20, 170),
-                "box_outline": (245, 158, 11, 120),
+                "box": None,
+                "box_outline": None,
                 "accent": accent,
                 "font_size": 52,
             },
@@ -229,7 +257,7 @@ class SubtitleRenderer:
                 "highlight_mode": "sweep",
             },
         }
-        return styles.get(style_name, styles["punchy"])
+        return styles.get(resolved, styles["punchy"])
 
     def _apply_default_vietsub_policy(self, visual_style_plan: dict | None) -> dict:
         plan = dict(visual_style_plan or {})
@@ -364,6 +392,7 @@ class SubtitleRenderer:
 
     def _draw_line_with_hormozi_active_word(self, draw: ImageDraw.ImageDraw, image: Image.Image, words_in_line: list, active_word_str: str, x: int, y: int, font: ImageFont.FreeTypeFont, style: dict):
         cursor_x = x
+        is_word_highlight = (style.get("highlight_mode") == "word")
         for idx, word_obj in enumerate(words_in_line):
             word_str = word_obj["word"]
             token = word_str + (" " if idx < len(words_in_line) - 1 else "")
@@ -372,11 +401,14 @@ class SubtitleRenderer:
             a_clean = active_word_str.strip(".,!?;:\"'()[]{}“”")
             is_active = (w_clean.lower() == a_clean.lower())
 
-            if is_active:
+            if is_word_highlight and is_active:
                 fill = "#00FF66"
                 scale = 1.1
-            else:
+            elif is_word_highlight:
                 fill = "#FFDE4D" if self._is_keyword(word_str) else (style.get("fill") or "white")
+                scale = 1.0
+            else:
+                fill = style.get("fill") or "white"
                 scale = 1.0
 
             if scale == 1.0:
@@ -427,7 +459,11 @@ class SubtitleRenderer:
 
         visual_style_plan = visual_style_plan or {}
         accent = visual_style_plan.get("accent", "#ff3df2")
-        style_name = visual_style_plan.get("caption_style") or visual_style_plan.get("subtitle_style", "bold_punchy")
+        style_name = (
+            visual_style_plan.get("caption_preset")
+            or visual_style_plan.get("caption_style")
+            or visual_style_plan.get("subtitle_style", "bold_punchy")
+        )
         subtitle_style = dict(self._subtitle_style(style_name, accent))
 
         if glow:
