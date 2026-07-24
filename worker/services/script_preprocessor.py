@@ -205,15 +205,37 @@ def inject_ssml_breaks_v2(text: str) -> str:
 
 def inject_v3_emotion_tags(text: str) -> str:
     """
-    Chèn emotion tags trong ngoặc vuông cho Eleven v3.
-    Nguồn: ToiUuGiongDocAI.docx — Narrative Intelligence tags.
+    Chèn emotion tags [dramatic], [excited], [whispers], [sighs] cho Eleven v3.
+    Nguồn: ElevenLabs v3 Prompting & Audio Tags Best Practices.
     """
-    whisper_triggers = ["bí mật", "thầm thĩ", "không ai biết", "chỉ một mình"]
+    whisper_triggers = ["bí mật", "thầm thì", "không ai biết", "chỉ một mình", "lén lút"]
     for trigger in whisper_triggers:
         if trigger.lower() in text.lower():
             text = re.sub(
                 re.escape(trigger),
-                f"[whispers] {trigger} [/whispers]",
+                f"[whispers] {trigger}",
+                text,
+                flags=re.IGNORECASE,
+                count=1,
+            )
+
+    dramatic_triggers = ["thất bại", "sụp đổ", "phá sản", "khủng hoảng", "cú sốc", "bất ngờ", "kinh hoàng", "lịch sử"]
+    for trigger in dramatic_triggers:
+        if trigger.lower() in text.lower():
+            text = re.sub(
+                re.escape(trigger),
+                f"[dramatic] {trigger}",
+                text,
+                flags=re.IGNORECASE,
+                count=1,
+            )
+
+    excited_triggers = ["thành công", "tuyệt vời", "kỳ diệu", "triệu đô", "tỷ đô", "bứt phá", "kỷ lục"]
+    for trigger in excited_triggers:
+        if trigger.lower() in text.lower():
+            text = re.sub(
+                re.escape(trigger),
+                f"[excited] {trigger}",
                 text,
                 flags=re.IGNORECASE,
                 count=1,
@@ -228,30 +250,30 @@ def inject_v3_emotion_tags(text: str) -> str:
 # ═══════════════════════════════════════════════════════════════════════════
 
 VIDEO_GENRE_MODEL_MAP = {
-    "documentary": "eleven_multilingual_v2",  # Multilingual v2 hỗ trợ tiếng Việt kịch tính
-    "storytelling": "eleven_multilingual_v2", # True-crime, tài liệu điện ảnh tiếng Việt
-    "explainer": "eleven_multilingual_v2",   # Giải thích kiến thức
-    "tutorial": "eleven_turbo_v2_5",         # Hướng dẫn kỹ thuật
-    "promo": "eleven_turbo_v2_5",            # Quảng cáo, bán hàng
+    "documentary": "eleven_v3",   # Eleven v3 hỗ trợ Tiếng Việt + Audio Tags biểu cảm nhất
+    "storytelling": "eleven_v3",  # True-crime, tài liệu điện ảnh TikTok
+    "explainer": "eleven_v3",     # Giải thích kiến thức sâu lắng
+    "tutorial": "eleven_flash_v2_5", # Hướng dẫn kỹ thuật nhanh
+    "promo": "eleven_flash_v2_5",    # Quảng cáo, bán hàng
 }
 
 ELEVENLABS_PARAMS_MAP = {
     "eleven_v3": {
-        "stability": 0.45,         # Giải phóng dải tần biểu cảm
-        "similarity_boost": 0.78,  # Tương đồng vừa phải, tự nhiên
-        "style": 0.28,             # Khuếch đại phong cách vừa (v3 hỗ trợ tốt)
+        "stability": 0.42,         # Cân bằng hoàn hảo: vừa có dải tần biểu cảm, vừa không méo tiếng
+        "similarity_boost": 0.82,  # Giữ giọng Adam sắc nét, rõ ràng chuẩn TikTok
+        "style": 0.38,             # Khuếch đại kịch tính kiểu TikTok creator
         "use_speaker_boost": True,
     },
     "eleven_multilingual_v2": {
-        "stability": 0.58,         # Ổn định hơn cho nội dung dài
-        "similarity_boost": 0.82,  # Clarity cao
-        "style": 0.05,             # QUAN TRỌNG: style thấp với v2, tránh artifacts
+        "stability": 0.58,
+        "similarity_boost": 0.82,
+        "style": 0.05,
         "use_speaker_boost": True,
     },
-    "eleven_turbo_v2_5": {
+    "eleven_flash_v2_5": {
         "stability": 0.50,
-        "similarity_boost": 0.78,
-        "style": 0.22,             # Năng lượng cao cho promo/tutorial
+        "similarity_boost": 0.80,
+        "style": 0.20,
         "use_speaker_boost": True,
     },
 }
@@ -259,7 +281,7 @@ ELEVENLABS_PARAMS_MAP = {
 
 def preprocess_for_elevenlabs(
     text: str,
-    model_id: str = "eleven_multilingual_v2",
+    model_id: str = "eleven_v3",
     apply_emotional_tags: bool = True,
 ) -> list[str]:
     """
@@ -278,9 +300,9 @@ def preprocess_for_elevenlabs(
         if model_id == "eleven_v3":
             text = inject_v3_emotion_tags(text)
             print(f"[ScriptPreprocessor] ✅ Bước 3: Chèn emotion tags (Eleven v3)")
-        elif model_id == "eleven_multilingual_v2":
+        elif model_id in ("eleven_multilingual_v2", "eleven_flash_v2_5"):
             text = inject_ssml_breaks_v2(text)
-            print(f"[ScriptPreprocessor] ✅ Bước 3: Chèn SSML break tags (Multilingual v2)")
+            print(f"[ScriptPreprocessor] ✅ Bước 3: Chèn SSML break tags")
 
     chunks = chunk_script(text, max_chars=700)
     print(f"[ScriptPreprocessor] ✅ Bước 4: Chunking → {len(chunks)} phân đoạn")
@@ -290,9 +312,9 @@ def preprocess_for_elevenlabs(
 
 def get_elevenlabs_params(model_id: str) -> dict:
     """Lấy tham số ElevenLabs tối ưu theo model."""
-    return ELEVENLABS_PARAMS_MAP.get(model_id, ELEVENLABS_PARAMS_MAP["eleven_multilingual_v2"])
+    return ELEVENLABS_PARAMS_MAP.get(model_id, ELEVENLABS_PARAMS_MAP["eleven_v3"])
 
 
 def resolve_model_for_genre(genre: str) -> str:
     """Chọn model ElevenLabs phù hợp theo thể loại nội dung."""
-    return VIDEO_GENRE_MODEL_MAP.get(genre.lower(), "eleven_multilingual_v2")
+    return VIDEO_GENRE_MODEL_MAP.get(genre.lower(), "eleven_v3")

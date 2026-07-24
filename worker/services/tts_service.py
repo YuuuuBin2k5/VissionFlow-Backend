@@ -144,6 +144,7 @@ class TTSService:
                     "text": chunk_text,
                     "model_id": model_id,
                     "voice_settings": voice_settings,
+                    "language_code": "vi",
                 }
                 success = False
                 for attempt in range(1, 4):
