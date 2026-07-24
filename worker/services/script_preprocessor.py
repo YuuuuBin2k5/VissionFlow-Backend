@@ -228,8 +228,8 @@ def inject_v3_emotion_tags(text: str) -> str:
 # ═══════════════════════════════════════════════════════════════════════════
 
 VIDEO_GENRE_MODEL_MAP = {
-    "documentary": "eleven_v3",              # Kể chuyện kịch tính, triệu view
-    "storytelling": "eleven_v3",             # True-crime, tài liệu điện ảnh
+    "documentary": "eleven_multilingual_v2",  # Multilingual v2 hỗ trợ tiếng Việt kịch tính
+    "storytelling": "eleven_multilingual_v2", # True-crime, tài liệu điện ảnh tiếng Việt
     "explainer": "eleven_multilingual_v2",   # Giải thích kiến thức
     "tutorial": "eleven_turbo_v2_5",         # Hướng dẫn kỹ thuật
     "promo": "eleven_turbo_v2_5",            # Quảng cáo, bán hàng
