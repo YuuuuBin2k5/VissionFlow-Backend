@@ -122,6 +122,7 @@ class PrivateObjectPreviewIssuer:
     def issue_final_export(self, *, workflow_run_id: uuid.UUID, object_key: str) -> PrivateObjectPreviewTicket:
         target_key = object_key if (object_key and object_key.startswith("visionflow/")) else f"visionflow/{workflow_run_id}/exports/final.mp4"
         try:
+            self._client.head_object(Bucket=self._bucket, Key=target_key)
             url = self._client.generate_presigned_url(
                 "get_object",
                 Params={"Bucket": self._bucket, "Key": target_key},
