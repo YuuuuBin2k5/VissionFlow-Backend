@@ -67,14 +67,14 @@ class ClipComposer:
 
     def preprocess_ffmpeg_loop_concat(self, in_path: str, dur: float, out_path: str, size_str: str = "scale=1080:960:force_original_aspect_ratio=increase,crop=1080:960") -> str:
         """
-        Tối ưu hóa tải GPU/CPU: Lặp hoặc cắt video bằng FFmpeg thay vì MoviePy.
+        Tối ưu hóa tải GPU/CPU: Lặp hoặc cắt video/ảnh bằng FFmpeg thay vì MoviePy.
+        Hỗ trợ cả file video (.mp4) và file ảnh AI (.png, .jpg, .jpeg, .webp).
         """
-        in_dur = self.get_video_duration(in_path)
-        if in_dur < dur:
-            repeats = math.ceil(dur / max(0.1, in_dur))
+        path_str = str(in_path).lower()
+        if path_str.endswith(('.png', '.jpg', '.jpeg', '.webp')):
             cmd = [
                 "ffmpeg", "-y",
-                "-stream_loop", str(repeats),
+                "-loop", "1",
                 "-i", str(in_path),
                 "-t", f"{dur:.3f}",
                 "-vf", size_str,
@@ -84,6 +84,22 @@ class ClipComposer:
                 "-preset", "ultrafast",
                 str(out_path)
             ]
+        else:
+            in_dur = self.get_video_duration(in_path)
+            if in_dur < dur:
+                repeats = math.ceil(dur / max(0.1, in_dur))
+                cmd = [
+                    "ffmpeg", "-y",
+                    "-stream_loop", str(repeats),
+                    "-i", str(in_path),
+                    "-t", f"{dur:.3f}",
+                    "-vf", size_str,
+                    "-r", "24",
+                    "-c:v", "libx264",
+                    "-pix_fmt", "yuv420p",
+                    "-preset", "ultrafast",
+                    str(out_path)
+                ]
         else:
             start_trim = random.uniform(0, max(0.0, in_dur - dur - 0.2))
             cmd = [
