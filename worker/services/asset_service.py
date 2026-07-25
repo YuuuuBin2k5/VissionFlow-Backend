@@ -28,6 +28,9 @@ class StockVideoCandidate:
         return self.width / self.height
 
 
+from worker.services.fal_service import FalService
+
+
 class AssetService:
     def __init__(self):
         self.api_key = PEXELS_API_KEY
@@ -36,6 +39,38 @@ class AssetService:
         self.headers = {
             "Authorization": self.api_key
         }
+        self.fal_service = FalService()
+
+    def get_scene_asset(
+        self,
+        keywords: str,
+        scene_id: int,
+        prefer_ai: bool = True,
+        mascot_profile: dict | None = None,
+        emotion: str = "",
+        style_preset: str = "cozy_anime_3d",
+    ) -> str:
+        """
+        Lấy tài nguyên phân cảnh: Ưu tiên Fal.ai AI Image (Cappy Para Mascot) nếu có FAL_KEY,
+        nếu không hoặc nếu lỗi thì tự động fallback về Pexels Stock Video.
+        """
+        if prefer_ai and self.fal_service.is_available():
+            try:
+                ai_image = self.fal_service.generate_scene_image(
+                    scene_prompt=keywords,
+                    scene_id=scene_id,
+                    mascot_profile=mascot_profile,
+                    emotion=emotion,
+                    style_preset=style_preset,
+                )
+                if ai_image and Path(ai_image).exists():
+                    print(f"[AssetService] Successfully retrieved AI asset for Scene {scene_id}: {ai_image}")
+                    return ai_image
+            except Exception as fal_err:
+                print(f"[AssetService Warning] Fal.ai generation failed, falling back to Pexels: {fal_err}")
+
+        # Fallback về Pexels Stock Video
+        return self.search_and_download_video(keywords, scene_id)
 
     def search_and_download_video(self, keywords: str, scene_id: int) -> str:
         """

@@ -16,6 +16,7 @@ def hydrate_provider_environment(gateway: ProviderCredentialGateway) -> None:
         "gemini": "GEMINI_API_KEYS",
         "groq": "GROQ_API_KEY",
         "openrouter": "OPENROUTER_API_KEY",
+        "fal": "FAL_KEY",
         "pexels": "PEXELS_API_KEY",
         "pixabay": "PIXABAY_API_KEY",
         "coverr": "COVERR_API_KEY",
