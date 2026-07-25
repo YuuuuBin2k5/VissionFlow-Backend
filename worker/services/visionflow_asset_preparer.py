@@ -28,7 +28,22 @@ class VisionFlowAssetPreparer:
             keywords = str(
                 scene.get("visual_search_keywords") or scene.get("visual_prompt") or scene.get("narration") or contract.title or "aesthetic vertical"
             ).strip()
-            temporary_path = self._downloader.search_and_download_video(keywords, ordinal)
+            if hasattr(self._downloader, "get_scene_asset"):
+                mascot_profile = getattr(contract, "mascot_profile", None) or scene.get("mascot_profile")
+                emotion = str(scene.get("emotion") or "").strip()
+                style_preset = str(getattr(contract, "style_preset", None) or scene.get("style_preset") or "cozy_anime_3d").strip()
+                asset_source = scene.get("asset_source", "fal_ai")
+                prefer_ai = (asset_source == "fal_ai")
+                temporary_path = self._downloader.get_scene_asset(
+                    keywords=keywords,
+                    scene_id=ordinal,
+                    prefer_ai=prefer_ai,
+                    mascot_profile=mascot_profile,
+                    emotion=emotion,
+                    style_preset=style_preset,
+                )
+            else:
+                temporary_path = self._downloader.search_and_download_video(keywords, ordinal)
             try:
                 uploaded = self._storage.upload_asset(contract.workflow_run_id, ordinal, temporary_path)
                 object_key = uploaded.get("object_key")

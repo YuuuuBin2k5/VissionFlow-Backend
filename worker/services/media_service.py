@@ -335,17 +335,23 @@ class MediaService:
             if duration <= 0:
                 duration = 1.0
             bg_path = background_video_paths[idx]
+            bg_str = str(bg_path).lower()
 
-            clip = VideoFileClip(bg_path).resized(height=1920)
-            if clip.w > 1080:
-                clip = clip.cropped(x_center=clip.w/2, width=1080)
-
-            if clip.duration > duration:
-                start_trim = random.uniform(0, max(0.0, clip.duration - duration - 0.5))
-                clip = clip.subclipped(start_trim, start_trim + duration)
+            if bg_str.endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                clip = ImageClip(bg_path).with_duration(duration).resized(height=1920)
+                if clip.w > 1080:
+                    clip = clip.cropped(x_center=clip.w / 2, width=1080)
             else:
-                from moviepy import vfx
-                clip = clip.with_effects([vfx.Loop(duration=duration)])
+                clip = VideoFileClip(bg_path).resized(height=1920)
+                if clip.w > 1080:
+                    clip = clip.cropped(x_center=clip.w / 2, width=1080)
+
+                if clip.duration > duration:
+                    start_trim = random.uniform(0, max(0.0, clip.duration - duration - 0.5))
+                    clip = clip.subclipped(start_trim, start_trim + duration)
+                else:
+                    from moviepy import vfx
+                    clip = clip.with_effects([vfx.Loop(duration=duration)])
 
             clip = self._apply_scene_motion(
                 clip,

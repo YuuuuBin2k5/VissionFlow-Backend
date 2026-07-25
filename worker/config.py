@@ -21,6 +21,7 @@ if GEMINI_API_KEY and GEMINI_API_KEY not in GEMINI_API_KEYS:
 HUGGINGFACE_API_KEY = os.environ.get("HUGGINGFACE_API_KEY", "").replace('"', '')
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").replace('"', '')
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "").replace('"', '')
+FAL_KEY = os.environ.get("FAL_KEY", "").replace('"', '').strip()
 
 
 # Cấu hình Cơ sở dữ liệu MySQL
