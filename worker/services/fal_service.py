@@ -31,7 +31,8 @@ class FalService:
         self.api_key = (api_key or FAL_KEY or os.environ.get("FAL_KEY", "")).strip()
 
     def is_available(self) -> bool:
-        return bool(self.api_key and len(self.api_key) > 5)
+        key = (self.api_key or FAL_KEY or os.environ.get("FAL_KEY", "")).strip()
+        return bool(key and len(key) > 5)
 
     def build_cappy_prompt(self, mascot_profile: dict | None, scene_prompt: str, emotion: str = "", style_key: str = "cozy_anime_3d") -> str:
         """
@@ -68,7 +69,8 @@ class FalService:
         Generates a 9:16 vertical scene image via Fal.ai Flux Schnell model.
         Returns the path to the downloaded image file, or None if failed.
         """
-        if not self.is_available():
+        active_key = (self.api_key or FAL_KEY or os.environ.get("FAL_KEY", "")).strip()
+        if not active_key or len(active_key) <= 5:
             print("[FalService Notice] FAL_KEY is not configured or invalid. Skipping AI generation.")
             return None
 
@@ -79,7 +81,7 @@ class FalService:
         # Call Fal.ai Flux Schnell endpoint
         url = "https://fal.run/fal-ai/flux/schnell"
         headers = {
-            "Authorization": f"Key {self.api_key}",
+            "Authorization": f"Key {active_key}",
             "Content-Type": "application/json",
         }
         payload = {
