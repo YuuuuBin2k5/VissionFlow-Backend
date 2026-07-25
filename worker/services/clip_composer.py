@@ -100,20 +100,27 @@ class ClipComposer:
                     "-preset", "ultrafast",
                     str(out_path)
                 ]
-        else:
-            start_trim = random.uniform(0, max(0.0, in_dur - dur - 0.2))
-            cmd = [
-                "ffmpeg", "-y",
-                "-ss", f"{start_trim:.3f}",
-                "-i", str(in_path),
-                "-t", f"{dur:.3f}",
-                "-vf", size_str,
-                "-r", "24",
-                "-c:v", "libx264",
-                "-pix_fmt", "yuv420p",
-                "-preset", "ultrafast",
-                str(out_path)
-            ]
+            else:
+                start_trim = random.uniform(0, max(0.0, in_dur - dur - 0.2))
+                cmd = [
+                    "ffmpeg", "-y",
+                    "-ss", f"{start_trim:.3f}",
+                    "-i", str(in_path),
+                    "-t", f"{dur:.3f}",
+                    "-vf", size_str,
+                    "-r", "24",
+                    "-c:v", "libx264",
+                    "-pix_fmt", "yuv420p",
+                    "-preset", "ultrafast",
+                    str(out_path)
+                ]
+
+        try:
+            subprocess.run(cmd, capture_output=True, check=True)
+            return out_path
+        except Exception as e:
+            print(f"[ClipComposer Error] FFmpeg loop concat failed for {in_path}: {e}")
+            return in_path
         print(f"[ClipComposer] Running FFmpeg preprocess: {in_path} -> {out_path}")
         subprocess.run(cmd, capture_output=True, check=True)
         return str(out_path)
