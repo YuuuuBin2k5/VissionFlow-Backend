@@ -28,10 +28,13 @@ STYLE_PRESETS = {
 
 class FalService:
     def __init__(self, api_key: str | None = None):
-        self.api_key = (api_key or FAL_KEY or os.environ.get("FAL_KEY", "")).strip()
+        self.api_key = (api_key or "").strip()
+
+    def get_active_key(self) -> str:
+        return (self.api_key or os.environ.get("FAL_KEY", "") or FAL_KEY).strip()
 
     def is_available(self) -> bool:
-        key = (self.api_key or FAL_KEY or os.environ.get("FAL_KEY", "")).strip()
+        key = self.get_active_key()
         return bool(key and len(key) > 5)
 
     def build_cappy_prompt(self, mascot_profile: dict | None, scene_prompt: str, emotion: str = "", style_key: str = "cozy_anime_3d") -> str:
@@ -69,7 +72,7 @@ class FalService:
         Generates a 9:16 vertical scene image via Fal.ai Flux Schnell model.
         Returns the path to the downloaded image file, or None if failed.
         """
-        active_key = (self.api_key or FAL_KEY or os.environ.get("FAL_KEY", "")).strip()
+        active_key = self.get_active_key()
         if not active_key or len(active_key) <= 5:
             print("[FalService Notice] FAL_KEY is not configured or invalid. Skipping AI generation.")
             return None
