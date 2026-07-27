@@ -954,13 +954,19 @@ class ManageCreativeSession:
             # Transform scenes dictionary keys to match expected types
             transformed_scenes = []
             for sc in proposal.scenes:
-                transformed_scenes.append({
-                    "narration": sc["narration"],
-                    "visual_prompt": sc["visual_prompt"],
-                    "duration_seconds": sc["duration_seconds"],
+                item = {
+                    "narration": sc.get("narration", ""),
+                    "visual_prompt": sc.get("visual_prompt", ""),
+                    "duration_seconds": sc.get("duration_seconds", 5),
                     "transition": sc.get("transition", "cut"),
                     "caption": sc.get("caption"),
-                })
+                    "asset_source": sc.get("asset_source", "fal_ai"),
+                    "visual_search_keywords": sc.get("visual_search_keywords") or sc.get("visual_prompt", ""),
+                    "mascot_profile": sc.get("mascot_profile"),
+                    "style_preset": sc.get("style_preset", creation_spec.get("visual_preset", "cozy_anime_3d")),
+                    "emotion": sc.get("emotion", ""),
+                }
+                transformed_scenes.append(item)
 
             doc, doc_version = doc_repo._save_in_transaction(
                 organization_id=organization_id,
