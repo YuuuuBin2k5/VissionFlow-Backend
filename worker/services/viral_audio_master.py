@@ -144,14 +144,15 @@ def master_viral_audio(
 
     if has_music:
         # Với nhạc nền: voice chain → sidechain → amix → loudnorm analyze
+        # Cấu hình vo_proc là đầu vào thứ 1 của amix (duration=first) để đảm bảo thời lượng khớp 100% với giọng đọc, không bị cắt sớm
         filter_pass1 = (
             f"[1:a]{voice_filter},asplit=2[vo_proc][sc_detector];"
             f"[0:a][sc_detector]{sidechain_filter}[bg_ducked];"
-            f"[bg_ducked][vo_proc]amix=inputs=2:duration=first[mix_preview];"
+            f"[vo_proc][bg_ducked]amix=inputs=2:duration=first[mix_preview];"
             f"[mix_preview]loudnorm=I={target_lufs}:TP={target_tp}:LRA={target_lra}:print_format=json"
         )
         cmd_pass1 = (
-            f'ffmpeg -y -i "{music_path}" -i "{voice_path}" '
+            f'ffmpeg -y -stream_loop -1 -i "{music_path}" -i "{voice_path}" '
             f'-filter_complex "{filter_pass1}" -f null -'
         )
     else:
@@ -195,11 +196,11 @@ def master_viral_audio(
         filter_pass2 = (
             f"[1:a]{voice_filter},asplit=2[vo_proc][sc_detector];"
             f"[0:a][sc_detector]{sidechain_filter}[bg_ducked];"
-            f"[bg_ducked][vo_proc]amix=inputs=2:duration=first[mix_unnormalized];"
+            f"[vo_proc][bg_ducked]amix=inputs=2:duration=first[mix_unnormalized];"
             f"[mix_unnormalized]{loudnorm_pass2}[final_master]"
         )
         cmd_pass2 = (
-            f'ffmpeg -y -i "{music_path}" -i "{voice_path}" '
+            f'ffmpeg -y -stream_loop -1 -i "{music_path}" -i "{voice_path}" '
             f'-filter_complex "{filter_pass2}" '
             f'-map "[final_master]" -c:a aac -b:a 192k -ar 44100 "{output_path}"'
         )
