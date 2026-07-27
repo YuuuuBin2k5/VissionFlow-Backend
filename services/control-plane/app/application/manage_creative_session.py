@@ -37,14 +37,49 @@ logger = logging.getLogger(__name__)
 class CreationSpecSchema(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
+    # Core identity
     title: str = Field(min_length=1, max_length=240)
     brief: str = Field(min_length=1, max_length=50000)
+    description: str = Field(default="", max_length=5000)
     format_profile: Literal["short_vertical"] = Field(default="short_vertical")
     timezone: str = Field(default="Asia/Bangkok", min_length=1, max_length=100)
     language: Literal["vi", "en"] = Field(default="vi")
+    video_genre: str = Field(default="documentary", max_length=100)
+
+    # Voice & Audio
     voice: str = Field(default="edge-nam-minh", min_length=1, max_length=100)
+    voice_code: str = Field(default="edge-nam-minh", min_length=1, max_length=100)
+    voice_rate: float = Field(default=1.12, ge=0.5, le=2.0)
+    enable_sfx: bool = Field(default=True)
+
+    # Logo / Watermark
+    logo_url: str = Field(default="", max_length=2000)
+    logo_handle: str = Field(default="@GocChiemNghiemYuuBin", max_length=120)
+    logo_position: str = Field(default="top_left", max_length=50)
+    logo_opacity: float = Field(default=0.85, ge=0.0, le=1.0)
+
+    # Title Banner
+    show_title_banner: bool = Field(default=True)
+    title_banner_style: str = Field(default="neon", max_length=50)
+
+    # Captions / Subtitles
     caption_preset: str = Field(default="hormozi", min_length=1, max_length=100)
+    caption_position: str = Field(default="bottom", max_length=50)
+    caption_color: str = Field(default="#FFFF00", max_length=20)
+    enable_karaoke: bool = Field(default=True)
+    enable_auto_emoji: bool = Field(default=True)
+
+    # Visual Style
     visual_preset: str = Field(default="warm_cinematic", min_length=1, max_length=100)
+    color_grading: str = Field(default="cyber_teal", max_length=50)
+    enable_vignette: bool = Field(default=True)
+
+    # UI overlays
+    enable_progress_bar: bool = Field(default=True)
+    enable_follow_cta: bool = Field(default=True)
+    enable_outro_card: bool = Field(default=True)
+
+    # Duration
     duration_seconds: int = Field(default=30, ge=5, le=300)
 
 
@@ -877,7 +912,7 @@ class ManageCreativeSession:
                 "voice_rate": creation_spec.get("voice_rate", 1.12),
                 "enable_sfx": creation_spec.get("enable_sfx", True),
                 "logo_url": creation_spec.get("logo_url", ""),
-                "logo_handle": creation_spec.get("logo_handle", "@VisionFlowAI"),
+                "logo_handle": creation_spec.get("logo_handle", "@GocChiemNghiemYuuBin"),
                 "logo_position": creation_spec.get("logo_position", "top_left"),
                 "logo_opacity": creation_spec.get("logo_opacity", 0.85),
                 "show_title_banner": creation_spec.get("show_title_banner", True),
