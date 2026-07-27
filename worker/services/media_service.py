@@ -544,32 +544,33 @@ class MediaService:
             )
 
         # Thanh tiến trình giả Kinetic Progress Bar
-        try:
+        if visual_style_plan.get("enable_progress_bar", True):
             try:
-                from moviepy.editor import ColorClip
-            except ImportError:
-                from moviepy import ColorClip
+                try:
+                    from moviepy.editor import ColorClip
+                except ImportError:
+                    from moviepy import ColorClip
 
-            progress_bar = ColorClip(size=(1080, 4), color=(0, 255, 102), duration=TOTAL_AUDIO_DURATION)
-            mask_source = ColorClip(size=(1080, 4), color=(255, 255, 255), duration=TOTAL_AUDIO_DURATION)
-            progress_bar = progress_bar.with_mask(mask_source.to_mask())
+                progress_bar = ColorClip(size=(1080, 4), color=(0, 255, 102), duration=TOTAL_AUDIO_DURATION)
+                mask_source = ColorClip(size=(1080, 4), color=(255, 255, 255), duration=TOTAL_AUDIO_DURATION)
+                progress_bar = progress_bar.with_mask(mask_source.to_mask())
 
-            def make_mask_progress_filter(total_duration, max_width=1080):
-                def mask_progress_filter(gf, t):
-                    mask_frame = gf(t)
-                    w_t = int((t / total_duration) * max_width)
-                    w_t = max(0, min(max_width, w_t))
-                    mask_frame = mask_frame.copy()
-                    if w_t < max_width:
-                        mask_frame[:, w_t:] = 0.0
-                    return mask_frame
-                return mask_progress_filter
+                def make_mask_progress_filter(total_duration, max_width=1080):
+                    def mask_progress_filter(gf, t):
+                        mask_frame = gf(t)
+                        w_t = int((t / total_duration) * max_width)
+                        w_t = max(0, min(max_width, w_t))
+                        mask_frame = mask_frame.copy()
+                        if w_t < max_width:
+                            mask_frame[:, w_t:] = 0.0
+                        return mask_frame
+                    return mask_progress_filter
 
-            progress_bar.mask = progress_bar.mask.transform(make_mask_progress_filter(TOTAL_AUDIO_DURATION, 1080))
-            progress_bar = progress_bar.with_position((0, 1916))
-            subtitle_clips.append(progress_bar)
-        except Exception as e_pb:
-            print(f"[MediaService Error] Failed to add Progress Bar: {e_pb}")
+                progress_bar.mask = progress_bar.mask.transform(make_mask_progress_filter(TOTAL_AUDIO_DURATION, 1080))
+                progress_bar = progress_bar.with_position((0, 1916))
+                subtitle_clips.append(progress_bar)
+            except Exception as e_pb:
+                print(f"[MediaService Error] Failed to add Progress Bar: {e_pb}")
 
         final_video = CompositeVideoClip([final_bg] + subtitle_clips, size=(1080, 1920))
         final_video = final_video.with_duration(TOTAL_AUDIO_DURATION)

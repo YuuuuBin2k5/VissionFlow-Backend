@@ -908,7 +908,7 @@ class ManageCreativeSession:
                 "aspect_ratio": "9:16",
                 "target_language": creation_spec.get("language", "vi"),
                 "duration_seconds": actual_duration,
-                "voice_code": creation_spec.get("voice", "edge-nam-minh"),
+                "voice_code": creation_spec.get("voice_code") or creation_spec.get("voice", "edge-nam-minh"),
                 "voice_rate": creation_spec.get("voice_rate", 1.12),
                 "enable_sfx": creation_spec.get("enable_sfx", True),
                 "logo_url": creation_spec.get("logo_url", ""),

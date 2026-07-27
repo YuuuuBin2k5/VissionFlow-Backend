@@ -147,13 +147,24 @@ def _style_plan(contract) -> dict:
         "logo_position": getattr(contract, "logo_position", "top_left"),
         "logo_opacity": getattr(contract, "logo_opacity", 0.85),
         "show_logo": True,
+        # Captions & Subtitles
         "caption_preset": getattr(contract, "caption_preset", "hormozi"),
         "caption_style": getattr(contract, "caption_preset", "hormozi"),
         "subtitle_style": getattr(contract, "caption_preset", "hormozi"),
         "caption_position": getattr(contract, "caption_position", "bottom"),
         "caption_color": getattr(contract, "caption_color", "#FFFF00"),
-        # Always render dynamic word-by-word karaoke subtitles for spoken narration
-        "render_word_subtitles": True,
+        "enable_karaoke": getattr(contract, "enable_karaoke", True),
+        "enable_auto_emoji": getattr(contract, "enable_auto_emoji", True),
+        "render_word_subtitles": getattr(contract, "enable_karaoke", True),
+        # Visual & FX
+        "color_grading": getattr(contract, "color_grading", "cyber_teal"),
+        "enable_vignette": getattr(contract, "enable_vignette", True),
+        "enable_sfx": getattr(contract, "enable_sfx", True),
+        # Overlays & CTA
+        "enable_progress_bar": getattr(contract, "enable_progress_bar", True),
+        "enable_follow_cta": getattr(contract, "enable_follow_cta", True),
+        "enable_outro_card": getattr(contract, "enable_outro_card", True),
+        "cta_text": "Đăng ký / Follow ngay 🔔" if getattr(contract, "enable_follow_cta", True) else None,
     }
     if caption_style:
         plan["caption_style"] = caption_style
