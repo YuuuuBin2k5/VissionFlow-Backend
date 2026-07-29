@@ -165,10 +165,25 @@ async def _resolve_split_screen_assets(
     else:
         total = len(scenes_layout)
         for idx, scene in enumerate(scenes_layout):
-            scene_id = scene.get("scene_id", 1)
-            keywords = scene.get("visual_search_keywords", "man looking at starry sky vertical")
+            scene_id = scene.get("scene_id", idx + 1)
+            keywords = scene.get("visual_search_keywords") or scene.get("visual_prompt") or scene.get("narration") or "man looking at starry sky vertical"
+            mascot_profile = scene.get("mascot_profile")
+            emotion = scene.get("emotion", "")
+            style_preset = scene.get("style_preset", "cozy_anime_3d")
+            asset_source = scene.get("asset_source", "fal_ai")
+            prefer_ai = (asset_source != "stock_pexels")
             try:
-                path = asset_downloader.search_and_download_video(keywords, scene_id)
+                if hasattr(asset_downloader, "get_scene_asset"):
+                    path = asset_downloader.get_scene_asset(
+                        keywords=keywords,
+                        scene_id=scene_id,
+                        prefer_ai=prefer_ai,
+                        mascot_profile=mascot_profile,
+                        emotion=emotion,
+                        style_preset=style_preset,
+                    )
+                else:
+                    path = asset_downloader.search_and_download_video(keywords, scene_id)
                 bg_video_paths.append(path)
             except Exception as ae:
                 log_realtime_progress(job_id, "ASSET_DOWNLOAD", "WARN",
