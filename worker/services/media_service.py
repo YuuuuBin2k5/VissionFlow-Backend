@@ -348,7 +348,11 @@ class MediaService:
                     is_image = False
 
             if is_image:
-                clip = ImageClip(bg_path).with_duration(duration).resized(height=1920)
+                from PIL import Image
+                import numpy as np
+                with Image.open(bg_path) as img:
+                    img_np = np.array(img.convert("RGB"))
+                clip = ImageClip(img_np).with_duration(duration).resized(height=1920)
                 if clip.w > 1080:
                     clip = clip.cropped(x_center=clip.w / 2, width=1080)
             else:
