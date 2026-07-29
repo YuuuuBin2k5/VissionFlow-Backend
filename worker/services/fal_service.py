@@ -181,16 +181,27 @@ class FalService:
             if resp.status_code == 200:
                 data = resp.json()
                 data_list = data.get("data", [])
-                if data_list and data_list[0].get("url"):
-                    img_url = data_list[0]["url"]
-                    img_resp = requests.get(img_url, timeout=30)
-                    if img_resp.status_code == 200:
+                if data_list:
+                    item = data_list[0]
+                    if item.get("b64_json"):
+                        import base64
+                        img_data = base64.b64decode(item["b64_json"])
                         output_filename = f"scene_{scene_id}_deepinfra_{random.randint(1000, 9999)}.png"
                         output_path = str(ASSETS_DIR / output_filename)
                         with open(output_path, "wb") as f:
-                            f.write(img_resp.content)
-                        print(f"[DeepInfra Success] Saved AI Image to: {output_path}")
+                            f.write(img_data)
+                        print(f"[DeepInfra Success] Saved AI Image (Base64) to: {output_path}")
                         return output_path
+                    elif item.get("url"):
+                        img_url = item["url"]
+                        img_resp = requests.get(img_url, timeout=30)
+                        if img_resp.status_code == 200:
+                            output_filename = f"scene_{scene_id}_deepinfra_{random.randint(1000, 9999)}.png"
+                            output_path = str(ASSETS_DIR / output_filename)
+                            with open(output_path, "wb") as f:
+                                f.write(img_resp.content)
+                            print(f"[DeepInfra Success] Saved AI Image to: {output_path}")
+                            return output_path
             print(f"[DeepInfra Notice] Status {resp.status_code}: {resp.text[:150]}")
         except Exception as err:
             print(f"[DeepInfra Exception]: {err}")

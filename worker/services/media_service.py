@@ -337,7 +337,17 @@ class MediaService:
             bg_path = background_video_paths[idx]
             bg_str = str(bg_path).lower()
 
-            if bg_str.endswith(('.png', '.jpg', '.jpeg', '.webp')):
+            is_image = bg_str.endswith(('.png', '.jpg', '.jpeg', '.webp'))
+            if not is_image:
+                try:
+                    from PIL import Image
+                    with Image.open(bg_path) as img:
+                        img.verify()
+                    is_image = True
+                except Exception:
+                    is_image = False
+
+            if is_image:
                 clip = ImageClip(bg_path).with_duration(duration).resized(height=1920)
                 if clip.w > 1080:
                     clip = clip.cropped(x_center=clip.w / 2, width=1080)
