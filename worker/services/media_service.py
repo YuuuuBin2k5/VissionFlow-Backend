@@ -77,124 +77,112 @@ class MediaService:
         scene_index: int,
         bass_data: list,
         fps: int = 24,
+    def _apply_scene_motion(
+        self,
+        clip,
+        scene_motion: str = "slow_zoom",
+        scene_index: int = 0,
+        bass_data: list = None,
+        fps: int = 24,
         start_time: float = 0.0,
         cut_events: list = None,
         drop_events: list = None,
     ):
         """
-        Tạo hiệu ứng giật nảy Z-Pulse chuẩn cinematic và visual beat nhẹ cho mỗi scene.
+        Applies TRUE frame-by-frame Ken Burns camera motion (Zoom In, Zoom Out, Pan Left, Pan Right, Tilt Up)
+        with smooth Sine Easing, sub-pixel LANCZOS interpolation, and audio-reactive beat responsiveness.
         """
-        scene_motion = scene_motion or "slow_zoom"
-        if scene_motion == "push_in":
-            base_scale = 1.045 + (0.015 if scene_index % 2 else 0)
-        elif scene_motion == "beat_push":
-            base_scale = 1.075 if scene_index % 2 else 1.035
-        elif scene_motion == "slow_zoom":
-            base_scale = 1.028
-        else:
-            base_scale = 1.0
+        duration = clip.duration if (clip.duration and clip.duration > 0) else 5.0
 
-        jitter_events = []
-        if cut_events:
-            jitter_events.extend(cut_events)
-        if drop_events:
-            jitter_events.extend(drop_events)
+        # Auto-rotate camera motion pattern per scene if generic
+        motion_patterns = ["zoom_in", "pan_left", "zoom_out", "pan_right", "tilt_up"]
+        chosen_motion = motion_patterns[scene_index % len(motion_patterns)]
+        if scene_motion in {"zoom_in", "zoom_out", "pan_left", "pan_right", "tilt_up", "tilt_down", "push_in", "beat_push"}:
+            if scene_motion == "push_in":
+                chosen_motion = "zoom_in"
+            elif scene_motion == "beat_push":
+                chosen_motion = "zoom_out"
+            else:
+                chosen_motion = scene_motion
 
-        if not bass_data:
-            if base_scale <= 1.0 and not jitter_events:
-                return clip
-            try:
-                zoomed_scale = max(base_scale, 1.01 if jitter_events else 1.0)
-                zoomed = clip.resized(height=int(1920 * zoomed_scale))
-                if zoomed.w < 1080:
-                    zoomed = zoomed.resized(width=1080)
+        print(f"[MediaService Motion] Scene #{scene_index+1} applying active Ken Burns motion: '{chosen_motion}' (Duration: {duration:.1f}s)")
 
-                if jitter_events:
-                    def static_jitter_filter(gf, t):
-                        frame = gf(t)
-                        h, w, c = frame.shape
-                        absolute_t = start_time + t
-                        apply_jitter = False
-                        for ev_t in jitter_events:
-                            if 0.0 <= absolute_t - ev_t <= 0.1:
-                                apply_jitter = True
-                                break
-                        dx, dy = 0, 0
-                        if apply_jitter:
-                            dx = random.choice([-4, -3, -2, 2, 3, 4])
-                            dy = random.choice([-4, -3, -2, 2, 3, 4])
+        def ken_burns_motion_filter(get_frame, t):
+            frame = get_frame(t)
+            h, w = frame.shape[:2]
+            progress = max(0.0, min(1.0, t / duration))
 
-                        pil_img = Image.fromarray(frame)
-                        left = (w - 1080) // 2 + dx
-                        top = (h - 1920) // 2 + dy
-                        left = max(0, min(w - 1080, left))
-                        top = max(0, min(h - 1920, top))
+            # Smooth Sine Easing for cinematic camera motion
+            eased_p = 0.5 - (np.cos(progress * np.pi) / 2.0)
 
-                        cropped_img = pil_img.crop((left, top, left + 1080, top + 1920))
-                        return np.array(cropped_img)
+            # Calculate frame scale & pan offsets
+            if chosen_motion == "zoom_in":
+                scale = 1.05 + (eased_p * 0.20)  # 1.05x -> 1.25x (20% zoom in)
+                offset_x_ratio = 0.0
+                offset_y_ratio = 0.0
+            elif chosen_motion == "zoom_out":
+                scale = 1.25 - (eased_p * 0.18)  # 1.25x -> 1.07x (18% zoom out)
+                offset_x_ratio = 0.0
+                offset_y_ratio = 0.0
+            elif chosen_motion == "pan_left":
+                scale = 1.20
+                offset_x_ratio = 0.09 - (eased_p * 0.18)  # Pan right to left
+                offset_y_ratio = 0.0
+            elif chosen_motion == "pan_right":
+                scale = 1.20
+                offset_x_ratio = -0.09 + (eased_p * 0.18)  # Pan left to right
+                offset_y_ratio = 0.0
+            elif chosen_motion == "tilt_up":
+                scale = 1.20
+                offset_x_ratio = 0.0
+                offset_y_ratio = 0.08 - (eased_p * 0.16)  # Tilt bottom to top
+            else:
+                scale = 1.06 + (eased_p * 0.15)
+                offset_x_ratio = 0.0
+                offset_y_ratio = 0.0
 
-                    return zoomed.transform(static_jitter_filter)
-
-                return zoomed.cropped(
-                    x_center=zoomed.w / 2,
-                    y_center=zoomed.h / 2,
-                    width=1080,
-                    height=1920,
-                )
-            except Exception as motion_error:
-                print(f"[MediaService Warning] Scene motion static fallback: {motion_error}")
-                return clip
-
-        def dynamic_scale_fn(t):
-            absolute_t = start_time + t
-            frame_idx = min(len(bass_data) - 1, int(absolute_t * fps))
-            bass_val = float(bass_data[frame_idx]) if bass_data else 0.0
-            return base_scale + (bass_val * 0.04)
-
-        def dynamic_scale_filter(gf, t):
-            frame = gf(t)
-            h, w, c = frame.shape
-            scale_t = float(dynamic_scale_fn(t))
-
-            absolute_t = start_time + t
-            apply_jitter = False
-            for ev_t in jitter_events:
-                if 0.0 <= absolute_t - ev_t <= 0.1:
-                    apply_jitter = True
-                    break
-
-            dx, dy = 0, 0
-            if apply_jitter:
-                dx = random.choice([-4, -3, -2, 2, 3, 4])
-                dy = random.choice([-4, -3, -2, 2, 3, 4])
-
-            effective_scale = max(scale_t, 1.01 if apply_jitter else 1.0)
-            if effective_scale <= 1.0:
-                return frame
-
-            try:
-                resample_filter = Image.Resampling.LANCZOS
-            except AttributeError:
-                resample_filter = Image.LANCZOS
+            # Audio-reactive beat pulse
+            if bass_data:
+                abs_t = start_time + t
+                f_idx = min(len(bass_data) - 1, int(abs_t * fps))
+                bass_val = float(bass_data[f_idx]) if (f_idx >= 0 and f_idx < len(bass_data)) else 0.0
+                if bass_val > 0.4:
+                    scale += (bass_val * 0.03)
 
             pil_img = Image.fromarray(frame)
-            new_w = int(w * effective_scale)
-            new_h = int(h * effective_scale)
+            new_w = max(w, int(w * scale))
+            new_h = max(h, int(h * scale))
 
-            resized_img = pil_img.resize((new_w, new_h), resample_filter)
-            left = (new_w - w) // 2 + dx
-            top = (new_h - h) // 2 + dy
+            resample_filter = getattr(Image, 'Resampling', Image).LANCZOS
+            resized = pil_img.resize((new_w, new_h), resample_filter)
 
-            left = max(0, min(new_w - w, left))
-            top = max(0, min(new_h - h, top))
+            # Center crop with pan/tilt offset
+            center_x = (new_w - w) // 2 + int(offset_x_ratio * w)
+            center_y = (new_h - h) // 2 + int(offset_y_ratio * h)
 
-            right = left + w
-            bottom = top + h
+            left = max(0, min(new_w - w, center_x))
+            top = max(0, min(new_h - h, center_y))
 
-            cropped_img = resized_img.crop((left, top, right, bottom))
-            return np.array(cropped_img)
+            cropped = resized.crop((left, top, left + w, top + h))
+            return np.array(cropped)
 
-        return clip.transform(dynamic_scale_filter)
+        animated_clip = clip.transform(ken_burns_motion_filter)
+        return self._apply_cinematic_vignette(animated_clip)
+
+    def _apply_cinematic_vignette(self, clip):
+        """Adds subtle dark vignette edges to frame viewer attention on center mascot."""
+        def vignette_filter(get_frame, t):
+            frame = get_frame(t)
+            h, w = frame.shape[:2]
+            if not hasattr(self, "_vignette_mask") or self._vignette_mask.shape[:2] != (h, w):
+                y, x = np.ogrid[:h, :w]
+                cy, cx = h / 2.0, w / 2.0
+                radius = np.sqrt((x - cx)**2 + (y - cy)**2)
+                max_radius = np.sqrt(cx**2 + cy**2)
+                vignette = 1.0 - 0.25 * (radius / max_radius)**2
+                self._vignette_mask = np.clip(vignette, 0.75, 1.0)[..., np.newaxis]
+            return (frame.astype(np.float32) * self._vignette_mask).astype(np.uint8)
+        return clip.transform(vignette_filter)
 
     def _apply_composition_frame_effects(self, clip, frame_effects: list[str]):
         """Apply persisted Composition Studio effects with real frame transforms."""
