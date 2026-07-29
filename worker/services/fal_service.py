@@ -98,7 +98,17 @@ class FalService:
         try:
             resp = requests.post(url, json=payload, headers=headers, timeout=45)
             if resp.status_code != 200:
-                print(f"[FalService Error] Fal.ai API status {resp.status_code}: {resp.text[:300]}")
+                error_msg = f"Fal.ai API status {resp.status_code}: {resp.text[:300]}"
+                print(f"[FalService Error] {error_msg}")
+                if resp.status_code == 403 or "Exhausted balance" in resp.text:
+                    try:
+                        from worker.services.cockpit_bridge import dispatch_log_to_cockpit
+                        dispatch_log_to_cockpit(
+                            "ASSET_DOWNLOAD", "WARN",
+                            "⚠️ CẢNH BÁO: Tài khoản Fal.ai của bạn đã hết số dư ($0 balance / Exhausted balance). Vui lòng nạp thêm tiền tại fal.ai/dashboard/billing để sinh video AI! Tạm thời hệ thống dùng Pexels Stock thay thế."
+                        )
+                    except Exception:
+                        pass
                 return None
 
             data = resp.json()
