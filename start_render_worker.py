@@ -167,36 +167,35 @@ def process_workflow(wf_id: str, session_db: Session) -> bool:
     print(f"\n🎉 VIDEO RENDER SUCCESSFUL!")
     print(f"📹 Export Path: {output_video_path}")
 
-    # Refresh DB session after long MoviePy render step to avoid IdleInTransactionSessionTimeout
-    session_db.rollback()
-    wf = session_db.get(WorkflowRun, wf_id)
-    proj = session_db.get(VideoProject, wf.project_id) if wf else None
+    # Use fresh DB session to guarantee state update even if long render timed out previous connection
+    with Session(get_engine()) as fresh_db:
+        wf_target = fresh_db.get(WorkflowRun, wf_id)
+        if wf_target:
+            proj_target = fresh_db.get(VideoProject, wf_target.project_id)
+            from app.infrastructure.models import MediaAsset
+            asset_key = f"https://videos.pexels.com/video-files/5553018/5553018-hd_1080_1920_30fps.mp4?v={wf_target.id}"
+            existing_asset = fresh_db.query(MediaAsset).filter(
+                MediaAsset.workflow_run_id == wf_target.id,
+                MediaAsset.media_kind == "final_export"
+            ).first()
+            if not existing_asset:
+                file_size = os.path.getsize(output_video_path) if os.path.exists(output_video_path) else 5505072
+                media_asset = MediaAsset(
+                    id=uuid.uuid4(),
+                    organization_id=proj_target.organization_id if proj_target else uuid.UUID("7b91598c-6c3e-4e5d-8247-d3efa203984a"),
+                    workflow_run_id=wf_target.id,
+                    media_kind="final_export",
+                    object_key=asset_key,
+                    content_type="video/mp4",
+                    byte_size=file_size,
+                    checksum_sha256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                    metadata_json={"rendered_locally": True}
+                )
+                fresh_db.add(media_asset)
 
-    # Insert MediaAsset for review preview & update state to APPROVED
-    from app.infrastructure.models import MediaAsset
-    asset_key = f"https://videos.pexels.com/video-files/5553018/5553018-hd_1080_1920_30fps.mp4?v={wf.id}"
-    existing_asset = session_db.query(MediaAsset).filter(
-        MediaAsset.workflow_run_id == wf.id,
-        MediaAsset.media_kind == "final_export"
-    ).first()
-    if not existing_asset:
-        file_size = os.path.getsize(output_video_path) if os.path.exists(output_video_path) else 5505072
-        media_asset = MediaAsset(
-            id=uuid.uuid4(),
-            organization_id=proj.organization_id if proj else uuid.UUID("7b91598c-6c3e-4e5d-8247-d3efa203984a"),
-            workflow_run_id=wf.id,
-            media_kind="final_export",
-            object_key=asset_key,
-            content_type="video/mp4",
-            byte_size=file_size,
-            checksum_sha256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            metadata_json={"rendered_locally": True}
-        )
-        session_db.add(media_asset)
-
-    wf.state = "APPROVAL_PENDING"
-    session_db.commit()
-    print(f"✅ Database updated: MediaAsset inserted & Workflow {wf.id} state -> APPROVAL_PENDING (Awaiting User Review on Web UI)!\n")
+            wf_target.state = "APPROVAL_PENDING"
+            fresh_db.commit()
+            print(f"✅ Database updated: MediaAsset inserted & Workflow {wf_target.id} state -> APPROVAL_PENDING (Awaiting User Review on Web UI)!\n")
     return True
 
 
