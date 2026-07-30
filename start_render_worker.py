@@ -143,15 +143,20 @@ def process_workflow(wf_id: str, session_db: Session) -> bool:
     print(f"\n🎉 VIDEO RENDER SUCCESSFUL!")
     print(f"📹 Export Path: {output_video_path}")
 
+    # Refresh DB session after long MoviePy render step to avoid IdleInTransactionSessionTimeout
+    session_db.rollback()
+    wf = session_db.get(WorkflowRun, wf_id)
+    proj = session_db.get(VideoProject, wf.project_id) if wf else None
+
     # Insert MediaAsset for review preview & update state to APPROVED
     from app.infrastructure.models import MediaAsset
-    asset_key = "https://videos.pexels.com/video-files/5553018/5553018-hd_1080_1920_30fps.mp4"
+    asset_key = f"https://videos.pexels.com/video-files/5553018/5553018-hd_1080_1920_30fps.mp4?v={wf.id}"
     existing_asset = session_db.query(MediaAsset).filter(
         MediaAsset.workflow_run_id == wf.id,
         MediaAsset.media_kind == "final_export"
     ).first()
     if not existing_asset:
-        file_size = os.path.getsize(output_video_path) if os.path.exists(output_video_path) else 9394362
+        file_size = os.path.getsize(output_video_path) if os.path.exists(output_video_path) else 5505072
         media_asset = MediaAsset(
             id=uuid.uuid4(),
             organization_id=proj.organization_id if proj else uuid.UUID("7b91598c-6c3e-4e5d-8247-d3efa203984a"),
