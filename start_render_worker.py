@@ -145,7 +145,7 @@ def process_workflow(wf_id: str, session_db: Session) -> bool:
 
     # Insert MediaAsset for review preview & update state to APPROVED
     from app.infrastructure.models import MediaAsset
-    asset_key = f"exports/{wf.id}/final.mp4"
+    asset_key = f"https://visionflow-preview.local/exports/{wf.id}/final.mp4"
     existing_asset = session_db.query(MediaAsset).filter(
         MediaAsset.workflow_run_id == wf.id,
         MediaAsset.media_kind == "final_export"

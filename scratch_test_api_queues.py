@@ -17,25 +17,13 @@ token_resp = requests.post(
     },
     timeout=15,
 )
-token_resp.raise_for_status()
 token = token_resp.json()["access_token"]
-print(f"✅ Auth token obtained successfully!")
-
 headers = {"Authorization": f"Bearer {token}"}
 org_id = "7b91598c-6c3e-4e5d-8247-d3efa203984a"
-v1 = f"{base}/api/v1"
+wf_id = "e170123b-26c7-4f32-b541-9992d0e48182"
 
-print("\n=== 1. REVIEW QUEUE (/review-queue) ===")
-r1 = requests.get(f"{v1}/organizations/{org_id}/review-queue", headers=headers)
-print(f"Status: {r1.status_code}")
-print(json.dumps(r1.json(), indent=2, ensure_ascii=False))
-
-print("\n=== 2. PUBLICATION QUEUE (/publication-queue) ===")
-r2 = requests.get(f"{v1}/organizations/{org_id}/publication-queue", headers=headers)
-print(f"Status: {r2.status_code}")
-print(json.dumps(r2.json(), indent=2, ensure_ascii=False))
-
-print("\n=== 3. PUBLICATION HISTORY (/publication-history) ===")
-r3 = requests.get(f"{v1}/organizations/{org_id}/publication-history", headers=headers)
-print(f"Status: {r3.status_code}")
-print(json.dumps(r3.json(), indent=2, ensure_ascii=False))
+print("\n=== TEST REVIEW ARTIFACT ENDPOINT ===")
+url = f"{base}/api/v1/workflows/{wf_id}/review-artifact?organization_id={org_id}"
+r = requests.get(url, headers=headers)
+print(f"Status Code: {r.status_code}")
+print(json.dumps(r.json(), indent=2, ensure_ascii=False))

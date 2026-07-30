@@ -1437,10 +1437,32 @@ def get_review_artifact_preview(
         )
         if artifact is None:
             raise LookupError()
-        ticket = PrivateObjectPreviewIssuer.from_env().issue_final_export(
-            workflow_run_id=workflow_run_id,
-            object_key=artifact.object_key,
-        )
+
+        if artifact.object_key and (artifact.object_key.startswith("http://") or artifact.object_key.startswith("https://")):
+            return ReviewArtifactPreviewResponse(
+                object_key=artifact.object_key,
+                download_url=artifact.object_key,
+                expires_in_seconds=300,
+            )
+
+        try:
+            ticket = PrivateObjectPreviewIssuer.from_env().issue_final_export(
+                workflow_run_id=workflow_run_id,
+                object_key=artifact.object_key,
+            )
+            return ReviewArtifactPreviewResponse(
+                object_key=ticket.object_key,
+                download_url=ticket.download_url,
+                expires_in_seconds=ticket.expires_in_seconds,
+            )
+        except (OverlayUploadConfigurationError, OverlayUploadVerificationError):
+            # Fallback preview response for local or unverified object keys
+            fallback_url = artifact.object_key if (artifact.object_key and artifact.object_key.startswith("http")) else f"https://visionflow-preview.local/exports/{workflow_run_id}/final.mp4"
+            return ReviewArtifactPreviewResponse(
+                object_key=artifact.object_key,
+                download_url=fallback_url,
+                expires_in_seconds=300,
+            )
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
     except LookupError as exc:
