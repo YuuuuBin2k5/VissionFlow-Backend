@@ -170,9 +170,9 @@ def process_workflow(wf_id: str, session_db: Session) -> bool:
         )
         session_db.add(media_asset)
 
-    wf.state = "APPROVED"
+    wf.state = "APPROVAL_PENDING"
     session_db.commit()
-    print(f"✅ Database updated: MediaAsset inserted & Workflow {wf.id} state -> APPROVED (Ready in Publication Queue)!\n")
+    print(f"✅ Database updated: MediaAsset inserted & Workflow {wf.id} state -> APPROVAL_PENDING (Awaiting User Review on Web UI)!\n")
     return True
 
 
