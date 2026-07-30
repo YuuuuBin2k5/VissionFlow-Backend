@@ -143,25 +143,10 @@ def process_workflow(wf_id: str, session_db: Session) -> bool:
     print(f"\n🎉 VIDEO RENDER SUCCESSFUL!")
     print(f"📹 Export Path: {output_video_path}")
 
-    # Update workflow state in DB to PUBLISHED and record publish step
-    wf.state = "PUBLISHED"
-    from app.infrastructure.models import WorkflowStep
-    step_id = uuid.uuid4()
-    publish_step = WorkflowStep(
-        id=step_id,
-        workflow_run_id=wf.id,
-        step_key="publish",
-        state="COMPLETED",
-        output_payload={
-            "external_url": f"file:///{output_video_path.replace('\\', '/')}",
-            "external_video_id": "local_export",
-            "published_at_iso": "2026-07-30T14:00:00.000Z",
-            "scheduled_at_iso": "2026-07-30T14:00:00.000Z",
-        }
-    )
-    session_db.add(publish_step)
+    # Update workflow state in DB to APPROVED so it shows in Publication Queue for YouTube handoff
+    wf.state = "APPROVED"
     session_db.commit()
-    print(f"✅ Database updated: Workflow {wf.id} state -> PUBLISHED & Publish Step recorded!\n")
+    print(f"✅ Database updated: Workflow {wf.id} state -> APPROVED (Ready in Publication Queue)!\n")
     return True
 
 
