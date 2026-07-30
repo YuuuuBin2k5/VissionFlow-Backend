@@ -6,10 +6,21 @@ Polls PostgreSQL database every 5 seconds for newly created video projects.
 
 import os
 import sys
+import uuid
 import time
 import json
 import random
 from pathlib import Path
+import psycopg2
+
+try:
+    import imageio_ffmpeg
+    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    ffmpeg_dir = os.path.dirname(ffmpeg_exe)
+    os.environ["PATH"] = ffmpeg_dir + os.path.pathsep + os.environ.get("PATH", "")
+    print(f"✅ Using modern FFmpeg v7.1 binary: {ffmpeg_exe}")
+except Exception as ffmpeg_err:
+    print(f"⚠️ FFmpeg v7.1 setup notice: {ffmpeg_err}")
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
@@ -98,6 +109,19 @@ def process_workflow(wf_id: str, session_db: Session) -> bool:
 
     speech = tts.synthesize(script=script, voice_code=voice_code, workspace=workspace, voice_rate=voice_rate)
     print(f"  ✓ Audio synthesized: {speech.audio_path}")
+
+    # Calculate exact total audio duration and dynamically split across scenes
+    try:
+        from moviepy.editor import AudioFileClip
+        total_audio_duration = AudioFileClip(speech.audio_path).duration
+    except Exception:
+        total_audio_duration = 15.0
+
+    if scenes and total_audio_duration > 0:
+        per_scene_dur = round(total_audio_duration / len(scenes), 2)
+        for sc in scenes:
+            sc["duration"] = per_scene_dur
+        print(f"  ✓ Dynamically adjusted {len(scenes)} scenes to {per_scene_dur}s each (Total Audio: {total_audio_duration:.2f}s)")
 
     # 3. Download Video Background Assets
     print(f"[3/4] Fetching AI & B-Roll Background Assets ({len(scenes)} scenes)...")
