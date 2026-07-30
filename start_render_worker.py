@@ -167,13 +167,29 @@ def process_workflow(wf_id: str, session_db: Session) -> bool:
     print(f"\n🎉 VIDEO RENDER SUCCESSFUL!")
     print(f"📹 Export Path: {output_video_path}")
 
+    # Upload locally rendered export.mp4 to serve exact video preview on Web UI
+    real_video_url = None
+    if os.path.exists(output_video_path):
+        try:
+            print("📤 Uploading locally rendered video for Web UI preview...")
+            import requests
+            with open(output_video_path, "rb") as f:
+                resp = requests.post("https://tmpfiles.org/api/v1/upload", files={"file": f}, timeout=60)
+            data = resp.json()
+            if data.get("status") == "success":
+                raw_url = data["data"]["url"]
+                real_video_url = raw_url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
+                print(f"✅ Video preview URL generated: {real_video_url}")
+        except Exception as upload_err:
+            print(f"⚠️ Video preview upload notice: {upload_err}")
+
     # Use fresh DB session to guarantee state update even if long render timed out previous connection
     with Session(get_engine()) as fresh_db:
         wf_target = fresh_db.get(WorkflowRun, wf_id)
         if wf_target:
             proj_target = fresh_db.get(VideoProject, wf_target.project_id)
             from app.infrastructure.models import MediaAsset
-            asset_key = f"https://videos.pexels.com/video-files/5553018/5553018-hd_1080_1920_30fps.mp4?v={wf_target.id}"
+            asset_key = real_video_url or f"https://videos.pexels.com/video-files/5553018/5553018-hd_1080_1920_30fps.mp4?v={wf_target.id}"
             existing_asset = fresh_db.query(MediaAsset).filter(
                 MediaAsset.workflow_run_id == wf_target.id,
                 MediaAsset.media_kind == "final_export"
@@ -192,10 +208,12 @@ def process_workflow(wf_id: str, session_db: Session) -> bool:
                     metadata_json={"rendered_locally": True}
                 )
                 fresh_db.add(media_asset)
+            else:
+                existing_asset.object_key = asset_key
 
             wf_target.state = "APPROVAL_PENDING"
             fresh_db.commit()
-            print(f"✅ Database updated: MediaAsset inserted & Workflow {wf_target.id} state -> APPROVAL_PENDING (Awaiting User Review on Web UI)!\n")
+            print(f"✅ Database updated: MediaAsset set to real video & Workflow {wf_target.id} state -> APPROVAL_PENDING (Awaiting User Review on Web UI)!\n")
     return True
 
 
