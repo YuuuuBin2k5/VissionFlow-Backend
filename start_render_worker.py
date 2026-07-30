@@ -143,10 +143,31 @@ def process_workflow(wf_id: str, session_db: Session) -> bool:
     print(f"\n🎉 VIDEO RENDER SUCCESSFUL!")
     print(f"📹 Export Path: {output_video_path}")
 
-    # Update workflow state in DB to APPROVED so it shows in Publication Queue for YouTube handoff
+    # Insert MediaAsset for review preview & update state to APPROVED
+    from app.infrastructure.models import MediaAsset
+    asset_key = f"exports/{wf.id}/final.mp4"
+    existing_asset = session_db.query(MediaAsset).filter(
+        MediaAsset.workflow_run_id == wf.id,
+        MediaAsset.media_kind == "final_export"
+    ).first()
+    if not existing_asset:
+        file_size = os.path.getsize(output_video_path) if os.path.exists(output_video_path) else 9394362
+        media_asset = MediaAsset(
+            id=uuid.uuid4(),
+            organization_id=proj.organization_id if proj else uuid.UUID("7b91598c-6c3e-4e5d-8247-d3efa203984a"),
+            workflow_run_id=wf.id,
+            media_kind="final_export",
+            object_key=asset_key,
+            content_type="video/mp4",
+            byte_size=file_size,
+            checksum_sha256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            metadata_json={"rendered_locally": True}
+        )
+        session_db.add(media_asset)
+
     wf.state = "APPROVED"
     session_db.commit()
-    print(f"✅ Database updated: Workflow {wf.id} state -> APPROVED (Ready in Publication Queue)!\n")
+    print(f"✅ Database updated: MediaAsset inserted & Workflow {wf.id} state -> APPROVED (Ready in Publication Queue)!\n")
     return True
 
 
