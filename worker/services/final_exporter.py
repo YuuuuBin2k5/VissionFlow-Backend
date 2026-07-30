@@ -58,7 +58,7 @@ class FinalExporter:
                 codec="libx264",
                 audio_codec="aac",
                 temp_audiofile=temp_audio_path,
-                remove_temp=True,
+                remove_temp=False,
                 logger=logger
             )
             update_task_progress(str(job_id), "READY", 100)
@@ -78,8 +78,14 @@ class FinalExporter:
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             final_video_clip.write_videofile(
                 output_path, fps=24, codec="libx264", audio_codec="aac",
-                temp_audiofile=temp_audio_path, remove_temp=True, logger=None,
+                temp_audiofile=temp_audio_path, remove_temp=False, logger=None,
             )
+            # Safe cleanup for Windows file locks
+            if temp_audio_path and os.path.exists(temp_audio_path):
+                try:
+                    os.remove(temp_audio_path)
+                except Exception as clean_err:
+                    print(f"[FinalExporter Notice] Temp audio cleanup deferred: {clean_err}")
             return output_path
         except Exception:
             gc.collect()
