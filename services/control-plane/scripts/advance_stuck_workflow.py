@@ -23,6 +23,8 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
 import time
 import uuid
 from pathlib import Path
@@ -47,7 +49,7 @@ class ControlPlaneClient:
     def __init__(self) -> None:
         self._base = os.environ["VISIONFLOW_CONTROL_PLANE_URL"].rstrip("/")
         self._org_id = os.environ["VISIONFLOW_ORGANIZATION_ID"]
-        self._token_url = f"{self._base}/auth/token"
+        self._token_url = f"{self._base}/api/v1/auth/token" if "/api/v1" not in self._base else f"{self._base}/auth/token"
         self._client_id = os.environ["VISIONFLOW_WORKER_CLIENT_ID"]
         self._client_secret = os.environ["VISIONFLOW_WORKER_CLIENT_SECRET"]
         self._audience = os.environ.get("VISIONFLOW_AUTH_AUDIENCE", "visionflow-control-plane")

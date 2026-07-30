@@ -73,13 +73,6 @@ class MediaService:
     def _apply_scene_motion(
         self,
         clip,
-        scene_motion: str,
-        scene_index: int,
-        bass_data: list,
-        fps: int = 24,
-    def _apply_scene_motion(
-        self,
-        clip,
         scene_motion: str = "slow_zoom",
         scene_index: int = 0,
         bass_data: list = None,

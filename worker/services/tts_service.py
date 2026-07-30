@@ -318,7 +318,18 @@ class TTSService:
                 from worker.services.tts_providers.elevenlabs_provider import ElevenLabsProvider
                 provider = ElevenLabsProvider()
                 voice_profile = {"voice_id": voice_id, "genre": genre}
-                real_timestamps = asyncio.run(provider.synthesize(text, output_audio_path, voice_profile))
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = None
+
+                if loop and loop.is_running():
+                    import nest_asyncio
+                    nest_asyncio.apply()
+                    real_timestamps = loop.run_until_complete(provider.synthesize(text, output_audio_path, voice_profile))
+                else:
+                    real_timestamps = asyncio.run(provider.synthesize(text, output_audio_path, voice_profile))
+
                 if real_timestamps:
                     print(f"[TTSService] ✅ ElevenLabs with-timestamps thành công ({len(real_timestamps)} từ chính xác ms).")
                     return real_timestamps
