@@ -103,6 +103,13 @@ def _extract_loudnorm_json(stderr_output: str) -> dict:
 # MAIN: MASTER VIRAL AUDIO — 2-Pass Pipeline
 # ═══════════════════════════════════════════════════════════════════════════
 
+def _get_ffmpeg_bin() -> str:
+    try:
+        import imageio_ffmpeg
+        return f'"{imageio_ffmpeg.get_ffmpeg_exe()}"'
+    except Exception:
+        return "ffmpeg"
+
 def master_viral_audio(
     voice_path: str,
     output_path: str,
@@ -127,6 +134,7 @@ def master_viral_audio(
 
     Nguồn: ToiUuGiongDocAI.docx — Two-Pass Loudness Normalization + Sidechain.
     """
+    ffmpeg_bin = _get_ffmpeg_bin()
     voice_path = str(Path(voice_path).resolve())
     output_path = str(Path(output_path).resolve())
 
@@ -152,7 +160,7 @@ def master_viral_audio(
             f"[mix_preview]loudnorm=I={target_lufs}:TP={target_tp}:LRA={target_lra}:print_format=json"
         )
         cmd_pass1 = (
-            f'ffmpeg -y -stream_loop -1 -i "{music_path}" -i "{voice_path}" '
+            f'{ffmpeg_bin} -y -stream_loop -1 -i "{music_path}" -i "{voice_path}" '
             f'-filter_complex "{filter_pass1}" -f null -'
         )
     else:
@@ -162,7 +170,7 @@ def master_viral_audio(
             f"[voice_proc]loudnorm=I={target_lufs}:TP={target_tp}:LRA={target_lra}:print_format=json"
         )
         cmd_pass1 = (
-            f'ffmpeg -y -i "{voice_path}" '
+            f'{ffmpeg_bin} -y -i "{voice_path}" '
             f'-filter_complex "{filter_pass1}" -f null -'
         )
 
@@ -200,7 +208,7 @@ def master_viral_audio(
             f"[mix_unnormalized]{loudnorm_pass2}[final_master]"
         )
         cmd_pass2 = (
-            f'ffmpeg -y -stream_loop -1 -i "{music_path}" -i "{voice_path}" '
+            f'{ffmpeg_bin} -y -stream_loop -1 -i "{music_path}" -i "{voice_path}" '
             f'-filter_complex "{filter_pass2}" '
             f'-map "[final_master]" -c:a aac -b:a 192k -ar 44100 "{output_path}"'
         )
@@ -210,7 +218,7 @@ def master_viral_audio(
             f"[voice_proc]{loudnorm_pass2}[final_master]"
         )
         cmd_pass2 = (
-            f'ffmpeg -y -i "{voice_path}" '
+            f'{ffmpeg_bin} -y -i "{voice_path}" '
             f'-filter_complex "{filter_pass2}" '
             f'-map "[final_master]" -c:a aac -b:a 192k -ar 44100 "{output_path}"'
         )
