@@ -173,8 +173,13 @@ class MediaService:
                 radius = np.sqrt((x - cx)**2 + (y - cy)**2)
                 max_radius = np.sqrt(cx**2 + cy**2)
                 vignette = 1.0 - 0.25 * (radius / max_radius)**2
-                self._vignette_mask = np.clip(vignette, 0.75, 1.0)[..., np.newaxis]
-            return (frame.astype(np.float32) * self._vignette_mask).astype(np.uint8)
+                self._vignette_mask = np.clip(vignette, 0.75, 1.0)[..., np.newaxis].astype(np.float32)
+            try:
+                res = frame.astype(np.float32)
+                res *= self._vignette_mask
+                return res.astype(np.uint8)
+            except Exception:
+                return frame
         return clip.transform(vignette_filter)
 
     def _apply_composition_frame_effects(self, clip, frame_effects: list[str]):
