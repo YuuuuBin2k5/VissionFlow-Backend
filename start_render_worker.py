@@ -24,6 +24,32 @@ if hasattr(sys.stdout, 'reconfigure'):
     except Exception:
         pass
 
+# Dual logger to output to screen AND write to logs/render_worker.log
+class TeeLogger:
+    def __init__(self, filepath: str):
+        self.terminal = sys.stdout
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        self.log_file = open(filepath, "a", encoding="utf-8", buffering=1)
+
+    def write(self, message):
+        self.terminal.write(message)
+        try:
+            self.log_file.write(message)
+        except Exception:
+            pass
+
+    def flush(self):
+        self.terminal.flush()
+        try:
+            self.log_file.flush()
+        except Exception:
+            pass
+
+log_file_path = os.path.join(os.path.dirname(__file__), "logs", "render_worker.log")
+tee_instance = TeeLogger(log_file_path)
+sys.stdout = tee_instance
+sys.stderr = tee_instance
+
 # Setup modern FFmpeg v7.1
 try:
     import imageio_ffmpeg

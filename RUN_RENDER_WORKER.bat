@@ -21,6 +21,7 @@ if not exist "venv\Scripts\python.exe" (
 )
 
 echo [INFO] Dang khoi chay Render Server...
+echo [INFO] Log se duoc in ra man hinh va tu dong luu tai: logs\render_worker.log
 echo [INFO] Tu dong lang nghe cac yeu cau render video tu Web Console...
 echo -----------------------------------------------------------------------
 echo.
@@ -30,4 +31,8 @@ venv\Scripts\python.exe start_render_worker.py
 echo.
 echo -----------------------------------------------------------------------
 echo [INFO] Render Worker da dung.
-pause
+echo [INFO] Nhan pham bat ky de mo file Log (logs\render_worker.log)...
+pause > nul
+if exist "logs\render_worker.log" (
+    start notepad "logs\render_worker.log"
+)
