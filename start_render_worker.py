@@ -264,20 +264,12 @@ def process_workflow_official(wf_id: str) -> bool:
     print(f"\n[SUCCESS] OFFICIAL RENDER COMPLETE!")
     print(f"  Output Path: {output_video_path}")
 
-    # 4. Step 4: Generate Web UI Playable Preview URL
+    # 4. Step 4: Upload Rendered Video to Cloud Storage / CDN
+    from worker.services.visionflow_object_storage import CloudAssetUploader
     real_video_url = None
     if output_video_path and os.path.exists(output_video_path):
-        try:
-            print("[4/5] Uploading preview video for Web UI Review...")
-            with open(output_video_path, "rb") as f:
-                resp = requests.post("https://tmpfiles.org/api/v1/upload", files={"file": f}, timeout=60)
-            data = resp.json()
-            if data.get("status") == "success":
-                raw_url = data["data"]["url"]
-                real_video_url = raw_url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
-                print(f"  ✓ Video preview URL: {real_video_url}")
-        except Exception as upload_err:
-            print(f"  [Upload] Notice: {upload_err}")
+        print("[4/5] Uploading rendered video to Cloud Storage / CDN...")
+        real_video_url = CloudAssetUploader.upload_export_video(wf_id, output_video_path)
 
     # 5. Step 5: Update Database State to APPROVAL_PENDING
     print("[5/5] Updating Database State -> APPROVAL_PENDING (Awaiting Web UI Review)...")
