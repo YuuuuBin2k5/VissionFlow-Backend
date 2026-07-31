@@ -285,7 +285,7 @@ def process_workflow_official(wf_id: str) -> bool:
         wf_target = fresh_db.get(WorkflowRun, wf_id)
         if wf_target:
             proj_target = fresh_db.get(VideoProject, wf_target.project_id)
-            asset_key = real_video_url or f"https://videos.pexels.com/video-files/5553018/5553018-hd_1080_1920_30fps.mp4?v={wf_target.id}"
+            asset_key = real_video_url or output_video_path
             existing_asset = fresh_db.query(MediaAsset).filter(
                 MediaAsset.workflow_run_id == wf_target.id,
                 MediaAsset.media_kind == "final_export"
