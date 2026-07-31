@@ -142,22 +142,25 @@ class MediaService:
                 if bass_val > 0.4:
                     scale += (bass_val * 0.03)
 
-            pil_img = Image.fromarray(frame)
-            new_w = max(w, int(w * scale))
-            new_h = max(h, int(h * scale))
+            try:
+                pil_img = Image.fromarray(frame)
+                new_w = max(w, int(w * scale))
+                new_h = max(h, int(h * scale))
 
-            resample_filter = getattr(Image, 'Resampling', Image).LANCZOS
-            resized = pil_img.resize((new_w, new_h), resample_filter)
+                resample_filter = getattr(Image, 'Resampling', Image).BILINEAR
+                resized = pil_img.resize((new_w, new_h), resample_filter)
 
-            # Center crop with pan/tilt offset
-            center_x = (new_w - w) // 2 + int(offset_x_ratio * w)
-            center_y = (new_h - h) // 2 + int(offset_y_ratio * h)
+                # Center crop with pan/tilt offset
+                center_x = (new_w - w) // 2 + int(offset_x_ratio * w)
+                center_y = (new_h - h) // 2 + int(offset_y_ratio * h)
 
-            left = max(0, min(new_w - w, center_x))
-            top = max(0, min(new_h - h, center_y))
+                left = max(0, min(new_w - w, center_x))
+                top = max(0, min(new_h - h, center_y))
 
-            cropped = resized.crop((left, top, left + w, top + h))
-            return np.array(cropped)
+                cropped = resized.crop((left, top, left + w, top + h))
+                return np.array(cropped)
+            except Exception:
+                return frame
 
         animated_clip = clip.transform(ken_burns_motion_filter)
         return self._apply_cinematic_vignette(animated_clip)
@@ -175,9 +178,8 @@ class MediaService:
                 vignette = 1.0 - 0.25 * (radius / max_radius)**2
                 self._vignette_mask = np.clip(vignette, 0.75, 1.0)[..., np.newaxis].astype(np.float32)
             try:
-                res = frame.astype(np.float32)
-                res *= self._vignette_mask
-                return res.astype(np.uint8)
+                res = (frame * self._vignette_mask).astype(np.uint8)
+                return res
             except Exception:
                 return frame
         return clip.transform(vignette_filter)

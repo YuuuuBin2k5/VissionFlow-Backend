@@ -79,6 +79,7 @@ class FinalExporter:
             final_video_clip.write_videofile(
                 output_path, fps=24, codec="libx264", audio_codec="aac",
                 temp_audiofile=temp_audio_path, remove_temp=False, logger=None,
+                preset="ultrafast", threads=2,
             )
             # Safe cleanup for Windows file locks
             if temp_audio_path and os.path.exists(temp_audio_path):

@@ -177,15 +177,24 @@ class SqlAlchemyWorkflowProgressionRepository:
         note = command.output_payload.get("note")
         if note is not None and not isinstance(note, str):
             raise ValueError("APPROVED note must be a string")
-        self._session.add(
-            PublishApproval(
-                workflow_run_id=workflow_run.id,
-                export_asset_id=asset.id,
-                decision="approved",
-                reviewer_subject=reviewer_subject.strip(),
-                note=note,
-            )
+        existing_approval = self._session.scalar(
+            select(PublishApproval).where(PublishApproval.workflow_run_id == workflow_run.id)
         )
+        if existing_approval:
+            existing_approval.export_asset_id = asset.id
+            existing_approval.decision = "approved"
+            existing_approval.reviewer_subject = reviewer_subject.strip()
+            existing_approval.note = note
+        else:
+            self._session.add(
+                PublishApproval(
+                    workflow_run_id=workflow_run.id,
+                    export_asset_id=asset.id,
+                    decision="approved",
+                    reviewer_subject=reviewer_subject.strip(),
+                    note=note,
+                )
+            )
 
     def _approved_artifact_payload(self, workflow_run: WorkflowRun) -> dict[str, object]:
         """Resolve publish input from the immutable approval record, never step JSON."""
