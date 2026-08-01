@@ -75,11 +75,12 @@ class FinalExporter:
     def export_visionflow_video(self, final_video_clip, output_path: str, temp_audio_path: str) -> str:
         """Export without legacy job progress or MySQL-facing telemetry."""
         try:
+            gc.collect()
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             final_video_clip.write_videofile(
                 output_path, fps=24, codec="libx264", audio_codec="aac",
                 temp_audiofile=temp_audio_path, remove_temp=False, logger=None,
-                preset="ultrafast", threads=2,
+                preset="ultrafast", threads=4,
             )
             # Safe cleanup for Windows file locks
             if temp_audio_path and os.path.exists(temp_audio_path):

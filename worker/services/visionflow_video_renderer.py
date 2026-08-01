@@ -38,7 +38,12 @@ class VisionFlowVideoRenderer:
         except TypeError:
             output_path = self._caption_compositor.apply(output_path, contract.render_plan, workspace.path)
         uploaded = self._storage.upload_export(contract.workflow_run_id, output_path)
-        return RenderedArtifact(**uploaded)
+        return RenderedArtifact(
+            object_key=str(uploaded["object_key"]),
+            content_type=str(uploaded["content_type"]),
+            byte_size=int(uploaded["byte_size"]),
+            checksum_sha256=str(uploaded["checksum_sha256"]),
+        )
 
 
 def build_renderable_scene_layout(

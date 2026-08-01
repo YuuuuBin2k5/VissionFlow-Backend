@@ -79,7 +79,14 @@ class S3CompatibleObjectStorage:
         public_base = os.getenv("VISIONFLOW_OBJECT_STORE_PUBLIC_BASE_URL", "").strip().rstrip("/")
         if public_base:
             return f"{public_base}/{object_key.lstrip('/')}"
-        return f"{self._settings.endpoint.rstrip('/')}/{self._settings.bucket}/{object_key.lstrip('/')}"
+        try:
+            return self._client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": self._settings.bucket, "Key": object_key},
+                ExpiresIn=604800,
+            )
+        except Exception:
+            return f"{self._settings.endpoint.rstrip('/')}/{self._settings.bucket}/{object_key.lstrip('/')}"
 
 
 class CloudAssetUploader:

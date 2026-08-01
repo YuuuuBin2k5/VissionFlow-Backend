@@ -463,7 +463,6 @@ class MediaService:
                         png_glow_path = str(sub_temp_dir / f"sub_{sub_idx_global}_glow.png")
 
                         self.sub_renderer._create_hormozi_subtitle_png(chunk, active_word_str, png_normal_path, visual_style_plan=visual_style_plan, glow=False)
-                        self.sub_renderer._create_hormozi_subtitle_png(chunk, active_word_str, png_glow_path, visual_style_plan=visual_style_plan, glow=True)
 
                         sub_clip_normal = (
                             ImageClip(png_normal_path)
@@ -472,33 +471,6 @@ class MediaService:
                             .with_position((0, 0))
                         )
                         subtitle_clips.append(sub_clip_normal)
-
-                        sub_clip_glow = (
-                            ImageClip(png_glow_path)
-                            .with_start(start_s)
-                            .with_duration(duration)
-                            .with_position((0, 0))
-                        )
-
-                        if mid_data:
-                            def make_mask_opacity_filter(start_s, mid_data, fps=24):
-                                threshold = 0.45
-                                def mask_filter(gf, t):
-                                    mask_frame = gf(t)
-                                    absolute_t = start_s + t
-                                    frame_idx = min(len(mid_data) - 1, int(absolute_t * fps))
-                                    mid_val = float(mid_data[frame_idx]) if mid_data else 0.0
-                                    if mid_val <= threshold:
-                                        return np.zeros_like(mask_frame)
-                                    alpha = np.clip((mid_val - threshold) / (1.0 - threshold), 0.0, 1.0)
-                                    return mask_frame * alpha
-                                return mask_filter
-
-                            sub_clip_glow = sub_clip_glow.with_mask(
-                                sub_clip_glow.mask.transform(make_mask_opacity_filter(start_s, mid_data, fps=24))
-                            )
-                            subtitle_clips.append(sub_clip_glow)
-
                         sub_idx_global += 1
                     except Exception as sub_err:
                         print(f"[MediaService Error] Failed to process subtitle word chunk: {sub_err}")
@@ -545,31 +517,22 @@ class MediaService:
                 .with_position((0, 0))
             )
 
-        # Thanh tiến trình giả Kinetic Progress Bar
+        # Kinetic Progress Bar (Ultra-Lightweight uint8)
         if visual_style_plan.get("enable_progress_bar", True):
             try:
+                import numpy as np_local
                 try:
-                    from moviepy.editor import ColorClip
+                    from moviepy.editor import VideoClip
                 except ImportError:
-                    from moviepy import ColorClip
+                    from moviepy import VideoClip
 
-                progress_bar = ColorClip(size=(1080, 4), color=(0, 255, 102), duration=TOTAL_AUDIO_DURATION)
-                mask_source = ColorClip(size=(1080, 4), color=(255, 255, 255), duration=TOTAL_AUDIO_DURATION)
-                progress_bar = progress_bar.with_mask(mask_source.to_mask())
+                def make_progress_frame(t):
+                    w = max(1, min(1080, int((t / TOTAL_AUDIO_DURATION) * 1080)))
+                    img = np_local.zeros((4, 1080, 3), dtype=np_local.uint8)
+                    img[:, :w] = [0, 255, 102]
+                    return img
 
-                def make_mask_progress_filter(total_duration, max_width=1080):
-                    def mask_progress_filter(gf, t):
-                        mask_frame = gf(t)
-                        w_t = int((t / total_duration) * max_width)
-                        w_t = max(0, min(max_width, w_t))
-                        mask_frame = mask_frame.copy()
-                        if w_t < max_width:
-                            mask_frame[:, w_t:] = 0.0
-                        return mask_frame
-                    return mask_progress_filter
-
-                progress_bar.mask = progress_bar.mask.transform(make_mask_progress_filter(TOTAL_AUDIO_DURATION, 1080))
-                progress_bar = progress_bar.with_position((0, 1916))
+                progress_bar = VideoClip(make_progress_frame, duration=TOTAL_AUDIO_DURATION).with_position((0, 1916))
                 subtitle_clips.append(progress_bar)
             except Exception as e_pb:
                 print(f"[MediaService Error] Failed to add Progress Bar: {e_pb}")
