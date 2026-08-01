@@ -240,12 +240,27 @@ def process_workflow_official(wf_id: str) -> bool:
                     {"scene_id": "scene-2", "visual_search_keywords": f"{title} aesthetic", "duration": 6, "narration": script[100:200], "caption": "Dang ky ngay"}
                 ]
 
+        vi_chars = "àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
+        is_vietnamese = any(c in script.lower() for c in vi_chars)
+        manifest_voice = (
+            prompt_manifest.get("voice_code")
+            or prompt_manifest.get("voice")
+            or prompt_manifest.get("voice_id")
+            or prompt_manifest.get("voice_name")
+        )
+        if manifest_voice:
+            selected_voice = str(manifest_voice)
+        elif not is_vietnamese:
+            selected_voice = "adam" if os.getenv("ELEVENLABS_API_KEY") else "en-US-ChristopherNeural"
+        else:
+            selected_voice = "vi-VN-NamMinhNeural"
+
         contract = type("Contract", (), {
             "workflow_run_id": str(wf_id),
             "trace_id": trace_id,
             "script": script,
             "scenes": tuple(scenes),
-            "voice_code": "vi-VN-NamMinhNeural",
+            "voice_code": selected_voice,
             "voice_rate": 1.12,
             "title": title,
             "render_plan": type("RenderPlan", (), {"tracks": (), "effect_keys": ()})(),

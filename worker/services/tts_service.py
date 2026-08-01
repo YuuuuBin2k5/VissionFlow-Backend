@@ -358,6 +358,8 @@ class TTSService:
             edge_voice = self.voice
         elif self.voice and ("pNInz" in self.voice or "adam" in self.voice.lower()):
             edge_voice = "vi-VN-NamMinhNeural" if is_vietnamese else "en-US-ChristopherNeural"
+        elif not is_vietnamese:
+            edge_voice = "en-US-ChristopherNeural" if gender == "male" else "en-US-JennyNeural"
         else:
             edge_voice = self.voice or DEFAULT_TTS_VOICE
             if gender == "male" and not self.voice:

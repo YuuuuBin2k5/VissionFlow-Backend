@@ -8,8 +8,10 @@ VOICE_REGISTRY = {
     "edge-nu-hoai-an": {"source": "edge-tts", "voice": "vi-VN-HoaiAnNeural", "rate": "-4%"},
     "edge-en-guy": {"source": "edge-tts", "voice": "en-US-GuyNeural", "rate": "-4%"},
     "edge-en-jenny": {"source": "edge-tts", "voice": "en-US-JennyNeural", "rate": "-2%"},
+    "edge-en-christopher": {"source": "edge-tts", "voice": "en-US-ChristopherNeural", "rate": "-2%"},
     "eleven-marcus": {"source": "elevenlabs", "voice_id": "Marcus", "model": "eleven_multilingual_v2"},
-    "eleven-adam": {"source": "elevenlabs", "voice_id": "Adam", "model": "eleven_multilingual_v2"},
+    "eleven-adam": {"source": "elevenlabs", "voice_id": "pNInz6obpgDQGcFmaJgB", "model": "eleven_multilingual_v2"},
+    "adam": {"source": "elevenlabs", "voice_id": "pNInz6obpgDQGcFmaJgB", "model": "eleven_multilingual_v2"},
     "fpt-minh-quang": {"source": "fptai", "speaker": "minhquang", "speed": "0.9"},
 }
 
