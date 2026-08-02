@@ -38,26 +38,11 @@ def _upload_manifest(session: requests.Session, manifest: dict[str, object]) -> 
         title = f"{raw_title} #Shorts" if "#Shorts" not in raw_title else raw_title
 
         raw_desc = str(manifest.get("description") or "").strip()
-
-        # Automatic Channel-Tailored SEO Description & Hashtags System for AsinMochii💕Boni
-        channel_footer = (
-            "📌 Bài học cuộc sống, kinh nghiệm sống & những câu chuyện thời xưa hay nhất.\n"
-            "🔔 Đăng ký kênh AsinMochii💕Boni để theo dõi những video mới nhất mỗi ngày!"
-        )
-        channel_hashtags = (
-            "#ChuyệnThờiXưa #ChuyệnNgàyXưa #KýỨcThờiXưa #TriếtLýNgườiXưa #ThờiBaoCấp "
-            "#BàiHọcCuộcSống #KinhNghiệmSống #TriếtLýCuộcSống #LờiKhuyênCuộcSống #QuàTặngCuộcSống "
-            "#ThứcTỉnhTâmHồn #GiáTrịSống #KinhNghiệmCuộcĐời #CâuChuyệnNhânVăn #BàiHọcLàmNgười "
-            "#GócChiêmNghiệm #TâmSựCuộcSống #TruyệnNgắnThờiXưa #ChuyệnĐờiThực #TíchCũChuyệnXưa #AsinMochiiBoni #Shorts"
-        )
-
-        desc_parts = [raw_desc] if raw_desc else [raw_title]
-        if "AsinMochii" not in raw_desc:
-            desc_parts.append(channel_footer)
-        if "#AsinMochiiBoni" not in raw_desc and "#ChuyệnThờiXưa" not in raw_desc:
-            desc_parts.append(channel_hashtags)
-
-        description = "\n\n".join(desc_parts).strip()
+        if not raw_desc:
+            from worker.domain.caption_policy import build_high_converting_description
+            description = build_high_converting_description(title=raw_title)
+        else:
+            description = raw_desc
 
         # Check future scheduled ISO timestamp for YouTube publishAt feature
         publish_at_iso = None

@@ -66,10 +66,94 @@ def _normalize_hashtags(hashtags: list) -> list:
             seen.add(key)
     return normalized
 
+def build_topic_hashtags(title: str, script: str = "", seo_data: dict = None, language: str = "en") -> list[str]:
+    """
+    Trích xuất và tự động tạo hashtags phù hợp 100% với chủ đề video.
+    """
+    seo_data = seo_data if isinstance(seo_data, dict) else {}
+    ai_tags = seo_data.get("hashtags") or []
+    
+    tags = []
+    seen = set()
+    
+    for tag in ai_tags:
+        clean = str(tag).strip().lstrip("#")
+        if clean and clean.lower() not in seen and clean.lower() not in ["shorts", "ai", "visionflow"]:
+            tags.append(f"#{clean}")
+            seen.add(clean.lower())
+            
+    text = f"{title} {script}".lower()
+    
+    keyword_map = {
+        "sun bin": ["#SunBin", "#Strategy", "#AncientWisdom"],
+        "maling": ["#BattleOfMaling", "#HistoryShorts"],
+        "cortes": ["#HernanCortes", "#BurnTheShips", "#Mindset"],
+        "history": ["#History", "#HistoryShorts"],
+        "wisdom": ["#AncientWisdom", "#LifeLessons"],
+        "mindset": ["#Mindset", "#SuccessMindset"],
+        "triet ly": ["#TrietLyCuocSong", "#GocChiemNghiem"],
+        "bai hoc": ["#BaiHocCuocSong", "#GocChiemNghiem"],
+        "cuoc song": ["#LoiKhuyenCuocSong", "#GocChiemNghiem"]
+    }
+    
+    for kw, kw_tags in keyword_map.items():
+        if kw in text:
+            for t in kw_tags:
+                if t.lower() not in seen:
+                    tags.append(t)
+                    seen.add(t.lower())
+                    
+    defaults = (
+        ["#Shorts", "#Mindset", "#LifeLessons", "#History", "#AncientWisdom", "#Strategy"]
+        if language == "en"
+        else ["#Shorts", "#TrietLyCuocSong", "#GocChiemNghiem", "#BaiHocCuocSong", "#LoiKhuyenCuocSong"]
+    )
+    
+    for d in defaults:
+        if d.lower() not in seen:
+            tags.append(d)
+            seen.add(d.lower())
+            
+    return _normalize_hashtags(tags[:10])
+
+def build_high_converting_description(title: str, script: str = "", seo_data: dict = None, language: str = "en") -> str:
+    """
+    Dựng phần Mô tả (Description) đạt chuẩn SEO YouTube Shorts & TikTok chuyên nghiệp,
+    giàu thông tin, có tóm tắt câu chuyện, kêu gọi hành động (CTA) và hashtag khớp chủ đề.
+    """
+    seo_data = seo_data if isinstance(seo_data, dict) else {}
+    
+    ai_desc = seo_data.get("youtube_scannable_description") or seo_data.get("description")
+    if ai_desc and len(str(ai_desc).strip()) > 60:
+        desc_body = str(ai_desc).strip()
+    else:
+        clean_title = str(title or "").strip()
+        parts = [clean_title]
+        
+        if script and len(script) > 30:
+            summary = script.strip().replace("\n", " ")
+            if len(summary) > 300:
+                summary = summary[:297] + "..."
+            if language == "en":
+                parts.append(f"📖 STORY SUMMARY:\n{summary}")
+            else:
+                parts.append(f"📖 TÓM TẮT NỘI DUNG:\n{summary}")
+                
+        if language == "en":
+            parts.append("👉 Subscribe for daily ancient wisdom, strategic mindset & inspiring story Shorts!")
+        else:
+            parts.append("👉 Đăng ký kênh để theo dõi những bài học cuộc sống & câu chuyện triết lý sâu sắc mỗi ngày!")
+            
+        desc_body = "\n\n".join(parts)
+
+    hashtags = build_topic_hashtags(title, script, seo_data, language)
+    hashtag_str = " ".join(hashtags)
+    
+    return f"{desc_body}\n\n{hashtag_str}".strip()
+
 def build_publish_caption_and_hashtags(job: dict, metadata: dict, seo_data: dict, music_metadata: dict) -> tuple:
     """
-    Dựng caption đăng TikTok. Video âm nhạc ưu tiên caption cảm xúc sau render,
-    không dùng tiêu đề thô kiểu "Tên bài - Ca sĩ".
+    Dựng caption và hashtags đăng TikTok / YouTube.
     """
     seo_data = seo_data if isinstance(seo_data, dict) else {}
     metadata = metadata if isinstance(metadata, dict) else {}
@@ -88,20 +172,9 @@ def build_publish_caption_and_hashtags(job: dict, metadata: dict, seo_data: dict
         artist_part = f" - {artist_name}" if artist_name else ""
         caption = f"{emotional_caption} {song_title}{artist_part}".strip()
 
-        hashtag_candidates = []
-        for value in [song_title, artist_name]:
-            tag = _hashtagify(value)
-            if tag:
-                hashtag_candidates.append(tag)
-        hashtag_candidates.extend(
-            metadata.get("music_hashtags")
-            or seo_data.get("hashtags")
-            or (["music", "tiktokmusic", "mood", "viral", "trending"] if language == "en" else ["nhacviet", "tiktokmusic", "tamtrang", "viral", "xuhuong"])
-        )
-        return caption, _normalize_hashtags(hashtag_candidates)
+        hashtag_candidates = build_topic_hashtags(fallback_title, "", seo_data, language)
+        return caption, hashtag_candidates
 
     title = seo_data.get("tiktok_microblog_caption") or seo_data.get("title") or metadata.get("seo_title") or fallback_title
-    hashtags = seo_data.get("hashtags", [])
-    if not hashtags:
-        hashtags = ["learnontiktok", "automation", "tiktokagent"]
-    return title, _normalize_hashtags(hashtags)
+    hashtags = build_topic_hashtags(title, job.get("script") or "", seo_data, language)
+    return title, hashtags

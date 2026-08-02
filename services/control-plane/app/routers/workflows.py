@@ -1675,11 +1675,20 @@ def _process_publication_attempt_in_background(
             title = (project.title if project else str(workflow_run_id))[:100]
             if "#Shorts" not in title and "#shorts" not in title:
                 title = (title[:95] + " #Shorts") if len(title) > 95 else (title + " #Shorts")
-            description_parts = []
-            if project and project.brief:
-                description_parts.append(project.brief[:4800])
-            description_parts.append("\n\n#Shorts #AI #VisionFlow")
-            description = "\n".join(description_parts)[:5000]
+            
+            from worker.domain.caption_policy import build_high_converting_description
+            prompt_manifest = wf_for_project.prompt_manifest or {} if wf_for_project else {}
+            seo_data = prompt_manifest.get("seo_tags_metadata") or {}
+            script = prompt_manifest.get("script") or (project.brief if project else "")
+            vi_chars = "àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
+            lang = "en" if not any(c in script.lower() for c in vi_chars) else "vi"
+
+            description = build_high_converting_description(
+                title=project.title if project else title,
+                script=script,
+                seo_data=seo_data,
+                language=lang
+            )[:5000]
 
             # ---- 7. Upload to YouTube via Resumable API ----------------------
             # Determine whether this is a scheduled or immediate publish
