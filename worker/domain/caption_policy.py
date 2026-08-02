@@ -104,9 +104,9 @@ def build_topic_hashtags(title: str, script: str = "", seo_data: dict = None, la
                     seen.add(t.lower())
                     
     defaults = (
-        ["#Shorts", "#Mindset", "#LifeLessons", "#History", "#AncientWisdom", "#Strategy"]
+        ["#Shorts", "#Storytelling", "#LifeLessons", "#Mindset", "#AncientWisdom", "#Strategy", "#AsinMochiiBoni"]
         if language == "en"
-        else ["#Shorts", "#TrietLyCuocSong", "#GocChiemNghiem", "#BaiHocCuocSong", "#LoiKhuyenCuocSong"]
+        else ["#BàiHọcCuộcSống", "#ChuyệnThờiXưa", "#KinhNghiệmSống", "#KểChuyện", "#TriếtLýCuộcSống", "#GócChiêmNghiệm", "#AsinMochiiBoni", "#Shorts"]
     )
     
     for d in defaults:
@@ -114,42 +114,59 @@ def build_topic_hashtags(title: str, script: str = "", seo_data: dict = None, la
             tags.append(d)
             seen.add(d.lower())
             
-    return _normalize_hashtags(tags[:10])
+    return _normalize_hashtags(tags[:15])
 
 def build_high_converting_description(title: str, script: str = "", seo_data: dict = None, language: str = "en") -> str:
     """
-    Dựng phần Mô tả (Description) đạt chuẩn SEO YouTube Shorts & TikTok chuyên nghiệp,
-    giàu thông tin, có tóm tắt câu chuyện, kêu gọi hành động (CTA) và hashtag khớp chủ đề.
+    Dựng phần Mô tả (Description) đạt chuẩn SEO YouTube Shorts & TikTok ĐẦY ĐỦ VÀ CHUYÊN NGHIỆP NHẤT
+    cho kênh AsinMochii💕Boni.
+    Bao gồm:
+      1. Tiêu đề & Hook gây tò mò
+      2. Tóm tắt nội dung & Bài học cốt lõi (AI summary / script insight)
+      3. Giới thiệu giá trị kênh AsinMochii💕Boni
+      4. Nút Kêu gọi đăng ký (CTA)
+      5. Hệ thống từ khóa & Hashtags chuẩn SEO đa phân loại
     """
     seo_data = seo_data if isinstance(seo_data, dict) else {}
+    clean_title = str(title or "").strip()
     
+    # 1. Tóm tắt nội dung & bài học
     ai_desc = seo_data.get("youtube_scannable_description") or seo_data.get("description")
     if ai_desc and len(str(ai_desc).strip()) > 60:
-        desc_body = str(ai_desc).strip()
+        summary_text = str(ai_desc).strip()
+    elif script and len(script) > 30:
+        summary = script.strip().replace("\n", " ")
+        if len(summary) > 350:
+            summary = summary[:347] + "..."
+        summary_text = summary
     else:
-        clean_title = str(title or "").strip()
-        parts = [clean_title]
-        
-        if script and len(script) > 30:
-            summary = script.strip().replace("\n", " ")
-            if len(summary) > 300:
-                summary = summary[:297] + "..."
-            if language == "en":
-                parts.append(f"📖 STORY SUMMARY:\n{summary}")
-            else:
-                parts.append(f"📖 TÓM TẮT NỘI DUNG:\n{summary}")
-                
-        if language == "en":
-            parts.append("👉 Subscribe for daily ancient wisdom, strategic mindset & inspiring story Shorts!")
-        else:
-            parts.append("👉 Đăng ký kênh để theo dõi những bài học cuộc sống & câu chuyện triết lý sâu sắc mỗi ngày!")
-            
-        desc_body = "\n\n".join(parts)
+        summary_text = clean_title
 
+    # 2. Định dạng mô tả chuẩn đa đoạn theo ngôn ngữ
+    if language == "en":
+        desc_body = (
+            f"{clean_title}\n\n"
+            f"📖 STORY SUMMARY & STRATEGIC INSIGHTS:\n"
+            f"{summary_text}\n\n"
+            f"📌 ABOUT ASINMOCHII💕BONI:\n"
+            f"Inspiring short stories, ancient strategic wisdom, life lessons, mindset mastery & timeless historical narratives.\n\n"
+            f"🔔 Subscribe to AsinMochii💕Boni for daily wisdom, life lessons & powerful story Shorts!"
+        )
+    else:
+        desc_body = (
+            f"{clean_title}\n\n"
+            f"📖 TÓM TẮT NỘI DUNG & BÀI HỌC CỐT LÕI:\n"
+            f"{summary_text}\n\n"
+            f"📌 GIỚI THIỆU KÊNH ASINMOCHII💕BONI:\n"
+            f"Chuyên chia sẻ bài học cuộc sống, kinh nghiệm sống, triết lý nhân sinh, câu chuyện truyền cảm hứng và ký ức thời xưa đắt giá.\n\n"
+            f"🔔 Đăng ký kênh AsinMochii💕Boni ngay hôm nay để thức tỉnh tâm hồn và đón xem những câu chuyện chiêm nghiệm mới nhất mỗi ngày!"
+        )
+
+    # 3. Hệ thống từ khóa Hashtags đầy đủ phân loại chuẩn SEO
     hashtags = build_topic_hashtags(title, script, seo_data, language)
     hashtag_str = " ".join(hashtags)
     
-    return f"{desc_body}\n\n{hashtag_str}".strip()
+    return f"{desc_body}\n\n------------------------------------\n{hashtag_str}".strip()
 
 def build_publish_caption_and_hashtags(job: dict, metadata: dict, seo_data: dict, music_metadata: dict) -> tuple:
     """
