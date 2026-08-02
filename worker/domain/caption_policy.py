@@ -106,7 +106,7 @@ def build_topic_hashtags(title: str, script: str = "", seo_data: dict = None, la
     defaults = (
         ["#Shorts", "#Storytelling", "#LifeLessons", "#Mindset", "#AncientWisdom", "#Strategy", "#AsinMochiiBoni"]
         if language == "en"
-        else ["#BàiHọcCuộcSống", "#ChuyệnThờiXưa", "#KinhNghiệmSống", "#KểChuyện", "#TriếtLýCuộcSống", "#GócChiêmNghiệm", "#AsinMochiiBoni", "#Shorts"]
+        else ["#BàiHọcCuộcSống", "#ChuyệnThờiXưa", "#KinhNghiệmSống", "#KểChuyện", "#TriếtLýCuộcSống", "#GócChiêmNghiệm", "#Shorts"]
     )
     
     for d in defaults:
@@ -118,14 +118,9 @@ def build_topic_hashtags(title: str, script: str = "", seo_data: dict = None, la
 
 def build_high_converting_description(title: str, script: str = "", seo_data: dict = None, language: str = "en") -> str:
     """
-    Dựng phần Mô tả (Description) đạt chuẩn SEO YouTube Shorts & TikTok ĐẦY ĐỦ VÀ CHUYÊN NGHIỆP NHẤT
-    cho kênh AsinMochii💕Boni.
-    Bao gồm:
-      1. Tiêu đề & Hook gây tò mò
-      2. Tóm tắt nội dung & Bài học cốt lõi (AI summary / script insight)
-      3. Giới thiệu giá trị kênh AsinMochii💕Boni
-      4. Nút Kêu gọi đăng ký (CTA)
-      5. Hệ thống từ khóa & Hashtags chuẩn SEO đa phân loại
+    Dựng phần Mô tả (Description) đạt chuẩn SEO YouTube Shorts & TikTok chuyên nghiệp.
+    - Kênh Tiếng Anh: Dành riêng cho AsinMochii💕Boni (100% English content & branding).
+    - Kênh Tiếng Việt: Dành cho Góc Chiêm Nghiệm / Chuyện Thời Xưa (100% Vietnamese content & branding).
     """
     seo_data = seo_data if isinstance(seo_data, dict) else {}
     clean_title = str(title or "").strip()
@@ -142,7 +137,7 @@ def build_high_converting_description(title: str, script: str = "", seo_data: di
     else:
         summary_text = clean_title
 
-    # 2. Định dạng mô tả chuẩn đa đoạn theo ngôn ngữ
+    # 2. Định dạng mô tả chuẩn phân tách riêng cho Kênh Tiếng Anh (AsinMochii Boni) và Kênh Tiếng Việt
     if language == "en":
         desc_body = (
             f"{clean_title}\n\n"
@@ -157,9 +152,9 @@ def build_high_converting_description(title: str, script: str = "", seo_data: di
             f"{clean_title}\n\n"
             f"📖 TÓM TẮT NỘI DUNG & BÀI HỌC CỐT LÕI:\n"
             f"{summary_text}\n\n"
-            f"📌 GIỚI THIỆU KÊNH ASINMOCHII💕BONI:\n"
+            f"📌 GIỚI THIỆU KÊNH GÓC CHIÊM NGHIỆM:\n"
             f"Chuyên chia sẻ bài học cuộc sống, kinh nghiệm sống, triết lý nhân sinh, câu chuyện truyền cảm hứng và ký ức thời xưa đắt giá.\n\n"
-            f"🔔 Đăng ký kênh AsinMochii💕Boni ngay hôm nay để thức tỉnh tâm hồn và đón xem những câu chuyện chiêm nghiệm mới nhất mỗi ngày!"
+            f"🔔 Đăng ký kênh Góc Chiêm Nghiệm ngay hôm nay để thức tỉnh tâm hồn và đón xem những câu chuyện chiêm nghiệm mới nhất mỗi ngày!"
         )
 
     # 3. Hệ thống từ khóa Hashtags đầy đủ phân loại chuẩn SEO
