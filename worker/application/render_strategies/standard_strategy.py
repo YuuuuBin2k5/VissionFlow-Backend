@@ -78,9 +78,7 @@ class StandardRenderStrategy(RenderStrategy):
         music_mood = "educational"
         content_category = ""
         is_long_philosophy = False
-        existing_metadata: dict = {}
-        video_language = "en" if str(job.get("video_language") or "vi").lower().startswith("en") else "vi"
-        voice_code = job.get("voice_profile") or ("edge-en-guy" if video_language == "en" else "edge-nam-minh")
+        ENGLISH_VOICE_KEYS = {"adam", "eleven-adam", "edge-en-guy", "edge-en-jenny", "edge-en-adam", "edge-en-christopher", "eleven-marcus"}
 
         if job.get("scenes_layout_json"):
             try:
@@ -91,18 +89,42 @@ class StandardRenderStrategy(RenderStrategy):
                     music_mood = existing.get("music_mood", "educational")
                     content_category = existing.get("content_category", "")
                     is_long_philosophy = existing.get("is_long_philosophy", False)
-                    voice_code = job.get("voice_profile") or existing.get("voice_code") or voice_code
                     if existing.get("original_philosophy"):
                         topic = existing["original_philosophy"]
             except Exception:
                 pass
 
-        topic, topic_voice_code = parse_voice_flag(topic)
-        if "voice_code" not in existing_metadata and not job.get("voice_profile"):
-            voice_code = topic_voice_code
+        clean_topic, flag_voice_code = parse_voice_flag(topic)
+        topic = clean_topic
 
+        voice_code = (
+            flag_voice_code
+            or job.get("voice_profile")
+            or job.get("voice_code")
+            or existing_metadata.get("voice_code")
+            or existing_metadata.get("voice")
+            or metadata.get("voice_code")
+            or metadata.get("voice")
+            or metadata.get("voice_profile")
+            or "edge-nam-minh"
+        )
+
+        raw_lang = str(
+            job.get("video_language")
+            or job.get("target_language")
+            or existing_metadata.get("video_language")
+            or existing_metadata.get("target_language")
+            or metadata.get("target_language")
+            or metadata.get("video_language")
+            or "vi"
+        ).lower()
+
+        video_language = "en" if (raw_lang.startswith("en") or voice_code in ENGLISH_VOICE_KEYS) else "vi"
+
+        existing_metadata["voice_code"] = voice_code
         existing_metadata["video_language"] = video_language
         existing_metadata["subtitle_language"] = video_language
+        existing_metadata["target_language"] = video_language
 
         log_realtime_progress(job_id, "LLM_SCRIPT", "INFO",
                               f"Bắt đầu biên soạn kịch bản cho Job #{job_id}...")

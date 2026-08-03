@@ -84,26 +84,24 @@ def infer_split_screen_metadata_from_text(text: str) -> dict:
         "platform_targets": ["tiktok", "youtube"],
     }
 
-def parse_voice_flag(topic_str: str) -> tuple[str, str]:
+def parse_voice_flag(topic_str: str) -> tuple[str, str | None]:
     """
     Bóc tách tham số --voice từ chuỗi topic.
-    Trả về: (clean_topic, voice_code)
+    Trả về: (clean_topic, voice_code hoặc None nếu không chỉ định)
     """
     import re
     from worker.services.tts_engine import VOICE_REGISTRY
 
-    voice_code = "edge-nam-minh"  # mặc định
     if not topic_str:
-        return "", voice_code
+        return "", None
 
     # Tìm kiếm flag --voice [mã_giọng]
     match = re.search(r'--voice\s+([a-zA-Z0-9-]+)', topic_str)
     if match:
         extracted_code = match.group(1).strip()
         if extracted_code in VOICE_REGISTRY:
-            voice_code = extracted_code
-        # Loại bỏ flag ra khỏi topic
-        clean_topic = re.sub(r'--voice\s+[a-zA-Z0-9-]+', '', topic_str).strip()
-        return clean_topic, voice_code
+            clean_topic = re.sub(r'--voice\s+[a-zA-Z0-9-]+', '', topic_str).strip()
+            return clean_topic, extracted_code
 
-    return topic_str.strip(), voice_code
+    return topic_str.strip(), None
+

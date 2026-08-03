@@ -131,14 +131,17 @@ a_b_test_hooks: {json.dumps(payload.get('a_b_test_hooks', []), ensure_ascii=Fals
         }
         visual_hint = visual_examples.get(bottom_visual_type, visual_examples["daily_life"])
 
-        language = "en" if str(metadata.get("video_language") or "vi").lower().startswith("en") else "vi"
+        ENGLISH_VOICES = {"adam", "eleven-adam", "edge-en-guy", "edge-en-jenny", "edge-en-adam", "edge-en-christopher", "eleven-marcus"}
+        raw_lang = str(metadata.get("video_language") or metadata.get("target_language") or "vi").lower()
+        voice_code = str(metadata.get("voice_code") or metadata.get("voice") or "")
+        language = "en" if (raw_lang.startswith("en") or voice_code in ENGLISH_VOICES) else "vi"
         output_language = "English" if language == "en" else "Vietnamese"
         prompt = f"""
 Bạn là biên tập viên chiến lược cho YouTube Shorts/TikTok, chuyên tạo video split-screen dọc có khả năng giữ chân cao, giọng đọc tự nhiên, sâu sắc nhưng không sáo rỗng.
 Ngôn ngữ bắt buộc cho toàn bộ nội dung người xem đọc/nghe: {output_language}. Từ khóa tìm video vẫn dùng tiếng Anh.
 
 NHIỆM VỤ:
-Tạo kịch bản tiếng Việt cho video dọc 25-40 giây theo format split-screen:
+Tạo kịch bản bằng ngôn ngữ {output_language} cho video dọc 25-40 giây theo format split-screen:
 - Nửa trên: B-roll triết lý/ẩn dụ, thay đổi theo từng scene, có cảm xúc, chuyển động, góc máy rõ.
 - Nửa dưới: Một video lifestyle/satisfying chạy liền mạch cùng một chủ đề cụ thể, không đổi chủ đề giữa chừng.
 

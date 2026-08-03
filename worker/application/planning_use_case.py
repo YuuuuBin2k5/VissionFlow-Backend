@@ -31,7 +31,8 @@ async def handle_planning(campaign_id: int):
     audience = campaign["target_audience"] or "Mọi đối tượng"
 
     # Bóc tách cờ --voice nếu có và gán giọng đọc cho toàn bộ chiến dịch
-    topic, voice_code = parse_voice_flag(raw_topic)
+    topic, parsed_voice = parse_voice_flag(raw_topic)
+    voice_code = parsed_voice or "edge-nam-minh"
     print(f"[Planning Engine] ✅ Parsed campaign topic: '{topic}' | Selected voice: '{voice_code}'")
     split_screen_campaign_metadata = infer_split_screen_metadata_from_text(f"{topic} {audience}")
 

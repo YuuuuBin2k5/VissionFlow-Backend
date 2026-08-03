@@ -204,8 +204,10 @@ class TTSEngine:
             return await provider.synthesize(tts_text, output_audio_path, voice_profile)
         except Exception as api_err:
             if source != "edge-tts":
-                print(f"[TTSEngine] Provider '{source}' thất bại: {api_err}. Fallback edge-tts...")
-                fallback_profile = VOICE_REGISTRY["edge-nam-minh"]
+                ENGLISH_VOICES = {"adam", "eleven-adam", "edge-en-guy", "edge-en-jenny", "edge-en-adam", "edge-en-christopher", "eleven-marcus"}
+                fallback_key = "edge-en-christopher" if voice_code in ENGLISH_VOICES else "edge-nam-minh"
+                print(f"[TTSEngine] Provider '{source}' thất bại: {api_err}. Fallback edge-tts ({fallback_key})...")
+                fallback_profile = VOICE_REGISTRY[fallback_key]
                 edge_provider = TTS_PROVIDER_REGISTRY["edge-tts"]()
                 return await edge_provider.synthesize(tts_text, output_audio_path, fallback_profile)
             raise api_err
