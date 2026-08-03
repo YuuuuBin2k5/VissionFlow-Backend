@@ -1679,6 +1679,10 @@ def _process_publication_attempt_in_background(
             from worker.domain.caption_policy import build_high_converting_description
             prompt_manifest = wf_for_project.prompt_manifest or {} if wf_for_project else {}
             seo_data = prompt_manifest.get("seo_tags_metadata") or {}
+            if not isinstance(seo_data, dict):
+                seo_data = {}
+            if prompt_manifest.get("description") and isinstance(prompt_manifest.get("description"), str) and len(prompt_manifest["description"].strip()) > 20:
+                seo_data["description"] = prompt_manifest["description"].strip()
             script = prompt_manifest.get("script") or (project.brief if project else "")
             vi_chars = "àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
             lang = "en" if not any(c in script.lower() for c in vi_chars) else "vi"
