@@ -64,7 +64,15 @@ class S3CompatibleObjectStorage:
     def download_to(self, object_key: str, destination_path: str) -> str:
         destination = Path(destination_path)
         destination.parent.mkdir(parents=True, exist_ok=True)
-        self._client.download_file(self._settings.bucket, object_key, str(destination))
+        actual_key = object_key
+        if object_key.startswith("http://") or object_key.startswith("https://"):
+            if "visionflow/" in object_key:
+                actual_key = "visionflow/" + object_key.split("visionflow/", 1)[1].split("?")[0]
+            else:
+                import urllib.request
+                urllib.request.urlretrieve(object_key, str(destination))
+                return str(destination)
+        self._client.download_file(self._settings.bucket, actual_key, str(destination))
         return str(destination)
 
     def upload_export(self, workflow_run_id: str, source_path: str) -> dict[str, object]:
@@ -73,7 +81,7 @@ class S3CompatibleObjectStorage:
         key = f"visionflow/{workflow_run_id}/exports/final.mp4"
         self._client.upload_file(str(path), self._settings.bucket, key, ExtraArgs={"ContentType": "video/mp4", "Metadata": {"sha256": checksum}})
         public_url = self.get_public_url(key)
-        return {"object_key": public_url, "content_type": "video/mp4", "byte_size": path.stat().st_size, "checksum_sha256": checksum, "public_url": public_url}
+        return {"object_key": key, "content_type": "video/mp4", "byte_size": path.stat().st_size, "checksum_sha256": checksum, "public_url": public_url}
 
     def get_public_url(self, object_key: str) -> str:
         public_base = os.getenv("VISIONFLOW_OBJECT_STORE_PUBLIC_BASE_URL", "").strip().rstrip("/")
