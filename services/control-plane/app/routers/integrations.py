@@ -442,10 +442,19 @@ def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organizatio
             lines = [str(s.get("narration", "")).strip() for s in payload["scenes"] if isinstance(s, dict) and s.get("narration")]
             script_narration = "\n".join([line for line in lines if line]).strip()
 
-    if script_narration:
-        rich_description = f"🎬 KỊCH BẢN / LỜI THOẠI VIDEO:\n{script_narration}\n\n---\n📌 Chủ đề: {project.brief}"
-    else:
-        rich_description = project.brief
+    from worker.domain.caption_policy import build_high_converting_description
+    prompt_manifest = workflow.prompt_manifest or {} if workflow else {}
+    seo_data = prompt_manifest.get("seo_tags_metadata") or {}
+    script = script_narration or prompt_manifest.get("script") or project.brief
+    vi_chars = "àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
+    lang = "en" if not any(c in script.lower() for c in vi_chars) else "vi"
+
+    rich_description = build_high_converting_description(
+        title=project.title,
+        script=script,
+        seo_data=seo_data,
+        language=lang
+    )
 
     # Check if a scheduled publish timestamp was recorded in the publish step payload
     publish_step = session.scalar(
