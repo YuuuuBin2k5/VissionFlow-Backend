@@ -519,7 +519,21 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
         except Exception as e:
             print(f"[DubbingService Warning] Failed to generate SRT file: {e}")
 
-    async def execute_dubbing_pipeline(self, video_path: str, output_path: str, voice_gender: str = "female", source_language: str = "auto", progress_callback=None, aspect_ratio: str = "original", burn_subtitles: bool = True, mute_original_audio: bool = False) -> tuple:
+    async def execute_dubbing_pipeline(
+        self,
+        video_path: str,
+        output_path: str,
+        voice_gender: str = "female",
+        source_language: str = "auto",
+        progress_callback=None,
+        aspect_ratio: str = "original",
+        burn_subtitles: bool = True,
+        mute_original_audio: bool = False,
+        blur_original_subtitles: bool = True,
+        blur_region_height_ratio: float = 0.20,
+        logo_handle: str = "@GocChiemNghiemYuuBin",
+        caption_preset: str = "montserrat"
+    ) -> tuple:
         """Thực hiện toàn bộ 8 bước của pipeline lồng tiếng tự động miễn phí 100%"""
         temp_dir = Path(os.path.dirname(output_path)) / f"dub_temp_{os.path.basename(video_path).split('.')[0]}"
         temp_dir.mkdir(parents=True, exist_ok=True)
@@ -809,76 +823,76 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
             env_copy["FONTCONFIG_PATH"] = str(temp_dir)
             env_copy["FC_CONFIG_DIR"] = str(temp_dir)
 
-            # Kiểm tra động xem FFmpeg có hỗ trợ force_style hay không để tránh lỗi trên các phiên bản FFmpeg cũ
+            # Subtitle styling presets
             use_force_style = self.check_subtitles_supports_force_style()
             if use_force_style:
-                if aspect_ratio == "vertical_blur":
-                    # Tối ưu phụ đề chuẩn Vietsub dùng font Montserrat, viền đen mịn không nền thô, lọt Safe Zone MarginV=300
-                    style_str = ":force_style='FontName=Montserrat,FontSize=40,Bold=1,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2,Shadow=1,MarginV=300'"
-                else:
-                    # Tối ưu cho màn ngang gốc dùng font Montserrat, viền đen mịn không nền thô, nâng MarginV=120
-                    style_str = ":force_style='FontName=Montserrat,FontSize=26,Bold=1,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2,Shadow=1,MarginV=120'"
+                if caption_preset == "hormozi":
+                    style_str = ":force_style='FontName=Montserrat,FontSize=32,Bold=1,PrimaryColour=&H0000FFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=2,MarginV=140'"
+                elif caption_preset == "neon":
+                    style_str = ":force_style='FontName=Montserrat,FontSize=30,Bold=1,PrimaryColour=&H0000FF00,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=2,MarginV=140'"
+                else: # montserrat / default
+                    margin_v = 300 if aspect_ratio == "vertical_blur" else 120
+                    style_str = f":force_style='FontName=Montserrat,FontSize=28,Bold=1,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2,Shadow=1,MarginV={margin_v}'"
             else:
                 style_str = ""
 
+            # Dynamic FFmpeg Filter Complex Construction
+            filter_nodes = []
+            current_v = "[0:v]"
+
+            # 1. Original Subtitle Blur / Inpainting Strip (if enabled)
+            if blur_original_subtitles:
+                if progress_callback:
+                    progress_callback("Đang tự động che mờ vùng phụ đề tiếng Trung gốc...")
+                h_ratio = min(0.35, max(0.12, float(blur_region_height_ratio or 0.20)))
+                filter_nodes.append(
+                    f"{current_v}split=2[v_base][v_strip];"
+                    f"[v_strip]crop=iw:ih*{h_ratio:.2f}:0:ih*{1.0 - h_ratio:.2f},boxblur=25:5[v_blur_strip];"
+                    f"[v_base][v_blur_strip]overlay=0:H*{1.0 - h_ratio:.2f}[v_unsub]"
+                )
+                current_v = "[v_unsub]"
+
+            # 2. Channel Logo / Watermark Handle
+            if logo_handle and logo_handle.strip():
+                clean_handle = logo_handle.strip().replace("'", "'\\''").replace(":", "\\:")
+                filter_nodes.append(
+                    f"{current_v}drawtext=text='{clean_handle}':x=35:y=35:fontsize=22:fontcolor=white@0.85:shadowcolor=black@0.6:shadowx=2:shadowy=2[v_logo]"
+                )
+                current_v = "[v_logo]"
+
+            # 3. Aspect Ratio Transformation
             if aspect_ratio == "vertical_blur":
                 if progress_callback:
-                    progress_callback("Đang chuyển đổi kích thước video sang Dọc 9:16 với viền mờ nghệ thuật (Blur Padding)...")
+                    progress_callback("Đang chuyển đổi kích thước video sang Dọc 9:16 với viền mờ nghệ thuật...")
+                filter_nodes.append(
+                    f"{current_v}scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:5,setsar=1[bg];"
+                    f"{current_v}scale=1080:-1:force_original_aspect_ratio=decrease,setsar=1[fg];"
+                    f"[bg][fg]overlay=(W-w)/2:(H-h)/2[v_aspect]"
+                )
+                current_v = "[v_aspect]"
 
-                if has_subtitles:
-                    filter_complex_str = (
-                        "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:5,setsar=1[bg];"
-                        "[0:v]scale=1080:-1:force_original_aspect_ratio=decrease,setsar=1[fg];"
-                        f"[bg][fg]overlay=(W-w)/2:(H-h)/2[tempv];"
-                        f"[tempv]subtitles='{escaped_srt}'{style_str}[outv]"
-                    )
-                else:
-                    filter_complex_str = (
-                        "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:5,setsar=1[bg];"
-                        "[0:v]scale=1080:-1:force_original_aspect_ratio=decrease,setsar=1[fg];"
-                        "[bg][fg]overlay=(W-w)/2:(H-h)/2[outv]"
-                    )
-
-                cmd_mux = [
-                    "ffmpeg", "-y",
-                    "-i", video_path,
-                    "-i", final_audio_path,
-                    "-filter_complex", filter_complex_str,
-                    "-map", "[outv]",
-                    "-map", "1:a:0",
-                    "-c:v", "libx264", "-profile:v", "high", "-level:v", "4.2",
-                    "-pix_fmt", "yuv420p", "-b:v", "4M",
-                    "-c:a", "aac", "-strict", "-2",
-                    "-shortest", output_path
-                ]
+            # 4. Burn Vietnamese Subtitles
+            if has_subtitles:
+                if progress_callback:
+                    progress_callback("Đang ghi cứng phụ đề tiếng Việt chuẩn SEO vào video...")
+                filter_nodes.append(f"{current_v}subtitles='{escaped_srt}'{style_str}[outv]")
             else:
-                if has_subtitles:
-                    if progress_callback:
-                        progress_callback("Đang ghi cứng phụ đề tiếng Việt vào video gốc (re-encoding)...")
-                    cmd_mux = [
-                        "ffmpeg", "-y",
-                        "-i", video_path,
-                        "-i", final_audio_path,
-                        "-vf", f"subtitles='{escaped_srt}'{style_str}",
-                        "-map", "0:v:0",
-                        "-map", "1:a:0",
-                        "-c:v", "libx264", "-profile:v", "high", "-level:v", "4.2",
-                        "-pix_fmt", "yuv420p", "-b:v", "4M",
-                        "-c:a", "aac", "-strict", "-2",
-                        "-shortest", output_path
-                    ]
-                else:
-                    cmd_mux = [
-                        "ffmpeg", "-y",
-                        "-i", video_path,
-                        "-i", final_audio_path,
-                        "-map", "0:v:0",
-                        "-map", "1:a:0",
-                        "-c:v", "copy",
-                        "-c:a", "aac",
-                        "-strict", "-2",
-                        "-shortest", output_path
-                    ]
+                filter_nodes.append(f"{current_v}null[outv]")
+
+            filter_complex_str = ";".join(filter_nodes)
+
+            cmd_mux = [
+                "ffmpeg", "-y",
+                "-i", video_path,
+                "-i", final_audio_path,
+                "-filter_complex", filter_complex_str,
+                "-map", "[outv]",
+                "-map", "1:a:0",
+                "-c:v", "libx264", "-profile:v", "high", "-level:v", "4.2",
+                "-pix_fmt", "yuv420p", "-b:v", "4M",
+                "-c:a", "aac", "-strict", "-2",
+                "-shortest", output_path
+            ]
 
             subprocess.run(cmd_mux, capture_output=True, check=True, env=env_copy)
 

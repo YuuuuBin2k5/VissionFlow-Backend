@@ -74,6 +74,10 @@ class DubbingStrategy(RenderStrategy):
         aspect_ratio = metadata.get("aspect_ratio") or "original"
         burn_subtitles = metadata.get("burn_subtitles", True)
         mute_original_audio = metadata.get("mute_original_audio", False)
+        blur_original_subtitles = metadata.get("blur_original_subtitles", True)
+        blur_region_height_ratio = metadata.get("blur_region_height_ratio", 0.20)
+        logo_handle = metadata.get("logo_handle") or "@GocChiemNghiemYuuBin"
+        caption_preset = metadata.get("caption_preset") or "montserrat"
 
         dubber = DubbingService()
         success, timeline = await dubber.execute_dubbing_pipeline(
@@ -85,6 +89,10 @@ class DubbingStrategy(RenderStrategy):
             aspect_ratio=aspect_ratio,
             burn_subtitles=burn_subtitles,
             mute_original_audio=mute_original_audio,
+            blur_original_subtitles=blur_original_subtitles,
+            blur_region_height_ratio=blur_region_height_ratio,
+            logo_handle=logo_handle,
+            caption_preset=caption_preset,
         )
 
         if not success or not os.path.exists(output_path):
