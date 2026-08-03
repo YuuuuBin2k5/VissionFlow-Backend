@@ -95,11 +95,11 @@ class LLMService:
         
         if self.gemini_keys:
             self.model = genai.Client(api_key=self.gemini_keys[0])
-            print(f"[LLMService] Gemini AI initialized successfully with {len(self.gemini_keys)} keys ✅")
+            print(f"[LLMService] Gemini AI initialized successfully with {len(self.gemini_keys)} keys [OK]")
         elif self.groq_key:
-            print("[LLMService] Groq AI initialized as primary LLM (Gemini keys unavailable) ✅")
+            print("[LLMService] Groq AI initialized as primary LLM (Gemini keys unavailable) [OK]")
         elif self.openrouter_key:
-            print("[LLMService] OpenRouter AI initialized as primary LLM (Gemini/Groq keys unavailable) ✅")
+            print("[LLMService] OpenRouter AI initialized as primary LLM (Gemini/Groq keys unavailable) [OK]")
         else:
             print("[LLMService] ERROR: No LLM API keys set. Production generation is blocked.")
 
