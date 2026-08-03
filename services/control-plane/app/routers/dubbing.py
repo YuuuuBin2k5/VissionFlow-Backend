@@ -1,7 +1,6 @@
 import os
 import json
 import uuid
-import pymysql
 from typing import Optional
 from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException, status
@@ -65,6 +64,7 @@ def dispatch_dubbing_job(payload: DubbingDispatchRequest):
     }
 
     try:
+        import pymysql
         conn = pymysql.connect(
             host=db_host,
             port=db_port,

@@ -10,3 +10,5 @@ redis>=5.2,<6.0
 boto3>=1.35,<2.0
 # OAuth code exchange, token refresh, and the YouTube Data API adapter.
 requests>=2.32,<3.0
+PyMySQL>=1.1.0
+
