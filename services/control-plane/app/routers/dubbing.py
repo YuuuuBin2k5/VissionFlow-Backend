@@ -12,6 +12,7 @@ class DubbingDispatchRequest(BaseModel):
     source_url: Optional[str] = None
     file_path: Optional[str] = None
     voice_code: str = "edge-nam-minh"
+    target_language: str = "auto"
     voice_gender: str = "female"
     aspect_ratio: str = "original"
     burn_subtitles: bool = True
@@ -48,6 +49,7 @@ def dispatch_dubbing_job(payload: DubbingDispatchRequest):
         "dub_source_url": payload.source_url,
         "dub_source_path": payload.file_path,
         "voice_code": payload.voice_code,
+        "target_language": payload.target_language,
         "voice_gender": payload.voice_gender,
         "aspect_ratio": payload.aspect_ratio,
         "burn_subtitles": payload.burn_subtitles,

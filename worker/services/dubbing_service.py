@@ -56,15 +56,15 @@ class DubbingService:
         timeline = self.transcription_service.transcribe_lyrics(audio_path, language=source_language)
         return timeline
 
-    async def translate_timeline(self, timeline: list, progress_callback=None) -> list:
-        """Sử dụng Gemini AI để dịch câu thoại sát nghĩa chuẩn hoạt hình, có tối ưu hóa chia lô (batching) và gối đầu ngữ cảnh (context overlap) cho các video siêu dài."""
-        if progress_callback:
-            progress_callback("Đang tiến hành dịch thuật thông minh bằng Gemini 3.5-Flash...")
+    async def translate_timeline(self, timeline: list, progress_callback=None, target_language: str = "vi") -> list:
+        """Sử dụng Gemini AI để dịch câu thoại sát nghĩa chuẩn hoạt hình/phim ảnh theo ngôn ngữ đích chỉ định."""
+        target_lang_clean = (target_language or "vi").strip().lower()
+        is_english = target_lang_clean in ["en", "english"]
+        lang_name = "tiếng Anh (English)" if is_english else "tiếng Việt"
 
-        """
-        Dịch thuật kịch bản tự động bằng Gemini AI kết hợp phân vai hội thoại đa nhân vật (Speaker Diarization)
-        độ chính xác cao dựa trên phân tích ngữ cảnh ngữ nghĩa.
-        """
+        if progress_callback:
+            progress_callback(f"Đang tiến hành dịch thuật thông minh sang {lang_name} bằng Gemini AI...")
+
         if not timeline:
             return []
 
@@ -78,7 +78,7 @@ class DubbingService:
         for batch_idx, batch in enumerate(batches):
             batch_start_idx = batch_idx * batch_size
             if progress_callback:
-                progress_callback(f"Đang tiến hành dịch thuật & phân vai nhóm thoại {batch_idx + 1}/{len(batches)}...")
+                progress_callback(f"Đang tiến hành dịch thuật & phân vai nhóm thoại {batch_idx + 1}/{len(batches)} (sang {lang_name})...")
 
             # Tạo ngữ cảnh gối đầu (Context Overlap) kèm thông tin định danh nhân vật đã biết
             context_data = []
@@ -109,15 +109,35 @@ class DubbingService:
             # Xây dựng danh sách các nhân vật đã định danh để yêu cầu AI sử dụng nhất quán
             known_chars_str = ", ".join(identified_characters) if identified_characters else "Chưa có (Hãy tự định danh)"
 
+            if is_english:
+                lang_rule_details = (
+                    "Bản dịch phải là 100% tiếng Anh tự nhiên, mượt mà chuẩn văn phong điện ảnh Hollywood/TikTok Shorts phương Tây. "
+                    "Tuyệt đối KHÔNG được để sót bất kỳ chữ Hán (chữ Trung Quốc), ký tự phiên âm, hoặc ký tự ngoại lai nào."
+                )
+                context_rule_details = "Chọn từ vựng và văn phong tiếng Anh chuẩn điện ảnh, tự nhiên phù hợp với bối cảnh đối thoại."
+            else:
+                lang_rule_details = (
+                    "Bản dịch phải là 100% tiếng Việt thuần túy, tuyệt đối KHÔNG được để sót bất kỳ chữ Hán (chữ Trung Quốc), "
+                    "ký tự phiên âm, hoặc ký tự ngoại lai nào trong kết quả dịch. Tất cả các từ tiếng Trung (như \"胆小\", \"欺负\", \"娇气\", \"台面\") "
+                    "phải được chuyển ngữ hoàn toàn sang từ ngữ tiếng Việt điện ảnh tương đương tự nhiên nhất (ví dụ: \"nhút nhát\", \"bắt nạt\", \"yểu điệu\", \"sân khấu/thể diện\")."
+                )
+                context_rule_details = (
+                    "Phân tích kỹ quan hệ giữa các nhân vật dựa trên bối cảnh để chọn đại từ xưng hô tiếng Việt phù hợp, nhất quán và đậm chất điện ảnh:\n"
+                    "     * Người lớn đối với trẻ em: Cô/Chú/Ta - Cháu/Con/Ngươi.\n"
+                    "     * Cảnh sát/Đội trưởng/Đồng đội: Đội trưởng/Tôi - Cậu/Mọi người/Đồng chí.\n"
+                    "     * Kẻ xấu và nạn nhân: Ta - Ngươi, Tao - Mày.\n"
+                    "     * Xưng hô thông thường lịch sự: Tôi - Bạn, Anh - Em."
+                )
+
             # Xây dựng prompt kèm cơ chế bối cảnh xưng hô và diarization
             prompt = f"""
 Bạn là chuyên gia biên dịch kịch bản lồng tiếng hoạt hình và phim ảnh kỳ cựu.
-Nhiệm vụ của bạn là dịch các phân đoạn thoại sau sang tiếng Việt, đồng thời phân tích ngữ cảnh để chia vai (Speaker Diarization) cho từng câu nói.
+Nhiệm vụ của bạn là dịch các phân đoạn thoại sau sang {lang_name}, đồng thời phân tích ngữ cảnh để chia vai (Speaker Diarization) cho từng câu nói.
 
 """
             if context_data:
                 prompt += f"""
-BỐI CẢNH HỘI THOẠI TRƯỚC ĐÓ (Chỉ dùng để tham khảo văn phong, cách xưng hô, KHÔNG dịch lại):
+BỐI CẢNH HỘI THOẠI TRƯỚC ĐÓ (Chỉ dùng để tham khảo văn phong, KHÔNG dịch lại):
 {json.dumps(context_data, ensure_ascii=False, indent=2)}
 
 """
@@ -130,18 +150,13 @@ DANH SÁCH NHÂN VẬT ĐÃ ĐƯỢC ĐỊNH DANH TRƯỚC ĐÓ (Hãy ưu tiên 
 
 QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
 1. DỊCH VĂN CẢNH & KHỚP THỜI LƯỢNG SÚC TÍCH (LIP-SYNC, RHYTHM & COMPACT WORD LIMIT):
-   - Bản dịch tiếng Việt phải giữ trọn vẹn ý nghĩa, kịch tính, văn phong và cảm xúc của câu thoại gốc. KHÔNG được rút gọn thô bạo hoặc cắt xén câu thoại xuống còn 1-2 từ cộc lốc trừ khi bản gốc thực sự ngắn như thế.
-   - Bản dịch phải là 100% tiếng Việt thuần túy, tuyệt đối KHÔNG được để sót bất kỳ chữ Hán (chữ Trung Quốc), ký tự phiên âm, hoặc ký tự ngoại lai nào trong kết quả dịch. Tất cả các từ tiếng Trung (như "胆小", "欺负", "娇气", "台面") phải được chuyển ngữ hoàn toàn sang từ ngữ tiếng Việt điện ảnh tương đương tự nhiên nhất (ví dụ: "nhút nhát", "bắt nạt", "yểu điệu", "sân khấu/thể diện").
-   - RÀNG BUỘC ĐỘ DÀI TỪ VỰNG SÚC TÍCH: Tiếng Việt dịch ra phải cực kỳ súc tích, cô đọng, bỏ hết các từ đệm thừa thãi (nhé, nha, đấy, hoàn toàn, thực sự...) để đảm bảo tốc độ đọc tự nhiên khớp với thời lượng gốc của tiếng Trung (khoảng 2.0 đến 3.0 từ tiếng Việt cho mỗi 1 giây thời lượng). Điều này giúp giảm thiểu tối đa tải trọng co dãn Tempo của FFmpeg.
-   - KIẾN TRÚC HOOK NGƯỢC DÒNG (Contrarian Hook - 3 Giây Đầu): Nếu câu thoại đầu tiên là câu hook (0s - 3s), hãy dịch hoặc điều chỉnh câu nói này thành một lời khẳng định triệt lý mạnh mẽ, đi ngược lại suy nghĩ thông thường của đám đông hoặc đánh thẳng nỗi đau nhức nhối để kích thích tương tác bình luận. Tuyệt đối loại bỏ các từ mở đầu dông dài như "Bạn có biết", "Hôm nay mình...".
-   - CẤU TRÚC VÒNG LẶP VÔ TẬN (Seamless Loop): Tinh chỉnh câu thoại cuối cùng của video kết thúc lửng lơ bằng một vế câu mở sao cho khi nối liền mạch với câu Hook đầu tiên khi video lặp lại tạo thành một câu hoàn chỉnh, logic và cực kỳ mượt mà về mặt ngữ nghĩa.
-   - Ví dụ: Câu thoại dài 2.0 giây thì bản dịch nên có khoảng 4-6 từ. Câu dài 4.0 giây nên có khoảng 8-12 từ. Điều này đảm bảo câu thoại nghe tự nhiên, đầy đủ ý nghĩa và không bị trống rỗng hay quá dồn dập.
-2. XƯNG HÔ ĐÚNG NGỮ CẢNH PHIM ẢNH (DRAMATIC CONTEXT):
-   - Phân tích kỹ quan hệ giữa các nhân vật dựa trên bối cảnh để chọn đại từ xưng hô tiếng Việt phù hợp, nhất quán và đậm chất điện ảnh:
-     * Người lớn đối với trẻ em: Cô/Chú/Ta - Cháu/Con/Ngươi.
-     * Cảnh sát/Đội trưởng/Đồng đội: Đội trưởng/Tôi - Cậu/Mọi người/Đồng chí.
-     * Kẻ xấu và nạn nhân: Ta - Ngươi, Tao - Mày.
-     * Xưng hô thông thường lịch sự: Tôi - Bạn, Anh - Em.
+   - Bản dịch sang {lang_name} phải giữ trọn vẹn ý nghĩa, kịch tính, văn phong và cảm xúc của câu thoại gốc. KHÔNG được rút gọn thô bạo hoặc cắt xén câu thoại xuống còn 1-2 từ cộc lốc trừ khi bản gốc thực sự ngắn như thế.
+   - {lang_rule_details}
+   - RÀNG BUỘC ĐỘ DÀI TỪ VỰNG SÚC TÍCH: Bản dịch dịch ra phải cực kỳ súc tích, cô đọng, bỏ hết các từ đệm thừa thãi để đảm bảo tốc độ đọc tự nhiên khớp với thời lượng gốc (khoảng 2.0 đến 3.0 từ cho mỗi 1 giây thời lượng). Điều này giúp giảm thiểu tối đa tải trọng co dãn Tempo của FFmpeg.
+   - KIẾN TRÚC HOOK NGƯỢC DÒNG (Contrarian Hook - 3 Giây Đầu): Nếu câu thoại đầu tiên là câu hook (0s - 3s), hãy dịch hoặc điều chỉnh câu nói này thành một lời khẳng định triệt lý mạnh mẽ, đi ngược lại suy nghĩ thông thường của đám đông hoặc đánh thẳng nỗi đau nhức nhối để kích thích tương tác bình luận.
+   - CẤU TRÚC VÒNG LẶP VÔ TẬN (Seamless Loop): Tinh chỉnh câu thoại cuối cùng của video kết thúc lửng lơ bằng một vế câu mở sao cho khi nối liền mạch với câu Hook đầu tiên khi video lặp lại tạo thành một câu hoàn chỉnh, logic.
+2. PHONG CÁCH VĂN PHONG VÀ XƯNG HÔ (DRAMATIC CONTEXT):
+   - {context_rule_details}
 3. PHÂN VAI NHÂN VẬT (SPEAKER DIARIZATION):
    - Phân tích ngữ cảnh câu thoại để gán thuộc tính nhân vật một cách nhất quán cho toàn bộ video:
      * "speaker_id": Đặt tên viết hoa ngắn gọn định danh nhân vật nói câu này (ví dụ: MOTHER, DAUGHTER, CAPTAIN, BOY_A, BOY_B). Hãy giữ nguyên tên nhân vật đã có nếu trùng khớp đối thoại.
@@ -524,6 +539,8 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
         video_path: str,
         output_path: str,
         voice_gender: str = "female",
+        voice_code: str = "edge-nam-minh",
+        target_language: str = "vi",
         source_language: str = "auto",
         progress_callback=None,
         aspect_ratio: str = "original",
@@ -594,15 +611,16 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
                         print("[DubbingService Warning] Cache length mismatch with merged timeline, re-translating...")
 
                 if not use_cached_trans:
-                    timeline = await self.translate_timeline(timeline, progress_callback)
+                    timeline = await self.translate_timeline(timeline, progress_callback=progress_callback, target_language=target_language)
                     with open(trans_cache_path, "w", encoding="utf-8") as f:
                         json.dump(timeline, f, ensure_ascii=False, indent=2)
 
-                # 4. Sinh tiếng lồng tiếng Việt bằng Edge-TTS & Tự động co dãn (Time-Stretch)
+                # 4. Sinh tiếng lồng tiếng bằng TTS & Tự động co dãn (Time-Stretch)
                 if progress_callback:
-                    progress_callback("Đang sinh các câu lồng tiếng Việt bằng Edge-TTS...")
+                    lang_msg = "tiếng Anh" if (target_language or "").strip().lower() in ["en", "english"] else "tiếng Việt"
+                    progress_callback(f"Đang sinh giọng lồng {lang_msg} ({voice_code}) bằng AI...")
 
-                tts_service = TTSService()
+                tts_service = TTSService(voice=voice_code)
 
                 dub_clips = []
                 realized_timeline = []

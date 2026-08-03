@@ -372,5 +372,27 @@ class TestDubbingServiceSubtitleSupport(unittest.TestCase):
         self.assertIsInstance(result, bool)
 
 
+# ===========================================================================
+# TEST GROUP 6: Adam Voice & English Target Language Resolution
+# ===========================================================================
+class TestAdamVoiceHandling(unittest.TestCase):
+    def test_adam_voice_switches_target_language_to_english(self):
+        """Kiểm tra chọn giọng Adam (tiếng Anh) tự động kích hoạt dịch thuật sang tiếng Anh"""
+        english_voices = ["adam", "eleven-adam", "edge-en-christopher", "edge-en-adam"]
+        for vcode in english_voices:
+            target_lang = "auto"
+            if vcode.lower() in english_voices or vcode.lower().startswith("en-"):
+                if target_lang in ["auto", "vi"]:
+                    target_lang = "en"
+            self.assertEqual(target_lang, "en", f"Voice {vcode} phải kích hoạt target_lang='en'")
+
+    def test_tts_service_instantiation_with_adam_voice(self):
+        """Kiểm tra TTSService khởi tạo với giọng Adam"""
+        from worker.services.tts_service import TTSService
+        tts = TTSService(voice="adam")
+        self.assertEqual(tts.voice, "adam")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+

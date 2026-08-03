@@ -67,6 +67,15 @@ class DubbingStrategy(RenderStrategy):
             )
 
         voice_gender = metadata.get("voice_gender") or "female"
+        voice_code = metadata.get("voice_code") or "edge-nam-minh"
+        target_language = metadata.get("target_language") or "auto"
+
+        # Tự động chuyển target_language sang 'en' nếu chọn giọng lồng tiếng Anh (Adam, Christopher, etc.)
+        english_voices = ["adam", "eleven-adam", "edge-en-christopher", "edge-en-adam"]
+        if voice_code.lower() in english_voices or voice_code.lower().startswith("en-"):
+            if target_language in ["auto", "vi"]:
+                target_language = "en"
+
         source_language = "auto"
         if source_url and "douyin.com" in (source_url or ""):
             source_language = "zh"
@@ -84,6 +93,8 @@ class DubbingStrategy(RenderStrategy):
             video_path=source_path,
             output_path=output_path,
             voice_gender=voice_gender,
+            voice_code=voice_code,
+            target_language=target_language,
             source_language=source_language,
             progress_callback=lambda msg: log_realtime_progress(job_id, "DUBBING_PIPELINE", "INFO", msg),
             aspect_ratio=aspect_ratio,
