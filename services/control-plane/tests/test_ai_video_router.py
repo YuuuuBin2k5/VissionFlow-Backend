@@ -1,8 +1,7 @@
 """Comprehensive Pytest Unit Tests for AI Video Router, Circuit Breaker, and Fallbacks."""
 
 import pytest
-import pytest_asyncio
-from app.domain.ai_video_router import AIVideoRouterEngine, SceneCategory, ProviderHealthStatus
+from app.domain.ai_video_router import AIVideoRouterEngine, SceneCategory
 from app.application.generate_ai_video_scene import (
     GenerateAIVideoScene,
     GenerateSceneVideoCommand,

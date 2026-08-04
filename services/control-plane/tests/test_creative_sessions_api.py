@@ -4,7 +4,7 @@ import unittest
 import uuid
 from datetime import datetime, timedelta, UTC
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -19,7 +19,6 @@ from app.core.oidc import VerifiedIdentity
 from app.routers.auth import require_identity
 from app.infrastructure.database import get_session
 from app.infrastructure.models import (
-    Base,
     Organization,
     User,
     OrganizationMembership,
@@ -27,15 +26,11 @@ from app.infrastructure.models import (
     CreativeMessage,
     CreativeProposal,
     CreativeTurn,
-    CreativeCommandReceipt,
-    ProviderCredential,
     PromptTemplate,
     PromptVersion,
-    WorkflowRun,
 )
 from app.application.ports.creative_planning_provider import CreativePlanningProvider
 from app.domain.authorization import OrganizationRole
-from app.core.credential_cipher import ProviderCredentialCipher
 
 
 class MockCreativePlanningProvider(CreativePlanningProvider):
@@ -358,7 +353,7 @@ class CreativeSessionsApiTests(unittest.TestCase):
 
         # 3. Simulate Generating In-Progress (Unexpired lease block)
         # Directly insert a generating turn in DB
-        sess_ref = self.session.get(CreativeSession, sess_id)
+        self.session.get(CreativeSession, sess_id)
         msg_user = CreativeMessage(session_id=sess_id, actor="user", content="Next message")
         self.session.add(msg_user)
         self.session.flush()
@@ -494,7 +489,7 @@ class CreativeSessionsApiTests(unittest.TestCase):
         )
         self.assertEqual(res_draft.status_code, status.HTTP_200_OK)
         wf_run_id = res_draft.json()["workflow_run_id"]
-        doc_version_id = res_draft.json()["creative_document_version_id"]
+        res_draft.json()["creative_document_version_id"]
         self.assertIsNotNone(wf_run_id)
 
         # Verify Session workflow_run_id mapping

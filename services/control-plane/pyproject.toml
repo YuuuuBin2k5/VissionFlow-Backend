@@ -1,0 +1,36 @@
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+# Enable common rules
+select = ["E", "F", "I", "B", "SIM", "RUF"]
+
+# Global ignores
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B017",   # blind except: Exception (acceptable in tests)
+    "SIM117", # nested with statements (acceptable pattern)
+    "RUF007", # prefer itertools.pairwise (py311+ only, optional)
+    "RUF059", # unpacked variable unused (test patterns)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Test files use sys.path.insert() before imports — E402 is unavoidable
+"tests/**/*.py" = [
+    "E402",   # module level import not at top of file
+    "I001",   # import sorting (tests use deferred local imports)
+    "F401",   # unused imports (test fixtures may import for side effects)
+    "SIM117", # nested with (assertRaises pattern)
+    "B017",   # blind Exception in assertRaises
+    "B905",   # zip() without strict= (test utility code)
+    "RUF012", # mutable class attribute (test environment dicts are fine)
+    "RUF059", # unpacked variable unused
+    "RUF100", # unused noqa directives
+    "E701",   # multiple statements on one line (colon)
+    "E702",   # multiple statements on one line (semicolon)
+    "RUF007", # prefer itertools.pairwise
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]

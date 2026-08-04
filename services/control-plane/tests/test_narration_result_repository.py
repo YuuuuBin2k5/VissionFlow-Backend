@@ -25,7 +25,6 @@ from app.application.record_narration_generated import (
 )
 from app.domain.workflow import WorkflowState
 from app.infrastructure.models import (
-    Base,
     Organization,
     CreativeDocument,
     CreativeDocumentVersion,
@@ -402,7 +401,6 @@ class SqlAlchemyNarrationResultRepositoryTests(unittest.TestCase):
             source_metadata=SourceMetadataPayload(provider="google", model="gemini-1.5-pro"),
             narration_attempt_id=f"narration-{self.run.id}-attempt-1",
         )
-        from app.application.record_narration_generated import ActiveNarrationAttemptMissing
         with self.assertRaises(ActiveNarrationAttemptMissing):
             self.repository.record_narration_result(command)
 

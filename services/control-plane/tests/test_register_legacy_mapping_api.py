@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import base64
-import contextlib
 import os
 import sys
 import unittest
@@ -20,7 +19,6 @@ SERVICE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SERVICE_ROOT))
 
 from app.infrastructure.models import (
-    Base,
     Organization,
     VideoProject,
     WorkflowRun,
