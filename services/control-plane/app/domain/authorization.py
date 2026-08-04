@@ -15,6 +15,7 @@ class Permission(StrEnum):
     WORKFLOW_CREATE = "workflow:create"
     WORKFLOW_VIEW = "workflow:view"
     WORKFLOW_ADVANCE = "workflow:advance"
+    WORKFLOW_DELETE = "workflow:delete"
     WORKFLOW_NARRATION_COMPLETE = "workflow:narration:complete"
     # Scope granted only to the legacy intake/orchestrator service identity.
     # Must NOT be granted to the narration worker or any human-facing role.
@@ -40,7 +41,7 @@ ROLE_PERMISSIONS: dict[OrganizationRole, frozenset[Permission]] = {
             Permission.CREDENTIAL_RESOLVE,
         }
     ),
-    OrganizationRole.PRODUCER: frozenset({Permission.WORKFLOW_CREATE, Permission.WORKFLOW_VIEW}),
+    OrganizationRole.PRODUCER: frozenset({Permission.WORKFLOW_CREATE, Permission.WORKFLOW_VIEW, Permission.WORKFLOW_DELETE}),
     OrganizationRole.REVIEWER: frozenset({Permission.WORKFLOW_VIEW, Permission.PUBLISH_APPROVE}),
     OrganizationRole.VIEWER: frozenset({Permission.WORKFLOW_VIEW}),
 }

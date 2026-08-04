@@ -2,6 +2,7 @@ import os
 import json
 import re
 import random
+import time
 from google import genai
 from worker.config import GEMINI_API_KEYS
 
@@ -104,21 +105,44 @@ class LLMService:
             print("[LLMService] ERROR: No LLM API keys set. Production generation is blocked.")
 
     def _call_llm(self, prompt: str) -> str:
-        """Gọi LLM với cơ chế tự phục hồi, xoay vòng nhiều key Gemini và failover sang Groq / OpenRouter"""
+        """Gọi LLM với cơ chế tự phục hồi, xoay vòng nhiều key + model Gemini và failover sang Groq / OpenRouter"""
         errors = []
         
-        # 1. Thử gọi các key Gemini
+        # Danh sách các mô hình Gemini hỗ trợ (xoay vòng khi bị 429 quota per-model)
+        models_to_try = [
+            os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+        ]
+        # Xóa bớt trùng lặp nhưng giữ thứ tự
+        seen = set()
+        models_to_try = [m for m in models_to_try if not (m in seen or seen.add(m))]
+
+        # 1. Thử gọi các key Gemini kết hợp xoay vòng models
         for idx, api_key in enumerate(self.gemini_keys):
             try:
                 client = genai.Client(api_key=api_key)
-                response = client.models.generate_content(
-                    model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
-                    contents=prompt,
-                )
-                if response and getattr(response, "text", None):
-                    self.model = client
-                    return response.text
-                raise Exception("Phản hồi rỗng từ Gemini")
+                for model_name in models_to_try:
+                    try:
+                        response = client.models.generate_content(
+                            model=model_name,
+                            contents=prompt,
+                        )
+                        if response and getattr(response, "text", None):
+                            self.model = client
+                            print(f"[LLMService] Success using Gemini (Key {api_key[:6]}..., Model {model_name}) ✅")
+                            return response.text
+                        print(f"[LLMService Warning] Response text empty from Gemini model {model_name}")
+                    except Exception as m_err:
+                        m_err_str = str(m_err)
+                        errors.append(f"Gemini (Key {api_key[:6]}..., Model {model_name}): {m_err_str}")
+                        if "429" in m_err_str or "RESOURCE_EXHAUSTED" in m_err_str:
+                            print(f"[LLMService Warning] 429 Rate Limit on model {model_name}. Switching to next Gemini model...")
+                            continue
+                        else:
+                            # Lỗi khác (không phải 429), thử model tiếp theo
+                            continue
             except Exception as e:
                 errors.append(f"Gemini (Key {api_key[:6]}...): {e}")
                 

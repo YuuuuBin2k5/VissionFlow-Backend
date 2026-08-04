@@ -14,6 +14,17 @@ WORKSPACE_ROOT = Path(__file__).resolve().parents[1]
 if str(WORKSPACE_ROOT) not in sys.path:
     sys.path.insert(0, str(WORKSPACE_ROOT))
 
+# ====================================================================
+# BƯỚC 0: Nạp API keys từ Credential Vault trước khi làm bất cứ điều gì
+# Đây là bước quan trọng để các keys được thêm vào trang Credential Vault
+# (https://vision-flow-console.vercel.app/credential_vault) được dùng.
+# ====================================================================
+try:
+    from worker.credential_fetcher import bootstrap_credentials_from_vault
+    bootstrap_credentials_from_vault()
+except Exception as _cred_err:
+    print(f"[ProcessQueuedJobs] Warning: Credential Vault bootstrap failed (non-fatal): {_cred_err}")
+
 
 def process_postgresql_jobs() -> int:
     """Quét PostgreSQL (Control Plane DB) tìm các WorkflowRun thuộc loại AI Dubbing cần render."""
