@@ -1694,20 +1694,9 @@ def _process_publication_attempt_in_background(
                 language=lang
             )[:5000]
 
-            # ---- 7. Upload to YouTube via Resumable API ----------------------
-            # Determine whether this is a scheduled or immediate publish
+            # ---- 7. Upload to YouTube via Resumable API (Always UNLISTED) ----
             _publish_at_iso: str | None = None
-            _privacy_status = "public"
-            if scheduled_at_iso:
-                try:
-                    _scheduled_dt = datetime.fromisoformat(scheduled_at_iso.replace("Z", "+00:00"))
-                    _now_dt = datetime.now(timezone.utc)
-                    if _scheduled_dt > _now_dt:
-                        # Future datetime => use YouTube scheduled private upload
-                        _publish_at_iso = _scheduled_dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
-                        _privacy_status = "private"  # YouTube requires private for scheduled
-                except (ValueError, TypeError):
-                    pass  # fallback to immediate public
+            _privacy_status = "unlisted"
             uploader = YouTubeResumableUploader(http_session)
             result = uploader.upload(
                 access_token=token.value,
@@ -1720,7 +1709,7 @@ def _process_publication_attempt_in_background(
                     category_id="28",
                     default_language="vi",
                     self_declared_made_for_kids=False,
-                    publish_at_iso=_publish_at_iso,
+                    publish_at_iso=None,
                     embeddable=True,
                     license="youtube",
                 ),

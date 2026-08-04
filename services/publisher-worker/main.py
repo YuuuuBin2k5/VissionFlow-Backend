@@ -44,21 +44,9 @@ def _upload_manifest(session: requests.Session, manifest: dict[str, object]) -> 
         else:
             description = raw_desc
 
-        # Check future scheduled ISO timestamp for YouTube publishAt feature
+        # Forced unlisted mode per user preference (no scheduled publishAt)
         publish_at_iso = None
-        raw_publish_at = manifest.get("publish_at_iso") or manifest.get("scheduled_at_iso")
-        if isinstance(raw_publish_at, str) and raw_publish_at.strip():
-            try:
-                from datetime import datetime, timezone
-                dt_publish = datetime.fromisoformat(raw_publish_at.replace("Z", "+00:00"))
-                if dt_publish > datetime.now(timezone.utc):
-                    publish_at_iso = dt_publish.strftime("%Y-%m-%dT%H:%M:%S.000Z")
-            except Exception:
-                publish_at_iso = None
-
-        privacy = str(manifest.get("privacy_status") or os.getenv("YOUTUBE_DEFAULT_PRIVACY_STATUS") or "public").strip()
-        if privacy not in {"public", "unlisted", "private"}:
-            privacy = "public"
+        privacy = "unlisted"
 
         uploaded = YouTubeResumableUploader(session).upload(
             access_token=str(manifest["access_token"]),
@@ -67,8 +55,8 @@ def _upload_manifest(session: requests.Session, manifest: dict[str, object]) -> 
                 title=title[:100],
                 description=description[:5000],
                 tags=("Shorts", "AI", "VisionFlow", "Short", "Trending"),
-                privacy_status=privacy,
-                publish_at_iso=publish_at_iso,
+                privacy_status="unlisted",
+                publish_at_iso=None,
                 self_declared_made_for_kids=False,
                 category_id="28",
                 default_language="vi",

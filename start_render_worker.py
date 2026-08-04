@@ -321,19 +321,15 @@ def process_workflow_official(wf_id: str) -> bool:
             auto_publish_channel = prompt_manifest.get("auto_publish_channel", "asinmochii_boni")
 
             if auto_publish_enabled:
-                if auto_publish_mode == "scheduled" and scheduled_at_iso:
-                    wf_target.state = "SCHEDULED"
-                    print(f"[DB Auto-Publish] 📅 Auto-Publish ON: Workflow {wf_target.id} -> SCHEDULED for {scheduled_at_iso} (Channel: {auto_publish_channel})!\n")
-                else:
-                    wf_target.state = "PUBLISHED"
-                    print(f"[DB Auto-Publish] ⚡ Auto-Publish ON: Workflow {wf_target.id} -> AUTO-PUBLISHED immediately (Channel: {auto_publish_channel})!\n")
-                    try:
-                        from worker.application.publish_use_case import handle_publish
-                        job_id = int(wf_target.metadata_json.get("job_id", 0)) if wf_target.metadata_json else 0
-                        if job_id:
-                            handle_publish(job_id=job_id)
-                    except Exception as pub_err:
-                        print(f"[DB Auto-Publish Notice] Immediate publish execution: {pub_err}\n")
+                wf_target.state = "PUBLISHED"
+                print(f"[DB Auto-Publish] ⚡ Auto-Publish ON (Unlisted): Workflow {wf_target.id} -> AUTO-PUBLISHED immediately!\n")
+                try:
+                    from worker.application.publish_use_case import handle_publish
+                    job_id = int(wf_target.metadata_json.get("job_id", 0)) if wf_target.metadata_json else 0
+                    if job_id:
+                        handle_publish(job_id=job_id)
+                except Exception as pub_err:
+                    print(f"[DB Auto-Publish Notice] Immediate publish execution: {pub_err}\n")
             else:
                 wf_target.state = "APPROVAL_PENDING"
                 print(f"[DB] Auto-Publish OFF: Workflow {wf_target.id} -> APPROVAL_PENDING (Standard flow preserved)!\n")

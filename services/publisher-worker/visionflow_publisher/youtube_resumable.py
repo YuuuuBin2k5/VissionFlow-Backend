@@ -22,7 +22,7 @@ class YouTubeUploadMetadata:
     title: str
     description: str
     tags: tuple[str, ...]
-    privacy_status: str = "public"
+    privacy_status: str = "unlisted"
     publish_at_iso: str | None = None
     self_declared_made_for_kids: bool = False
     category_id: str = "28"  # Science & Technology (24 = Entertainment)
@@ -64,14 +64,8 @@ class YouTubeResumableUploader:
             "selfDeclaredMadeForKids": metadata.self_declared_made_for_kids,
             "embeddable": metadata.embeddable,
             "license": metadata.license,
+            "privacyStatus": "unlisted",  # Always force unlisted mode per user preference
         }
-
-        # If a future ISO timestamp is specified for scheduled publishing:
-        if metadata.publish_at_iso:
-            status["privacyStatus"] = "private"  # Required by YouTube API when publishAt is set
-            status["publishAt"] = metadata.publish_at_iso
-        else:
-            status["privacyStatus"] = metadata.privacy_status
 
         body = {
             "snippet": snippet,
