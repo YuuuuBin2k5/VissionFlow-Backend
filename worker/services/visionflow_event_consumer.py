@@ -95,10 +95,22 @@ class VisionFlowEventConsumer:
         # Queue messages deliberately remain small. Fetch the locked creative
         # snapshot at claim time so the worker renders exactly what the
         # operator approved, never a mutable editor draft.
-        intake = {**intake, "creative_document": self._control_plane.get_creative_document(workflow_run_id, trace_id=fields.get("trace_id"))}
+        creative_doc = None
+        try:
+            creative_doc = self._control_plane.get_creative_document(workflow_run_id, trace_id=fields.get("trace_id"))
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Could not fetch creative document for workflow %s (non-fatal, e.g. Dubbing job): %s",
+                workflow_run_id,
+                exc,
+            )
+
+        intake = {**intake, "creative_document": creative_doc}
         self._intelligence.execute(
             workflow_run_id,
             intake,
             event_id=fields["event_id"],
             trace_id=fields.get("trace_id"),
         )
+

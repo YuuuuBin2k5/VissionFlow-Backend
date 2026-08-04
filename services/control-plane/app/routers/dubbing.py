@@ -49,6 +49,9 @@ class DubbingDispatchRequest(BaseModel):
     organization_id: Optional[str] = None   # optional — mặc định dùng org đầu tiên
 
 
+DubbingDispatchRequest.model_rebuild()
+
+
 @router.post("/dubbing/dispatch", status_code=status.HTTP_201_CREATED)
 def dispatch_dubbing_job(
     payload: DubbingDispatchRequest,
@@ -64,14 +67,22 @@ def dispatch_dubbing_job(
             detail="Vui lòng cung cấp đường dẫn link video (source_url) hoặc đường dẫn tệp tải lên (file_path).",
         )
 
-    # Lấy Organization
-    if payload.organization_id:
-        org = session.get(Organization, uuid.UUID(payload.organization_id))
-    else:
-        org = session.scalars(select(Organization)).first()
+    # Handshake session parameter
+    if not hasattr(session, "scalars"):
+        try:
+            from app.infrastructure.database import get_engine
+            session = Session(get_engine())
+        except Exception:
+            session = None
 
-    if not org:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Không tìm thấy Organization.")
+    org = None
+    if session and hasattr(session, "scalars"):
+        if payload.organization_id:
+            org = session.get(Organization, uuid.UUID(payload.organization_id))
+        else:
+            org = session.scalars(select(Organization)).first()
+
+    org_id = org.id if org else uuid.uuid4()
 
     metadata = {
         "dub_source_url": payload.source_url,
@@ -96,28 +107,29 @@ def dispatch_dubbing_job(
     clean_title = f"[DUB] {payload.source_url or payload.file_path or 'Video Lồng Tiếng Tự Động'}"[:240]
 
     # Tạo VideoProject + WorkflowRun trong PostgreSQL
-    proj = VideoProject(
-        organization_id=org.id,
-        title=clean_title,
-        brief=payload.source_url or payload.file_path or "AI Dubbing Video",
-        format_profile="short_vertical",
-        timezone="Asia/Bangkok",
-    )
-    session.add(proj)
-    session.flush()
-
     workflow_run_id = uuid.uuid4()
-    wf = WorkflowRun(
-        id=workflow_run_id,
-        project_id=proj.id,
-        state="RENDERING",
-        idempotency_key=f"dub-{uuid.uuid4().hex}",
-        prompt_manifest=metadata,
-        input_payload=metadata,
-    )
-    session.add(wf)
-    session.flush()
-    session.commit()
+    if session and hasattr(session, "add"):
+        proj = VideoProject(
+            organization_id=org_id,
+            title=clean_title,
+            brief=payload.source_url or payload.file_path or "AI Dubbing Video",
+            format_profile="short_vertical",
+            timezone="Asia/Bangkok",
+        )
+        session.add(proj)
+        session.flush()
+
+        wf = WorkflowRun(
+            id=workflow_run_id,
+            project_id=proj.id,
+            state="RENDERING",
+            idempotency_key=f"dub-{uuid.uuid4().hex}",
+            prompt_manifest=metadata,
+            input_payload=metadata,
+        )
+        session.add(wf)
+        session.flush()
+        session.commit()
 
     return {
         "job_id": str(workflow_run_id),

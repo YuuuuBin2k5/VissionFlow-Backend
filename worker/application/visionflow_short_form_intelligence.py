@@ -27,7 +27,24 @@ class LegacyLlmShortFormGenerator:
     def generate(self, intake: dict[str, Any]) -> dict[str, Any]:
         input_payload = intake.get("input_payload", {})
         if not isinstance(input_payload, dict):
-            raise ValueError("intake input_payload must be an object")
+            input_payload = {}
+
+        prompt_manifest = intake.get("prompt_manifest", {})
+        if not isinstance(prompt_manifest, dict):
+            prompt_manifest = {}
+
+        # Bypass LLM generation for AI Dubbing / Direct translation jobs
+        render_mode = input_payload.get("render_mode") or prompt_manifest.get("render_mode")
+        title_str = str(intake.get("title", ""))
+        if render_mode == "TRANSLATE_DUB" or title_str.startswith("[DUB]"):
+            return {
+                "full_voice_script": "AI Dubbing Video — Direct Voice Translation Pipeline — Automatic Subtitle & Audio Rendering",
+                "scenes_layout_json": [
+                    {"scene_id": 1, "narration": "AI Dubbing Part 1", "visual_description": "Auto Dubbing Scene 1"},
+                    {"scene_id": 2, "narration": "AI Dubbing Part 2", "visual_description": "Auto Dubbing Scene 2"},
+                    {"scene_id": 3, "narration": "AI Dubbing Part 3", "visual_description": "Auto Dubbing Scene 3"},
+                ]
+            }
 
         # Priority 1: use locked creative document from Control Plane
         creative_document = intake.get("creative_document")

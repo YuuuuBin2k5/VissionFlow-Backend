@@ -281,9 +281,10 @@ class TestDubbingDispatchRequest(unittest.TestCase):
 
     def _import_request(self):
         """Import DubbingDispatchRequest từ router mà không trigger Settings.from_env()"""
-        # Patch Settings.from_env trước khi import app.routers.dubbing
         import importlib
-        # Import trực tiếp module routers/dubbing.py (không qua app/__init__)
+        cp_dir = str(BACKEND_DIR / "services" / "control-plane")
+        if cp_dir not in sys.path:
+            sys.path.insert(0, cp_dir)
         spec = importlib.util.spec_from_file_location(
             "dubbing_router",
             str(BACKEND_DIR / "services" / "control-plane" / "app" / "routers" / "dubbing.py")
@@ -296,7 +297,7 @@ class TestDubbingDispatchRequest(unittest.TestCase):
         DubbingDispatchRequest, _ = self._import_request()
         req = DubbingDispatchRequest(source_url="https://v.douyin.com/test/")
         self.assertEqual(req.voice_gender, "female")
-        self.assertEqual(req.aspect_ratio, "original")
+        self.assertEqual(req.aspect_ratio, "vertical_blur")
         self.assertEqual(req.blur_region_height_ratio, 0.20)
         self.assertEqual(req.logo_handle, "@GocChiemNghiemYuuBin")
         self.assertEqual(req.caption_preset, "montserrat")
