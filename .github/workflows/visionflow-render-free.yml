@@ -37,7 +37,7 @@ jobs:
   render-approved-work:
     if: ${{ inputs.confirmed == 'RENDER' || github.event_name == 'schedule' || github.event_name == 'repository_dispatch' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 90  # Tăng từ 45 lên 90 phút cho các video dài 70+ segments
     env:
       DATABASE_URL: ${{ secrets.VISIONFLOW_DATABASE_URL }}
       REDIS_URL: ${{ secrets.VISIONFLOW_REDIS_URL }}

@@ -216,7 +216,7 @@ class TTSService:
             }
             req_text = text.replace("+", "plus").replace(" ", "+")
             data = f"status_code=0&speaker={speaker}&req_text={req_text}"
-            response = requests.post(url, headers=headers, data=data, timeout=10)
+            response = requests.post(url, headers=headers, data=data, timeout=4)  # Fail-fast: nếu 404 thì trả về nhanh, không chờ 10s
             if response.status_code == 200:
                 res_data = response.json()
                 if res_data.get("message") == "success" and "data" in res_data:
@@ -422,7 +422,7 @@ class TTSService:
             except Exception as edge_err:
                 print(f"[TTSService Warning] Edge-TTS attempt {attempt} failed: {edge_err}")
                 if attempt < max_edge_retries:
-                    sleep_time = attempt * 1.5
+                    sleep_time = attempt * 0.5  # Fail-fast: giảm từ 1.5s xuống 0.5s vì voice name đã được resolve đúng
                     print(f"[TTSService] Waiting {sleep_time} seconds before retrying Edge-TTS...")
                     await asyncio.sleep(sleep_time)
 
