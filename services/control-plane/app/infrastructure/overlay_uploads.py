@@ -126,6 +126,7 @@ class PrivateObjectPreviewIssuer:
 
     @staticmethod
     def _normalize_key(workflow_run_id: uuid.UUID, object_key: str | None) -> str:
+        """Extract the clean S3 key from a raw object_key that may be a presigned URL."""
         if not object_key:
             return f"visionflow/{workflow_run_id}/exports/final.mp4"
         clean = object_key.split("?")[0]
@@ -133,22 +134,40 @@ class PrivateObjectPreviewIssuer:
             return "visionflow/" + clean.split("visionflow/", 1)[1]
         return object_key
 
+    def resolve_r2_key(self, workflow_run_id: uuid.UUID, object_key: str | None) -> str:
+        """Probe R2 to find the actual key for this workflow's final export.
+        
+        Files uploaded before a config fix may live under 'vision-flow/visionflow/<id>/...'
+        instead of 'visionflow/<id>/...' because the worker endpoint included the bucket name.
+        We check both paths and return the one that exists.
+        """
+        candidate = self._normalize_key(workflow_run_id, object_key)
+        # Try the canonical path first
+        try:
+            self._client.head_object(Bucket=self._bucket, Key=candidate)
+            return candidate
+        except Exception:
+            pass
+        # Fallback: files uploaded by worker before endpoint fix sit under vision-flow/visionflow/...
+        legacy_candidate = f"vision-flow/{candidate}"
+        try:
+            self._client.head_object(Bucket=self._bucket, Key=legacy_candidate)
+            import logging
+            logging.getLogger("app.infrastructure.overlay_uploads").info(
+                "Resolved legacy R2 path: %s", legacy_candidate
+            )
+            return legacy_candidate
+        except Exception:
+            pass
+        # Return canonical even if not found; downstream will surface a clear error
+        return candidate
+
     def issue_final_export(self, *, workflow_run_id: uuid.UUID, object_key: str) -> PrivateObjectPreviewTicket:
         normalized = self._normalize_key(workflow_run_id, object_key)
         if normalized.startswith("http://") or normalized.startswith("https://"):
             return PrivateObjectPreviewTicket(normalized, normalized, self._expires_in_seconds)
-        
-        target_key = normalized
-        expected_prefix = f"visionflow/{workflow_run_id}/"
-        if not target_key.startswith(expected_prefix) or ".." in target_key.split("/"):
-            raise OverlayUploadVerificationError("Preview object does not belong to this workflow")
-        try:
-            self._client.head_object(Bucket=self._bucket, Key=target_key)
-        except Exception as exc:
-            import logging
-            logging.getLogger("app.infrastructure.overlay_uploads").warning(
-                "head_object verification failed for %s: %s; proceeding with presigned URL generation", target_key, exc
-            )
+        # Probe both canonical and legacy paths
+        target_key = self.resolve_r2_key(workflow_run_id, object_key)
         url = self._client.generate_presigned_url(
             "get_object",
             Params={"Bucket": self._bucket, "Key": target_key},

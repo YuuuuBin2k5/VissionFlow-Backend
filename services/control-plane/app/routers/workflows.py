@@ -1659,7 +1659,8 @@ def _process_publication_attempt_in_background(
         # ---- 5. Download MP4 from R2 (direct S3 client download or presigned URL) ----
         with tempfile.TemporaryDirectory() as tmpdir:
             mp4_path = Path(tmpdir) / "final.mp4"
-            r2_key = PrivateObjectPreviewIssuer._normalize_key(workflow_run_id, export_asset.object_key)
+            _preview_issuer = PrivateObjectPreviewIssuer.from_env()
+            r2_key = _preview_issuer.resolve_r2_key(workflow_run_id, export_asset.object_key)
             
             if r2_key.startswith("http://") or r2_key.startswith("https://"):
                 _bg_logger.info("Downloading final export from HTTP URL: %s", r2_key[:80])
@@ -1680,7 +1681,7 @@ def _process_publication_attempt_in_background(
                     _bg_logger.warning("Direct R2 download failed (%s); falling back to presigned URL", r2_err)
 
                 if not download_success:
-                    preview = PrivateObjectPreviewIssuer.from_env().issue_final_export(
+                    preview = _preview_issuer.issue_final_export(
                         workflow_run_id=workflow_run_id,
                         object_key=export_asset.object_key,
                     )
