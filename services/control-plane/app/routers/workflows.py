@@ -1656,22 +1656,42 @@ def _process_publication_attempt_in_background(
                 f"No final_export media asset found for workflow {workflow_run_id}"
             )
 
-        # ---- 5. Download MP4 from R2 via presigned URL ----------------------
-        preview = PrivateObjectPreviewIssuer.from_env().issue_final_export(
-            workflow_run_id=workflow_run_id,
-            object_key=export_asset.object_key,
-        )
-        _bg_logger.info(
-            "Downloading final export from R2: %s", preview.download_url[:80]
-        )
-
+        # ---- 5. Download MP4 from R2 (direct S3 client download or presigned URL) ----
         with tempfile.TemporaryDirectory() as tmpdir:
             mp4_path = Path(tmpdir) / "final.mp4"
-            dl_resp = http_session.get(preview.download_url, stream=True, timeout=(10, 120))
-            dl_resp.raise_for_status()
-            with open(mp4_path, "wb") as fh:
-                for chunk in dl_resp.iter_content(chunk_size=1024 * 1024):
-                    fh.write(chunk)
+            target_key = export_asset.object_key
+            
+            if target_key and (target_key.startswith("http://") or target_key.startswith("https://")):
+                _bg_logger.info("Downloading final export from HTTP URL: %s", target_key[:80])
+                dl_resp = http_session.get(target_key, stream=True, timeout=(10, 120))
+                dl_resp.raise_for_status()
+                with open(mp4_path, "wb") as fh:
+                    for chunk in dl_resp.iter_content(chunk_size=1024 * 1024):
+                        fh.write(chunk)
+            else:
+                _bg_logger.info("Downloading final export directly from R2/S3: %s", target_key)
+                download_success = False
+                try:
+                    preview_issuer = PrivateObjectPreviewIssuer.from_env()
+                    r2_key = target_key if (target_key and target_key.startswith("visionflow/")) else f"visionflow/{workflow_run_id}/exports/final.mp4"
+                    preview_issuer._client.download_file(preview_issuer._bucket, r2_key, str(mp4_path))
+                    download_success = True
+                    _bg_logger.info("Direct R2 download succeeded for key: %s", r2_key)
+                except Exception as r2_err:
+                    _bg_logger.warning("Direct R2 download failed (%s); falling back to presigned URL", r2_err)
+
+                if not download_success:
+                    preview = PrivateObjectPreviewIssuer.from_env().issue_final_export(
+                        workflow_run_id=workflow_run_id,
+                        object_key=export_asset.object_key,
+                    )
+                    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) VisionFlow/1.0"}
+                    dl_resp = http_session.get(preview.download_url, headers=headers, stream=True, timeout=(10, 120))
+                    dl_resp.raise_for_status()
+                    with open(mp4_path, "wb") as fh:
+                        for chunk in dl_resp.iter_content(chunk_size=1024 * 1024):
+                            fh.write(chunk)
+
             _bg_logger.info(
                 "Downloaded %d bytes for workflow %s",
                 mp4_path.stat().st_size,
