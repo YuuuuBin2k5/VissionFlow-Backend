@@ -445,9 +445,11 @@ async def download_video_link(job_id: int, url: str, output_dir: str) -> tuple:
     except asyncio.TimeoutError:
         # Không kịp spawn tiến trình trong 1.5 giây (hệ thống quá tải)
         print("[Pre-Validation Warning] Không thể khởi động tiến trình kiểm tra trong 1.5 giây — bỏ qua Pre-Validation, tiếp tục pipeline.")
-    except RuntimeError:
-        # Tái ném lỗi phân loại link để caller xử lý
-        raise
+    except RuntimeError as r_err:
+        if is_douyin:
+            print(f"[Pre-Validation Warning] Douyin pre-validation failed ({r_err}). Tiếp tục pipeline chính để Playwright / yt-dlp thu hoạch stream...")
+        else:
+            raise
     except Exception as pre_err:
         # Các lỗi bất ngờ trong Pre-Validation không được làm gián đoạn pipeline
         print(f"[Pre-Validation Warning] Lỗi không xác định khi kiểm tra link: {pre_err}. Tiếp tục pipeline.")

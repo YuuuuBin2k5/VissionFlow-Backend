@@ -80,7 +80,10 @@ class VisionFlowEventConsumer:
         payload = json.loads(fields.get("payload", "{}"))
         workflow_run_id = str(payload["workflow_run_id"])
 
-        # ─── Phát hiện AI Dubbing job sớm ───────────────────────────────────
+        # ─── AI Dubbing job: skip — process_queued_jobs.py xử lý trực tiếp ──
+        # Dubbing jobs được xử lý bởi process_queued_jobs.py quét PostgreSQL
+        # trực tiếp. Event consumer KHÔNG được chạy DubbingStrategy từ Redis
+        # stream vì sẽ gây double-processing (mỗi workflow chạy 2 lần).
         intake_raw = payload.get("intake") or {}
         input_payload_raw = intake_raw.get("input_payload") or {}
         prompt_manifest_raw = intake_raw.get("prompt_manifest") or {}
@@ -93,60 +96,10 @@ class VisionFlowEventConsumer:
 
         if is_dubbing_job:
             import logging
-            _dub_log = logging.getLogger(__name__)
-            _dub_log.info(
-                "Dubbing job detected for workflow %s (%s) — dispatching DubbingStrategy directly.",
-                workflow_run_id, title_raw[:60],
+            logging.getLogger(__name__).info(
+                "[EventConsumer] Dubbing job %s detected — skipping (handled by process_queued_jobs.py).",
+                workflow_run_id,
             )
-            try:
-                import asyncio
-                from worker.application.render_strategies.dubbing_strategy import DubbingStrategy
-                from worker.domain.render_contract import RenderContract, RenderMode, RenderStopStage
-
-                dub_meta = {**input_payload_raw, **prompt_manifest_raw}
-                job_dict = {
-                    "id": workflow_run_id,
-                    "video_title_idea": title_raw,
-                    "scenes_layout_json": json.dumps(dub_meta),
-                }
-                contract = RenderContract(
-                    job_id=workflow_run_id,
-                    title=title_raw,
-                    topic=dub_meta.get("dub_source_url") or title_raw,
-                    audience="auto-dubbing",
-                    mode=RenderMode.TRANSLATE_DUB,
-                    stop_at=RenderStopStage.VIDEO,
-                    voice_code=dub_meta.get("voice_code") or "edge-nam-minh",
-                    metadata=dub_meta,
-                )
-                asyncio.run(DubbingStrategy().execute(job_dict, contract))
-            except Exception as dub_err:
-                _dub_log.error(
-                    "DubbingStrategy failed for workflow %s: %s", workflow_run_id, dub_err
-                )
-                # Mark workflow as FAILED in Control Plane — do NOT re-raise so
-                # the consumer continues processing other events in the stream.
-                try:
-                    import sys as _sys
-                    import pathlib
-                    _root = pathlib.Path(__file__).resolve().parents[2]
-                    _cp_dir = str(_root / "services" / "control-plane")
-                    if _cp_dir not in _sys.path:
-                        _sys.path.insert(0, _cp_dir)
-
-                    from app.core.dubbing_bridge import sync_dubbing_job_to_control_plane
-                    sync_dubbing_job_to_control_plane(
-                        job_id=workflow_run_id,
-                        title=title_raw,
-                        metadata={"error": str(dub_err)[:500]},
-                        state="FAILED",
-                        workflow_run_id=workflow_run_id,
-                    )
-                except Exception as cp_err:
-                    _dub_log.warning(
-                        "Could not mark workflow %s FAILED in Control Plane: %s",
-                        workflow_run_id, cp_err,
-                    )
             return
 
 
