@@ -37,13 +37,20 @@ def process_postgresql_jobs() -> int:
     if db_url.startswith("postgresql://"):
         db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
 
+    FAKE_URLS = {
+        "https://v.douyin.com/xyz/",
+        "https://v.douyin.com/abc123/",
+        "my_video.mp4",
+        "https://www.tiktok.com/@user/video/123",
+    }
+
     try:
         engine = create_engine(db_url)
         with Session(engine) as session:
             rows = session.execute(
                 select(WorkflowRun, VideoProject)
                 .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
-                .where(WorkflowRun.state.in_(["QUEUED", "STORYBOARDED", "RENDERING"]))
+                .where(WorkflowRun.state.in_(["QUEUED", "STORYBOARDED", "RENDERING", "FAILED"]))
             ).all()
 
             dubbing_runs = []
@@ -53,6 +60,11 @@ def process_postgresql_jobs() -> int:
                 render_mode = manifest.get("render_mode") or payload.get("render_mode")
                 title = proj.title or ""
                 if render_mode == "TRANSLATE_DUB" or title.startswith("[DUB]") or "dub" in title.lower():
+                    source_url = manifest.get("dub_source_url") or payload.get("dub_source_url") or ""
+                    source_path = manifest.get("dub_source_path") or payload.get("dub_source_path") or ""
+                    # Bỏ qua các link test rác
+                    if source_url in FAKE_URLS or source_path in FAKE_URLS or "xyz" in source_url or "abc123" in source_url:
+                        continue
                     dubbing_runs.append((wf, proj))
 
             if not dubbing_runs:
