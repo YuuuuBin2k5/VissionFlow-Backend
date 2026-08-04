@@ -181,11 +181,22 @@ def get_dubbing_job_status(
         )
     ).first()
 
+    download_url = None
+    if asset:
+        try:
+            from worker.services.visionflow_object_storage import S3CompatibleObjectStorage, VisionFlowObjectStorageSettings
+            storage = S3CompatibleObjectStorage(VisionFlowObjectStorageSettings.from_env())
+            download_url = storage.generate_presigned_download_url(asset.object_key, expires_in_seconds=3600)
+        except Exception:
+            pass
+
     return {
         "job_id": str(wf.id),
         "workflow_run_id": str(wf.id),
         "state": wf.state,
         "output_path": asset.object_key if asset else None,
+        "download_url": download_url,
         "error": wf.failure_detail,
         "logs": logs,
     }
+
