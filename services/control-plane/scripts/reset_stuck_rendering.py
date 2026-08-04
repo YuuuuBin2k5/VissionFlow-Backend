@@ -243,9 +243,33 @@ def main() -> int:
             print(f"No workflows in {RECOVERABLE_STATES} state found. Nothing to do.")
             return 0
 
-        print(f"Found {len(rows)} workflow(s) to reset:\n")
-        success = 0
+        # ─── Lọc bỏ AI Dubbing jobs ─────────────────────────────────────────
+        # Dubbing jobs KHÔNG đi qua Redis stream — chỉ được xử lý bởi
+        # process_queued_jobs.py → DubbingStrategy. Không được reset chúng
+        # vào QUEUED + push Redis hay sẽ bị double-process hoặc lặp vô hạn.
+        standard_rows = []
+        skipped_dub = 0
         for run, project in rows:
+            title = str(project.title or "")
+            manifest = run.prompt_manifest or {}
+            payload_data = run.input_payload or {}
+            render_mode = manifest.get("render_mode") or payload_data.get("render_mode")
+            if title.startswith("[DUB]") or render_mode == "TRANSLATE_DUB":
+                print(f"  SKIP (Dubbing job — handled by process_queued_jobs.py): {run.id} [{title[:60]}]")
+                skipped_dub += 1
+            else:
+                standard_rows.append((run, project))
+
+        if skipped_dub:
+            print(f"Skipped {skipped_dub} AI Dubbing job(s) — use process_queued_jobs.py to render them.\n")
+
+        if not standard_rows:
+            print("No RENDERING/ASSETS_READY standard workflows to reset. Nothing to do.")
+            return 0
+
+        print(f"Found {len(standard_rows)} standard workflow(s) to reset:\n")
+        success = 0
+        for run, project in standard_rows:
             ok = reset_one(run, project, session, client, redis_client, redis_settings.stream, args.dry_run)
             if ok:
                 success += 1

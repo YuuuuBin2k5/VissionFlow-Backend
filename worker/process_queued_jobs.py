@@ -91,10 +91,19 @@ def process_postgresql_jobs() -> int:
                     metadata=dub_meta,
                 )
 
+                # Đánh dấu RENDERING trước khi bắt đầu — tránh reset_stuck_rendering.py
+                # không nhận ra và push nhầm vào Redis stream
+                try:
+                    wf.state = "RENDERING"
+                    session.commit()
+                except Exception:
+                    session.rollback()
+
                 try:
                     output_path = asyncio.run(strategy.execute(job_dict, contract))
                     print(f"[ProcessQueuedJobs] ✅ Workflow #{wf_id_str} completed -> {output_path}")
                     processed_count += 1
+                    # dubbing_bridge sẽ cập nhật state → APPROVAL_PENDING
                 except Exception as run_err:
                     print(f"[ProcessQueuedJobs Error] ❌ Workflow #{wf_id_str} failed: {run_err}")
                     try:

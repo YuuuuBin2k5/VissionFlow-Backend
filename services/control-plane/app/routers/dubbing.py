@@ -122,7 +122,7 @@ def dispatch_dubbing_job(
         wf = WorkflowRun(
             id=workflow_run_id,
             project_id=proj.id,
-            state="RENDERING",
+            state="QUEUED",   # process_queued_jobs.py sẽ pick up và chạy DubbingStrategy
             idempotency_key=f"dub-{uuid.uuid4().hex}",
             prompt_manifest=metadata,
             input_payload=metadata,
