@@ -1,61 +1,80 @@
+"""
+Dubbing Bridge — Worker → Control Plane
+========================================
+Được gọi từ DubbingStrategy (worker) sau khi render xong để:
+  - Cập nhật WorkflowRun.state → APPROVAL_PENDING
+  - Ghi MediaAsset (R2 key) vào PostgreSQL
+  - Video xuất hiện trong Review Queue / Control Tower
+
+NOTE: Từ khi dubbing.py được viết lại dùng PostgreSQL trực tiếp,
+workflow_run_id UUID có sẵn trong input_payload.
+Bridge này tìm WorkflowRun qua trường legacy_job_id để cập nhật.
+"""
+from __future__ import annotations
+
+import logging
 import os
-import sys
 import uuid
 from typing import Optional
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
-from app.infrastructure.models import Organization, VideoProject, WorkflowRun, MediaAsset
+from app.infrastructure.models import MediaAsset, Organization, VideoProject, WorkflowRun
+
+_log = logging.getLogger(__name__)
 
 
 def sync_dubbing_job_to_control_plane(
     job_id: int,
     title: str,
     metadata: dict,
-    state: str = "AI_PROCESSING",
+    state: str = "APPROVAL_PENDING",
     r2_object_key: Optional[str] = None,
-    byte_size: int = 0
+    byte_size: int = 0,
+    workflow_run_id: Optional[str] = None,
 ) -> str:
     """
-    Synchronizes a legacy MySQL dubbing job into the Control Plane PostgreSQL database
-    (VideoProject + WorkflowRun + MediaAsset).
+    Cập nhật WorkflowRun trong PostgreSQL sau khi Worker render xong.
 
-    This bridges AI Dubbing jobs so they automatically appear across:
-      - Control Tower (Workflows API)
-      - Review Queue (/review-queue)
-      - Publication Queue (/publication-queue)
-      - Content Scheduler (Calendar / List)
+    Ưu tiên tìm theo workflow_run_id (UUID) nếu có;
+    fallback sang legacy_job_id = 'dub-<job_id>' nếu được tạo từ MySQL bridge cũ.
+    Nếu không tìm thấy, tự tạo mới (backward compat).
     """
     db_url = os.getenv("DATABASE_URL")
-    if not db_url and os.path.exists("services/control-plane/.env"):
-        with open("services/control-plane/.env") as f:
-            for line in f:
-                if line.startswith("DATABASE_URL="):
-                    db_url = line.strip().split("=", 1)[1].strip("'\"")
-
     if not db_url:
+        _log.warning("[dubbing_bridge] DATABASE_URL not set, skipping sync.")
         return ""
 
     engine = create_engine(db_url)
     with Session(engine) as session:
-        org = session.scalars(select(Organization)).first()
-        if not org:
-            return ""
-
-        legacy_key = f"dub-{job_id}"
-        wf = session.scalars(select(WorkflowRun).where(WorkflowRun.legacy_job_id == legacy_key)).first()
-
-        clean_title = (title or metadata.get("original_video_title") or "Video Lồng Tiếng AI")[:240]
-        if "#Shorts" not in clean_title and "#shorts" not in clean_title:
-            clean_title = (clean_title[:230] + " #Shorts") if len(clean_title) > 230 else (clean_title + " #Shorts")
+        # 1. Tìm WorkflowRun
+        wf = None
+        if workflow_run_id:
+            try:
+                wf = session.get(WorkflowRun, uuid.UUID(workflow_run_id))
+            except (ValueError, Exception):
+                pass
 
         if not wf:
+            legacy_key = f"dub-{job_id}"
+            wf = session.scalars(
+                select(WorkflowRun).where(WorkflowRun.legacy_job_id == legacy_key)
+            ).first()
+
+        if not wf:
+            # Tạo mới (backward compat với job được tạo từ MySQL)
+            org = session.scalars(select(Organization)).first()
+            if not org:
+                _log.error("[dubbing_bridge] No Organization found, cannot create WorkflowRun.")
+                return ""
+
+            clean_title = (title or "Video Lồng Tiếng AI")[:240]
             proj = VideoProject(
                 organization_id=org.id,
                 title=clean_title,
-                brief=metadata.get("dub_source_url") or metadata.get("dub_source_path") or "AI Dubbing Video",
+                brief=metadata.get("dub_source_url") or "AI Dubbing Video",
                 format_profile="short_vertical",
-                timezone="Asia/Bangkok"
+                timezone="Asia/Bangkok",
             )
             session.add(proj)
             session.flush()
@@ -65,40 +84,49 @@ def sync_dubbing_job_to_control_plane(
                 project_id=proj.id,
                 state=state,
                 idempotency_key=f"dub-idem-{job_id}-{uuid.uuid4().hex[:6]}",
-                legacy_job_id=legacy_key,
+                legacy_job_id=f"dub-{job_id}",
                 prompt_manifest=metadata,
-                input_payload=metadata
+                input_payload=metadata,
             )
             session.add(wf)
             session.flush()
         else:
+            # Cập nhật state
             wf.state = state
-            wf.prompt_manifest = metadata
+            wf.prompt_manifest = {**wf.prompt_manifest, **metadata}
 
+        # 2. Ghi MediaAsset nếu có R2 key
         if r2_object_key:
+            # Tìm theo workflow_run_id hoặc object_key (tránh unique violation)
             asset = session.scalars(
                 select(MediaAsset).where(
-                    (MediaAsset.workflow_run_id == wf.id) | (MediaAsset.object_key == r2_object_key)
+                    (MediaAsset.workflow_run_id == wf.id)
+                    | (MediaAsset.object_key == r2_object_key)
                 )
             ).first()
+
+            org_id = session.scalar(
+                select(VideoProject.organization_id).where(VideoProject.id == wf.project_id)
+            )
+
             if not asset:
                 asset = MediaAsset(
-                    organization_id=org.id,
+                    organization_id=org_id,
                     workflow_run_id=wf.id,
                     object_key=r2_object_key,
                     media_kind="final_export",
                     content_type="video/mp4",
                     byte_size=byte_size or 1048576,
                     checksum_sha256="0" * 64,
-                    metadata_json={"source": "dubbing_strategy"}
+                    metadata_json={"source": "dubbing_strategy"},
                 )
                 session.add(asset)
             else:
                 asset.workflow_run_id = wf.id
                 asset.object_key = r2_object_key
-                asset.byte_size = byte_size or asset.byte_size
-
-            wf.state = "APPROVED"
+                if byte_size:
+                    asset.byte_size = byte_size
 
         session.commit()
+        _log.info("[dubbing_bridge] Synced job_id=%s → workflow_run_id=%s state=%s", job_id, wf.id, state)
         return str(wf.id)
