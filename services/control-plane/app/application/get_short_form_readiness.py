@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import os
 import uuid
-from datetime import datetime, UTC
-from typing import Literal, Union, Protocol
+from datetime import UTC, datetime
+from typing import Literal, Protocol, Union
 
 from pydantic import BaseModel
+
 from app.infrastructure.overlay_uploads import OverlayUploadIssuer
 
 

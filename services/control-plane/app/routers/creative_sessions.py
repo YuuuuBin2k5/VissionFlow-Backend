@@ -1,32 +1,30 @@
 from __future__ import annotations
 
+import logging
 import uuid
-from typing import Any
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, ValidationError
 
-from app.core.oidc import VerifiedIdentity
-from app.domain.authorization import Permission
 from app.application.authorize_organization import AuthorizeOrganization
-from app.infrastructure.database import get_session
-from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
-from app.routers.auth import require_identity
-from app.infrastructure.models import CreativeSession
-
-import logging
-
 from app.application.manage_creative_session import (
-    ManageCreativeSession,
-    CreativeSessionError,
-    CreativeSessionConflict,
     CreativeSessionAlreadyBound,
+    CreativeSessionConflict,
+    CreativeSessionError,
+    IdempotencyPayloadMismatch,
+    ManageCreativeSession,
+    PromptBaselineUnavailable,
     ProviderRateLimited,
     ProviderUnavailable,
-    PromptBaselineUnavailable,
-    IdempotencyPayloadMismatch,
 )
+from app.core.oidc import VerifiedIdentity
+from app.domain.authorization import Permission
 from app.infrastructure.adapters.gemini_adapter import GeminiCreativePlanningAdapter
+from app.infrastructure.database import get_session
+from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
+from app.infrastructure.models import CreativeSession
+from app.routers.auth import require_identity
 
 router = APIRouter(tags=["creative_sessions"])
 
@@ -227,7 +225,7 @@ def create_session(
             proposal_offset=0,
         )
 
-        from datetime import datetime, UTC
+        from datetime import UTC, datetime
         return {
             "session_id": str(sess_id),
             "organization_id": str(organization_id),

@@ -5,7 +5,6 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Protocol
 
-
 _PROMPT_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_.-]{1,99}$")
 
 

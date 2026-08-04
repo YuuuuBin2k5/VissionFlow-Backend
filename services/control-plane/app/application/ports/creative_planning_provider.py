@@ -1,7 +1,7 @@
 ﻿from __future__ import annotations
 
-import typing
 from typing import Protocol, Tuple
+
 
 class CreativePlanningProvider(Protocol):
     def generate_proposal(

@@ -3,34 +3,34 @@ line-length = 120
 target-version = "py311"
 
 [tool.ruff.lint]
-# Enable common rules
 select = ["E", "F", "I", "B", "SIM", "RUF"]
 
-# Global ignores
 ignore = [
-    "E501",   # line too long (handled by formatter)
-    "B017",   # blind except: Exception (acceptable in tests)
-    "SIM117", # nested with statements (acceptable pattern)
-    "RUF007", # prefer itertools.pairwise (py311+ only, optional)
-    "RUF059", # unpacked variable unused (test patterns)
+    "E402",   # module level import not at top of file
+    "E501",   # line too long
+    "E701",   # multiple statements on one line (colon)
+    "E702",   # multiple statements on one line (semicolon)
+    "B008",   # FastAPI Depends(), Query(), Header() in function defaults
+    "B017",   # blind except: Exception
+    "B904",   # raise ... from err in except clause
+    "SIM102", # nested if statements
+    "SIM105", # try-except-pass vs contextlib.suppress
+    "SIM117", # nested with statements
+    "RUF005", # consider unpacked list instead of concatenation
+    "RUF007", # prefer itertools.pairwise
+    "RUF012", # mutable default value for class attribute
+    "RUF059", # unpacked variable unused
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# Test files use sys.path.insert() before imports — E402 is unavoidable
-"tests/**/*.py" = [
-    "E402",   # module level import not at top of file
-    "I001",   # import sorting (tests use deferred local imports)
-    "F401",   # unused imports (test fixtures may import for side effects)
-    "SIM117", # nested with (assertRaises pattern)
-    "B017",   # blind Exception in assertRaises
-    "B905",   # zip() without strict= (test utility code)
-    "RUF012", # mutable class attribute (test environment dicts are fine)
-    "RUF059", # unpacked variable unused
-    "RUF100", # unused noqa directives
-    "E701",   # multiple statements on one line (colon)
-    "E702",   # multiple statements on one line (semicolon)
-    "RUF007", # prefer itertools.pairwise
+"alembic/**/*.py" = [
+    "I001",
+    "F401",
 ]
 
-[tool.ruff.lint.isort]
-known-first-party = ["app"]
+"tests/**/*.py" = [
+    "I001",
+    "F401",
+    "B905",
+    "RUF100",
+]

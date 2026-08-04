@@ -9,8 +9,14 @@ from sqlalchemy.orm import Session
 from app.domain.composition import validate_composition_for_v1
 from app.domain.workflow import WorkflowState
 from app.infrastructure.models import (
-    CompositionClip, CompositionDocument, CompositionEffectInstance, CompositionKeyframe,
-    CompositionTrack, CompositionVersion, VideoProject, WorkflowRun,
+    CompositionClip,
+    CompositionDocument,
+    CompositionEffectInstance,
+    CompositionKeyframe,
+    CompositionTrack,
+    CompositionVersion,
+    VideoProject,
+    WorkflowRun,
 )
 
 

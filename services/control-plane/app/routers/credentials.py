@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import uuid
 import os
+import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -14,13 +14,12 @@ from sqlalchemy.orm import Session
 
 from app.application.authorize_organization import AuthorizeOrganization
 from app.core.credential_cipher import ProviderCredentialCipher, secret_fingerprint
+from app.core.oidc import VerifiedIdentity
 from app.domain.authorization import Permission
 from app.infrastructure.database import get_session
 from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
 from app.infrastructure.models import ProviderCredential, ProviderCredentialAuditEvent
 from app.routers.auth import require_identity
-from app.core.oidc import VerifiedIdentity
-
 
 router = APIRouter(tags=["provider-credentials"])
 

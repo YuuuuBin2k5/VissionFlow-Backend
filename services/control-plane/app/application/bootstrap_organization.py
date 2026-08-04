@@ -7,7 +7,6 @@ from typing import Protocol
 
 from app.domain.authorization import OrganizationRole
 
-
 _SLUG_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$")
 
 

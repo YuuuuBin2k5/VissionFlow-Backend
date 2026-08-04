@@ -23,7 +23,6 @@ from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembe
 from app.infrastructure.prompt_registry_repository import SqlAlchemyPromptRegistryRepository
 from app.routers.auth import require_identity
 
-
 router = APIRouter(tags=["prompts"])
 
 

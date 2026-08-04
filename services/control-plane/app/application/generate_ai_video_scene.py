@@ -1,21 +1,21 @@
 """Application Use Case for Generating AI Video Scenes with Resilience & Fallbacks."""
 
-from dataclasses import dataclass
-from typing import Dict, Optional, List
 import logging
+from dataclasses import dataclass
+from typing import Dict, List, Optional
 
 from app.domain.ai_video_router import AIVideoRouterEngine, SceneCategory
 from app.infrastructure.ai_video_providers import (
     BaseAIVideoProvider,
     FalAIVideoProvider,
-    ReplicateVideoProvider,
+    KenBurnsImageFallbackProvider,
     KlingAIVideoProvider,
-    RunwayGen3VideoProvider,
     LumaDreamVideoProvider,
     MiniMaxVideoProvider,
-    KenBurnsImageFallbackProvider,
-    ProviderQuotaError,
     ProviderExecutionError,
+    ProviderQuotaError,
+    ReplicateVideoProvider,
+    RunwayGen3VideoProvider,
 )
 
 logger = logging.getLogger(__name__)
@@ -103,17 +103,17 @@ class GenerateAIVideoScene:
             except ProviderQuotaError as err:
                 logger.warning("Provider %s out of quota / 402: %s", provider_name, err)
                 self.router.record_failure(provider_name, error_code="402", is_quota_error=True)
-                fallback_history.append(f"{provider_name}: failed_quota ({str(err)})")
+                fallback_history.append(f"{provider_name}: failed_quota ({err!s})")
                 fallback_occurred = True
             except ProviderExecutionError as err:
                 logger.warning("Provider %s execution failed: %s", provider_name, err)
                 self.router.record_failure(provider_name, error_code="500", is_quota_error=False)
-                fallback_history.append(f"{provider_name}: failed_exec ({str(err)})")
+                fallback_history.append(f"{provider_name}: failed_exec ({err!s})")
                 fallback_occurred = True
             except Exception as err:
                 logger.error("Provider %s unhandled exception: %s", provider_name, err)
                 self.router.record_failure(provider_name, error_code="500", is_quota_error=False)
-                fallback_history.append(f"{provider_name}: error ({str(err)})")
+                fallback_history.append(f"{provider_name}: error ({err!s})")
                 fallback_occurred = True
 
         # 4. Final Safety Net: Local Ken Burns Motion Fallback (Guaranteed to succeed)

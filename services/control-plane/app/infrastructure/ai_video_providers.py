@@ -3,8 +3,6 @@
 import abc
 import asyncio
 import os
-import urllib.request
-import json
 from typing import Optional
 
 

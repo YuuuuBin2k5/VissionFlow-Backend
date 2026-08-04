@@ -1,9 +1,9 @@
 """Domain model for AI Video Routing, Scene Prompt Classification, and Circuit Breaker."""
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
-from enum import Enum
 import re
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from enum import Enum
 from typing import Dict, List, Optional
 
 

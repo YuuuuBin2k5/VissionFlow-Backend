@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import uuid
 import hmac
 import secrets
-from os import getenv
+import uuid
 from datetime import UTC, datetime, timedelta
+from os import getenv
 from urllib.parse import urlencode
 
 import requests
@@ -14,24 +14,34 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.application.authorize_organization import AuthorizeOrganization
 from app.application.advance_workflow import AdvanceWorkflow, AdvanceWorkflowCommand, WorkflowStateConflict
+from app.application.authorize_organization import AuthorizeOrganization
 from app.application.youtube_access_token import YouTubeAccessTokenRefresher
 from app.core.config import ConfigurationError
-from app.core.publisher_oauth_state import issue_state
-from app.core.publisher_oauth_state import verify_state
+from app.core.oidc import VerifiedIdentity
+from app.core.publisher_oauth_state import issue_state, verify_state
 from app.core.publisher_token_cipher import PublisherTokenCipher
 from app.core.youtube_publisher import YouTubePublisherSettings
-from app.core.oidc import VerifiedIdentity
 from app.domain.authorization import Permission
 from app.domain.workflow import WorkflowState
 from app.infrastructure.database import get_session
 from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
+from app.infrastructure.models import (
+    MediaAsset,
+    PublicationAttempt,
+    PublishApproval,
+    PublisherConnection,
+    VideoProject,
+    WorkflowRun,
+    WorkflowStep,
+)
+from app.infrastructure.overlay_uploads import (
+    OverlayUploadConfigurationError,
+    OverlayUploadVerificationError,
+    PrivateObjectPreviewIssuer,
+)
 from app.infrastructure.publisher_oauth_repository import PublisherOAuthAttemptRepository
-from app.infrastructure.models import MediaAsset, PublicationAttempt, PublishApproval, PublisherConnection
-from app.infrastructure.models import VideoProject, WorkflowRun, WorkflowStep
 from app.infrastructure.workflow_progression_repository import SqlAlchemyWorkflowProgressionRepository
-from app.infrastructure.overlay_uploads import PrivateObjectPreviewIssuer, OverlayUploadConfigurationError, OverlayUploadVerificationError
 from app.routers.auth import require_identity
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
@@ -103,7 +113,7 @@ def complete_youtube_oauth(code: str, state: str, session: Session = Depends(get
         session.commit()
     except (ValueError, requests.RequestException) as exc:
         session.rollback()
-        raise HTTPException(status_code=400, detail=f"YouTube connection could not be completed: {str(exc)}") from exc
+        raise HTTPException(status_code=400, detail=f"YouTube connection could not be completed: {exc!s}") from exc
     return RedirectResponse(_console_callback_url(), status_code=status.HTTP_303_SEE_OTHER)
 
 
