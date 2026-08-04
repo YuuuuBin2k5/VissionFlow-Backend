@@ -40,9 +40,9 @@ class LegacyLlmShortFormGenerator:
             return {
                 "full_voice_script": "AI Dubbing Video — Direct Voice Translation Pipeline — Automatic Subtitle & Audio Rendering",
                 "scenes_layout_json": [
-                    {"scene_id": 1, "narration": "AI Dubbing Part 1", "visual_description": "Auto Dubbing Scene 1"},
-                    {"scene_id": 2, "narration": "AI Dubbing Part 2", "visual_description": "Auto Dubbing Scene 2"},
-                    {"scene_id": 3, "narration": "AI Dubbing Part 3", "visual_description": "Auto Dubbing Scene 3"},
+                    {"scene_id": "1", "narration": "AI Dubbing Part 1", "visual_search_keywords": "dubbing scene 1", "visual_prompt": "Auto Dubbing Scene 1", "duration": 5},
+                    {"scene_id": "2", "narration": "AI Dubbing Part 2", "visual_search_keywords": "dubbing scene 2", "visual_prompt": "Auto Dubbing Scene 2", "duration": 5},
+                    {"scene_id": "3", "narration": "AI Dubbing Part 3", "visual_search_keywords": "dubbing scene 3", "visual_prompt": "Auto Dubbing Scene 3", "duration": 5},
                 ]
             }
 
@@ -118,7 +118,12 @@ def _validate_generated(generated: dict[str, Any]) -> tuple[str, list[dict[str, 
     for index, scene in enumerate(scenes, start=1):
         if not isinstance(scene, dict):
             raise ValueError(f"storyboard scene {index} is invalid")
-        visual = str(scene.get("visual_search_keywords") or scene.get("visual_prompt") or "").strip()
+        visual = str(
+            scene.get("visual_search_keywords")
+            or scene.get("visual_prompt")
+            or scene.get("visual_description")
+            or f"short form video scene {index}"
+        ).strip()
         if not visual:
             raise ValueError(f"storyboard scene {index} is missing visual_search_keywords")
         scene_id = str(scene.get("scene_id") or scene.get("id") or f"scene-{index}")
