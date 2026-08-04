@@ -97,6 +97,19 @@ def dispatch_dubbing_job(payload: DubbingDispatchRequest):
             conn.commit()
         conn.close()
 
+        # Đồng bộ sang Control Plane PostgreSQL để job xuất hiện trên Control Tower
+        try:
+            from app.core.dubbing_bridge import sync_dubbing_job_to_control_plane
+            title_for_cp = f"[DUB] {payload.source_url or 'Video Lồng Tiếng Tự Động'}"
+            sync_dubbing_job_to_control_plane(
+                job_id=job_id,
+                title=title_for_cp,
+                metadata=metadata,
+                state="RENDERING"
+            )
+        except Exception as bridge_err:
+            print(f"[Dubbing Router] Control Plane sync skipped: {bridge_err}")
+
         # Tự động kích hoạt Python Worker ở background nếu có file main.py
         try:
             import subprocess, sys

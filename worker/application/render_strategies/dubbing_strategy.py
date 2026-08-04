@@ -132,7 +132,7 @@ class DubbingStrategy(RenderStrategy):
         except Exception as seo_err:
             print(f"[DubbingStrategy] SEO generation failed: {seo_err}")
 
-        # Lưu về DB
+        # Lưu về DB MySQL
         from worker.infrastructure.database import get_db_connection
         conn = get_db_connection()
         try:
@@ -156,6 +156,61 @@ class DubbingStrategy(RenderStrategy):
                 )
         finally:
             conn.close()
+
+        # Upload MP4 lên Cloudflare R2 & đồng bộ sang Control Plane PostgreSQL
+        # để video xuất hiện trong Review Queue / Publication Queue / Control Tower
+        r2_object_key = None
+        byte_size = 0
+        try:
+            from worker.services.visionflow_object_storage import S3CompatibleObjectStorage, VisionFlowObjectStorageSettings
+            storage = S3CompatibleObjectStorage(VisionFlowObjectStorageSettings.from_env())
+            r2_object_key = f"visionflow/dub-{job_id}/exports/final.mp4"
+            byte_size = os.path.getsize(output_path)
+            log_realtime_progress(job_id, "DUBBING_PIPELINE", "INFO",
+                                  f"Đang tải MP4 lên Cloudflare R2: {r2_object_key}...")
+            with open(output_path, "rb") as f:
+                storage._client.upload_fileobj(
+                    f, storage._bucket, r2_object_key,
+                    ExtraArgs={"ContentType": "video/mp4"}
+                )
+            log_realtime_progress(job_id, "DUBBING_PIPELINE", "SUCCESS",
+                                  f"Đã tải lên R2 thành công: {r2_object_key}")
+        except Exception as r2_err:
+            print(f"[DubbingStrategy] R2 upload failed (non-critical): {r2_err}")
+
+        try:
+            import sys as _sys
+            _cp_dir = None
+            for p in _sys.path:
+                import pathlib
+                candidate = pathlib.Path(p) / "app" / "core" / "dubbing_bridge.py"
+                if candidate.exists():
+                    _cp_dir = str(pathlib.Path(p))
+                    break
+            if not _cp_dir:
+                # Thử đường dẫn tương đối từ project root
+                import pathlib
+                _root = pathlib.Path(__file__).resolve().parents[4]
+                _candidate = _root / "services" / "control-plane"
+                if (_candidate / "app" / "core" / "dubbing_bridge.py").exists():
+                    _cp_dir = str(_candidate)
+
+            if _cp_dir and _cp_dir not in _sys.path:
+                _sys.path.insert(0, _cp_dir)
+
+            from app.core.dubbing_bridge import sync_dubbing_job_to_control_plane
+            wf_id = sync_dubbing_job_to_control_plane(
+                job_id=job_id,
+                title=title_idea,
+                metadata={**metadata, "seo": seo_tags, "hook": hook_text},
+                state="APPROVAL_PENDING",
+                r2_object_key=r2_object_key,
+                byte_size=byte_size,
+            )
+            log_realtime_progress(job_id, "DUBBING_PIPELINE", "INFO",
+                                  f"Đã đồng bộ sang Control Plane (WorkflowRun ID: {wf_id})")
+        except Exception as cp_err:
+            print(f"[DubbingStrategy] Control Plane sync failed (non-critical): {cp_err}")
 
         log_realtime_progress(job_id, "DUBBING_PIPELINE", "SUCCESS",
                               f"Dịch thuật & Lồng tiếng thành công! Đầu ra: {output_path}")
