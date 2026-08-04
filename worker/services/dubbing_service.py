@@ -889,9 +889,12 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
             if aspect_ratio == "vertical_blur":
                 if progress_callback:
                     progress_callback("Đang chuyển đổi kích thước video sang Dọc 9:16 với viền mờ nghệ thuật...")
+                # Phải split current_v thành 2 bản sao trước khi dùng cho 2 bộ lọc khác nhau.
+                # FFmpeg không cho phép dùng cùng 1 output label 2 lần trong filter_complex.
                 filter_nodes.append(
-                    f"{current_v}scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:5,setsar=1[bg];"
-                    f"{current_v}scale=1080:-1:force_original_aspect_ratio=decrease,setsar=1[fg];"
+                    f"{current_v}split=2[v_split_bg][v_split_fg];"
+                    f"[v_split_bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:5,setsar=1[bg];"
+                    f"[v_split_fg]scale=1080:-1:force_original_aspect_ratio=decrease,setsar=1[fg];"
                     f"[bg][fg]overlay=(W-w)/2:(H-h)/2[v_aspect]"
                 )
                 current_v = "[v_aspect]"

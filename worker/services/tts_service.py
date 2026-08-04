@@ -351,17 +351,22 @@ class TTSService:
                 return self._estimate_word_timestamps(clean_text_for_fallbacks, output_audio_path)
 
         # TẦNG 4: Edge-TTS
+        from worker.services.visionflow_tts import VOICE_PRESET_MAP
         vi_chars = "àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
         is_vietnamese = any(c in vi_chars for c in clean_text_for_fallbacks.lower())
-        if self.voice and "-" in self.voice and "Neural" in self.voice:
-            edge_voice = self.voice
-        elif self.voice and ("pNInz" in self.voice or "adam" in self.voice.lower()):
+        # Giải quyết tên voice preset (vd: "edge-nam-minh") → tên IETF Neural hợp lệ
+        raw_voice = self.voice or ""
+        resolved_voice = VOICE_PRESET_MAP.get(raw_voice, raw_voice)
+        if resolved_voice and "-" in resolved_voice and "Neural" in resolved_voice:
+            # Đã là tên Neural hợp lệ (sau khi map hoặc từ ban đầu)
+            edge_voice = resolved_voice
+        elif raw_voice and ("pNInz" in raw_voice or "adam" in raw_voice.lower()):
             edge_voice = "vi-VN-NamMinhNeural" if is_vietnamese else "en-US-ChristopherNeural"
         elif not is_vietnamese:
             edge_voice = "en-US-ChristopherNeural" if gender == "male" else "en-US-JennyNeural"
         else:
-            edge_voice = self.voice or DEFAULT_TTS_VOICE
-            if gender == "male" and not self.voice:
+            edge_voice = DEFAULT_TTS_VOICE
+            if gender == "male":
                 from worker.config import BACKUP_TTS_VOICE
                 edge_voice = BACKUP_TTS_VOICE
         
