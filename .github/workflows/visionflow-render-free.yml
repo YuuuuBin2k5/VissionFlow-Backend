@@ -85,10 +85,10 @@ jobs:
           echo "Resetting RENDERING/ASSETS_READY/FAILED workflows..."
           python services/control-plane/scripts/reset_stuck_rendering.py --all || true
 
-      - name: Auto-requeue all QUEUED workflows into Redis (handles acked-but-unprocessed events)
+      - name: Auto-requeue QUEUED standard workflows into Redis (skips AI Dubbing jobs)
         shell: bash
         run: |
-          echo "Checking for QUEUED workflows stuck in Redis..."
+          echo "Checking for QUEUED standard workflows stuck in Redis..."
           python services/control-plane/scripts/requeue_workflow.py --all || true
 
       - name: Advance workflows stuck in PLANNING state (worker crashed mid-intelligence)
@@ -96,6 +96,12 @@ jobs:
         run: |
           echo "Checking for PLANNING workflows stuck mid-intelligence..."
           python services/control-plane/scripts/advance_stuck_workflow.py --all || true
+
+      - name: Process AI Dubbing jobs (QUEUED/RENDERING state in PostgreSQL → DubbingStrategy)
+        shell: bash
+        run: |
+          echo "Scanning for AI Dubbing jobs in PostgreSQL..."
+          python worker/process_queued_jobs.py || true
 
       - name: Relay and execute bounded short-form work
         shell: bash
@@ -109,7 +115,6 @@ jobs:
             python services/control-plane/scripts/requeue_workflow.py --all || true
             python services/control-plane/scripts/relay_outbox.py --limit 10
             python worker/consume_visionflow_events.py --once --block-ms 1000 --count 10
-            python worker/process_queued_jobs.py || true
             echo "Pass $pass complete"
           done
           # Persist final QA/review state events (e.g. APPROVAL_PENDING)

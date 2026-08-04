@@ -21,7 +21,7 @@ class RenderStopStage(str, Enum):
 
 @dataclass(frozen=True)
 class RenderContract:
-    job_id: int
+    job_id: int | str   # int for MySQL jobs, str UUID for PostgreSQL Dubbing jobs
     title: str
     topic: str
     audience: str

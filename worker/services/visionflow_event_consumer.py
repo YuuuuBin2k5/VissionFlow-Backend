@@ -79,6 +79,56 @@ class VisionFlowEventConsumer:
             return
         payload = json.loads(fields.get("payload", "{}"))
         workflow_run_id = str(payload["workflow_run_id"])
+
+        # ─── Phát hiện AI Dubbing job sớm ───────────────────────────────────
+        intake_raw = payload.get("intake") or {}
+        input_payload_raw = intake_raw.get("input_payload") or {}
+        prompt_manifest_raw = intake_raw.get("prompt_manifest") or {}
+        render_mode_raw = (
+            input_payload_raw.get("render_mode")
+            or prompt_manifest_raw.get("render_mode")
+        )
+        title_raw = str(intake_raw.get("title") or intake_raw.get("brief") or "")
+        is_dubbing_job = (render_mode_raw == "TRANSLATE_DUB" or title_raw.startswith("[DUB]"))
+
+        if is_dubbing_job:
+            import logging
+            _dub_log = logging.getLogger(__name__)
+            _dub_log.info(
+                "Dubbing job detected for workflow %s (%s) — dispatching DubbingStrategy directly.",
+                workflow_run_id, title_raw[:60],
+            )
+            try:
+                import asyncio
+                from worker.application.render_strategies.dubbing_strategy import DubbingStrategy
+                from worker.domain.render_contract import RenderContract, RenderMode, RenderStopStage
+
+                dub_meta = {**input_payload_raw, **prompt_manifest_raw}
+                job_dict = {
+                    "id": workflow_run_id,
+                    "video_title_idea": title_raw,
+                    "scenes_layout_json": json.dumps(dub_meta),
+                }
+                contract = RenderContract(
+                    job_id=workflow_run_id,
+                    title=title_raw,
+                    topic=dub_meta.get("dub_source_url") or title_raw,
+                    audience="auto-dubbing",
+                    mode=RenderMode.TRANSLATE_DUB,
+                    stop_at=RenderStopStage.VIDEO,
+                    voice_code=dub_meta.get("voice_code") or "edge-nam-minh",
+                    metadata=dub_meta,
+                )
+                asyncio.run(DubbingStrategy().execute(job_dict, contract))
+            except Exception as dub_err:
+                import logging
+                logging.getLogger(__name__).error(
+                    "DubbingStrategy failed for workflow %s: %s", workflow_run_id, dub_err
+                )
+                raise
+            return
+
+        # ─── Standard Short-Form pipeline ────────────────────────────────────
         if payload.get("to_state") == "STORYBOARDED":
             if self._render_dispatcher is None:
                 return
@@ -101,7 +151,7 @@ class VisionFlowEventConsumer:
         except Exception as exc:
             import logging
             logging.getLogger(__name__).warning(
-                "Could not fetch creative document for workflow %s (non-fatal, e.g. Dubbing job): %s",
+                "Could not fetch creative document for workflow %s (non-fatal): %s",
                 workflow_run_id,
                 exc,
             )
@@ -113,4 +163,5 @@ class VisionFlowEventConsumer:
             event_id=fields["event_id"],
             trace_id=fields.get("trace_id"),
         )
+
 

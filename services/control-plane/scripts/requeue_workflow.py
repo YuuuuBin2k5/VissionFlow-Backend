@@ -90,25 +90,43 @@ def main() -> int:
 
     with Session(get_engine()) as session:
         if args.all:
-            # Find all workflows stuck in QUEUED
+            # Find all workflows stuck in QUEUED (excluding AI Dubbing jobs)
             rows = session.execute(
                 select(WorkflowRun, VideoProject)
                 .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
                 .where(WorkflowRun.state == "QUEUED")
             ).all()
 
-            if not rows:
-                print("No workflows in QUEUED or STORYBOARDED state. Nothing to do.")
+            # AI Dubbing jobs (title starts with [DUB] or render_mode=TRANSLATE_DUB in prompt_manifest)
+            # must NOT be re-queued into Redis — they are handled by process_queued_jobs.py → DubbingStrategy
+            non_dubbing_rows = []
+            skipped_dub = 0
+            for run, project in rows:
+                title = str(project.title or "")
+                manifest = run.prompt_manifest or {}
+                payload = run.input_payload or {}
+                render_mode = manifest.get("render_mode") or payload.get("render_mode")
+                if title.startswith("[DUB]") or render_mode == "TRANSLATE_DUB":
+                    print(f"  SKIP (Dubbing job, handled by process_queued_jobs): {run.id} [{title[:60]}]")
+                    skipped_dub += 1
+                else:
+                    non_dubbing_rows.append((run, project))
+
+            if skipped_dub:
+                print(f"Skipped {skipped_dub} AI Dubbing job(s) — use process_queued_jobs.py to render them.")
+
+            if not non_dubbing_rows:
+                print("No QUEUED standard workflows to re-queue. Nothing to do.")
                 return 0
 
-            print(f"Found {len(rows)} QUEUED workflow(s) to re-queue:")
+            print(f"Found {len(non_dubbing_rows)} QUEUED workflow(s) to re-queue:")
             success = 0
-            for run, project in rows:
+            for run, project in non_dubbing_rows:
                 ok = requeue_one(run, project, redis_client, redis_settings.stream, args.dry_run)
                 if ok:
                     success += 1
 
-            print(f"\nRe-queued {success}/{len(rows)} workflows.")
+            print(f"\nRe-queued {success}/{len(non_dubbing_rows)} workflows.")
             if success > 0 and not args.dry_run:
                 print("Now run consume_visionflow_events.py --once to process them.")
         else:
