@@ -121,10 +121,21 @@ class PrivateObjectPreviewIssuer:
         issuer = OverlayUploadIssuer.from_env()
         return cls(issuer._client, issuer._bucket)
 
+    @staticmethod
+    def _normalize_key(workflow_run_id: uuid.UUID, object_key: str | None) -> str:
+        if not object_key:
+            return f"visionflow/{workflow_run_id}/exports/final.mp4"
+        clean = object_key.split("?")[0]
+        if "visionflow/" in clean:
+            return "visionflow/" + clean.split("visionflow/", 1)[1]
+        return object_key
+
     def issue_final_export(self, *, workflow_run_id: uuid.UUID, object_key: str) -> PrivateObjectPreviewTicket:
-        target_key = object_key if (object_key and object_key.startswith("visionflow/")) else f"visionflow/{workflow_run_id}/exports/final.mp4"
-        if object_key and (object_key.startswith("http://") or object_key.startswith("https://")):
-            return PrivateObjectPreviewTicket(object_key, object_key, self._expires_in_seconds)
+        normalized = self._normalize_key(workflow_run_id, object_key)
+        if normalized.startswith("http://") or normalized.startswith("https://"):
+            return PrivateObjectPreviewTicket(normalized, normalized, self._expires_in_seconds)
+        
+        target_key = normalized
         expected_prefix = f"visionflow/{workflow_run_id}/"
         if not target_key.startswith(expected_prefix) or ".." in target_key.split("/"):
             raise OverlayUploadVerificationError("Preview object does not belong to this workflow")
