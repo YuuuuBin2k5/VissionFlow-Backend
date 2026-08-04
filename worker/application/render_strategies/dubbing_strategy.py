@@ -174,7 +174,7 @@ class DubbingStrategy(RenderStrategy):
                                   f"Đang tải MP4 lên Cloudflare R2: {r2_object_key}...")
             with open(output_path, "rb") as f:
                 storage._client.upload_fileobj(
-                    f, storage._bucket, r2_object_key,
+                    f, storage._settings.bucket, r2_object_key,
                     ExtraArgs={"ContentType": "video/mp4"}
                 )
             log_realtime_progress(job_id, "DUBBING_PIPELINE", "SUCCESS",

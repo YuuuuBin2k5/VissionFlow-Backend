@@ -774,12 +774,12 @@ NHIỆM VỤ:
    - Kịch bản viết lại phải đảm bảo tính tự nhiên, nhịp điệu sinh động, súc tích, cực kỳ lôi cuốn.
 
 2. BẮT BUỘC trả về kết quả dưới định dạng JSON block hợp lệ duy nhất, tuân thủ chính xác cấu trúc schema sau:
-{
+{{
   "video_script": "Nội dung câu kịch bản/bản dịch tiếng Việt đã được viết lại, nâng cấp và chèn các Curiosity Gaps để tối ưu giữ chân người xem...",
   "caption_seo": "Đoạn văn mô tả thu hút người xem gồm 3 phần: (1) Hook phụ thị giác kích thích tò mò, (2) Câu hỏi kích thích người xem để lại bình luận tranh luận tăng tương tác, và (3) Đoạn văn ngắn chứa các từ khóa SEO ngách tự nhiên.",
   "pinned_comment": "Câu hỏi mở cực kỳ sâu sắc, lửng lơ hoặc một góc nhìn phản biện gây tranh cãi mạnh mẽ liên quan đến video hiện tại để người dùng ghim dưới mục bình luận, kích nổ cuộc chiến tranh luận sôi nổi của khán giả.",
   "hashtags": ["#tag_ngach_broad", "#tag_chu_de_core", "#YuuBin"]
-}
+}}
 
 3. THIẾT LẬP QUY TẮC PHÂN BỔ HASHTAG CHẶT CHẼ:
 - Danh sách `hashtags` chỉ được chứa từ 4 đến 5 thẻ bắt đầu bằng dấu thăng (#):
