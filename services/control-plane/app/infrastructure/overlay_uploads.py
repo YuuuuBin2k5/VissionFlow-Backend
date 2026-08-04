@@ -53,6 +53,9 @@ class OverlayUploadIssuer:
         endpoint = values["VISIONFLOW_OBJECT_STORE_ENDPOINT"]
         if not endpoint.startswith("https://"):
             raise OverlayUploadConfigurationError("VISIONFLOW_OBJECT_STORE_ENDPOINT must use HTTPS")
+        from urllib.parse import urlparse
+        parsed_ep = urlparse(endpoint)
+        endpoint = f"{parsed_ep.scheme}://{parsed_ep.netloc}"
         from botocore.config import Config
         client = boto3.client(
             "s3", endpoint_url=endpoint, region_name=os.getenv("VISIONFLOW_OBJECT_STORE_REGION", "auto"),
