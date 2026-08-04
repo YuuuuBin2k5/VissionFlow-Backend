@@ -1708,7 +1708,10 @@ def _process_publication_attempt_in_background(
             if "#Shorts" not in title and "#shorts" not in title:
                 title = (title[:95] + " #Shorts") if len(title) > 95 else (title + " #Shorts")
             
-            from worker.domain.caption_policy import build_high_converting_description
+            try:
+                from app.core.caption_policy import build_high_converting_description
+            except ImportError:
+                from worker.domain.caption_policy import build_high_converting_description
             prompt_manifest = wf_for_project.prompt_manifest or {} if wf_for_project else {}
             seo_data = prompt_manifest.get("seo_tags_metadata") or {}
             if not isinstance(seo_data, dict):
