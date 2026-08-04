@@ -157,7 +157,14 @@ class VisionFlowEventConsumer:
             trace_id = fields.get("trace_id")
             if not isinstance(trace_id, str):
                 raise ValueError("STORYBOARDED workflow event is missing its trace_id")
-            self._render_dispatcher.dispatch(workflow_run_id, trace_id=trace_id)
+            try:
+                self._render_dispatcher.dispatch(workflow_run_id, trace_id=trace_id)
+            except Exception as dispatch_err:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "STORYBOARDED dispatch failed for workflow %s (non-fatal, e.g. deleted/not found workflow): %s",
+                    workflow_run_id, dispatch_err
+                )
             return
         if payload.get("to_state") != "QUEUED":
             return

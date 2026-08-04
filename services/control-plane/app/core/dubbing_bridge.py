@@ -40,12 +40,20 @@ def sync_dubbing_job_to_control_plane(
     fallback sang legacy_job_id = 'dub-<job_id>' nếu được tạo từ MySQL bridge cũ.
     Nếu không tìm thấy, tự tạo mới (backward compat).
     """
-    db_url = os.getenv("DATABASE_URL")
+    db_url = os.getenv("DATABASE_URL") or os.getenv("VISIONFLOW_DATABASE_URL")
     if not db_url:
         _log.warning("[dubbing_bridge] DATABASE_URL not set, skipping sync.")
         return ""
 
-    engine = create_engine(db_url)
+    if db_url.startswith("postgresql://"):
+        db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+    try:
+        from app.infrastructure.database import get_engine
+        engine = get_engine()
+    except Exception:
+        engine = create_engine(db_url)
+
     with Session(engine) as session:
         # 1. Tìm WorkflowRun
         wf = None
