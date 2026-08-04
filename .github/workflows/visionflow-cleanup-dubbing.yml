@@ -16,24 +16,23 @@ on:
 jobs:
   cleanup:
     name: Cleanup stale AI Dubbing workflows
-    runs-on: ubuntu-latest
-    environment: production
+    runs-on: ubuntu-24.04
+    env:
+      DATABASE_URL: ${{ secrets.VISIONFLOW_DATABASE_URL }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-          cache: "pip"
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install -r services/control-plane/requirements.txt
 
       - name: Run cleanup script
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           FLAG=""
           if [[ "${{ inputs.mode }}" == "dry-run" ]]; then
