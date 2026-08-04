@@ -78,6 +78,7 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y ffmpeg
           python -m pip install --upgrade pip && python -m pip install -r services/control-plane/requirements.txt -r worker/requirements.txt
+          python -m playwright install chromium --with-deps
 
       - name: Cleanup stale test AI Dubbing workflows
         shell: bash

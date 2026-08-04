@@ -362,6 +362,20 @@ def harvest_chrome_douyin_cookies() -> bool:
         print(f"[Douyin Cookie Harvest Warning] Lỗi khi thu hoạch cookies tự động: {e}")
         return False
 
+def _get_ytdlp_cmd() -> list[str]:
+    """Trả về lệnh gọi yt-dlp phù hợp tùy theo module python hoặc binary hệ thống"""
+    import sys
+    import shutil
+    try:
+        import yt_dlp  # noqa: F401
+        return [sys.executable, "-m", "yt_dlp"]
+    except ImportError:
+        ytdlp_bin = shutil.which("yt-dlp")
+        if ytdlp_bin:
+            return [ytdlp_bin]
+        return [sys.executable, "-m", "yt_dlp"]
+
+
 async def download_video_link(job_id: int, url: str, output_dir: str) -> tuple:
     """Tải video từ link mạng (YouTube/TikTok/Douyin) bằng yt-dlp và trích xuất tiêu đề"""
     import subprocess
@@ -401,7 +415,7 @@ async def download_video_link(job_id: int, url: str, output_dir: str) -> tuple:
     # Chặn hoàn toàn: Livestream, Album ảnh/Playlist, và link chết.
     # ─────────────────────────────────────────────────────────────────
     print(f"[Pre-Validation] Đang kiểm tra tính hợp lệ của link: {url}")
-    cmd_check = [sys.executable, "-m", "yt_dlp", "--simulate", "--skip-download"]
+    cmd_check = _get_ytdlp_cmd() + ["--simulate", "--skip-download"]
     if is_douyin:
         from worker.config import BASE_DIR
         cookies_path = os.path.join(BASE_DIR, "worker", "temp_assets", "douyin_cookies.txt")
@@ -478,10 +492,7 @@ async def download_video_link(job_id: int, url: str, output_dir: str) -> tuple:
     # Thử lấy tiêu đề gốc của video trước qua yt-dlp
     original_title = None
     try:
-        cmd_title = [
-            sys.executable, "-m", "yt_dlp", "--no-warnings",
-            "--get-title"
-        ]
+        cmd_title = _get_ytdlp_cmd() + ["--no-warnings", "--get-title"]
         if is_douyin:
             from worker.config import BASE_DIR
             cookies_path = os.path.join(BASE_DIR, "worker", "temp_assets", "douyin_cookies.txt")
@@ -504,8 +515,8 @@ async def download_video_link(job_id: int, url: str, output_dir: str) -> tuple:
     output_filename = f"dub_source_{uuid.uuid4().hex}.mp4"
     output_path = os.path.join(output_dir, output_filename)
 
-    cmd = [
-        sys.executable, "-m", "yt_dlp", "--no-warnings",
+    cmd = _get_ytdlp_cmd() + [
+        "--no-warnings",
         "-f", "mp4",
         "-o", output_path
     ]
