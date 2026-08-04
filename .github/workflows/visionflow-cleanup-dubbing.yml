@@ -1,0 +1,47 @@
+name: VisionFlow - Cleanup Stale Dubbing Workflows
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Cleanup mode"
+        required: true
+        default: "dry-run"
+        type: choice
+        options:
+          - dry-run
+          - delete
+          - delete-all-dub
+
+jobs:
+  cleanup:
+    name: Cleanup stale AI Dubbing workflows
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -r services/control-plane/requirements.txt
+
+      - name: Run cleanup script
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          FLAG=""
+          if [[ "${{ inputs.mode }}" == "dry-run" ]]; then
+            FLAG="--dry-run"
+          elif [[ "${{ inputs.mode }}" == "delete-all-dub" ]]; then
+            FLAG="--delete --all-dub"
+          else
+            FLAG="--delete"
+          fi
+          echo "Running: python services/control-plane/scripts/cleanup_stale_dubbing_workflows.py $FLAG"
+          PYTHONPATH=services/control-plane python services/control-plane/scripts/cleanup_stale_dubbing_workflows.py $FLAG
