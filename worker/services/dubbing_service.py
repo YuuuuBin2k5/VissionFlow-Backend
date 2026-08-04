@@ -777,22 +777,29 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
                     progress_callback("Đang pha trộn giọng thoại và nhạc nền...")
 
                 final_audio_path = str(temp_dir / "final_dubbed_audio.mp3")
+                video_dur = self.get_media_duration(video_path)
+
                 if mute_original_audio:
                     if progress_callback:
                         progress_callback("Đang xuất âm thanh lồng tiếng thuần khiết (đã tắt nhạc nền bản quyền)...")
                     cmd_mix = [
                         "ffmpeg", "-y",
                         "-i", merged_vocal_path,
-                        "-acodec", "libmp3lame", "-q:a", "2", final_audio_path
+                        "-af", "apad",
                     ]
+                    if video_dur > 0:
+                        cmd_mix.extend(["-t", f"{video_dur:.3f}"])
+                    cmd_mix.extend(["-acodec", "libmp3lame", "-q:a", "2", final_audio_path])
                 else:
                     cmd_mix = [
                         "ffmpeg", "-y",
                         "-i", ducked_audio_path,
                         "-i", merged_vocal_path,
-                        "-filter_complex", "[0:a][1:a]amix=inputs=2:duration=first[out]",
-                        "-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2", final_audio_path
+                        "-filter_complex", "[1:a]apad[vocal_padded];[0:a][vocal_padded]amix=inputs=2:duration=first[out]",
                     ]
+                    if video_dur > 0:
+                        cmd_mix.extend(["-t", f"{video_dur:.3f}"])
+                    cmd_mix.extend(["-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2", final_audio_path])
                 subprocess.run(cmd_mix, capture_output=True, check=True)
 
             # 8. Muxer: Đè âm thanh lồng tiếng mới vào video cũ không cần render lại hình ảnh (Giữ nguyên 100% chất lượng video)
@@ -909,8 +916,12 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
                 "-c:v", "libx264", "-profile:v", "high", "-level:v", "4.2",
                 "-pix_fmt", "yuv420p", "-b:v", "4M",
                 "-c:a", "aac", "-strict", "-2",
-                "-shortest", output_path
             ]
+            if video_dur > 0:
+                cmd_mux.extend(["-t", f"{video_dur:.3f}"])
+            else:
+                cmd_mux.append("-shortest")
+            cmd_mux.append(output_path)
 
             subprocess.run(cmd_mux, capture_output=True, check=True, env=env_copy)
 

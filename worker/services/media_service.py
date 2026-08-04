@@ -678,7 +678,8 @@ class MediaService:
                         "ffmpeg", "-y",
                         "-i", voice_audio_path,
                         "-stream_loop", "-1", "-i", str(audio_432hz_path),
-                        "-filter_complex", f"[1:a]volume=0.03[a432];[0:a][a432]amix=inputs=2:duration=first[a]",
+                        "-filter_complex", "[1:a]volume=0.03[a432];[0:a]apad[v_pad];[v_pad][a432]amix=inputs=2:duration=first[a]",
+                        "-t", f"{TOTAL_AUDIO_DURATION:.3f}",
                         "-map", "[a]",
                         str(out_mixed_audio)
                     ]

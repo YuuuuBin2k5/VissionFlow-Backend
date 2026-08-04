@@ -246,7 +246,7 @@ class SplitScreenRenderer:
             )
 
         if has_music:
-            filter_complex = f"{video_filter};[3:a]volume=0.08[m];[2:a][m]amix=inputs=2:duration=first[a]"
+            filter_complex = f"{video_filter};[3:a]volume=0.08[m];[2:a]apad[vo_pad];[vo_pad][m]amix=inputs=2:duration=first[a]"
             audio_map = "[a]"
         else:
             filter_complex = video_filter
@@ -264,7 +264,6 @@ class SplitScreenRenderer:
             "-pix_fmt", "yuv420p",
             "-c:a", "aac",
             "-strict", "-2",
-            "-shortest",
             output_file_path,
         ]
 

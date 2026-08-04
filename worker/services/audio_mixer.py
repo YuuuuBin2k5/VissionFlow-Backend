@@ -82,6 +82,7 @@ class AudioMixer:
                 voice_path=voice_audio_path,
                 output_path=output_path,
                 music_path=background_music_path if background_music_path and os.path.exists(background_music_path) else None,
+                total_duration=total_duration,
             )
             return result
         except Exception as e:
