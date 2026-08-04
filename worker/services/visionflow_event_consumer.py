@@ -121,12 +121,34 @@ class VisionFlowEventConsumer:
                 )
                 asyncio.run(DubbingStrategy().execute(job_dict, contract))
             except Exception as dub_err:
-                import logging
-                logging.getLogger(__name__).error(
+                _dub_log.error(
                     "DubbingStrategy failed for workflow %s: %s", workflow_run_id, dub_err
                 )
-                raise
+                # Mark workflow as FAILED in Control Plane — do NOT re-raise so
+                # the consumer continues processing other events in the stream.
+                try:
+                    import sys as _sys
+                    import pathlib
+                    _root = pathlib.Path(__file__).resolve().parents[2]
+                    _cp_dir = str(_root / "services" / "control-plane")
+                    if _cp_dir not in _sys.path:
+                        _sys.path.insert(0, _cp_dir)
+
+                    from app.core.dubbing_bridge import sync_dubbing_job_to_control_plane
+                    sync_dubbing_job_to_control_plane(
+                        job_id=workflow_run_id,
+                        title=title_raw,
+                        metadata={"error": str(dub_err)[:500]},
+                        state="FAILED",
+                        workflow_run_id=workflow_run_id,
+                    )
+                except Exception as cp_err:
+                    _dub_log.warning(
+                        "Could not mark workflow %s FAILED in Control Plane: %s",
+                        workflow_run_id, cp_err,
+                    )
             return
+
 
         # ─── Standard Short-Form pipeline ────────────────────────────────────
         if payload.get("to_state") == "STORYBOARDED":

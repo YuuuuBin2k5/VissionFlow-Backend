@@ -132,30 +132,34 @@ class DubbingStrategy(RenderStrategy):
         except Exception as seo_err:
             print(f"[DubbingStrategy] SEO generation failed: {seo_err}")
 
-        # Lưu về DB MySQL
-        from worker.infrastructure.database import get_db_connection
-        conn = get_db_connection()
+        # Lưu về DB MySQL (legacy, non-critical)
         try:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    """
-                    UPDATE video_pipeline_jobs
-                    SET video_output_path = %s, seo_tags_metadata = %s,
-                        video_title_idea = %s, hook_text_3s = %s,
-                        scenes_layout_json = %s, pipeline_state = 'RENDERED_SUBTITLED'
-                    WHERE id = %s
-                    """,
-                    (
-                        output_path,
-                        json.dumps(seo_tags, ensure_ascii=False),
-                        title_idea,
-                        hook_text,
-                        json.dumps(metadata, ensure_ascii=False),
-                        job_id,
-                    ),
-                )
-        finally:
-            conn.close()
+            from worker.infrastructure.database import get_db_connection
+            conn = get_db_connection()
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        UPDATE video_pipeline_jobs
+                        SET video_output_path = %s, seo_tags_metadata = %s,
+                            video_title_idea = %s, hook_text_3s = %s,
+                            scenes_layout_json = %s, pipeline_state = 'RENDERED_SUBTITLED'
+                        WHERE id = %s
+                        """,
+                        (
+                            output_path,
+                            json.dumps(seo_tags, ensure_ascii=False),
+                            title_idea,
+                            hook_text,
+                            json.dumps(metadata, ensure_ascii=False),
+                            job_id,
+                        ),
+                    )
+            finally:
+                conn.close()
+        except Exception as mysql_err:
+            print(f"[DubbingStrategy] MySQL legacy update skipped or failed (non-critical): {mysql_err}")
+
 
         # Upload MP4 lên Cloudflare R2 & đồng bộ sang Control Plane PostgreSQL
         # để video xuất hiện trong Review Queue / Publication Queue / Control Tower
