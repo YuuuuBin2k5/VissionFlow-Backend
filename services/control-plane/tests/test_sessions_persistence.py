@@ -11,7 +11,6 @@ SERVICE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SERVICE_ROOT))
 
 from app.infrastructure.models import (
-    Base,
     Organization,
     CreativeSession,
     CreativeMessage,
@@ -26,7 +25,6 @@ from app.infrastructure.repositories import SqlAlchemyShortFormWorkflowRepositor
 from app.infrastructure.creative_document_repository import (
     SqlAlchemyCreativeDocumentRepository,
 )
-from app.infrastructure.creative_session_repository import SqlAlchemyCreativeSessionRepository
 from app.application.create_short_form import CreateShortFormCommand
 
 

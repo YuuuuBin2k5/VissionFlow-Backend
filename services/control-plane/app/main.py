@@ -1,14 +1,24 @@
+import logging
 import os
 import uuid
-import logging
 
 from fastapi import FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
 
 from app.core.config import Settings
-from app.routers import auth, credentials, integrations, prompts, system, workflows, creative_sessions, ai_video, dubbing
+from app.routers import (
+    ai_video,
+    auth,
+    creative_sessions,
+    credentials,
+    dubbing,
+    integrations,
+    prompts,
+    system,
+    workflows,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +98,9 @@ _BASELINE_PROMPTS = [
 async def _seed_prompt_baselines() -> None:
     """Idempotent: creates prompt tables if missing, then seeds baselines for all orgs."""
     import json
+
     from sqlalchemy import text as sa_text
+
     from app.infrastructure.database import get_engine
 
     engine = get_engine()

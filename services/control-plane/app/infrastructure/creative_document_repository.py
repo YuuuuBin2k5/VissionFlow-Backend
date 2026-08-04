@@ -7,7 +7,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.domain.workflow import WorkflowState
-from app.infrastructure.models import CreativeDocument, CreativeDocumentVersion, CreativeScene, VideoProject, WorkflowRun
+from app.infrastructure.models import (
+    CreativeDocument,
+    CreativeDocumentVersion,
+    CreativeScene,
+    VideoProject,
+    WorkflowRun,
+)
 
 
 @dataclass(frozen=True)

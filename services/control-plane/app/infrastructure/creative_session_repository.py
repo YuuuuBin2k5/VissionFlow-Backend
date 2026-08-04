@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
 from typing import Tuple
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.infrastructure.models import (
-    CreativeSession,
+    CreativeCommandReceipt,
     CreativeMessage,
     CreativeProposal,
+    CreativeSession,
     CreativeTurn,
-    CreativeCommandReceipt,
 )
 
 

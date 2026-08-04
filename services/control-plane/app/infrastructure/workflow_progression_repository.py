@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.application.advance_workflow import (
@@ -11,7 +11,15 @@ from app.application.advance_workflow import (
     WorkflowTransitionResult,
 )
 from app.domain.workflow import WorkflowState, require_transition
-from app.infrastructure.models import MediaAsset, OutboxEvent, PublicationAttempt, PublishApproval, VideoProject, WorkflowRun, WorkflowStep
+from app.infrastructure.models import (
+    MediaAsset,
+    OutboxEvent,
+    PublicationAttempt,
+    PublishApproval,
+    VideoProject,
+    WorkflowRun,
+    WorkflowStep,
+)
 
 
 class SqlAlchemyWorkflowProgressionRepository:

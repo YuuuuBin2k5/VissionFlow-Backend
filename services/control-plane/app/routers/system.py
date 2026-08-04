@@ -1,19 +1,19 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
-import uuid
 
-from app.core.config import Settings
-from app.infrastructure.database import get_engine, get_session
 from app.application.authorize_organization import AuthorizeOrganization
 from app.application.get_short_form_readiness import GetShortFormReadiness, ReadinessResponse
+from app.core.config import Settings
+from app.core.oidc import VerifiedIdentity
 from app.domain.authorization import Permission
+from app.infrastructure.database import get_engine, get_session
 from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
 from app.infrastructure.repositories import SqlAlchemyShortFormReadinessRepository
 from app.routers.auth import require_identity
-from app.core.oidc import VerifiedIdentity
-
 
 router = APIRouter(tags=["system"])
 

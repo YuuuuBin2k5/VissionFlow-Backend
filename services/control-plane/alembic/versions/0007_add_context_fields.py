@@ -4,8 +4,6 @@ Revision ID: 0007_add_context_fields
 Revises: 0006_command_receipts_hardened
 """
 
-from alembic import op
-import sqlalchemy as sa
 
 
 revision = "0007_add_context_fields"

@@ -3,15 +3,13 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
-import threading
 import uuid
 from dataclasses import asdict
-from datetime import datetime, timezone, UTC
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import requests as _requests_mod
-
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
@@ -27,11 +25,16 @@ from app.application.advance_workflow import (
     WorkflowStateConflict,
 )
 from app.application.authorize_organization import AuthorizeOrganization
-from app.core.config import ConfigurationError
+from app.application.begin_manual_publish import BeginManualPublish, BeginManualPublishCommand
 from app.application.create_short_form import (
     CreateShortFormCommand,
     CreateShortFormWorkflow,
     IdempotencyKeyConflict,
+)
+from app.application.manual_approval import (
+    ApproveManualReviewCommand,
+    ManualApproval,
+    OpenManualApprovalCommand,
 )
 from app.application.record_narration_generated import (
     ActiveNarrationAttemptMissing,
@@ -40,35 +43,48 @@ from app.application.record_narration_generated import (
     SceneCommandPayload,
     SourceMetadataPayload,
     StaleNarrationAttempt,
-    WorkflowStateConflict as NarrationWorkflowStateConflict,
+)
+from app.application.record_narration_generated import (
     IdempotencyKeyConflict as NarrationIdempotencyKeyConflict,
+)
+from app.application.record_narration_generated import (
+    WorkflowStateConflict as NarrationWorkflowStateConflict,
 )
 from app.application.register_legacy_job_mapping import (
     LegacyJobMappingConflict,
-    LegacyJobMappingResult,
     RegisterLegacyJobMapping,
     RegisterLegacyJobMappingCommand,
 )
-from app.application.manual_approval import (
-    ApproveManualReviewCommand,
-    ManualApproval,
-    OpenManualApprovalCommand,
-)
-from app.application.begin_manual_publish import BeginManualPublish, BeginManualPublishCommand
 from app.application.save_creative_draft import SaveCreativeDraft, SaveCreativeDraftCommand
+from app.core.config import ConfigurationError
 from app.core.oidc import VerifiedIdentity
 from app.domain.authorization import Permission
 from app.domain.composition import CompositionValidationError, validate_composition_for_v1
 from app.domain.render_plan import RenderPlanCompilationError, compile_render_plan
 from app.domain.workflow import WorkflowState
-from app.infrastructure.database import get_session
-from app.infrastructure.creative_draft_repository import SqlAlchemyCreativeDraftRepository
+from app.infrastructure.composition_repository import CompositionConflict, SqlAlchemyCompositionRepository
 from app.infrastructure.creative_document_repository import (
     CreativeDocumentConflict,
     CreativeDocumentSnapshot,
     SqlAlchemyCreativeDocumentRepository,
 )
-from app.infrastructure.composition_repository import CompositionConflict, SqlAlchemyCompositionRepository
+from app.infrastructure.creative_draft_repository import SqlAlchemyCreativeDraftRepository
+from app.infrastructure.database import get_session
+from app.infrastructure.legacy_mapping_repository import SqlAlchemyLegacyMappingRepository
+from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
+from app.infrastructure.models import (
+    CompositionDocument,
+    CompositionVersion,
+    CreativeDocument,
+    CreativeDocumentVersion,
+    MediaAsset,
+    OutboxEvent,
+    PublicationAttempt,
+    PublisherConnection,
+    VideoProject,
+    WorkflowRun,
+    WorkflowStep,
+)
 from app.infrastructure.overlay_uploads import (
     OverlayAssetVerifier,
     OverlayUploadConfigurationError,
@@ -77,16 +93,12 @@ from app.infrastructure.overlay_uploads import (
     PrivateObjectPreviewIssuer,
     composition_overlay_object_keys,
 )
-from app.infrastructure.legacy_mapping_repository import SqlAlchemyLegacyMappingRepository
-from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
 from app.infrastructure.repositories import (
-    SqlAlchemyShortFormWorkflowRepository,
     SqlAlchemyNarrationResultRepository,
+    SqlAlchemyShortFormWorkflowRepository,
 )
 from app.infrastructure.workflow_progression_repository import SqlAlchemyWorkflowProgressionRepository
-from app.infrastructure.models import CompositionDocument, CompositionVersion, CreativeDocument, CreativeDocumentVersion, MediaAsset, OutboxEvent, PublicationAttempt, PublisherConnection, VideoProject, WorkflowRun, WorkflowStep
 from app.routers.auth import require_identity
-
 
 router = APIRouter(tags=["workflows"])
 
@@ -1014,7 +1026,7 @@ def complete_narration(
                 "detail": None,
             }
         )
-    except ConfigurationError as exc:
+    except ConfigurationError:
         raise
     except ValueError as exc:
         return JSONResponse(
@@ -1026,7 +1038,7 @@ def complete_narration(
                 "detail": None,
             }
         )
-    except Exception as exc:
+    except Exception:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
@@ -1582,7 +1594,7 @@ def _process_publication_attempt_in_background(
     session = None
     try:
         from sqlalchemy.orm import Session
-        from app.infrastructure.database import get_engine
+
         from app.application.youtube_access_token import YouTubeAccessTokenRefresher
         from app.core.publisher_token_cipher import PublisherTokenCipher
         from app.core.youtube_publisher import YouTubePublisherSettings
@@ -1590,6 +1602,7 @@ def _process_publication_attempt_in_background(
             YouTubeResumableUploader,
             YouTubeUploadMetadata,
         )
+        from app.infrastructure.database import get_engine
         from app.infrastructure.overlay_uploads import PrivateObjectPreviewIssuer
 
         session = Session(get_engine())
@@ -1741,10 +1754,7 @@ def _process_publication_attempt_in_background(
         )
         if publish_step:
             publish_step.state = WorkflowState.PUBLISHED
-            if isinstance(publish_step.output_payload, dict):
-                payload = dict(publish_step.output_payload)
-            else:
-                payload = {}
+            payload = dict(publish_step.output_payload) if isinstance(publish_step.output_payload, dict) else {}
             payload["provider"] = "youtube"
             payload["publisher_connection_id"] = str(publisher_connection_id)
             payload["external_video_id"] = result.video_id
@@ -1775,6 +1785,7 @@ def _process_publication_attempt_in_background(
 
         try:
             from sqlalchemy.orm import Session
+
             from app.infrastructure.database import get_engine
             fail_session = Session(get_engine())
             attempt = fail_session.scalar(
@@ -1911,6 +1922,7 @@ def begin_manual_publish(
 
         # Re-open a fresh DB session to read the final committed state
         from sqlalchemy.orm import Session as _FreshSession
+
         from app.infrastructure.database import get_engine as _get_engine
         _fresh_session = _FreshSession(_get_engine())
         try:

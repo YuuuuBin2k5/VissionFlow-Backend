@@ -14,7 +14,6 @@ sys.path.insert(0, str(SERVICE_ROOT))
 
 from app.core.oidc import VerifiedIdentity
 from app.infrastructure.models import (
-    Base,
     Organization,
     User,
     OrganizationMembership,

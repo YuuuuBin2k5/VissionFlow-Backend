@@ -11,8 +11,8 @@ import base64
 import os
 import secrets
 import time
-from dataclasses import dataclass
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any, Protocol
 from urllib.parse import urlparse
 

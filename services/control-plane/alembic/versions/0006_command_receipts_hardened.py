@@ -5,8 +5,6 @@ Revises: 0005_command_receipts_and_audit
 """
 
 from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 
 revision = "0006_command_receipts_hardened"

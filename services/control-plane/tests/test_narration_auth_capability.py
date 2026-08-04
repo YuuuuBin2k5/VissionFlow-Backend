@@ -193,7 +193,7 @@ class NarrationAuthCapabilityTests(unittest.TestCase):
             version_id=uuid.uuid4(),
             version=1,
         )
-        with patch("app.routers.workflows.AuthorizeOrganization") as authorize, patch(
+        with patch("app.routers.workflows.AuthorizeOrganization"), patch(
             "app.routers.workflows.SqlAlchemyNarrationResultRepository"
         ), patch(
             "app.routers.workflows.RecordNarrationGenerated"

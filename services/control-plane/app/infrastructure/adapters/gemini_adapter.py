@@ -2,11 +2,11 @@
 
 import json
 import logging
-import requests
-import time
-from typing import Tuple, List, Dict
 from collections import defaultdict
 from datetime import datetime, timedelta
+from typing import List, Tuple
+
+import requests
 
 from app.application.ports.creative_planning_provider import CreativePlanningProvider
 
@@ -116,10 +116,7 @@ class GeminiCreativePlanningAdapter(CreativePlanningProvider):
         ]
         
         # If user specifies model, try it first then fallback
-        if model_name:
-            models_to_try = [model_name] + model_fallback_chain
-        else:
-            models_to_try = model_fallback_chain
+        models_to_try = [model_name] + model_fallback_chain if model_name else model_fallback_chain
         
         # Apply smart sorting: last successful > least used > available
         models_to_try = _quota_tracker.get_sorted_models(models_to_try)

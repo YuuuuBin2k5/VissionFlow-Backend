@@ -28,7 +28,6 @@ from app.core.service_client_registry import ServiceClientRegistry
 from app.infrastructure.database import get_session
 from app.infrastructure.local_auth_repository import SqlAlchemyLocalAuthRepository
 
-
 bearer_scheme = HTTPBearer(auto_error=False)
 router = APIRouter(prefix="/auth", tags=["auth"])
 

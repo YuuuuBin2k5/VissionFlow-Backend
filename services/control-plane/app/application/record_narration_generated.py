@@ -111,9 +111,8 @@ def _validate(command: RecordNarrationGeneratedCommand) -> None:
             raise ValueError(f"scene {index}: transition must not be blank")
         if len(scene.transition.strip()) > 48:
             raise ValueError(f"scene {index}: transition must be 48 characters or fewer")
-        if scene.caption is not None:
-            if len(scene.caption) > 2000:
-                raise ValueError(f"scene {index}: caption must be 2,000 characters or fewer")
+        if scene.caption is not None and len(scene.caption) > 2000:
+            raise ValueError(f"scene {index}: caption must be 2,000 characters or fewer")
 
     if len(command.idempotency_key.strip()) < 16:
         raise ValueError("idempotency_key must be at least 16 characters")

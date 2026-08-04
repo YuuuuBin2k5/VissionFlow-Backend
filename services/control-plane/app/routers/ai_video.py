@@ -1,14 +1,15 @@
 """FastAPI Router for AI Video Generation, Provider Health, and Circuit Breaker Reset."""
 
-from typing import Dict, Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Dict, List, Optional
+
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from app.domain.ai_video_router import AIVideoRouterEngine
 from app.application.generate_ai_video_scene import (
     GenerateAIVideoScene,
     GenerateSceneVideoCommand,
 )
+from app.domain.ai_video_router import AIVideoRouterEngine
 
 router = APIRouter(prefix="/ai-video", tags=["AI Video Generation"])
 
@@ -43,9 +44,10 @@ class ResetProviderRequest(BaseModel):
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.credential_cipher import ProviderCredentialCipher
 from app.infrastructure.database import get_session
 from app.infrastructure.models import ProviderCredential
-from app.core.credential_cipher import ProviderCredentialCipher
+
 
 @router.post("/render-scene", response_model=RenderSceneResponse)
 async def render_scene_video(
@@ -74,7 +76,7 @@ async def render_scene_video(
                         resolved_keys[rec.provider] = cipher.decrypt(rec.encrypted_secret)
                     except Exception:
                         pass
-        except Exception as e_vault:
+        except Exception:
             pass
 
     use_case = GenerateAIVideoScene(engine)

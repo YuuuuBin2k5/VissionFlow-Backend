@@ -5,7 +5,6 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
-
 _EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 
