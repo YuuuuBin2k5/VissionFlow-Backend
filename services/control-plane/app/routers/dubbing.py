@@ -88,7 +88,7 @@ def dispatch_dubbing_job(payload: DubbingDispatchRequest):
                     f"dub-{uuid.uuid4().hex[:8]}",
                     payload.source_url or payload.file_path,
                     "translate_dub",
-                    "DRAFT",
+                    "QUEUED",
                     json.dumps(metadata, ensure_ascii=False),
                     title_idea
                 )
@@ -96,6 +96,21 @@ def dispatch_dubbing_job(payload: DubbingDispatchRequest):
             job_id = cursor.lastrowid
             conn.commit()
         conn.close()
+
+        # Tự động kích hoạt Python Worker ở background nếu có file main.py
+        try:
+            import subprocess, sys
+            control_plane_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            backend_root = os.path.dirname(control_plane_dir)
+            worker_main = os.path.join(backend_root, "worker", "main.py")
+            if os.path.exists(worker_main):
+                subprocess.Popen(
+                    [sys.executable, worker_main, "--job-id", str(job_id), "--type", "RENDER"],
+                    cwd=backend_root
+                )
+                print(f"[Dubbing Router] Triggered Python Worker process for Job #{job_id}")
+        except Exception as trigger_err:
+            print(f"[Dubbing Router Warning] Could not spawn background worker: {trigger_err}")
 
         return {
             "job_id": job_id,
@@ -112,3 +127,60 @@ def dispatch_dubbing_job(payload: DubbingDispatchRequest):
             "message": "Đã tiếp nhận yêu cầu lồng tiếng AI!",
             "metadata": metadata
         }
+
+
+@router.get("/dubbing/status/{job_id}")
+def get_dubbing_job_status(job_id: int):
+    """
+    Kiểm tra trạng thái & log tiến trình lồng tiếng AI của Job ID.
+    """
+    db_host = os.getenv("DB_HOST", "127.0.0.1")
+    db_port = int(os.getenv("DB_PORT", "3307"))
+    db_user = os.getenv("DB_USER", "root")
+    db_pass = os.getenv("DB_PASSWORD", "root_password")
+    db_name = os.getenv("DB_NAME", "tiktok_agent_automation_db")
+
+    try:
+        import pymysql
+        conn = pymysql.connect(
+            host=db_host,
+            port=db_port,
+            user=db_user,
+            password=db_pass,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT id, pipeline_state, video_output_path, error_log_trace, updated_at FROM video_pipeline_jobs WHERE id = %s",
+                (job_id,)
+            )
+            job = cursor.fetchone()
+
+            cursor.execute(
+                "SELECT module_name, log_level, message, created_at FROM realtime_progress_logs WHERE job_id = %s ORDER BY id ASC LIMIT 50",
+                (job_id,)
+            )
+            logs = cursor.fetchall()
+        conn.close()
+
+        if not job:
+            raise HTTPException(status_code=404, detail="Không tìm thấy Job ID này.")
+
+        return {
+            "job_id": job["id"],
+            "state": job["pipeline_state"],
+            "output_path": job["video_output_path"],
+            "error": job["error_log_trace"],
+            "logs": logs or []
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        return {
+            "job_id": job_id,
+            "state": "UNKNOWN",
+            "error": str(e),
+            "logs": []
+        }
+
