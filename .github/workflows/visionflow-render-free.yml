@@ -79,10 +79,16 @@ jobs:
           sudo apt-get update && sudo apt-get install -y ffmpeg
           python -m pip install --upgrade pip && python -m pip install -r services/control-plane/requirements.txt -r worker/requirements.txt
 
-      - name: Reset workflows stuck in RENDERING, ASSETS_READY, or FAILED
+      - name: Cleanup stale test AI Dubbing workflows
         shell: bash
         run: |
-          echo "Resetting RENDERING/ASSETS_READY/FAILED workflows..."
+          echo "Cleaning up stale test dubbing workflows..."
+          PYTHONPATH=services/control-plane python services/control-plane/scripts/cleanup_stale_dubbing_workflows.py --delete || true
+
+      - name: Reset workflows stuck in RENDERING or ASSETS_READY
+        shell: bash
+        run: |
+          echo "Resetting RENDERING/ASSETS_READY workflows..."
           python services/control-plane/scripts/reset_stuck_rendering.py --all || true
 
       - name: Auto-requeue QUEUED standard workflows into Redis (skips AI Dubbing jobs)
@@ -97,12 +103,6 @@ jobs:
           echo "Checking for PLANNING workflows stuck mid-intelligence..."
           python services/control-plane/scripts/advance_stuck_workflow.py --all || true
 
-      - name: Process AI Dubbing jobs (QUEUED/RENDERING state in PostgreSQL → DubbingStrategy)
-        shell: bash
-        run: |
-          echo "Scanning for AI Dubbing jobs in PostgreSQL..."
-          python worker/process_queued_jobs.py || true
-
       - name: Relay and execute bounded short-form work
         shell: bash
         run: |
@@ -110,6 +110,7 @@ jobs:
             echo "============================================"
             echo "Starting VisionFlow relay/worker pass $pass"
             echo "============================================"
+            python worker/process_queued_jobs.py || true
             python services/control-plane/scripts/reset_stuck_rendering.py --all || true
             python services/control-plane/scripts/advance_stuck_workflow.py --all || true
             python services/control-plane/scripts/requeue_workflow.py --all || true
@@ -117,6 +118,7 @@ jobs:
             python worker/consume_visionflow_events.py --once --block-ms 1000 --count 10
             echo "Pass $pass complete"
           done
+
           # Persist final QA/review state events (e.g. APPROVAL_PENDING)
           echo "Final relay pass..."
           python services/control-plane/scripts/relay_outbox.py --limit 10

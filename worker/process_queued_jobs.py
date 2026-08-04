@@ -34,6 +34,9 @@ def process_postgresql_jobs() -> int:
         print(f"[ProcessQueuedJobs] SQLAlchemy/Models import error: {err}")
         return 0
 
+    if db_url.startswith("postgresql://"):
+        db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+
     try:
         engine = create_engine(db_url)
         with Session(engine) as session:
@@ -61,7 +64,7 @@ def process_postgresql_jobs() -> int:
                 print(f"  - WorkflowRun #{wf.id}: {proj.title} (State: {wf.state})")
 
             from worker.application.render_strategies.dubbing_strategy import DubbingStrategy
-            from worker.domain.render_contract import RenderContract, RenderMode
+            from worker.domain.render_contract import RenderContract, RenderMode, RenderStopStage
 
             strategy = DubbingStrategy()
             processed_count = 0
@@ -71,15 +74,21 @@ def process_postgresql_jobs() -> int:
                 print(f"\n[ProcessQueuedJobs] === STARTING DUBBING RENDER FOR WORKFLOW #{wf_id_str} ===")
                 manifest = wf.prompt_manifest or {}
                 payload = wf.input_payload or {}
+                dub_meta = {**payload, **manifest}
                 job_dict = {
                     "id": wf_id_str,
                     "video_title_idea": proj.title,
-                    "scenes_layout_json": json.dumps({**payload, **manifest}),
+                    "scenes_layout_json": json.dumps(dub_meta),
                 }
                 contract = RenderContract(
                     job_id=wf_id_str,
-                    render_mode=RenderMode.TRANSLATE_DUB,
-                    stop_stage=None,
+                    title=proj.title or "Video Lồng Tiếng AI",
+                    topic=dub_meta.get("dub_source_url") or proj.title or "AI Dubbing",
+                    audience="auto-dubbing",
+                    mode=RenderMode.TRANSLATE_DUB,
+                    stop_at=RenderStopStage.VIDEO,
+                    voice_code=dub_meta.get("voice_code") or "edge-nam-minh",
+                    metadata=dub_meta,
                 )
 
                 try:
@@ -88,6 +97,13 @@ def process_postgresql_jobs() -> int:
                     processed_count += 1
                 except Exception as run_err:
                     print(f"[ProcessQueuedJobs Error] ❌ Workflow #{wf_id_str} failed: {run_err}")
+                    try:
+                        wf.state = "FAILED"
+                        session.commit()
+                        print(f"[ProcessQueuedJobs] Marked Workflow #{wf_id_str} as FAILED in PostgreSQL.")
+                    except Exception as commit_err:
+                        session.rollback()
+                        print(f"[ProcessQueuedJobs] Failed to update state for #{wf_id_str}: {commit_err}")
 
             return processed_count
     except Exception as exc:
