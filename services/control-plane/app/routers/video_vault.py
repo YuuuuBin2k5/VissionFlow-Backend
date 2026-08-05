@@ -83,7 +83,7 @@ class BulkDeleteVideoVaultRequest(BaseModel):
     asset_ids: list[uuid.UUID] = Field(min_length=1, max_length=100)
 
 
-def _authorize(session: Session, identity: VerifiedIdentity, organization_id: uuid.UUID, permission: str = Permission.WORKFLOW_READ) -> None:
+def _authorize(session: Session, identity: VerifiedIdentity, organization_id: uuid.UUID, permission: str = Permission.WORKFLOW_VIEW) -> None:
     try:
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
             identity.subject, organization_id, permission
@@ -118,7 +118,7 @@ def list_video_vault_assets(
     session: Session = Depends(get_session),
 ) -> VideoVaultListResponse:
     """Truy vấn tất cả video asset của tổ chức kèm thông tin SEO/Metadata/Cloud Presigned Link."""
-    _authorize(session, identity, organization_id, Permission.WORKFLOW_READ)
+    _authorize(session, identity, organization_id, Permission.WORKFLOW_VIEW)
 
     # Truy vấn tất cả MediaAsset của org (media_kind == 'final_export' hoặc 'rendered_video' hoặc 'overlay')
     query = (
