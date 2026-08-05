@@ -17,6 +17,7 @@ from app.routers import (
     integrations,
     prompts,
     system,
+    video_vault,
     workflows,
 )
 
@@ -44,6 +45,7 @@ app.include_router(integrations.router, prefix=settings.api_prefix)
 app.include_router(creative_sessions.router, prefix=settings.api_prefix)
 app.include_router(ai_video.router, prefix=settings.api_prefix)
 app.include_router(dubbing.router, prefix=settings.api_prefix)
+app.include_router(video_vault.router, prefix=settings.api_prefix)
 
 
 # ---------------------------------------------------------------------------
