@@ -37,22 +37,20 @@ TARGET_LRA = 11.0     # Loudness Range — dải động mượt mà
 # SIGNAL CHAIN — Bộ lọc giọng đọc (thứ tự vật lý đúng)
 # ═══════════════════════════════════════════════════════════════════════════
 
-def _build_voice_filter_chain() -> str:
-    """
-    Chuỗi bộ lọc xử lý giọng đọc theo thứ tự Signal Flow:
-    1. afftdn    — Khử nhiễu nền (quạt, điều hòa, hiss)
-    2. highpass  — Lọc thông cao 80Hz (loại bỏ ù điện, rung cơ học)
-    3. EQ 350Hz  — Cắt dải đục -3dB (giải phóng khỏi âm "hộp giấy")
-    4. EQ 4kHz   — Tăng dải sáng +2dB (phụ âm sắc sảo, nghe rõ trên loa điện thoại)
-    5. acompressor — Nén động học ratio=3:1, tránh peak quá cao
-    Nguồn: ToiUuGiongDocAI.docx — Signal Flow + FFmpeg EQ specs.
-    """
+def _build_voice_filter_chain(use_afftdn: bool = True) -> str:
+    if not use_afftdn:
+        return (
+            "highpass=f=80,"
+            "equalizer=f=350:t=q:w=1.0:g=-3,"
+            "equalizer=f=4000:t=q:w=1.0:g=2,"
+            "acompressor=threshold=-18dB:ratio=3:attack=10:release=100:makeup=1"
+        )
     return (
-        "afftdn=nf=-25,"                                        # 1. Denoise (-25dB noise floor)
-        "highpass=f=80,"                                        # 2. HPF 80Hz
-        "equalizer=f=350:t=q:w=1.0:g=-3,"                     # 3. Muddy cut -3dB @ 350Hz
-        "equalizer=f=4000:t=q:w=1.0:g=2,"                     # 4. Presence boost +2dB @ 4kHz
-        "acompressor=threshold=-18dB:ratio=3:attack=10:release=100:makeup=1"  # 5. Compressor
+        "afftdn=nf=-25,"
+        "highpass=f=80,"
+        "equalizer=f=350:t=q:w=1.0:g=-3,"
+        "equalizer=f=4000:t=q:w=1.0:g=2,"
+        "acompressor=threshold=-18dB:ratio=3:attack=10:release=100:makeup=1"
     )
 
 
@@ -152,13 +150,12 @@ def master_viral_audio(
     # ──────────────────────────────────────────────────────────────────────
     # PASS 1: Đo lường Loudness thực tế của hỗn hợp sau khi xử lý
     # ──────────────────────────────────────────────────────────────────────
-    print(f"[ViralAudioMaster] ⏳ Pass 1: Phân tích Loudness thực tế...")
+    print(f"[ViralAudioMaster] [WAIT] Pass 1: Phan tich Loudness thuc te...")
 
     if has_music:
-        # Với nhạc nền: voice chain → apad → sidechain → amix → loudnorm analyze
-        # apad giúp giọng đọc không bị ngắt quãng sớm, giữ cho nhạc nền phát mượt mà đến giây cuối cùng
+        # Với nhạc nền: voice chain → apad (2s max) → sidechain → amix → loudnorm analyze
         filter_pass1 = (
-            f"[1:a]{voice_filter},apad,asplit=2[vo_proc][sc_detector];"
+            f"[1:a]{voice_filter},apad=pad_dur=2,asplit=2[vo_proc][sc_detector];"
             f"[0:a][sc_detector]{sidechain_filter}[bg_ducked];"
             f"[vo_proc][bg_ducked]amix=inputs=2:duration=first[mix_preview];"
             f"[mix_preview]loudnorm=I={target_lufs}:TP={target_tp}:LRA={target_lra}:print_format=json"
@@ -168,9 +165,9 @@ def master_viral_audio(
             f'-filter_complex "{filter_pass1}" -f null -'
         )
     else:
-        # Chỉ giọng đọc: voice chain → apad → loudnorm analyze
+        # Chỉ giọng đọc: voice chain → loudnorm analyze (no infinite apad)
         filter_pass1 = (
-            f"[0:a]{voice_filter},apad[voice_proc];"
+            f"[0:a]{voice_filter}[voice_proc];"
             f"[voice_proc]loudnorm=I={target_lufs}:TP={target_tp}:LRA={target_lra}:print_format=json"
         )
         cmd_pass1 = (
@@ -178,7 +175,32 @@ def master_viral_audio(
             f'-filter_complex "{filter_pass1}" -f null -'
         )
 
-    stderr_pass1 = _run_ffmpeg(cmd_pass1, "Pass 1: Phân tích Loudness...")
+    try:
+        stderr_pass1 = _run_ffmpeg(cmd_pass1, "Pass 1: Phan tich Loudness...")
+    except Exception as exc:
+        print(f"[ViralAudioMaster Warning] Pass 1 with afftdn failed ({exc}). Retrying without afftdn...")
+        voice_filter = _build_voice_filter_chain(use_afftdn=False)
+        if has_music:
+            filter_pass1 = (
+                f"[1:a]{voice_filter},apad=pad_dur=2,asplit=2[vo_proc][sc_detector];"
+                f"[0:a][sc_detector]{sidechain_filter}[bg_ducked];"
+                f"[vo_proc][bg_ducked]amix=inputs=2:duration=first[mix_preview];"
+                f"[mix_preview]loudnorm=I={target_lufs}:TP={target_tp}:LRA={target_lra}:print_format=json"
+            )
+            cmd_pass1 = (
+                f'{ffmpeg_bin} -y {t_arg} -stream_loop -1 -i "{music_path}" -i "{voice_path}" '
+                f'-filter_complex "{filter_pass1}" -f null -'
+            )
+        else:
+            filter_pass1 = (
+                f"[0:a]{voice_filter}[voice_proc];"
+                f"[voice_proc]loudnorm=I={target_lufs}:TP={target_tp}:LRA={target_lra}:print_format=json"
+            )
+            cmd_pass1 = (
+                f'{ffmpeg_bin} -y {t_arg} -i "{voice_path}" '
+                f'-filter_complex "{filter_pass1}" -f null -'
+            )
+        stderr_pass1 = _run_ffmpeg(cmd_pass1, "Pass 1 Retry: Phan tich Loudness...")
     measurements = _extract_loudnorm_json(stderr_pass1)
 
     m_i = measurements["input_i"]
@@ -188,7 +210,7 @@ def master_viral_audio(
     m_offset = measurements.get("target_offset", "0.0")
 
     print(
-        f"[ViralAudioMaster] ✅ Pass 1 hoàn tất: "
+        f"[ViralAudioMaster] [OK] Pass 1 hoan tat: "
         f"Loudness={m_i} LUFS, True Peak={m_tp} dBTP, LRA={m_lra} LU"
     )
 
@@ -196,7 +218,7 @@ def master_viral_audio(
     # PASS 2: Áp dụng xử lý tuyến tính với thông số đo lường từ Pass 1
     # linear=true → hệ số khuếch đại đồng nhất, bảo toàn dynamics giọng đọc
     # ──────────────────────────────────────────────────────────────────────
-    print(f"[ViralAudioMaster] ⏳ Pass 2: Áp dụng Studio Master (linear=true)...")
+    print(f"[ViralAudioMaster] [WAIT] Pass 2: Ap dung Studio Master (linear=true)...")
 
     loudnorm_pass2 = (
         f"loudnorm=I={target_lufs}:TP={target_tp}:LRA={target_lra}:"
@@ -206,7 +228,7 @@ def master_viral_audio(
 
     if has_music:
         filter_pass2 = (
-            f"[1:a]{voice_filter},apad,asplit=2[vo_proc][sc_detector];"
+            f"[1:a]{voice_filter},apad=pad_dur=2,asplit=2[vo_proc][sc_detector];"
             f"[0:a][sc_detector]{sidechain_filter}[bg_ducked];"
             f"[vo_proc][bg_ducked]amix=inputs=2:duration=first[mix_unnormalized];"
             f"[mix_unnormalized]{loudnorm_pass2}[final_master]"
@@ -218,7 +240,7 @@ def master_viral_audio(
         )
     else:
         filter_pass2 = (
-            f"[0:a]{voice_filter},apad[voice_proc];"
+            f"[0:a]{voice_filter}[voice_proc];"
             f"[voice_proc]{loudnorm_pass2}[final_master]"
         )
         cmd_pass2 = (
@@ -227,14 +249,14 @@ def master_viral_audio(
             f'-map "[final_master]" -c:a aac -b:a 192k -ar 44100 "{output_path}"'
         )
 
-    _run_ffmpeg(cmd_pass2, "Pass 2: Áp dụng mastering + xuất bản...")
+    _run_ffmpeg(cmd_pass2, "Pass 2: Ap dung mastering + xuat ban...")
 
     if not os.path.exists(output_path) or os.path.getsize(output_path) < 1000:
         raise RuntimeError(f"Pass 2 thất bại: Output không hợp lệ tại {output_path}")
 
     output_size_kb = os.path.getsize(output_path) / 1024
     print(
-        f"[ViralAudioMaster] ✅ Studio Master 2-Pass hoàn tất! "
+        f"[ViralAudioMaster] [OK] Studio Master 2-Pass hoan tat! "
         f"Output: {output_path} ({output_size_kb:.1f} KB)"
     )
     return output_path
