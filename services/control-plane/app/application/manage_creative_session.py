@@ -71,6 +71,8 @@ class CreationSpecSchema(BaseModel):
     visual_preset: str = Field(default="warm_cinematic", min_length=1, max_length=100)
     color_grading: str = Field(default="cyber_teal", max_length=50)
     enable_vignette: bool = Field(default=True)
+    asset_source: str = Field(default="fal_ai", max_length=50)
+    visual_engine: str = Field(default="fal_ai", max_length=50)
 
     # UI overlays
     enable_progress_bar: bool = Field(default=True)
@@ -950,15 +952,22 @@ class ManageCreativeSession:
 
             # 2. Save creative document content (Perform only queries/add/flush, NO COMMITS)
             # Transform scenes dictionary keys to match expected types
+            global_asset_source = creation_spec.get("asset_source") or creation_spec.get("visual_engine") or "fal_ai"
+            if global_asset_source == "pexels":
+                global_asset_source = "stock_pexels"
+
             transformed_scenes = []
             for sc in proposal.scenes:
+                scene_asset_source = sc.get("asset_source") or global_asset_source
+                if scene_asset_source == "pexels":
+                    scene_asset_source = "stock_pexels"
                 item = {
                     "narration": sc.get("narration", ""),
                     "visual_prompt": sc.get("visual_prompt", ""),
                     "duration_seconds": sc.get("duration_seconds", 5),
                     "transition": sc.get("transition", "cut"),
                     "caption": sc.get("caption"),
-                    "asset_source": sc.get("asset_source", "fal_ai"),
+                    "asset_source": scene_asset_source,
                     "visual_search_keywords": sc.get("visual_search_keywords") or sc.get("visual_prompt", ""),
                     "mascot_profile": sc.get("mascot_profile"),
                     "style_preset": sc.get("style_preset", creation_spec.get("visual_preset", "cozy_anime_3d")),

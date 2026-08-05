@@ -32,8 +32,8 @@ class VisionFlowAssetPreparer:
                 mascot_profile = getattr(contract, "mascot_profile", None) or scene.get("mascot_profile")
                 emotion = str(scene.get("emotion") or "").strip()
                 style_preset = str(getattr(contract, "style_preset", None) or scene.get("style_preset") or "cozy_anime_3d").strip()
-                asset_source = scene.get("asset_source", "fal_ai")
-                prefer_ai = (asset_source == "fal_ai")
+                asset_source = str(scene.get("asset_source") or getattr(contract, "asset_source", None) or "fal_ai").strip().lower()
+                prefer_ai = not (asset_source in {"pexels", "stock_pexels", "pixabay", "b_roll"})
                 temporary_path = self._downloader.get_scene_asset(
                     keywords=keywords,
                     scene_id=ordinal,

@@ -303,7 +303,7 @@ class StandardRenderStrategy(RenderStrategy):
             emotion = scene.get("emotion", "")
             style_preset = scene.get("style_preset", "cozy_anime_3d")
             asset_source = scene.get("asset_source", "fal_ai")
-            prefer_ai = (asset_source != "stock_pexels")
+            prefer_ai = not (str(asset_source).lower() in {"stock_pexels", "pexels", "pixabay", "b_roll"})
             try:
                 if hasattr(asset_downloader, "get_scene_asset"):
                     path = asset_downloader.get_scene_asset(
