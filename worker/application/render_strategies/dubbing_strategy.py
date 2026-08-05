@@ -119,11 +119,12 @@ class DubbingStrategy(RenderStrategy):
             vietnamese_transcript = " ".join(
                 seg.get("translated_text", "") for seg in timeline if seg.get("translated_text")
             )
-            llm = LLMService()
-            seo_tags = llm.generate_seo_metadata_for_dub(vietnamese_transcript, original_video_title)
+            from worker.services.unified_metadata_service import UnifiedVideoMetadataService
+            meta_service = UnifiedVideoMetadataService(target_language=target_language, voice_code=voice_code)
+            seo_tags = meta_service.generate_seo_metadata(vietnamese_transcript, original_video_title).to_dict()
             title_idea = (
                 seo_tags.get("title")
-                or (seo_tags.get("youtube_title_options") or [None])[0]
+                or meta_service.sanitize_and_translate_title(original_video_title)
                 or title_idea
             )
             hook_text = seo_tags.get("hook_text_3s") or seo_tags.get("hook") or ""

@@ -104,7 +104,10 @@ def dispatch_dubbing_job(
         "render_mode": "TRANSLATE_DUB",
     }
 
-    clean_title = f"[DUB] {payload.source_url or payload.file_path or 'Video Lồng Tiếng Tự Động'}"[:240]
+    lang_tag = (payload.target_language or "vi").upper()
+    if lang_tag == "AUTO":
+        lang_tag = "VI"
+    clean_title = f"[{lang_tag}-DUB] {payload.source_url or payload.file_path or 'Video Lồng Tiếng Tự Động'}"[:240]
 
     # Tạo VideoProject + WorkflowRun trong PostgreSQL
     workflow_run_id = uuid.uuid4()

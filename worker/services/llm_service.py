@@ -3,7 +3,13 @@ import json
 import re
 import random
 import time
-from google import genai
+try:
+    from google import genai
+except ImportError:
+    try:
+        import google.generativeai as genai
+    except ImportError:
+        genai = None
 from worker.config import GEMINI_API_KEYS
 
 
@@ -620,6 +626,23 @@ This rule overrides every conflicting language example or instruction below.
             return json.loads(cleaned)
         except Exception as e:
             raise RuntimeError(f"LLM returned invalid JSON for video details: {e}") from e
+
+    def generate_seo_metadata_for_dub(
+        self,
+        vietnamese_transcript: str,
+        original_video_title: str = None,
+        target_language: str = "vi",
+        voice_code: str = "",
+    ) -> dict:
+        """
+        Dựa trên lời thoại đã dịch lồng tiếng và tiêu đề gốc của video (nếu có),
+        sử dụng UnifiedVideoMetadataService (Strategy Pattern) để sinh ra tiêu đề,
+        mô tả SEO và câu hỏi ghim theo đúng ngôn ngữ đích (Tiếng Việt hoặc Tiếng Anh).
+        """
+        from worker.services.unified_metadata_service import UnifiedVideoMetadataService
+        service = UnifiedVideoMetadataService(target_language=target_language, voice_code=voice_code)
+        result = service.generate_seo_metadata(vietnamese_transcript, original_video_title)
+        return result.to_dict()
 
     # ================================================================
     # PHƯƠNG THỨC 3 (MỚI): PHÂN TÍCH VIDEO VIRAL & TÁI TẠO
