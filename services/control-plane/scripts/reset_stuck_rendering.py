@@ -128,8 +128,10 @@ class ControlPlaneClient:
 # Redis re-queue helper
 # ---------------------------------------------------------------------------
 
-def requeue_to_redis(run: WorkflowRun, project: VideoProject, redis_client: Redis, stream: str) -> str:
+def requeue_to_redis(run: WorkflowRun, project: VideoProject, redis_client: Redis | None, stream: str) -> str:
     """Push a QUEUED event into Redis so the next worker pass picks it up."""
+    if redis_client is None:
+        return "skipped (no redis connection)"
     fields = {
         "event_id": uuid.uuid4().hex,
         "event_type": "visionflow.workflow_run.state_changed.v1",
@@ -220,9 +222,18 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="Print plan without making any API/Redis calls")
     args = parser.parse_args()
 
-    client = ControlPlaneClient()
-    redis_settings = RedisStreamSettings.from_env()
-    redis_client = Redis.from_url(redis_settings.url, decode_responses=True) if not args.dry_run else None
+    try:
+        client = ControlPlaneClient()
+    except Exception as _c_err:
+        print(f"[ResetStuckRendering] Warning: ControlPlaneClient init skipped: {_c_err}")
+        client = None
+
+    try:
+        redis_settings = RedisStreamSettings.from_env()
+        redis_client = Redis.from_url(redis_settings.url, decode_responses=True) if not args.dry_run else None
+    except Exception as _r_err:
+        print(f"[ResetStuckRendering] Warning: Redis client init skipped: {_r_err}")
+        redis_client = None
 
     with Session(get_engine()) as session:
         if args.all:
