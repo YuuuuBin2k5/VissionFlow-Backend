@@ -75,8 +75,6 @@ class VietnameseMetadataStrategy(MetadataGenerationStrategy):
     """Concrete Strategy for Vietnamese Title & SEO Metadata."""
 
     def generate(self, transcript: str, original_title: str | None = None) -> VideoMetadataResult:
-        from worker.services.model_router import ModelRouter, TaskCategory
-
         title_context = f"\nTIEU DE GOC CUA VIDEO NUOC NGOAI: \"{original_title}\"" if original_title else ""
         prompt = f"""
 Hay đóng vai là một chuyên gia marketing và SEO video TikTok/YouTube Shorts hàng đầu Việt Nam.
@@ -134,10 +132,12 @@ Chỉ trả về 1 câu tiêu đề tiếng Việt duy nhất, không kèm giả
     def _parse_json_result(self, raw_response: str, fallback_script: str, original_title: str | None) -> VideoMetadataResult:
         try:
             clean = raw_response.strip()
+            clean = raw_response.strip()
             if "```json" in clean:
                 clean = clean.split("```json")[1].split("```")[0].strip()
             elif "```" in clean:
                 clean = clean.split("```")[1].split("```")[0].strip()
+            data = json.loads(clean)
             raw_tags = data.get("hashtags") or ["#xuhuong", "#gocchiemnghiem", "#YuuBin"]
             sanitized_tags = [sanitize_hashtag(t) for t in raw_tags if sanitize_hashtag(t)]
             if "#YuuBin" not in sanitized_tags and "#yuubin" not in [t.lower() for t in sanitized_tags]:
@@ -163,8 +163,6 @@ class EnglishMetadataStrategy(MetadataGenerationStrategy):
     """Concrete Strategy for English Title & SEO Metadata."""
 
     def generate(self, transcript: str, original_title: str | None = None) -> VideoMetadataResult:
-        from worker.services.model_router import ModelRouter, TaskCategory
-
         title_context = f"\nORIGINAL FOREIGN TITLE: \"{original_title}\"" if original_title else ""
         prompt = f"""
 Act as a top-tier viral TikTok & YouTube Shorts marketing expert for English-speaking global audiences.
@@ -224,6 +222,7 @@ Return ONLY the translated English title text."""
                 clean = clean.split("```json")[1].split("```")[0].strip()
             elif "```" in clean:
                 clean = clean.split("```")[1].split("```")[0].strip()
+            data = json.loads(clean)
             raw_tags = data.get("hashtags") or ["#shorts", "#dubbed", "#YuuBin"]
             sanitized_tags = [sanitize_hashtag(t) for t in raw_tags if sanitize_hashtag(t)]
             if "#YuuBin" not in sanitized_tags and "#yuubin" not in [t.lower() for t in sanitized_tags]:

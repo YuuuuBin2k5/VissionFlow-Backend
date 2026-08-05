@@ -107,7 +107,18 @@ def dispatch_dubbing_job(
     lang_tag = (payload.target_language or "vi").upper()
     if lang_tag == "AUTO":
         lang_tag = "VI"
-    clean_title = f"[{lang_tag}-DUB] {payload.source_url or payload.file_path or 'Video Lồng Tiếng Tự Động'}"[:240]
+
+    display_name = payload.file_path or "Video Lồng Tiếng Tự Động"
+    if payload.source_url:
+        if "douyin.com" in payload.source_url.lower():
+            display_name = "Video Douyin Lồng Tiếng"
+        elif "tiktok.com" in payload.source_url.lower():
+            display_name = "Video TikTok Lồng Tiếng"
+        elif "youtube.com" in payload.source_url.lower() or "youtu.be" in payload.source_url.lower():
+            display_name = "Video YouTube Lồng Tiếng"
+        else:
+            display_name = "Video Lồng Tiếng AI"
+    clean_title = f"[{lang_tag}-DUB] {display_name}"
 
     # Tạo VideoProject + WorkflowRun trong PostgreSQL
     workflow_run_id = uuid.uuid4()
