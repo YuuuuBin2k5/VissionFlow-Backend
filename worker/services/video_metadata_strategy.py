@@ -11,8 +11,32 @@ from __future__ import annotations
 
 import abc
 import json
+import re
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Any
+
+
+def remove_vietnamese_accents(text: str) -> str:
+    if not text:
+        return ""
+    text = text.replace("đ", "d").replace("Đ", "D")
+    normalized = unicodedata.normalize("NFD", text)
+    return "".join(c for c in normalized if unicodedata.category(c) != "Mn")
+
+
+def sanitize_hashtag(tag: str) -> str:
+    if not tag:
+        return ""
+    tag = str(tag).strip()
+    body = tag if not tag.startswith("#") else tag[1:]
+    unaccented = remove_vietnamese_accents(body)
+    clean = re.sub(r"[^\w]", "", unaccented)
+    if not clean:
+        return ""
+    if clean.lower() == "yuubin":
+        return "#YuuBin"
+    return f"#{clean.lower()}"
 
 
 @dataclass(frozen=True)
@@ -114,15 +138,15 @@ Chỉ trả về 1 câu tiêu đề tiếng Việt duy nhất, không kèm giả
                 clean = clean.split("```json")[1].split("```")[0].strip()
             elif "```" in clean:
                 clean = clean.split("```")[1].split("```")[0].strip()
-            data = json.loads(clean)
-            tags = data.get("hashtags") or ["#xuhuong", "#gocchiemnghiem", "#YuuBin"]
-            if "#YuuBin" not in tags and "#yuubin" not in [t.lower() for t in tags]:
-                tags.append("#YuuBin")
+            raw_tags = data.get("hashtags") or ["#xuhuong", "#gocchiemnghiem", "#YuuBin"]
+            sanitized_tags = [sanitize_hashtag(t) for t in raw_tags if sanitize_hashtag(t)]
+            if "#YuuBin" not in sanitized_tags and "#yuubin" not in [t.lower() for t in sanitized_tags]:
+                sanitized_tags.append("#YuuBin")
             return VideoMetadataResult(
                 title=str(data.get("title") or original_title or "Video lồng tiếng mới").strip()[:100],
                 caption_seo=str(data.get("caption_seo") or fallback_script[:200]).strip(),
                 pinned_comment=str(data.get("pinned_comment") or "Bạn nghĩ sao về video này? Bình luận phía dưới nhé!").strip(),
-                hashtags=tags[:5],
+                hashtags=sanitized_tags[:5],
                 video_script=str(data.get("video_script") or fallback_script).strip(),
             )
         except Exception:
@@ -200,15 +224,15 @@ Return ONLY the translated English title text."""
                 clean = clean.split("```json")[1].split("```")[0].strip()
             elif "```" in clean:
                 clean = clean.split("```")[1].split("```")[0].strip()
-            data = json.loads(clean)
-            tags = data.get("hashtags") or ["#shorts", "#dubbed", "#YuuBin"]
-            if "#YuuBin" not in tags and "#yuubin" not in [t.lower() for t in tags]:
-                tags.append("#YuuBin")
+            raw_tags = data.get("hashtags") or ["#shorts", "#dubbed", "#YuuBin"]
+            sanitized_tags = [sanitize_hashtag(t) for t in raw_tags if sanitize_hashtag(t)]
+            if "#YuuBin" not in sanitized_tags and "#yuubin" not in [t.lower() for t in sanitized_tags]:
+                sanitized_tags.append("#YuuBin")
             return VideoMetadataResult(
                 title=str(data.get("title") or original_title or "New Dubbed Video").strip()[:100],
                 caption_seo=str(data.get("caption_seo") or fallback_script[:200]).strip(),
                 pinned_comment=str(data.get("pinned_comment") or "What are your thoughts on this? Let us know below!").strip(),
-                hashtags=tags[:5],
+                hashtags=sanitized_tags[:5],
                 video_script=str(data.get("video_script") or fallback_script).strip(),
             )
         except Exception:

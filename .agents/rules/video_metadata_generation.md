@@ -33,6 +33,12 @@ This rule enforces strict architectural and copywriting standards for generating
 - **Pinned Comment (pinned_comment)**: Engaging question encouraging global viewers to comment.
 - **Hashtags (hashtags)**: 4 to 5 English hashtags ending with mandatory brand tag `#YuuBin`.
 
+### C. YouTube & TikTok Hashtag Compliance Rule
+- **NO ACCENTS / DIACRITICS**: ALL hashtags MUST be unaccented ASCII characters without Vietnamese accents (dấu tiếng Việt).
+  - ❌ WRONG: `#bàihọccuộCSống`, `#chuyệnđêmkhuya`, `#kinhnghiệmsống`, `#gốcchiêmnghiệm`
+  - ✅ CORRECT: `#baihoccuocsong`, `#chuyendemkhuya`, `#kinhnghiemsong`, `#kechuyen`, `#trietlycuocsong`, `#gocchiemnghiemyuuubin`, `#YuuBin`, `#shorts`
+- Every generated metadata result is automatically sanitized via `sanitize_hashtag()` / `UnifiedVideoMetadataService.sanitize_hashtags()`.
+
 ---
 
 ## 3. Immediate Title Sanitization Rule

@@ -40,6 +40,12 @@ class UnifiedVideoMetadataService:
             return "Video Lồng Tiếng Mới" if self.target_language == "vi" else "New Dubbed Video"
         return self.strategy.translate_raw_title(raw_title)
 
+    @staticmethod
+    def sanitize_hashtags(hashtags: list[str]) -> list[str]:
+        """Convert a list of raw hashtags into valid unaccented YouTube/TikTok hashtags."""
+        from worker.services.video_metadata_strategy import sanitize_hashtag
+        return [sanitize_hashtag(tag) for tag in hashtags if sanitize_hashtag(tag)]
+
 
 def process_video_metadata(
     transcript: str,
