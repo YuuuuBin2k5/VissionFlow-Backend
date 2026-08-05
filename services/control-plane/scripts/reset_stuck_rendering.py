@@ -190,8 +190,15 @@ def reset_one(
     try:
         run.state = "QUEUED"
         run.failure_code = None
+        # Clean up downstream steps so transition engine produces fresh outbox events
+        session.execute(
+            delete(WorkflowStep).where(
+                WorkflowStep.workflow_run_id == run.id,
+                WorkflowStep.step_key.in_(["script", "storyboard", "assets", "render", "qa_pending"])
+            )
+        )
         session.commit()
-        print(f"  ✓ Direct DB reset {current_state} → QUEUED")
+        print(f"  ✓ Direct DB reset {current_state} → QUEUED (steps cleared)")
     except Exception as exc:
         session.rollback()
         print(f"  ERROR: Could not update DB state to QUEUED: {exc}")
