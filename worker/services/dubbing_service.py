@@ -525,7 +525,7 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
     ):
         """Tạo file phụ đề ASS (Advanced SubStation Alpha) sắc nét, chuẩn SEO, hiển thị mượt mà trên video lồng tiếng."""
         try:
-            font_name = "Be Vietnam Pro, Montserrat, Poppins, Roboto, Arial, DejaVu Sans, sans-serif"
+            font_name = "Arial"
             margin_v = 320 if aspect_ratio == "vertical_blur" else 220
 
             if caption_preset == "hormozi":
@@ -897,8 +897,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             fonts_conf_content = f"""<?xml version="1.0"?>
 <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
 <fontconfig>
+    <dir>/usr/share/fonts</dir>
+    <dir>/usr/local/share/fonts</dir>
+    <dir>~/.fonts</dir>
     <dir>C:\\Windows\\Fonts</dir>
     <dir>{FONTS_DIR.as_posix()}</dir>
+    <include ignore_missing="yes">/etc/fonts/fonts.conf</include>
 </fontconfig>
 """
             try:
