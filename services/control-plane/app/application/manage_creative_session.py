@@ -925,6 +925,8 @@ class ManageCreativeSession:
                 "enable_auto_emoji": creation_spec.get("enable_auto_emoji", True),
                 "visual_preset": creation_spec.get("visual_preset", "clean_explainer"),
                 "color_grading": creation_spec.get("color_grading", "cyber_teal"),
+                "asset_source": creation_spec.get("asset_source", "fal_ai"),
+                "visual_engine": creation_spec.get("visual_engine", "fal_ai"),
                 "enable_vignette": creation_spec.get("enable_vignette", True),
                 "enable_progress_bar": creation_spec.get("enable_progress_bar", True),
                 "enable_follow_cta": creation_spec.get("enable_follow_cta", True),

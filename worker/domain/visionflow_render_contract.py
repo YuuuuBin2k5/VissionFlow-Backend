@@ -34,6 +34,7 @@ class VisionFlowRenderContract:
     visual_preset: str
     color_grading: str
     enable_vignette: bool
+    asset_source: str
     enable_progress_bar: bool
     enable_follow_cta: bool
     enable_outro_card: bool
@@ -92,6 +93,7 @@ def build_visionflow_render_contract(
         visual_preset=str(payload.get("visual_preset") or "clean_explainer"),
         color_grading=str(payload.get("color_grading") or "cyber_teal"),
         enable_vignette=bool(payload.get("enable_vignette", True)),
+        asset_source=str(payload.get("asset_source") or payload.get("visual_engine") or "fal_ai"),
         enable_progress_bar=bool(payload.get("enable_progress_bar", True)),
         enable_follow_cta=bool(payload.get("enable_follow_cta", True)),
         enable_outro_card=bool(payload.get("enable_outro_card", True)),
