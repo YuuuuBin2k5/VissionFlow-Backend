@@ -686,9 +686,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     with open(trans_cache_path, "w", encoding="utf-8") as f:
                         json.dump(timeline, f, ensure_ascii=False, indent=2)
 
+                is_en = (target_language or "").strip().lower() in ["en", "english"]
+                if is_en and (not voice_code or voice_code.lower() in ["edge-nam-minh", "edge-hoai-bao", "vi-vn-namminhneural", "vi-vn-hoaibaoneural", "auto"]):
+                    voice_code = "en-US-ChristopherNeural" if voice_gender == "male" else "en-US-AnaNeural"
+
                 # 4. Sinh tiếng lồng tiếng bằng TTS & Tự động co dãn (Time-Stretch)
                 if progress_callback:
-                    lang_msg = "tiếng Anh" if (target_language or "").strip().lower() in ["en", "english"] else "tiếng Việt"
+                    lang_msg = "tiếng Anh" if is_en else "tiếng Việt"
                     progress_callback(f"Đang sinh giọng lồng {lang_msg} ({voice_code}) bằng AI...")
 
                 tts_service = TTSService(voice=voice_code)
