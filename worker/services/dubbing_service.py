@@ -506,6 +506,79 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
             print(f"[DubbingService Warning] split_segment_text failed: {e}. Falling back to entire text.")
             return [{"start": start, "end": end, "text": text}]
 
+    def format_ass_time(self, seconds: float) -> str:
+        total_cs = max(0, int(round(seconds * 100)))
+        h = total_cs // 360000
+        total_cs %= 360000
+        m = total_cs // 6000
+        total_cs %= 6000
+        s = total_cs // 100
+        cs = total_cs % 100
+        return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
+
+    def generate_ass_file(
+        self,
+        timeline: list,
+        ass_path: str,
+        caption_preset: str = "hormozi",
+        aspect_ratio: str = "short_vertical",
+    ):
+        """Tạo file phụ đề ASS (Advanced SubStation Alpha) sắc nét, chuẩn SEO, hiển thị mượt mà trên video lồng tiếng."""
+        try:
+            font_name = "Montserrat, Arial, DejaVu Sans, sans-serif"
+            margin_v = 320 if aspect_ratio == "vertical_blur" else 220
+
+            if caption_preset == "hormozi":
+                font_size = 44
+                primary_color = "&H0000FFFF"  # Rực rỡ vàng (#FFFF00)
+                outline_color = "&H00000000"  # Viền đen sắc nét
+                outline = 3
+                shadow = 2
+            elif caption_preset == "neon":
+                font_size = 42
+                primary_color = "&H0000FF00"  # Xanh Neon (#00FF00)
+                outline_color = "&H00000000"
+                outline = 3
+                shadow = 2
+            else:  # montserrat / clean_news / default
+                font_size = 40
+                primary_color = "&H00FFFFFF"  # Trắng tinh khiết (#FFFFFF)
+                outline_color = "&H00000000"
+                outline = 2
+                shadow = 1
+
+            header = f"""[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,{font_name},{font_size},{primary_color},&H00000000,{outline_color},&H80000000,1,0,0,0,100,100,0,0,1,{outline},{shadow},2,20,20,{margin_v},1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+            events = []
+            for segment in timeline:
+                start = segment["start"]
+                end = segment["end"]
+                text = segment.get("translated_text", segment.get("text", "")).strip()
+
+                sub_segments = self.split_segment_text(text, start, end, max_words=5, max_chars_per_line=14)
+                for sub in sub_segments:
+                    s_str = self.format_ass_time(sub["start"])
+                    e_str = self.format_ass_time(sub["end"])
+                    sub_text = sub["text"].strip().replace("\n", "\\N")
+                    events.append(f"Dialogue: 0,{s_str},{e_str},Default,,0,0,0,,{sub_text}")
+
+            with open(ass_path, "w", encoding="utf-8") as f:
+                f.write(header + "\n".join(events) + "\n")
+
+            print(f"[DubbingService] ASS Subtitle file generated successfully at: {ass_path}")
+        except Exception as e:
+            print(f"[DubbingService Warning] Failed to generate ASS file: {e}")
+
     def generate_srt_file(self, timeline: list, srt_path: str):
         """Tạo file phụ đề SRT từ danh sách timeline dịch thuật"""
         try:
@@ -516,8 +589,6 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
                     end = segment["end"]
                     text = segment.get("translated_text", segment.get("text", "")).strip()
 
-                    # Tự động chia nhỏ các đoạn chữ dài thành các phụ đề ngắn gọn để tránh bị che khuất chủ thể
-                    # max_words=4 và max_chars_per_line=10 (tổng cộng tối đa 2 dòng = 20 ký tự)
                     sub_segments = self.split_segment_text(text, start, end, max_words=4, max_chars_per_line=10)
 
                     for sub in sub_segments:
@@ -806,16 +877,18 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
             if progress_callback:
                 progress_callback("Đang xuất video hoạt hình lồng tiếng Việt thành phẩm...")
 
+            ass_path = temp_dir / "subtitles.ass"
             srt_path = temp_dir / "subtitles.srt"
             has_subtitles = False
             if burn_subtitles and realized_timeline:
                 try:
                     if progress_callback:
-                        progress_callback("Đang tự động biên soạn và tạo file phụ đề SRT tiếng Việt...")
+                        progress_callback("Đang tự động biên soạn và tạo file phụ đề ASS tiếng Việt...")
+                    self.generate_ass_file(realized_timeline, str(ass_path), caption_preset=caption_preset, aspect_ratio=aspect_ratio)
                     self.generate_srt_file(realized_timeline, str(srt_path))
-                    has_subtitles = os.path.exists(srt_path) and os.path.getsize(srt_path) > 0
-                except Exception as srt_err:
-                    print(f"[DubbingService Warning] Failed to write srt file: {srt_err}")
+                    has_subtitles = os.path.exists(ass_path) and os.path.getsize(ass_path) > 0
+                except Exception as sub_err:
+                    print(f"[DubbingService Warning] Failed to write subtitle files: {sub_err}")
 
             # Tạo file cấu hình fonts.conf trong thư mục tạm thời để giải quyết lỗi Fontconfig trên Windows
             # Đăng ký thư mục fonts của hệ thống lẫn thư mục fonts dự án chứa Montserrat
@@ -835,31 +908,17 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
                 print(f"[DubbingService Warning] Failed to write fonts.conf: {fe}")
 
             # Sử dụng đường dẫn tương đối (relative path) từ thư mục làm việc hiện tại (CWD)
-            # để tránh ký tự hai chấm của tên ổ đĩa (ví dụ D:) trong bộ lọc subtitles của FFmpeg
             try:
-                rel_srt_path = os.path.relpath(srt_path).replace("\\", "/")
-                escaped_srt = rel_srt_path.replace("'", "'\\''")
+                rel_ass_path = os.path.relpath(ass_path).replace("\\", "/")
+                escaped_ass = rel_ass_path.replace("'", "'\\''")
             except Exception:
-                escaped_srt = str(srt_path).replace("\\", "/").replace(":", "\\:").replace("'", "'\\''")
+                escaped_ass = str(ass_path).replace("\\", "/").replace(":", "\\:").replace("'", "'\\''")
 
             # Cấu hình môi trường fontconfig truyền cho FFmpeg
             env_copy = os.environ.copy()
             env_copy["FONTCONFIG_FILE"] = str(fonts_conf_path)
             env_copy["FONTCONFIG_PATH"] = str(temp_dir)
             env_copy["FC_CONFIG_DIR"] = str(temp_dir)
-
-            # Subtitle styling presets
-            use_force_style = self.check_subtitles_supports_force_style()
-            if use_force_style:
-                if caption_preset == "hormozi":
-                    style_str = ":force_style='FontName=Montserrat,FontSize=32,Bold=1,PrimaryColour=&H0000FFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=2,MarginV=140'"
-                elif caption_preset == "neon":
-                    style_str = ":force_style='FontName=Montserrat,FontSize=30,Bold=1,PrimaryColour=&H0000FF00,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=2,MarginV=140'"
-                else: # montserrat / default
-                    margin_v = 300 if aspect_ratio == "vertical_blur" else 120
-                    style_str = f":force_style='FontName=Montserrat,FontSize=28,Bold=1,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2,Shadow=1,MarginV={margin_v}'"
-            else:
-                style_str = ""
 
             # Dynamic FFmpeg Filter Complex Construction
             filter_nodes = []
@@ -889,8 +948,6 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
             if aspect_ratio == "vertical_blur":
                 if progress_callback:
                     progress_callback("Đang chuyển đổi kích thước video sang Dọc 9:16 với viền mờ nghệ thuật...")
-                # Phải split current_v thành 2 bản sao trước khi dùng cho 2 bộ lọc khác nhau.
-                # FFmpeg không cho phép dùng cùng 1 output label 2 lần trong filter_complex.
                 filter_nodes.append(
                     f"{current_v}split=2[v_split_bg][v_split_fg];"
                     f"[v_split_bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:5,setsar=1[bg];"
@@ -903,7 +960,7 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
             if has_subtitles:
                 if progress_callback:
                     progress_callback("Đang ghi cứng phụ đề tiếng Việt chuẩn SEO vào video...")
-                filter_nodes.append(f"{current_v}subtitles='{escaped_srt}'{style_str}[outv]")
+                filter_nodes.append(f"{current_v}subtitles='{escaped_ass}'[outv]")
             else:
                 filter_nodes.append(f"{current_v}null[outv]")
 
