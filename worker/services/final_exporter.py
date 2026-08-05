@@ -59,7 +59,9 @@ class FinalExporter:
                 audio_codec="aac",
                 temp_audiofile=temp_audio_path,
                 remove_temp=False,
-                logger=logger
+                logger=logger,
+                preset="ultrafast",
+                threads=4,
             )
             update_task_progress(str(job_id), "READY", 100)
 

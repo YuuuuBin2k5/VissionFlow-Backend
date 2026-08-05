@@ -55,6 +55,7 @@ jobs:
       VISIONFLOW_OBJECT_STORE_REGION: auto
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+      PYTHONUNBUFFERED: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -116,7 +117,7 @@ jobs:
             python services/control-plane/scripts/advance_stuck_workflow.py --all || true
             python services/control-plane/scripts/requeue_workflow.py --all || true
             python services/control-plane/scripts/relay_outbox.py --limit 10
-            python worker/consume_visionflow_events.py --once --block-ms 1000 --count 10
+            python worker/consume_visionflow_events.py --once --block-ms 1000 --count 1
             echo "Pass $pass complete"
           done
 
