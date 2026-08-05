@@ -525,7 +525,7 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
     ):
         """Tạo file phụ đề ASS (Advanced SubStation Alpha) sắc nét, chuẩn SEO, hiển thị mượt mà trên video lồng tiếng."""
         try:
-            font_name = "Montserrat, Arial, DejaVu Sans, sans-serif"
+            font_name = "Be Vietnam Pro, Montserrat, Poppins, Roboto, Arial, DejaVu Sans, sans-serif"
             margin_v = 320 if aspect_ratio == "vertical_blur" else 220
 
             if caption_preset == "hormozi":
