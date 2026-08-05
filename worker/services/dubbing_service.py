@@ -668,7 +668,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 timeline = self.merge_adjacent_segments(timeline)
 
                 # 3. Dịch thuật thông minh qua Gemini
-                trans_cache_path = temp_dir / "translated_timeline.json"
+                trans_cache_path = temp_dir / f"translated_timeline_{target_language}.json"
                 use_cached_trans = False
                 if trans_cache_path.exists():
                     print(f"[DubbingService] Reusing cached translated timeline: {trans_cache_path}")
