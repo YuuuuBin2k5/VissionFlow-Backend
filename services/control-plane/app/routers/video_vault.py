@@ -17,7 +17,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.application.authorize_organization import AuthorizeOrganization
@@ -28,6 +28,7 @@ from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembe
 from app.infrastructure.models import (
     CreativeProposal,
     MediaAsset,
+    PublishApproval,
     PublicationAttempt,
     PublisherConnection,
     VideoProject,
@@ -277,6 +278,12 @@ def delete_video_vault_asset(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Video asset not found")
 
     object_key = asset.object_key
+
+    # Xóa các bản ghi liên quan trong publish_approvals để tránh vi phạm khóa ngoại RESTRICT
+    session.execute(
+        delete(PublishApproval).where(PublishApproval.export_asset_id == asset_id)
+    )
+
     session.delete(asset)
     session.commit()
 
@@ -308,6 +315,13 @@ def bulk_delete_video_vault_assets(
         return
 
     object_keys = [a.object_key for a in assets]
+    asset_ids = [a.id for a in assets]
+
+    # Xóa các bản ghi liên quan trong publish_approvals trước
+    session.execute(
+        delete(PublishApproval).where(PublishApproval.export_asset_id.in_(asset_ids))
+    )
+
     for asset in assets:
         session.delete(asset)
     session.commit()
