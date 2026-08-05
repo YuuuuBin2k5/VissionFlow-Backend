@@ -47,14 +47,14 @@ from pathlib import Path
 
 import requests
 from redis import Redis
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SERVICE_ROOT))
 
 from app.infrastructure.database import get_engine  # noqa: E402
-from app.infrastructure.models import VideoProject, WorkflowRun  # noqa: E402
+from app.infrastructure.models import VideoProject, WorkflowRun, WorkflowStep  # noqa: E402
 from app.infrastructure.redis_stream_publisher import RedisStreamSettings  # noqa: E402
 
 
@@ -174,8 +174,9 @@ def reset_one(
     dry_run: bool,
 ) -> bool:
     current_state = run.state
+    title_safe = str(project.title or "").encode("ascii", errors="ignore").decode("ascii") or "Untitled"
     print(f"  Workflow : {run.id}")
-    print(f"  Title    : {project.title[:70]}")
+    print(f"  Title    : {title_safe[:70]}")
     print(f"  State    : {current_state}")
 
     if current_state not in RECOVERABLE_STATES:
@@ -183,7 +184,7 @@ def reset_one(
         return False
 
     if dry_run:
-        print(f"  DRY RUN: would reset {current_state} → QUEUED")
+        print(f"  DRY RUN: would reset {current_state} -> QUEUED")
         return True
 
     # Directly set DB state back to QUEUED so Control Plane API and Web UI see QUEUED
@@ -198,7 +199,7 @@ def reset_one(
             )
         )
         session.commit()
-        print(f"  ✓ Direct DB reset {current_state} → QUEUED (steps cleared)")
+        print(f"  [OK] Direct DB reset {current_state} -> QUEUED (steps cleared)")
     except Exception as exc:
         session.rollback()
         print(f"  ERROR: Could not update DB state to QUEUED: {exc}")
@@ -207,7 +208,7 @@ def reset_one(
     # Push to Redis Stream for worker consumption
     try:
         msg_id = requeue_to_redis(run, project, redis_client, redis_stream)
-        print(f"  ✓ Re-queued to Redis → msg {msg_id}")
+        print(f"  [OK] Re-queued to Redis -> msg {msg_id}")
     except Exception as exc:
         print(f"  ERROR: Could not push to Redis: {exc}")
         return False
@@ -238,9 +239,11 @@ def main() -> int:
     try:
         redis_settings = RedisStreamSettings.from_env()
         redis_client = Redis.from_url(redis_settings.url, decode_responses=True) if not args.dry_run else None
+        redis_stream = redis_settings.stream
     except Exception as _r_err:
         print(f"[ResetStuckRendering] Warning: Redis client init skipped: {_r_err}")
         redis_client = None
+        redis_stream = "visionflow.workflow-events.v1"
 
     with Session(get_engine()) as session:
         if args.all:
@@ -288,7 +291,7 @@ def main() -> int:
         print(f"Found {len(standard_rows)} standard workflow(s) to reset:\n")
         success = 0
         for run, project in standard_rows:
-            ok = reset_one(run, project, session, client, redis_client, redis_settings.stream, args.dry_run)
+            ok = reset_one(run, project, session, client, redis_client, redis_stream, args.dry_run)
             if ok:
                 success += 1
             print()

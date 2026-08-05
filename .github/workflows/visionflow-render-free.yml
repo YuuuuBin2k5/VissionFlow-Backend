@@ -117,7 +117,7 @@ jobs:
             python services/control-plane/scripts/advance_stuck_workflow.py --all || true
             python services/control-plane/scripts/requeue_workflow.py --all || true
             python services/control-plane/scripts/relay_outbox.py --limit 10
-            python worker/consume_visionflow_events.py --once --block-ms 1000 --count 1
+            python worker/consume_visionflow_events.py --once --block-ms 1000 --count 10
             echo "Pass $pass complete"
           done
 
