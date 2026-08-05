@@ -162,7 +162,7 @@ def requeue_to_redis(run: WorkflowRun, project: VideoProject, redis_client: Redi
 # Core reset logic
 # ---------------------------------------------------------------------------
 
-RECOVERABLE_STATES = ("RENDERING", "ASSETS_READY")
+RECOVERABLE_STATES = ("RENDERING", "ASSETS_READY", "STORYBOARDED")
 
 def reset_one(
     run: WorkflowRun,

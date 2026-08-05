@@ -40,8 +40,8 @@ class VisionFlowRenderDispatcher:
         self._quality_assurance = quality_assurance
 
     def dispatch(self, workflow_run_id: str, *, trace_id: str) -> RenderedArtifact | None:
-        if not workflow_run_id.strip() or len(trace_id) != 32:
-            raise ValueError("workflow_run_id and a 32-character trace_id are required")
+        if not workflow_run_id.strip() or len(trace_id.replace("-", "")) != 32:
+            raise ValueError("workflow_run_id and a valid 32/36-character trace_id are required")
 
         context = self._control_plane.get_execution_context(workflow_run_id, trace_id=trace_id)
         if context.get("state") != "STORYBOARDED":

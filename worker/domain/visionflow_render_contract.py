@@ -55,8 +55,8 @@ def build_visionflow_render_contract(
     payload = intake.get("input_payload", {})
     if not isinstance(payload, dict):
         raise ValueError("intake input_payload must be an object")
-    if not workflow_run_id.strip() or len(trace_id) != 32:
-        raise ValueError("workflow_run_id and a 32-character trace_id are required")
+    if not workflow_run_id.strip() or len(trace_id.replace("-", "")) != 32:
+        raise ValueError("workflow_run_id and a valid 32/36-character trace_id are required")
     duration = int(payload.get("duration_seconds", 45))
     if not 5 <= duration <= 300:
         raise ValueError("VisionFlow V1 duration must be between 5 and 300 seconds")
