@@ -162,7 +162,7 @@ def requeue_to_redis(run: WorkflowRun, project: VideoProject, redis_client: Redi
 # Core reset logic
 # ---------------------------------------------------------------------------
 
-RECOVERABLE_STATES = ("RENDERING", "ASSETS_READY", "STORYBOARDED")
+RECOVERABLE_STATES = ("RENDERING", "ASSETS_READY")
 
 def reset_one(
     run: WorkflowRun,
@@ -195,7 +195,7 @@ def reset_one(
         session.execute(
             delete(WorkflowStep).where(
                 WorkflowStep.workflow_run_id == run.id,
-                WorkflowStep.step_key.in_(["script", "storyboard", "assets", "render", "qa_pending"])
+                WorkflowStep.step_key.in_(["assets", "render", "qa_pending"])
             )
         )
         session.commit()
