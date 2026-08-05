@@ -388,12 +388,11 @@ async def download_video_link(job_id: int, url: str, output_dir: str) -> tuple:
 
     # Tự động chuẩn hóa và thu hoạch cookies sớm để phục vụ cho cả tiền kiểm tra (Pre-Validation) và tải về
     if is_douyin:
-        if "modal_id=" in url:
-            match = re.search(r"modal_id=(\d+)", url)
-            if match:
-                video_id = match.group(1)
-                url = f"https://www.douyin.com/video/{video_id}"
-                print(f"[Python Worker] Chuẩn hóa link Douyin thành: {url}")
+        match = re.search(r"(?:modal_id|vid)=(\d+)", url)
+        if match:
+            video_id = match.group(1)
+            url = f"https://www.douyin.com/video/{video_id}"
+            print(f"[Python Worker] Chuẩn hóa link Douyin modal thành: {url}")
 
         # Thu hoạch cookies qua Playwright Stealth trước (để lấy cookies sạch không phụ thuộc DPAPI/v20)
         from worker.config import BASE_DIR
