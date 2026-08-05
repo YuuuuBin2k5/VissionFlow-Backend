@@ -523,29 +523,29 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
         caption_preset: str = "hormozi",
         aspect_ratio: str = "short_vertical",
     ):
-        """Tạo file phụ đề ASS (Advanced SubStation Alpha) sắc nét, chuẩn SEO, hiển thị mượt mà trên video lồng tiếng."""
+        """Tạo file phụ đề ASS (Advanced SubStation Alpha) to rõ, nổi bật, chuẩn SEO, hiển thị mượt mà trên video lồng tiếng."""
         try:
             font_name = "Arial"
-            margin_v = 320 if aspect_ratio == "vertical_blur" else 220
+            margin_v = 360 if aspect_ratio == "vertical_blur" else 250
 
             if caption_preset == "hormozi":
-                font_size = 44
+                font_size = 72
                 primary_color = "&H0000FFFF"  # Rực rỡ vàng (#FFFF00)
-                outline_color = "&H00000000"  # Viền đen sắc nét
-                outline = 3
-                shadow = 2
+                outline_color = "&H00000000"  # Viền đen dày sắc nét
+                outline = 4
+                shadow = 3
             elif caption_preset == "neon":
-                font_size = 42
+                font_size = 68
                 primary_color = "&H0000FF00"  # Xanh Neon (#00FF00)
                 outline_color = "&H00000000"
-                outline = 3
-                shadow = 2
+                outline = 4
+                shadow = 3
             else:  # montserrat / clean_news / default
-                font_size = 40
+                font_size = 66
                 primary_color = "&H00FFFFFF"  # Trắng tinh khiết (#FFFFFF)
                 outline_color = "&H00000000"
-                outline = 2
-                shadow = 1
+                outline = 4
+                shadow = 2
 
             header = f"""[Script Info]
 ScriptType: v4.00+
@@ -554,7 +554,7 @@ PlayResY: 1920
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{font_name},{font_size},{primary_color},&H00000000,{outline_color},&H80000000,1,0,0,0,100,100,0,0,1,{outline},{shadow},2,20,20,{margin_v},1
+Style: Default,{font_name},{font_size},{primary_color},&H00000000,{outline_color},&H80000000,1,0,0,0,100,100,0,0,1,{outline},{shadow},2,30,30,{margin_v},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -565,7 +565,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 end = segment["end"]
                 text = segment.get("translated_text", segment.get("text", "")).strip()
 
-                sub_segments = self.split_segment_text(text, start, end, max_words=5, max_chars_per_line=14)
+                sub_segments = self.split_segment_text(text, start, end, max_words=6, max_chars_per_line=22)
                 for sub in sub_segments:
                     s_str = self.format_ass_time(sub["start"])
                     e_str = self.format_ass_time(sub["end"])
