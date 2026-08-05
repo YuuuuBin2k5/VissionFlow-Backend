@@ -18,26 +18,40 @@ class VisionFlowVideoRenderer:
         self._overlay_compositor = overlay_compositor or FfmpegOverlayCompositor()
 
     def render(self, contract, assets: PreparedAssets) -> RenderedArtifact:
+        print(f"[VisionFlowRenderer] 🎬 Starting video render for workflow {contract.workflow_run_id}...", flush=True)
         workspace = RenderWorkspace(self._workspace_root, contract.workflow_run_id).create()
+
+        print(f"[VisionFlowRenderer] 📥 Downloading {len(assets.asset_keys)} background asset(s)...", flush=True)
         background_paths = self._materializer.download(assets, workspace)
+
+        print(f"[VisionFlowRenderer] 🎙️ Synthesizing TTS audio (voice={contract.voice_code})...", flush=True)
         try:
             speech = self._tts.synthesize(contract.script, contract.voice_code, workspace, voice_rate=getattr(contract, "voice_rate", 1.12))
         except TypeError:
             speech = self._tts.synthesize(contract.script, contract.voice_code, workspace)
+
         scene_layout = build_renderable_scene_layout(contract.scenes, contract.render_plan)
+
+        print(f"[VisionFlowRenderer] 🎞️ Rendering final video composition with MoviePy & FFmpeg...", flush=True)
         output_path = self._media_service.render_final_video(
             scene_layout, speech.word_timestamps, speech.audio_path, background_paths,
             workspace_path=str(workspace.path),
             visual_style_plan=_style_plan(contract),
             full_voice_script=contract.script,
         )
+
+        print(f"[VisionFlowRenderer] 🎨 Applying overlay graphics & subtitle captions...", flush=True)
         overlays = self._overlay_materializer.download(contract.render_plan, workspace.path)
         output_path = self._overlay_compositor.apply(output_path, overlays, workspace.path)
         try:
             output_path = self._caption_compositor.apply(output_path, contract.render_plan, workspace.path, caption_preset=getattr(contract, "caption_preset", "hormozi"))
         except TypeError:
             output_path = self._caption_compositor.apply(output_path, contract.render_plan, workspace.path)
+
+        print(f"[VisionFlowRenderer] ☁️ Uploading final MP4 export to Cloud R2 storage...", flush=True)
         uploaded = self._storage.upload_export(contract.workflow_run_id, output_path)
+
+        print(f"[VisionFlowRenderer] ✅ Video render complete! Object Key: {uploaded['object_key']}", flush=True)
         return RenderedArtifact(
             object_key=str(uploaded["object_key"]),
             content_type=str(uploaded["content_type"]),
