@@ -518,22 +518,24 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
         return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
 
     def detect_gpu_encoder(self) -> tuple[str, list[str]]:
-        """Kiểm tra sự hiện diện của Nvidia GPU encoder (h264_nvenc) và trả về tham số tối ưu."""
+        """Kiểm tra xem hệ thống có GPU Nvidia HOẠT ĐỘNG THỰC TẾ (Driver CUDA khả dụng) hay không."""
         try:
-            res = subprocess.run(
-                ["ffmpeg", "-hide_banner", "-encoders"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if "h264_nvenc" in res.stdout:
-                print("[GPU Acceleration] Nvidia GPU (h264_nvenc) detected! Enabling GPU hardware encoding.")
+            # Chạy thử nghiệm 1 frame encoding thực tế với h264_nvenc để xác minh Driver CUDA khả dụng
+            test_cmd = [
+                "ffmpeg", "-y", "-hide_banner",
+                "-f", "lavfi", "-i", "color=c=black:s=64x64:d=0.1",
+                "-c:v", "h264_nvenc",
+                "-f", "null", "-"
+            ]
+            res = subprocess.run(test_cmd, capture_output=True, text=True, timeout=5)
+            if res.returncode == 0:
+                print("[GPU Acceleration] Nvidia GPU Hardware (h264_nvenc) verified & active!")
                 return "h264_nvenc", ["-preset", "p4", "-cq", "23"]
         except Exception as e:
-            print(f"[GPU Acceleration Warning] NVENC check failed, falling back to CPU: {e}")
+            print(f"[GPU Acceleration Warning] NVENC hardware test failed: {e}")
 
-        print("[GPU Acceleration] Using CPU H.264 encoder (libx264).")
-        return "libx264", ["-profile:v", "high", "-level:v", "4.2", "-pix_fmt", "yuv420p", "-b:v", "4M"]
+        print("[GPU Acceleration] GPU hardware unavailable (no CUDA driver). Falling back to CPU H.264 encoder (libx264).")
+        return "libx264", ["-profile:v", "high", "-level:v", "4.2", "-pix_fmt", "yuv420p", "-preset", "medium", "-crf", "23"]
 
     def generate_ass_file(
         self,
