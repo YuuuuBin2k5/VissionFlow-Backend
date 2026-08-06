@@ -909,18 +909,39 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 prepared_bgm_path = None
                 raw_bgm_source = None
 
-                # 1. Kiểm tra nếu có link / file nhạc tùy chỉnh của người dùng
+                # 1. Kiểm tra nếu có link / file nhạc tùy chỉnh của người dùng (Hỗ trợ cả link YouTube / TikTok / Direct URL)
                 if bgm_custom_url and str(bgm_custom_url).strip():
                     url_str = str(bgm_custom_url).strip()
                     if url_str.startswith("http://") or url_str.startswith("https://"):
                         try:
                             if progress_callback:
-                                progress_callback(f"Đang tải nhạc nền tùy chỉnh từ URL...")
+                                progress_callback(f"Đang tải nhạc nền tùy chỉnh từ URL: {url_str[:40]}...")
                             custom_bgm_file = temp_dir / "custom_bgm_track.mp3"
-                            import urllib.request
-                            urllib.request.urlretrieve(url_str, str(custom_bgm_file))
+                            
+                            is_social_url = any(dom in url_str.lower() for dom in ["youtube.com", "youtu.be", "tiktok.com", "douyin.com", "soundcloud.com", "bilibili.com"])
+                            if is_social_url:
+                                if progress_callback:
+                                    progress_callback("Phát hiện link YouTube/Social Media. Đang dùng yt-dlp trích xuất âm thanh MP3...")
+                                cmd_yt = [
+                                    "yt-dlp", "-x", "--audio-format", "mp3", "--audio-quality", "0",
+                                    "--no-playlist", "-o", str(custom_bgm_file), url_str
+                                ]
+                                res = subprocess.run(cmd_yt, capture_output=True, text=True)
+                                if res.returncode != 0:
+                                    print(f"[DubbingService Warning] yt-dlp custom BGM extraction warning: {res.stderr[:200]}")
+                            else:
+                                import urllib.request
+                                urllib.request.urlretrieve(url_str, str(custom_bgm_file))
+
+                            # Nếu yt-dlp lưu theo tên đuôi mở rộng tự động (vd: custom_bgm_track.mp3.mp3 hoặc .webm)
+                            if not custom_bgm_file.exists():
+                                candidates = list(temp_dir.glob("custom_bgm_track*"))
+                                if candidates:
+                                    custom_bgm_file = candidates[0]
+
                             if custom_bgm_file.exists() and custom_bgm_file.stat().st_size > 0:
                                 raw_bgm_source = str(custom_bgm_file)
+                                print(f"[DubbingService BGM] Custom BGM track downloaded successfully to: {raw_bgm_source}")
                         except Exception as dl_err:
                             print(f"[DubbingService Warning] Failed to download custom BGM from {url_str}: {dl_err}")
                     elif os.path.exists(url_str):
