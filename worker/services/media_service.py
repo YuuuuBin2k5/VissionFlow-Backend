@@ -490,7 +490,7 @@ class MediaService:
                 print(f"[MediaService Error] Failed to render Title Banner: {e_hook}")
 
         # Render Logo Watermark Overlay
-        logo_handle = visual_style_plan.get("logo_handle") or visual_style_plan.get("logo_text") or "@GocChiemNghiemYuuBin"
+        logo_handle = visual_style_plan.get("logo_handle") or visual_style_plan.get("logo_text") or "GócChiêmNghiệm||YuuuBin"
         if logo_handle and visual_style_plan.get("show_logo", True):
             try:
                 logo_path = str(sub_temp_dir / "logo_watermark.png")

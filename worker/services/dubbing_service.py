@@ -663,7 +663,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         mute_original_audio: bool = False,
         blur_original_subtitles: bool = True,
         blur_region_height_ratio: float = 0.20,
-        logo_handle: str = "@GocChiemNghiemYuuBin",
+        logo_handle: str = "GócChiêmNghiệm||YuuuBin",
         caption_preset: str = "montserrat"
     ) -> tuple:
         """Thực hiện toàn bộ 8 bước của pipeline lồng tiếng tự động miễn phí 100%"""

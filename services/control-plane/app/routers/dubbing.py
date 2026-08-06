@@ -39,7 +39,7 @@ class DubbingDispatchRequest(BaseModel):
     burn_subtitles: bool = True
     blur_original_subtitles: bool = True
     blur_region_height_ratio: float = 0.20
-    logo_handle: str = "@GocChiemNghiemYuuBin"
+    logo_handle: str = "GócChiêmNghiệm||YuuuBin"
     caption_preset: str = "montserrat"
     mute_original_audio: bool = False
     auto_publish_enabled: bool = False

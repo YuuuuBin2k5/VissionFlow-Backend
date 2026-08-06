@@ -162,7 +162,7 @@ def _style_plan(contract) -> dict:
         "hook_text": getattr(contract, "title", None) if getattr(contract, "show_title_banner", True) else None,
         "show_title_banner": getattr(contract, "show_title_banner", True),
         "title_banner_style": getattr(contract, "title_banner_style", "neon"),
-        "logo_handle": getattr(contract, "logo_handle", "@GocChiemNghiemYuuBin"),
+        "logo_handle": getattr(contract, "logo_handle", "GócChiêmNghiệm||YuuuBin"),
         "logo_position": getattr(contract, "logo_position", "top_left"),
         "logo_opacity": getattr(contract, "logo_opacity", 0.85),
         "show_logo": True,
