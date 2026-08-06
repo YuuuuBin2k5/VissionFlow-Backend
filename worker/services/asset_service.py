@@ -31,6 +31,9 @@ class StockVideoCandidate:
 from worker.services.fal_service import FalService
 
 
+from worker.services.local_asset_library_service import LocalAssetLibraryService
+
+
 class AssetService:
     def __init__(self):
         self.api_key = PEXELS_API_KEY
@@ -40,6 +43,7 @@ class AssetService:
             "Authorization": self.api_key
         }
         self.fal_service = FalService()
+        self.local_lib = LocalAssetLibraryService()
 
     def get_scene_asset(
         self,
@@ -74,9 +78,19 @@ class AssetService:
 
     def search_and_download_video(self, keywords: str, scene_id: int) -> str:
         """
-        Tìm kiếm video nền dọc trên Pexels dựa trên từ khóa và tải về.
-        Tích hợp cơ chế tự sửa lỗi (Self-Healing) khi không tìm thấy kết quả.
+        Tìm kiếm video nền dọc: Ưu tiên kho cục bộ (Local Asset Library) với 5 thuật toán thông minh:
+        (Scene-by-scene, Quality scoring, Anti-repetition, Sub-clip window, Top-K sampling).
+        Nếu kho cục bộ rỗng mới kết nối Pexels API.
         """
+        # 0. Ưu tiên tìm kiếm từ kho tài nguyên cục bộ trước
+        try:
+            local_match = self.local_lib.find_video(category="general", keywords=keywords)
+            if local_match and Path(local_match["path"]).exists():
+                print(f"[AssetService Local Match] Successfully retrieved local stock asset for Scene {scene_id}: {local_match['path']}")
+                return local_match["path"]
+        except Exception as e_local:
+            print(f"[AssetService Warning] Local asset search failed: {e_local}")
+
         print(f"[AssetService] Searching Pexels for: '{keywords}' (Scene {scene_id})")
         
         # 1. Thử tìm kiếm với từ khóa gốc
