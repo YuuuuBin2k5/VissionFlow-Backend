@@ -1067,14 +1067,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             filter_nodes = []
             current_v = "[0:v]"
 
-            # 0. Anti-Copyright & Floating Watermark Eraser (Lật gương hflip + Làm mờ logo trôi + Color grading)
+            # 0. Anti-Copyright Mirror Flip & Color Grading (Lật gương hflip + Color grading)
             if progress_callback:
-                progress_callback("Đang áp dụng bộ lọc lật gương anti-copyright & che mờ watermark gốc...")
+                progress_callback("Đang áp dụng bộ lọc lật gương anti-copyright...")
             filter_nodes.append(
-                f"{current_v}hflip,eq=contrast=1.04:brightness=0.01:saturation=1.05[v_clean_base];"
-                f"[v_clean_base]split=2[v_c_base][v_c_wm];"
-                f"[v_c_wm]crop=iw*0.35:ih*0.25:iw*0.02:ih*0.10,boxblur=12:2[v_wm_blur];"
-                f"[v_c_base][v_wm_blur]overlay=W*0.02:H*0.10[v_anti_wm]"
+                f"{current_v}hflip,eq=contrast=1.04:brightness=0.01:saturation=1.05[v_anti_wm]"
             )
             current_v = "[v_anti_wm]"
 
