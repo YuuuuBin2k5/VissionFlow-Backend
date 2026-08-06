@@ -279,7 +279,7 @@ class TTSService:
             print(f"[TTSService Warning] Google Translate TTS synthesis failed: {e}")
             return False
 
-    async def generate_speech_with_timestamps(self, text: str, output_audio_path: str, gender: str = "female", age_group: str = "adult", rate_str: str = "+12%", genre: str = "documentary") -> list:
+    async def generate_speech_with_timestamps(self, text: str, output_audio_path: str, gender: str = "female", age_group: str = "adult", rate_str: str = "+0%", genre: str = "documentary") -> list:
         """
         Chuyển đổi Text sang Speech với cơ chế dự phòng đa tầng ưu việt:
         Tầng 1 (ElevenLabs) -> Tầng 2 (Local valtec-tts) -> Tầng 3 (TikTok TTS) -> Tầng 4 (Edge-TTS) -> Tầng 5 (gTTS).

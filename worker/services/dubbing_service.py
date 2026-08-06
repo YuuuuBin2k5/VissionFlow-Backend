@@ -747,6 +747,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
                 for idx, segment in enumerate(timeline):
                     txt = segment["translated_text"]
+                    # Chuẩn hóa dấu câu để giọng đọc AI ngắt nghỉ tự nhiên, chuẩn nhịp thở con người
+                    txt = re.sub(r'([,.:;!?])([^\s])', r'\1 \2', txt)
+                    txt = re.sub(r'\s+', ' ', txt).strip()
+
                     original_start = segment["start"]
                     original_end = segment["end"]
                     original_duration = original_end - original_start
@@ -776,12 +780,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         print(f"[DubbingService] Reusing existing aligned audio clip {idx}: {aligned_clip_path}")
                         actual_duration = self.get_media_duration(aligned_clip_path)
                     else:
-                        # Gọi sinh âm thanh thô truyền động cấu hình giới tính/độ tuổi nhân vật
+                        # Gọi sinh âm thanh thô truyền động cấu hình giới tính/độ tuổi nhân vật với tốc độ chuẩn tự nhiên +0%
                         await tts_service.generate_speech_with_timestamps(
                             text=txt,
                             output_audio_path=raw_clip_path,
                             gender=gender,
-                            age_group=age_group
+                            age_group=age_group,
+                            rate_str="+0%",
                         )
                         # Giãn cách 200ms giữa các câu nói để tránh bị rate limit từ chối dịch vụ
                         await asyncio.sleep(0.2)
@@ -804,9 +809,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                             if actual_duration <= 0:
                                 actual_duration = original_duration
 
-                            # 2. TÍNH TOÁN TEMPO VÀ OVERFLOW THÔNG MINH
+                            # 2. TÍNH TOÁN TEMPO VÀ OVERFLOW THÔNG MINH (Giới hạn tối đa 1.10x để giữ giọng đọc 100% tự nhiên)
                             tempo = actual_duration / original_duration
-                            tempo = max(0.85, min(1.35, tempo)) # Đặt biên giới hạn tốc độ đọc an toàn tối đa là 1.35
+                            tempo = max(0.92, min(1.10, tempo))
 
                             # Xác định tỷ lệ điều tần (pitch shift) chuẩn nhân vật
                             pitch_ratio = 1.0
