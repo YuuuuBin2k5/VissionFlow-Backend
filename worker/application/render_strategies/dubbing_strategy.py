@@ -205,6 +205,7 @@ class DubbingStrategy(RenderStrategy):
                 _sys.path.insert(0, _cp_dir)
 
             from app.core.dubbing_bridge import sync_dubbing_job_to_control_plane
+            raw_wf_id = getattr(contract, "workflow_run_id", None) or metadata.get("workflow_run_id") or job.get("workflow_run_id") or job.get("id")
             wf_id = sync_dubbing_job_to_control_plane(
                 job_id=job_id,
                 title=title_idea,
@@ -212,6 +213,7 @@ class DubbingStrategy(RenderStrategy):
                 state="APPROVAL_PENDING",
                 r2_object_key=r2_object_key,
                 byte_size=byte_size,
+                workflow_run_id=str(raw_wf_id) if raw_wf_id else None,
             )
             log_realtime_progress(job_id, "DUBBING_PIPELINE", "INFO",
                                   f"Đã đồng bộ sang Control Plane (WorkflowRun ID: {wf_id})")

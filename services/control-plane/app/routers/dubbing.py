@@ -124,8 +124,10 @@ def dispatch_dubbing_job(
             display_name = "Video Lồng Tiếng AI"
     clean_title = f"[{lang_tag}-DUB] {display_name}"
 
+    metadata["workflow_run_id"] = str(workflow_run_id)
+
     # Tạo VideoProject + WorkflowRun trong PostgreSQL
-    workflow_run_id = uuid.uuid4()
+    workflow_run_id_obj = workflow_run_id
     if session and hasattr(session, "add"):
         proj = VideoProject(
             organization_id=org_id,
@@ -138,10 +140,11 @@ def dispatch_dubbing_job(
         session.flush()
 
         wf = WorkflowRun(
-            id=workflow_run_id,
+            id=workflow_run_id_obj,
             project_id=proj.id,
             state="QUEUED",   # process_queued_jobs.py sẽ pick up và chạy DubbingStrategy
             idempotency_key=f"dub-{uuid.uuid4().hex}",
+            legacy_job_id=f"dub-{workflow_run_id_obj}",
             prompt_manifest=metadata,
             input_payload=metadata,
         )

@@ -99,9 +99,11 @@ def sync_dubbing_job_to_control_plane(
             session.add(wf)
             session.flush()
         else:
-            # Cập nhật state
+            # Cập nhật state & tiêu đề bài viết
             wf.state = state
-            wf.prompt_manifest = {**wf.prompt_manifest, **metadata}
+            if title and hasattr(wf, "project") and wf.project:
+                wf.project.title = str(title)[:240]
+            wf.prompt_manifest = {**(wf.prompt_manifest or {}), **metadata}
 
         # 2. Ghi MediaAsset nếu có R2 key
         if r2_object_key:
