@@ -377,27 +377,27 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
             start_frame = max(0, min(total_frames - 1, start_frame))
             end_frame = max(0, min(total_frames - 1, end_frame))
 
-            # 1. Đoạn nói chính (Dìm xuống 15% âm lượng)
+            # 1. Đoạn nói chính (Dìm xuống 38% âm lượng - vừa đủ rõ lời thoại mà giữ trọn độ ấm/nhạc nền gốc)
             duck_start = min(total_frames - 1, start_frame + fade_duration_frames)
             duck_end = max(0, end_frame - fade_duration_frames)
 
             if duck_start < duck_end:
                 for f in range(duck_start, duck_end):
-                    volume_factors[f] = 0.15
+                    volume_factors[f] = 0.38
 
-                # 2. Hiệu ứng Fade-out (Giảm dần từ 1.0 xuống 0.15) trước khi nói
+                # 2. Hiệu ứng Fade-out (Giảm dần từ 1.0 xuống 0.38) trước khi nói
                 for f in range(start_frame, duck_start):
                     progress = (f - start_frame) / fade_duration_frames
-                    volume_factors[f] = min(volume_factors[f], 1.0 - (1.0 - 0.15) * progress)
+                    volume_factors[f] = min(volume_factors[f], 1.0 - (1.0 - 0.38) * progress)
 
-                # 3. Hiệu ứng Fade-in (Tăng dần từ 0.15 lên 1.0) sau khi nói xong
+                # 3. Hiệu ứng Fade-in (Tăng dần từ 0.38 lên 1.0) sau khi nói xong
                 for f in range(duck_end, end_frame):
                     progress = (f - duck_end) / fade_duration_frames
-                    volume_factors[f] = min(volume_factors[f], 0.15 + (1.0 - 0.15) * progress)
+                    volume_factors[f] = min(volume_factors[f], 0.38 + (1.0 - 0.38) * progress)
             else:
-                # Nếu câu thoại quá ngắn, dìm đều xuống 15%
+                # Nếu câu thoại quá ngắn, dìm đều xuống 38%
                 for f in range(start_frame, end_frame):
-                    volume_factors[f] = 0.15
+                    volume_factors[f] = 0.38
 
         # 4. Áp dụng các hệ số âm lượng vào các mẫu âm thanh thực tế
         for f in range(total_frames):
@@ -914,7 +914,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         "ffmpeg", "-y",
                         "-i", ducked_audio_path,
                         "-i", merged_vocal_path,
-                        "-filter_complex", "[1:a]apad[vocal_padded];[0:a][vocal_padded]amix=inputs=2:duration=first[out]",
+                        "-filter_complex", "[1:a]apad,volume=1.8[vocal_boosted];[0:a][vocal_boosted]amix=inputs=2:duration=first[mix_raw];[mix_raw]volume=1.8[out]",
                     ]
                     if video_dur > 0:
                         cmd_mix.extend(["-t", f"{video_dur:.3f}"])
