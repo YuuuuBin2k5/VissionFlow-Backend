@@ -26,15 +26,23 @@ logger = logging.getLogger(__name__)
 settings = Settings.from_env()
 app = FastAPI(title="VisionFlow Control Plane", version="0.1.0")
 
-origins = [origin.strip().rstrip("/") for origin in os.getenv("VISIONFLOW_WEB_ORIGINS", "").split(",") if origin.strip()]
-if origins:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=origins,
-        allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["*"],
-    )
+default_origins = [
+    "https://vision-flow-console.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:8000",
+]
+env_origins = [origin.strip().rstrip("/") for origin in os.getenv("VISIONFLOW_WEB_ORIGINS", "").split(",") if origin.strip()]
+origins = list(set(default_origins + env_origins))
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(system.router, prefix=settings.api_prefix)
 app.include_router(auth.router, prefix=settings.api_prefix)
