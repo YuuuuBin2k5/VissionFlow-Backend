@@ -990,7 +990,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             filter_nodes.append(
                 f"{current_v}hflip,eq=contrast=1.04:brightness=0.01:saturation=1.05[v_clean_base];"
                 f"[v_clean_base]split=2[v_c_base][v_c_wm];"
-                f"[v_c_wm]crop=iw*0.35:ih*0.25:iw*0.02:ih*0.10,boxblur=20:5[v_wm_blur];"
+                f"[v_c_wm]crop=iw*0.35:ih*0.25:iw*0.02:ih*0.10,boxblur=12:2[v_wm_blur];"
                 f"[v_c_base][v_wm_blur]overlay=W*0.02:H*0.10[v_anti_wm]"
             )
             current_v = "[v_anti_wm]"
@@ -1002,7 +1002,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 h_ratio = min(0.35, max(0.12, float(blur_region_height_ratio or 0.20)))
                 filter_nodes.append(
                     f"{current_v}split=2[v_base][v_strip];"
-                    f"[v_strip]crop=iw:ih*{h_ratio:.2f}:0:ih*{1.0 - h_ratio:.2f},boxblur=25:5[v_blur_strip];"
+                    f"[v_strip]crop=iw:ih*{h_ratio:.2f}:0:ih*{1.0 - h_ratio:.2f},boxblur=15:2[v_blur_strip];"
                     f"[v_base][v_blur_strip]overlay=0:H*{1.0 - h_ratio:.2f}[v_unsub]"
                 )
                 current_v = "[v_unsub]"
@@ -1021,7 +1021,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     progress_callback("Đang chuyển đổi kích thước video sang Dọc 9:16 với viền mờ nghệ thuật...")
                 filter_nodes.append(
                     f"{current_v}split=2[v_split_bg][v_split_fg];"
-                    f"[v_split_bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:5,setsar=1[bg];"
+                    f"[v_split_bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=15:2,setsar=1[bg];"
                     f"[v_split_fg]scale=1080:-1:force_original_aspect_ratio=decrease,setsar=1[fg];"
                     f"[bg][fg]overlay=(W-w)/2:(H-h)/2[v_aspect]"
                 )
