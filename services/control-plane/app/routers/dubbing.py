@@ -122,6 +122,8 @@ def dispatch_dubbing_job(
             display_name = "Video YouTube Lồng Tiếng"
         else:
             display_name = "Video Lồng Tiếng AI"
+    clean_title = f"[{lang_tag}-DUB] {display_name}"
+
     workflow_run_id = uuid.uuid4()
     metadata["workflow_run_id"] = str(workflow_run_id)
 
