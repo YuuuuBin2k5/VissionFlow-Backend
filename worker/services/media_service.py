@@ -374,7 +374,19 @@ class MediaService:
             video_clips.append(clip)
             current_time += duration
 
-        final_bg = concatenate_videoclips(video_clips, method="compose")
+        # 1. Thêm hiệu ứng chuyển cảnh mượt mà (Crossfade Transitions) giữa các video
+        sfx_rotation = ["whoosh", "pop", "swish", "riser"]
+        processed_video_clips = []
+        for idx, clip in enumerate(video_clips):
+            if idx > 0:
+                try:
+                    from moviepy import vfx as _vfx
+                    clip = clip.with_effects([_vfx.CrossFadeIn(0.35)])
+                except Exception:
+                    pass
+            processed_video_clips.append(clip)
+
+        final_bg = concatenate_videoclips(processed_video_clips, method="compose")
 
         TOTAL_AUDIO_DURATION = voice_duration
         word_timestamps = self._ensure_vietsub_word_timestamps(
@@ -390,15 +402,16 @@ class MediaService:
             final_bg = final_bg.with_effects([_vfx.Loop(duration=TOTAL_AUDIO_DURATION)])
             final_bg = final_bg.subclipped(0, TOTAL_AUDIO_DURATION)
 
-        # 2. Xử lý hòa âm phối khí qua AudioMixer
+        # 2. Xử lý hòa âm phối khí & Chèn âm thanh phụ SFX qua AudioMixer
         cut_points = []
         c_time = 0.0
         for idx, scene in enumerate(scenes_layout):
             duration = scene.get("duration", 5) * scale_factor
             if idx > 0:
-                sfx_type = scene.get("sfx_trigger", "none")
-                if sfx_type and sfx_type != "none":
-                    cut_points.append({"time": c_time, "type": sfx_type})
+                sfx_type = scene.get("sfx_trigger")
+                if not sfx_type or sfx_type == "none":
+                    sfx_type = sfx_rotation[(idx - 1) % len(sfx_rotation)]
+                cut_points.append({"time": c_time, "type": sfx_type})
             c_time += duration
 
         final_audio = self.mixer.mix_audio_tracks(
@@ -406,7 +419,7 @@ class MediaService:
             background_music_path=background_music_path or str(ASSETS_DIR / "lofi_ambient.mp3"),
             total_duration=TOTAL_AUDIO_DURATION,
             word_timestamps=word_timestamps,
-            assets_dir=Path("worker/assets") if Path("worker/assets").exists() else Path("assets"),
+            assets_dir=ASSETS_DIR,
             cut_points=cut_points
         )
         final_bg = final_bg.with_audio(final_audio)

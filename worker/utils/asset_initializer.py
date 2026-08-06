@@ -1,5 +1,6 @@
 import os
 import sys
+import subprocess
 import urllib.request
 from pathlib import Path
 
@@ -34,9 +35,64 @@ def download_file(url: str, dest_path: Path, file_desc: str):
         print(f"[-] Loi khi tai {file_desc}: {e}")
         return False
 
+def initialize_sfx_library():
+    """Tự động sinh bộ thư viện hiệu ứng âm thanh phụ SFX (Whoosh, Pop, Riser, Impact, 432Hz Focus)."""
+    audio_dir = ASSETS_DIR / "audio"
+    audio_dir.mkdir(parents=True, exist_ok=True)
+    print(f"[*] Kiểm tra và khởi tạo thư viện SFX tại: {audio_dir}")
+
+    sfx_configs = {
+        "sfx_whoosh.wav": [
+            'ffmpeg', '-y', '-f', 'lavfi', '-i', 'aevalsrc=random(0)-0.5:d=0.35',
+            '-af', 'lowpass=f=1800,afade=t=in:ss=0:d=0.15,afade=t=out:st=0.15:d=0.20,volume=1.5',
+            str(audio_dir / "sfx_whoosh.wav")
+        ],
+        "sfx_swish.wav": [
+            'ffmpeg', '-y', '-f', 'lavfi', '-i', 'aevalsrc=random(0)-0.5:d=0.25',
+            '-af', 'lowpass=f=2400,afade=t=in:ss=0:d=0.10,afade=t=out:st=0.10:d=0.15,volume=1.3',
+            str(audio_dir / "sfx_swish.wav")
+        ],
+        "sfx_pop.wav": [
+            'ffmpeg', '-y', '-f', 'lavfi', '-i', 'sine=f=800:d=0.12',
+            '-af', 'afade=t=out:st=0.04:d=0.08,volume=1.8',
+            str(audio_dir / "sfx_pop.wav")
+        ],
+        "sfx_riser.wav": [
+            'ffmpeg', '-y', '-f', 'lavfi', '-i', 'sine=f=300:d=0.5',
+            '-af', 'afade=t=in:ss=0:d=0.4,volume=1.2',
+            str(audio_dir / "sfx_riser.wav")
+        ],
+        "sfx_impact.wav": [
+            'ffmpeg', '-y', '-f', 'lavfi', '-i', 'sine=f=75:d=0.6',
+            '-af', 'afade=t=out:st=0.1:d=0.5,volume=2.2',
+            str(audio_dir / "sfx_impact.wav")
+        ],
+        "focus_432hz.mp3": [
+            'ffmpeg', '-y', '-f', 'lavfi', '-i', 'sine=f=432:d=5',
+            '-af', 'volume=0.05',
+            str(audio_dir / "focus_432hz.mp3")
+        ],
+    }
+
+    for filename, cmd in sfx_configs.items():
+        file_path = audio_dir / filename
+        if not file_path.exists() or file_path.stat().st_size == 0:
+            try:
+                res = subprocess.run(cmd, capture_output=True, text=True)
+                if res.returncode == 0:
+                    print(f"[+] Đã tạo SFX âm thanh phụ: {filename}")
+                else:
+                    print(f"[-] Warning: SFX generation failed for {filename}: {res.stderr[:200]}")
+            except Exception as e:
+                print(f"[-] Warning: Failed to run FFmpeg for SFX {filename}: {e}")
+        else:
+            print(f"[+] SFX {filename} đã sẵn sàng.")
+
+
 def initialize_assets():
+    import subprocess
     print("==================================================================")
-    print("[*] CHUONG TRINH KHOI TAO TAI NGUYEN PREMIUM - AGENTTIKTOK")
+    print("[*] CHUONG TRINH KHOI TAO TAI NGUYEN PREMIUM - VISIONFLOW")
     print("==================================================================")
     
     # 1. Khởi tạo Font Montserrat-ExtraBold tiếng Việt
@@ -57,6 +113,9 @@ def initialize_assets():
         if not success:
             print("[-] WARNING: Khong the tai nhac nen. Video se khong co nhac nen.")
             
+    # 3. Khởi tạo Thư viện Hiệu ứng Âm thanh Phụ (SFX Transitions & Focus 432Hz)
+    initialize_sfx_library()
+
     print("==================================================================")
     print("[+] Qua trinh khoi tao tai nguyen hoan tat!")
     print("==================================================================")
