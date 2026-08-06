@@ -1,0 +1,6 @@
+
+FFMPEG FILTER COMPLEX GRAPH TEST RESULT:
+----------------------------------------
+[0:v]split=2[v_base][v_strip];[v_strip]crop=iw:ih*0.20:0:ih*0.80,boxblur=25:5[v_blur_strip];[v_base][v_blur_strip]overlay=0:H*0.80[v_unsub];[v_unsub]drawtext=text='@GocChiemNghiemYuuBin':x=35:y=35:fontsize=22:fontcolor=white@0.85:shadowcolor=black@0.6:shadowx=2:shadowy=2[v_logo];[v_logo]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:5,setsar=1[bg];[v_logo]scale=1080:-1:force_original_aspect_ratio=decrease,setsar=1[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2[v_aspect];[v_aspect]subtitles='dub_temp/subtitles.srt':force_style='FontName=Montserrat,FontSize=28,Bold=1,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2,Shadow=1,MarginV=300'[outv]
+----------------------------------------
+SUCCESS: Filter graph chain is 100% valid!

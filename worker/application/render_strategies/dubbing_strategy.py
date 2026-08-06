@@ -121,7 +121,8 @@ class DubbingStrategy(RenderStrategy):
             )
             from worker.services.unified_metadata_service import UnifiedVideoMetadataService
             meta_service = UnifiedVideoMetadataService(target_language=target_language, voice_code=voice_code)
-            seo_tags = meta_service.generate_seo_metadata(vietnamese_transcript, original_video_title).to_dict()
+            storytelling_framework = metadata.get("storytelling_framework") or "mid_action_open"
+            seo_tags = meta_service.generate_seo_metadata(vietnamese_transcript, original_video_title, storytelling_framework=storytelling_framework).to_dict()
             title_idea = (
                 seo_tags.get("title")
                 or meta_service.sanitize_and_translate_title(original_video_title)

@@ -516,33 +516,55 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
         cs = total_cs % 100
         return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
 
+    def detect_gpu_encoder(self) -> tuple[str, list[str]]:
+        """Kiểm tra sự hiện diện của Nvidia GPU encoder (h264_nvenc) và trả về tham số tối ưu."""
+        try:
+            res = subprocess.run(
+                ["ffmpeg", "-hide_banner", "-encoders"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if "h264_nvenc" in res.stdout:
+                print("[GPU Acceleration] Nvidia GPU (h264_nvenc) detected! Enabling GPU hardware encoding.")
+                return "h264_nvenc", ["-preset", "p4", "-cq", "23"]
+        except Exception as e:
+            print(f"[GPU Acceleration Warning] NVENC check failed, falling back to CPU: {e}")
+
+        print("[GPU Acceleration] Using CPU H.264 encoder (libx264).")
+        return "libx264", ["-profile:v", "high", "-level:v", "4.2", "-pix_fmt", "yuv420p", "-b:v", "4M"]
+
     def generate_ass_file(
         self,
         timeline: list,
         ass_path: str,
         caption_preset: str = "hormozi",
         aspect_ratio: str = "short_vertical",
+        enable_karaoke: bool = True,
     ):
-        """Tạo file phụ đề ASS (Advanced SubStation Alpha) to rõ, nổi bật, chuẩn SEO, hiển thị mượt mà trên video lồng tiếng."""
+        """Tạo file phụ đề ASS (Advanced SubStation Alpha) sắc nét, hỗ trợ Karaoke đổi màu từng từ theo nhịp phát âm AI."""
         try:
             font_name = "Arial"
             margin_v = 360 if aspect_ratio == "vertical_blur" else 250
 
             if caption_preset == "hormozi":
                 font_size = 72
-                primary_color = "&H0000FFFF"  # Rực rỡ vàng (#FFFF00)
-                outline_color = "&H00000000"  # Viền đen dày sắc nét
+                primary_color = "&H0000FFFF"    # Vàng rực rỡ (#FFFF00) khi đọc đến
+                secondary_color = "&H00FFFFFF"  # Trắng khi chưa/đã đọc qua
+                outline_color = "&H00000000"    # Viền đen dày
                 outline = 4
                 shadow = 3
             elif caption_preset == "neon":
                 font_size = 68
-                primary_color = "&H0000FF00"  # Xanh Neon (#00FF00)
+                primary_color = "&H0000FF00"    # Xanh Neon (#00FF00) khi đọc đến
+                secondary_color = "&H00FFFFFF"
                 outline_color = "&H00000000"
                 outline = 4
                 shadow = 3
             else:  # montserrat / clean_news / default
                 font_size = 66
-                primary_color = "&H00FFFFFF"  # Trắng tinh khiết (#FFFFFF)
+                primary_color = "&H0000FFFF"    # Vàng rực rỡ
+                secondary_color = "&H00FFFFFF"  # Trắng
                 outline_color = "&H00000000"
                 outline = 4
                 shadow = 2
@@ -554,7 +576,7 @@ PlayResY: 1920
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{font_name},{font_size},{primary_color},&H00000000,{outline_color},&H80000000,1,0,0,0,100,100,0,0,1,{outline},{shadow},2,30,30,{margin_v},1
+Style: Default,{font_name},{font_size},{primary_color},{secondary_color},{outline_color},&H80000000,1,0,0,0,100,100,0,0,1,{outline},{shadow},2,30,30,{margin_v},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -569,13 +591,35 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 for sub in sub_segments:
                     s_str = self.format_ass_time(sub["start"])
                     e_str = self.format_ass_time(sub["end"])
-                    sub_text = sub["text"].strip().replace("\n", "\\N")
-                    events.append(f"Dialogue: 0,{s_str},{e_str},Default,,0,0,0,,{sub_text}")
+                    sub_text = sub["text"].strip()
+                    sub_duration = sub["end"] - sub["start"]
+
+                    if enable_karaoke and sub_duration > 0 and len(sub_text.split()) > 1:
+                        # Phân bổ thời gian theo tỷ lệ ký tự thực cho từng từ (Word-Level Karaoke Timing)
+                        words = sub_text.split()
+                        total_chars = max(1, sum(len(w) for w in words))
+                        total_cs = int(round(sub_duration * 100)) # centiseconds
+                        karaoke_parts = []
+                        remaining_cs = total_cs
+
+                        for i, w in enumerate(words):
+                            if i == len(words) - 1:
+                                w_cs = max(1, remaining_cs)
+                            else:
+                                w_cs = max(1, int(round((len(w) / total_chars) * total_cs)))
+                                remaining_cs -= w_cs
+                            karaoke_parts.append(f"{{\\kf{w_cs}}}{w}")
+
+                        ass_dialogue_text = " ".join(karaoke_parts).replace("\n", "\\N")
+                    else:
+                        ass_dialogue_text = sub_text.replace("\n", "\\N")
+
+                    events.append(f"Dialogue: 0,{s_str},{e_str},Default,,0,0,0,,{ass_dialogue_text}")
 
             with open(ass_path, "w", encoding="utf-8") as f:
                 f.write(header + "\n".join(events) + "\n")
 
-            print(f"[DubbingService] ASS Subtitle file generated successfully at: {ass_path}")
+            print(f"[DubbingService] ASS Subtitle file generated successfully (Karaoke={enable_karaoke}) at: {ass_path}")
         except Exception as e:
             print(f"[DubbingService Warning] Failed to generate ASS file: {e}")
 
@@ -974,6 +1018,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
             filter_complex_str = ";".join(filter_nodes)
 
+            encoder_name, encoder_opts = self.detect_gpu_encoder()
             cmd_mux = [
                 "ffmpeg", "-y",
                 "-i", video_path,
@@ -981,8 +1026,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 "-filter_complex", filter_complex_str,
                 "-map", "[outv]",
                 "-map", "1:a:0",
-                "-c:v", "libx264", "-profile:v", "high", "-level:v", "4.2",
-                "-pix_fmt", "yuv420p", "-b:v", "4M",
+                "-c:v", encoder_name, *encoder_opts,
                 "-c:a", "aac", "-strict", "-2",
             ]
             if video_dur > 0:

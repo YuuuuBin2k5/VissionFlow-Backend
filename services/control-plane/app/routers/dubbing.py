@@ -47,6 +47,8 @@ class DubbingDispatchRequest(BaseModel):
     auto_publish_mode: str = "immediate"
     scheduled_at_iso: Optional[str] = None
     organization_id: Optional[str] = None   # optional — mặc định dùng org đầu tiên
+    storytelling_framework: Optional[str] = "mid_action_open"
+    enable_word_karaoke: bool = True
 
 
 DubbingDispatchRequest.model_rebuild()
@@ -101,6 +103,8 @@ def dispatch_dubbing_job(
         "auto_publish_channel": payload.auto_publish_channel,
         "auto_publish_mode": payload.auto_publish_mode,
         "scheduled_at_iso": payload.scheduled_at_iso,
+        "storytelling_framework": payload.storytelling_framework,
+        "enable_word_karaoke": payload.enable_word_karaoke,
         "render_mode": "TRANSLATE_DUB",
     }
 

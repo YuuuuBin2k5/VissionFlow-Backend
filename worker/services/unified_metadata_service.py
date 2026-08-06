@@ -30,9 +30,10 @@ class UnifiedVideoMetadataService:
         self,
         transcript: str,
         original_title: str | None = None,
+        storytelling_framework: str | None = None,
     ) -> VideoMetadataResult:
         """Generate structured title, description (caption SEO), pinned comment & hashtags."""
-        return self.strategy.generate(transcript, original_title)
+        return self.strategy.generate(transcript, original_title, storytelling_framework=storytelling_framework)
 
     def sanitize_and_translate_title(self, raw_title: str | None) -> str:
         """Quickly translate foreign/Chinese titles into the target language."""
