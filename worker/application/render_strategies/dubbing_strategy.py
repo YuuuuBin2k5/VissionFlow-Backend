@@ -87,6 +87,9 @@ class DubbingStrategy(RenderStrategy):
         blur_region_height_ratio = metadata.get("blur_region_height_ratio", 0.20)
         logo_handle = metadata.get("logo_handle") or "@GocChiemNghiemYuuBin"
         caption_preset = metadata.get("caption_preset") or "montserrat"
+        bgm_preset = metadata.get("bgm_preset")
+        bgm_custom_url = metadata.get("bgm_custom_url")
+        bgm_volume = float(metadata.get("bgm_volume") or 0.18)
 
         dubber = DubbingService()
         success, timeline = await dubber.execute_dubbing_pipeline(
@@ -104,6 +107,9 @@ class DubbingStrategy(RenderStrategy):
             blur_region_height_ratio=blur_region_height_ratio,
             logo_handle=logo_handle,
             caption_preset=caption_preset,
+            bgm_preset=bgm_preset,
+            bgm_custom_url=bgm_custom_url,
+            bgm_volume=bgm_volume,
         )
 
         if not success or not os.path.exists(output_path):

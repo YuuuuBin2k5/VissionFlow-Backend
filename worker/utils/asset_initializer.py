@@ -89,6 +89,54 @@ def initialize_sfx_library():
             print(f"[+] SFX {filename} đã sẵn sàng.")
 
 
+def initialize_bgm_library():
+    """Khởi tạo kho nhạc nền mặc định (Relaxing, Uplifting, Cinematic, Acoustic)."""
+    bgm_dir = ASSETS_DIR / "audio" / "bgm"
+    bgm_dir.mkdir(parents=True, exist_ok=True)
+    print(f"[*] Kiểm tra và khởi tạo kho nhạc nền BGM tại: {bgm_dir}")
+
+    bgm_configs = {
+        "relaxing_chill.mp3": [
+            'ffmpeg', '-y', '-f', 'lavfi', '-i',
+            'aevalsrc=sin(2*PI*432*t)*0.1+sin(2*PI*540*t)*0.08+sin(2*PI*648*t)*0.06:d=60',
+            '-af', 'afade=t=in:ss=0:d=2.0,afade=t=out:st=58.0:d=2.0,volume=0.35',
+            str(bgm_dir / "relaxing_chill.mp3")
+        ],
+        "uplifting_happy.mp3": [
+            'ffmpeg', '-y', '-f', 'lavfi', '-i',
+            'aevalsrc=sin(2*PI*528*t)*0.12+sin(2*PI*660*t)*0.1+sin(2*PI*792*t)*0.08:d=60',
+            '-af', 'afade=t=in:ss=0:d=2.0,afade=t=out:st=58.0:d=2.0,volume=0.35',
+            str(bgm_dir / "uplifting_happy.mp3")
+        ],
+        "cinematic_inspiring.mp3": [
+            'ffmpeg', '-y', '-f', 'lavfi', '-i',
+            'aevalsrc=sin(2*PI*216*t)*0.15+sin(2*PI*324*t)*0.12+sin(2*PI*432*t)*0.10:d=60',
+            '-af', 'afade=t=in:ss=0:d=2.0,afade=t=out:st=58.0:d=2.0,volume=0.40',
+            str(bgm_dir / "cinematic_inspiring.mp3")
+        ],
+        "acoustic_peaceful.mp3": [
+            'ffmpeg', '-y', '-f', 'lavfi', '-i',
+            'aevalsrc=sin(2*PI*320*t)*0.12+sin(2*PI*400*t)*0.1+sin(2*PI*480*t)*0.08:d=60',
+            '-af', 'afade=t=in:ss=0:d=2.0,afade=t=out:st=58.0:d=2.0,volume=0.35',
+            str(bgm_dir / "acoustic_peaceful.mp3")
+        ],
+    }
+
+    for filename, cmd in bgm_configs.items():
+        file_path = bgm_dir / filename
+        if not file_path.exists() or file_path.stat().st_size == 0:
+            try:
+                res = subprocess.run(cmd, capture_output=True, text=True)
+                if res.returncode == 0:
+                    print(f"[+] Đã tạo nhạc nền BGM preset: {filename}")
+                else:
+                    print(f"[-] Warning: BGM generation failed for {filename}: {res.stderr[:200]}")
+            except Exception as e:
+                print(f"[-] Warning: Failed to run FFmpeg for BGM {filename}: {e}")
+        else:
+            print(f"[+] Nhạc nền BGM preset {filename} đã sẵn sàng.")
+
+
 def initialize_assets():
     import subprocess
     print("==================================================================")
@@ -115,6 +163,8 @@ def initialize_assets():
             
     # 3. Khởi tạo Thư viện Hiệu ứng Âm thanh Phụ (SFX Transitions & Focus 432Hz)
     initialize_sfx_library()
+    # 4. Khởi tạo Kho Nhạc Nền Preset BGM
+    initialize_bgm_library()
 
     print("==================================================================")
     print("[+] Qua trinh khoi tao tai nguyen hoan tat!")

@@ -667,7 +667,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         blur_original_subtitles: bool = True,
         blur_region_height_ratio: float = 0.20,
         logo_handle: str = "GócChiêmNghiệm||YuuuBin",
-        caption_preset: str = "montserrat"
+        caption_preset: str = "montserrat",
+        bgm_preset: str = "relaxing_chill",
+        bgm_custom_url: str = None,
+        bgm_volume: float = 0.18,
     ) -> tuple:
         """Thực hiện toàn bộ 8 bước của pipeline lồng tiếng tự động miễn phí 100%"""
         temp_dir = Path(os.path.dirname(output_path)) / f"dub_temp_{os.path.basename(video_path).split('.')[0]}"
@@ -899,34 +902,114 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 # Sử dụng giải pháp dìm âm thanh cục bộ bằng Python để độc lập với bộ lọc volume của các bản FFmpeg cũ
                 self.apply_audio_ducking_pure_python(orig_audio_wav_path, ducked_audio_path, realized_timeline)
 
-                # 7. Trộn giọng lồng tiếng mới với âm lượng gốc đã dìm
-                if progress_callback:
-                    progress_callback("Đang pha trộn giọng thoại và nhạc nền...")
-
                 final_audio_path = str(temp_dir / "final_dubbed_audio.mp3")
                 video_dur = self.get_media_duration(video_path)
 
+                # --- XỬ LÝ NHẠC NỀN BGM (TỰ ĐỘNG LẶP HƠẶC CẮT THEO ĐỘ DÀI VIDEO) ---
+                prepared_bgm_path = None
+                raw_bgm_source = None
+
+                # 1. Kiểm tra nếu có link / file nhạc tùy chỉnh của người dùng
+                if bgm_custom_url and str(bgm_custom_url).strip():
+                    url_str = str(bgm_custom_url).strip()
+                    if url_str.startswith("http://") or url_str.startswith("https://"):
+                        try:
+                            if progress_callback:
+                                progress_callback(f"Đang tải nhạc nền tùy chỉnh từ URL...")
+                            custom_bgm_file = temp_dir / "custom_bgm_track.mp3"
+                            import urllib.request
+                            urllib.request.urlretrieve(url_str, str(custom_bgm_file))
+                            if custom_bgm_file.exists() and custom_bgm_file.stat().st_size > 0:
+                                raw_bgm_source = str(custom_bgm_file)
+                        except Exception as dl_err:
+                            print(f"[DubbingService Warning] Failed to download custom BGM from {url_str}: {dl_err}")
+                    elif os.path.exists(url_str):
+                        raw_bgm_source = url_str
+
+                # 2. Nếu không có file tùy chỉnh, sử dụng nhạc nền preset
+                if not raw_bgm_source and bgm_preset and str(bgm_preset).strip().lower() not in ["none", "off", "false"]:
+                    preset_name = str(bgm_preset).strip().lower()
+                    if not preset_name.endswith(".mp3"):
+                        preset_name += ".mp3"
+                    from worker.utils.asset_initializer import ASSETS_DIR, initialize_bgm_library
+                    preset_file = ASSETS_DIR / "audio" / "bgm" / preset_name
+                    if not preset_file.exists():
+                        initialize_bgm_library()
+                    if preset_file.exists():
+                        raw_bgm_source = str(preset_file)
+
+                # 3. Tiến hành tự động lặp (loop) hoặc cắt (trim) nhạc nền theo đúng độ dài video_dur
+                if raw_bgm_source and video_dur > 0:
+                    try:
+                        if progress_callback:
+                            progress_callback("Đang tự động căn chỉnh & lặp nhạc nền khớp với độ dài video...")
+                        target_bgm_wav = temp_dir / "prepared_bgm.wav"
+                        vol_val = max(0.02, min(1.0, float(bgm_volume or 0.18)))
+                        fade_start = max(0.0, video_dur - 2.0)
+                        cmd_bgm = [
+                            "ffmpeg", "-y",
+                            "-stream_loop", "-1",
+                            "-i", raw_bgm_source,
+                            "-t", f"{video_dur:.3f}",
+                            "-af", f"volume={vol_val:.2f},afade=t=out:st={fade_start:.3f}:d=2.0",
+                            "-ac", "2", "-ar", "44100",
+                            str(target_bgm_wav)
+                        ]
+                        subprocess.run(cmd_bgm, capture_output=True, check=True)
+                        if target_bgm_wav.exists() and target_bgm_wav.stat().st_size > 0:
+                            prepared_bgm_path = str(target_bgm_wav)
+                            print(f"[DubbingService BGM] Prepared background track matched to {video_dur:.1f}s at {prepared_bgm_path}")
+                    except Exception as bgm_err:
+                        print(f"[DubbingService Warning] Failed to prepare BGM track: {bgm_err}")
+
+                # --- PHA TRỘN CÁC LUỒNG ÂM THANH (VOICE + DUCKED AUDIO + BGM) ---
                 if mute_original_audio:
-                    if progress_callback:
-                        progress_callback("Đang xuất âm thanh lồng tiếng thuần khiết (đã tắt nhạc nền bản quyền)...")
-                    cmd_mix = [
-                        "ffmpeg", "-y",
-                        "-i", merged_vocal_path,
-                        "-af", "apad",
-                    ]
+                    if prepared_bgm_path:
+                        if progress_callback:
+                            progress_callback("Đang xuất âm thanh lồng tiếng + Nhạc nền BGM (đã tắt nhạc gốc)...")
+                        cmd_mix = [
+                            "ffmpeg", "-y",
+                            "-i", merged_vocal_path,
+                            "-i", prepared_bgm_path,
+                            "-filter_complex", "[0:a]apad,volume=1.8[vocal_b];[vocal_b][1:a]amix=inputs=2:duration=first[mix_raw];[mix_raw]volume=1.8[out]",
+                            "-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2", final_audio_path
+                        ]
+                    else:
+                        if progress_callback:
+                            progress_callback("Đang xuất âm thanh lồng tiếng thuần khiết (đã tắt nhạc nền bản quyền)...")
+                        cmd_mix = [
+                            "ffmpeg", "-y",
+                            "-i", merged_vocal_path,
+                            "-af", "apad",
+                            "-acodec", "libmp3lame", "-q:a", "2", final_audio_path
+                        ]
                     if video_dur > 0:
-                        cmd_mix.extend(["-t", f"{video_dur:.3f}"])
-                    cmd_mix.extend(["-acodec", "libmp3lame", "-q:a", "2", final_audio_path])
+                        cmd_mix.insert(-4, "-t")
+                        cmd_mix.insert(-4, f"{video_dur:.3f}")
                 else:
-                    cmd_mix = [
-                        "ffmpeg", "-y",
-                        "-i", ducked_audio_path,
-                        "-i", merged_vocal_path,
-                        "-filter_complex", "[1:a]apad,volume=1.8[vocal_boosted];[0:a][vocal_boosted]amix=inputs=2:duration=first[mix_raw];[mix_raw]volume=1.8[out]",
-                    ]
+                    if prepared_bgm_path:
+                        if progress_callback:
+                            progress_callback("Đang pha trộn giọng lồng tiếng + Nhạc nền gốc + Nhạc BGM...")
+                        cmd_mix = [
+                            "ffmpeg", "-y",
+                            "-i", ducked_audio_path,
+                            "-i", merged_vocal_path,
+                            "-i", prepared_bgm_path,
+                            "-filter_complex", "[1:a]apad,volume=1.8[vocal_b];[0:a][vocal_b][2:a]amix=inputs=3:duration=first[mix_raw];[mix_raw]volume=1.8[out]",
+                            "-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2", final_audio_path
+                        ]
+                    else:
+                        cmd_mix = [
+                            "ffmpeg", "-y",
+                            "-i", ducked_audio_path,
+                            "-i", merged_vocal_path,
+                            "-filter_complex", "[1:a]apad,volume=1.8[vocal_boosted];[0:a][vocal_boosted]amix=inputs=2:duration=first[mix_raw];[mix_raw]volume=1.8[out]",
+                            "-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2", final_audio_path
+                        ]
                     if video_dur > 0:
-                        cmd_mix.extend(["-t", f"{video_dur:.3f}"])
-                    cmd_mix.extend(["-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2", final_audio_path])
+                        cmd_mix.insert(-4, "-t")
+                        cmd_mix.insert(-4, f"{video_dur:.3f}")
+
                 subprocess.run(cmd_mix, capture_output=True, check=True)
 
             # 8. Muxer: Đè âm thanh lồng tiếng mới vào video cũ không cần render lại hình ảnh (Giữ nguyên 100% chất lượng video)

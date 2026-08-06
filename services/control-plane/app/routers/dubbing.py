@@ -49,6 +49,9 @@ class DubbingDispatchRequest(BaseModel):
     organization_id: Optional[str] = None   # optional — mặc định dùng org đầu tiên
     storytelling_framework: Optional[str] = "mid_action_open"
     enable_word_karaoke: bool = True
+    bgm_preset: Optional[str] = "relaxing_chill"
+    bgm_custom_url: Optional[str] = None
+    bgm_volume: float = 0.18
 
 
 DubbingDispatchRequest.model_rebuild()
@@ -105,6 +108,9 @@ def dispatch_dubbing_job(
         "scheduled_at_iso": payload.scheduled_at_iso,
         "storytelling_framework": payload.storytelling_framework,
         "enable_word_karaoke": payload.enable_word_karaoke,
+        "bgm_preset": payload.bgm_preset,
+        "bgm_custom_url": payload.bgm_custom_url,
+        "bgm_volume": payload.bgm_volume,
         "render_mode": "TRANSLATE_DUB",
     }
 
