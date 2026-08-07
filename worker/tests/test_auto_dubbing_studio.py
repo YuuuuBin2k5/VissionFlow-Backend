@@ -299,10 +299,13 @@ class TestDubbingDispatchRequest(unittest.TestCase):
         self.assertEqual(req.voice_gender, "female")
         self.assertEqual(req.aspect_ratio, "vertical_blur")
         self.assertEqual(req.blur_region_height_ratio, 0.20)
-        self.assertEqual(req.logo_handle, "@GocChiemNghiemYuuBin")
+        self.assertEqual(req.logo_handle, "GócChiêmNghiệm||YuuuBin")
         self.assertEqual(req.caption_preset, "montserrat")
         self.assertFalse(req.mute_original_audio)
         self.assertFalse(req.auto_publish_enabled)
+        self.assertEqual(req.bgm_preset, "relaxing_chill")
+        self.assertAlmostEqual(req.bgm_volume, 0.18)
+        self.assertTrue(req.smart_dynamic_blur)
 
     def test_raises_422_when_no_source(self):
         from fastapi import HTTPException
@@ -359,6 +362,21 @@ class TestDubbingDispatchRequest(unittest.TestCase):
         res = dispatch_dubbing_job(req)
         self.assertTrue(res["metadata"]["auto_publish_enabled"])
         self.assertEqual(res["metadata"]["auto_publish_channel"], "goc_chiem_nghiem")
+
+    def test_bgm_and_smart_dynamic_blur_metadata_propagation(self):
+        DubbingDispatchRequest, dispatch_dubbing_job = self._import_request()
+        req = DubbingDispatchRequest(
+            source_url="https://v.douyin.com/xyz/",
+            bgm_preset="uplifting_happy",
+            bgm_custom_url="https://www.youtube.com/watch?v=test",
+            bgm_volume=0.25,
+            smart_dynamic_blur=True,
+        )
+        res = dispatch_dubbing_job(req)
+        self.assertEqual(res["metadata"]["bgm_preset"], "uplifting_happy")
+        self.assertEqual(res["metadata"]["bgm_custom_url"], "https://www.youtube.com/watch?v=test")
+        self.assertAlmostEqual(res["metadata"]["bgm_volume"], 0.25)
+        self.assertTrue(res["metadata"]["smart_dynamic_blur"])
 
 
 # ===========================================================================
