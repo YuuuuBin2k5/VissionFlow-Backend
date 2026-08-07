@@ -665,18 +665,19 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
         if mode_str in ["ffmpeg_phase_cancel", "phase_cancel", "default"]:
             try:
-                # Đảo pha kênh trung tâm FFmpeg pan=stereo|c0=c0-c1|c1=c1-c0 dập nốt thoại nhân vật
+                # Lọc dập tần số giọng thoại con người (300Hz-3400Hz, g=-18dB) bằng bộ lọc Band-Reject
+                # Giữ nguyên 100% âm thanh môi trường xung quanh (tiếng gió, lửa, bước chân, hiệu ứng) trên cả video Mono lẫn Stereo
                 cmd = [
                     "ffmpeg", "-y", "-i", str(input_audio_path),
-                    "-af", "pan=stereo|c0=c0-c1|c1=c1-c0,highpass=f=120,lowpass=f=7500,volume=1.2",
+                    "-af", "bandreject=f=1200:w=1400:g=-18,highpass=f=70,lowpass=f=11000,volume=1.2",
                     "-acodec", "libmp3lame", "-q:a", "2", str(output_cleaned)
                 ]
                 res = subprocess.run(cmd, capture_output=True, text=True)
                 if res.returncode == 0 and output_cleaned.exists() and output_cleaned.stat().st_size > 0:
-                    print(f"[DubbingService VocalCleaner] Applied FFmpeg phase-cancellation successfully.")
+                    print(f"[DubbingService VocalCleaner] Applied speech-band notch vocal suppression successfully.")
                     return str(output_cleaned)
             except Exception as pe:
-                print(f"[DubbingService Warning] FFmpeg phase cancellation error: {pe}")
+                print(f"[DubbingService Warning] Speech-band notch vocal cleaner error: {pe}")
 
         elif mode_str == "ai_demucs":
             try:
@@ -856,9 +857,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                             if actual_duration <= 0:
                                 actual_duration = original_duration
 
-                            # 2. TÍNH TOÁN TEMPO VÀ OVERFLOW THÔNG MINH (Giới hạn tối đa 1.10x để giữ giọng đọc 100% tự nhiên)
+                            # 2. TÍNH TOÁN TEMPO VÀ OVERFLOW THÔNG MINH (Cho phép co dãn linh hoạt 0.85x - 1.45x để khớp 100% nhịp hình ảnh)
                             tempo = actual_duration / original_duration
-                            tempo = max(0.92, min(1.10, tempo))
+                            tempo = max(0.85, min(1.45, tempo))
 
                             # Xác định tỷ lệ điều tần (pitch shift) chuẩn nhân vật
                             pitch_ratio = 1.0
@@ -875,8 +876,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                             if abs(pitch_ratio - 1.0) > 0.01:
                                 filters.append(f"asetrate=44100*{pitch_ratio:.3f}")
                                 filters.append(f"atempo={1.0/pitch_ratio:.3f}")
-                            if abs(tempo - 1.0) > 0.05 or len(filters) > 0:
-                                filters.append(f"atempo={tempo:.3f}")
+                            if abs(tempo - 1.0) > 0.03:
+                                if tempo > 2.0:
+                                    filters.append("atempo=2.0")
+                                    filters.append(f"atempo={tempo/2.0:.3f}")
+                                else:
+                                    filters.append(f"atempo={tempo:.3f}")
 
                             # Chạy FFmpeg để sinh file aligned với âm tần chuẩn
                             filter_str = ",".join(filters)
@@ -906,8 +911,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         if gap_ms > 0:
                             accumulated_shift_ms = max(0.0, accumulated_shift_ms - gap_ms)
 
-                    # Đảm bảo accumulated_shift_ms không bao giờ bị âm
-                    accumulated_shift_ms = max(0.0, accumulated_shift_ms)
+                    # Giới hạn accumulated_shift_ms tối đa 600ms để tuyệt đối giữ chuẩn nhịp hình ảnh
+                    accumulated_shift_ms = max(0.0, min(600.0, accumulated_shift_ms))
 
                     dub_clips.append({
                         "path": aligned_clip_path,
@@ -1062,7 +1067,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                             "-i", clean_background_audio,
                             "-i", merged_vocal_path,
                             "-i", prepared_bgm_path,
-                            "-filter_complex", "[1:a]apad,volume=1.8[vocal_b];[0:a][vocal_b][2:a]amix=inputs=3:duration=first[mix_raw];[mix_raw]volume=1.8[out]",
+                            "-filter_complex", "[1:a]apad,volume=1.5[vocal_b];[2:a]volume=1.8[bgm_b];[0:a][vocal_b][bgm_b]amix=inputs=3:duration=first:dropout_transition=0:weights=1 1.5 1.5:normalize=0[out]",
                             "-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2"
                         ] + t_args + [final_audio_path]
                     else:
@@ -1070,7 +1075,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                             "ffmpeg", "-y",
                             "-i", clean_background_audio,
                             "-i", merged_vocal_path,
-                            "-filter_complex", "[1:a]apad,volume=1.8[vocal_boosted];[0:a][vocal_boosted]amix=inputs=2:duration=first[mix_raw];[mix_raw]volume=1.8[out]",
+                            "-filter_complex", "[1:a]apad,volume=1.5[vocal_boosted];[0:a][vocal_boosted]amix=inputs=2:duration=first:dropout_transition=0:weights=1 1.5:normalize=0[out]",
                             "-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2"
                         ] + t_args + [final_audio_path]
 
