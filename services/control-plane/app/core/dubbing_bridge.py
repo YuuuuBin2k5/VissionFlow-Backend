@@ -105,11 +105,18 @@ def sync_dubbing_job_to_control_plane(
             ai_title = seo_data.get("title") or title
             ai_caption = seo_data.get("caption_seo") or metadata.get("hook") or ""
 
-            if ai_title and hasattr(wf, "project") and wf.project:
-                wf.project.title = str(ai_title)[:240]
+            # Cập nhật trực tiếp VideoProject trong PostgreSQL DB
+            proj = session.get(VideoProject, wf.project_id) if wf.project_id else getattr(wf, "project", None)
+            if proj:
+                if ai_title:
+                    proj.title = str(ai_title)[:240]
                 if ai_caption:
-                    wf.project.brief = str(ai_caption)[:500]
-            wf.prompt_manifest = {**(wf.prompt_manifest or {}), **metadata}
+                    proj.brief = str(ai_caption)[:500]
+
+            # Cập nhật prompt_manifest và đánh dấu flag_modified cho SQLAlchemy JSON
+            from sqlalchemy.orm.attributes import flag_modified
+            wf.prompt_manifest = dict({**(wf.prompt_manifest or {}), **metadata})
+            flag_modified(wf, "prompt_manifest")
 
         # 2. Ghi MediaAsset nếu có R2 key
         if r2_object_key:

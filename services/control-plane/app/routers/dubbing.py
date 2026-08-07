@@ -222,13 +222,17 @@ def get_dubbing_job_status(
             pass
 
     seo_metadata = (wf.prompt_manifest or {}).get("seo") or {}
-    proj = wf.project if hasattr(wf, "project") else None
+    proj = session.get(VideoProject, wf.project_id) if wf.project_id else getattr(wf, "project", None)
     
     raw_proj_title = proj.title if proj else None
-    if raw_proj_title and not any(kw in raw_proj_title for kw in ["Video Douyin", "Video TikTok", "Video YouTube", "Lồng Tiếng Tự Động"]):
+    ai_generated_title = seo_metadata.get("title")
+    
+    if ai_generated_title:
+        video_title = ai_generated_title
+    elif raw_proj_title and not any(kw in raw_proj_title for kw in ["Video Douyin", "Video TikTok", "Video YouTube", "Lồng Tiếng Tự Động", "Lồng Tiếng AI"]):
         video_title = raw_proj_title
     else:
-        video_title = seo_metadata.get("title") or raw_proj_title or "Video Lồng Tiếng AI Mới"
+        video_title = raw_proj_title or "Video Lồng Tiếng AI Mới"
 
     video_description = seo_metadata.get("caption_seo") or (proj.brief if proj else "")
     video_hashtags = seo_metadata.get("hashtags") or ["#VisionFlow", "#AIDubbing", "#YuuBin"]
