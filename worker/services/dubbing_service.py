@@ -1013,7 +1013,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                             "-stream_loop", "-1",
                             "-i", raw_bgm_source,
                             "-t", f"{video_dur:.3f}",
-                            "-af", f"volume={vol_val:.2f},afade=t=out:st={fade_start:.3f}:d=2.0",
+                            "-af", f"afade=t=in:ss=0:d=1.5,volume={vol_val:.2f},afade=t=out:st={fade_start:.3f}:d=2.0",
                             "-ac", "2", "-ar", "44100",
                             str(target_bgm_wav)
                         ]

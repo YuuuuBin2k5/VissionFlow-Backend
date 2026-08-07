@@ -6,15 +6,19 @@ from worker.domain.render_workspace import RenderWorkspace
 
 # Map từ voice preset (lưu trong CreativeSpec) → edge-tts voice name hợp lệ
 VOICE_PRESET_MAP: dict[str, str] = {
-    # Vietnamese
-    "edge-nam-minh":   "vi-VN-NamMinhNeural",
-    "edge-nam-long":   "vi-VN-NamMinhNeural",
-    "edge-nu-phuong":  "vi-VN-HoaiMyNeural",
-    # English
-    "edge-en-guy":     "en-US-GuyNeural",
-    "edge-en-jenny":   "en-US-JennyNeural",
-    "edge-en-adam":    "en-US-ChristopherNeural",  # Free Edge-TTS Adam (Dominant, Firm, Middle-aged American Male)
-    "eleven-adam":     "pNInz6obpgDQGcFmaJgB",     # ElevenLabs Official Adam Voice ID
+    # Vietnamese (Hot Trend 2026)
+    "edge-nam-minh":      "vi-VN-NamMinhNeural",
+    "edge-nu-hoai-my":     "vi-VN-HoaiMyNeural",
+    "edge-nu-hoai-an":     "vi-VN-HoaiMyNeural",
+    "edge-vi-andrew":      "en-US-AndrewMultilingualNeural",
+    "edge-vi-ava":         "en-US-AvaMultilingualNeural",
+
+    # English (Hot Trend 2026)
+    "adam":               "pNInz6obpgDQGcFmaJgB",
+    "edge-en-andrew":      "en-US-AndrewNeural",
+    "edge-en-ava":         "en-US-AvaNeural",
+    "edge-en-christopher": "en-US-ChristopherNeural",
+    "edge-en-ryan":        "en-GB-RyanNeural",
 }
 
 def resolve_voice(voice_code: str) -> str:
