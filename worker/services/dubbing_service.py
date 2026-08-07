@@ -534,8 +534,8 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
         except Exception as e:
             print(f"[GPU Acceleration Warning] NVENC hardware test failed: {e}")
 
-        print("[GPU Acceleration] GPU hardware unavailable (no CUDA driver). Falling back to CPU H.264 encoder (libx264).")
-        return "libx264", ["-profile:v", "high", "-level:v", "4.2", "-pix_fmt", "yuv420p", "-preset", "medium", "-crf", "23"]
+        print("[GPU Acceleration] GPU hardware unavailable (no CUDA driver). Falling back to CPU H.264 encoder (libx264 superfast mode).")
+        return "libx264", ["-profile:v", "high", "-level:v", "4.2", "-pix_fmt", "yuv420p", "-preset", "superfast", "-crf", "23", "-threads", "0"]
 
     def generate_ass_file(
         self,
