@@ -93,8 +93,6 @@ def initialize_bgm_library():
     """Khởi tạo kho nhạc nền mặc định (Relaxing, Uplifting, Cinematic, Acoustic)."""
     bgm_dir = ASSETS_DIR / "audio" / "bgm"
     bgm_dir.mkdir(parents=True, exist_ok=True)
-    print(f"[*] Kiểm tra và khởi tạo kho nhạc nền BGM tại: {bgm_dir}")
-
     bgm_configs = {
         "relaxing_chill.mp3": [
             'ffmpeg', '-y', '-f', 'lavfi', '-i',
@@ -107,6 +105,30 @@ def initialize_bgm_library():
             'aevalsrc=sin(2*PI*528*t)*0.12+sin(2*PI*660*t)*0.1+sin(2*PI*792*t)*0.08:d=60',
             '-af', 'afade=t=in:ss=0:d=2.0,afade=t=out:st=58.0:d=2.0,volume=0.35',
             str(bgm_dir / "uplifting_happy.mp3")
+        ],
+        "lofi_study.mp3": [
+            'ffmpeg', '-y', '-f', 'lavfi', '-i',
+            'aevalsrc=sin(2*PI*396*t)*0.11+sin(2*PI*495*t)*0.09+sin(2*PI*594*t)*0.07:d=60',
+            '-af', 'afade=t=in:ss=0:d=2.0,afade=t=out:st=58.0:d=2.0,volume=0.35',
+            str(bgm_dir / "lofi_study.mp3")
+        ],
+        "chillhop_cafe.mp3": [
+            'ffmpeg', '-y', '-f', 'lavfi', '-i',
+            'aevalsrc=sin(2*PI*440*t)*0.10+sin(2*PI*554*t)*0.08+sin(2*PI*659*t)*0.06:d=60',
+            '-af', 'afade=t=in:ss=0:d=2.0,afade=t=out:st=58.0:d=2.0,volume=0.35',
+            str(bgm_dir / "chillhop_cafe.mp3")
+        ],
+        "midnight_aesthetic.mp3": [
+            'ffmpeg', '-y', '-f', 'lavfi', '-i',
+            'aevalsrc=sin(2*PI*288*t)*0.12+sin(2*PI*360*t)*0.10+sin(2*PI*432*t)*0.08:d=60',
+            '-af', 'afade=t=in:ss=0:d=2.0,afade=t=out:st=58.0:d=2.0,volume=0.35',
+            str(bgm_dir / "midnight_aesthetic.mp3")
+        ],
+        "rainy_ambient.mp3": [
+            'ffmpeg', '-y', '-f', 'lavfi', '-i',
+            'aevalsrc=sin(2*PI*352*t)*0.11+sin(2*PI*440*t)*0.09+sin(2*PI*528*t)*0.07:d=60',
+            '-af', 'afade=t=in:ss=0:d=2.0,afade=t=out:st=58.0:d=2.0,volume=0.35',
+            str(bgm_dir / "rainy_ambient.mp3")
         ],
         "cinematic_inspiring.mp3": [
             'ffmpeg', '-y', '-f', 'lavfi', '-i',
