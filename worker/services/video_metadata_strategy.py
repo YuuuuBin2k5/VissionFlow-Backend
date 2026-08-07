@@ -39,6 +39,49 @@ def sanitize_hashtag(tag: str) -> str:
     return f"#{clean.lower()}"
 
 
+CHANNEL_BRANDING_PROFILES = {
+    "goc_chiem_nghiem": {
+        "channel_name": "Góc Chiêm Nghiệm",
+        "handle": "@GocChiemNghiemYuuBin",
+        "header": "📖 TÓM TẮT & BÀI HỌC CHIÊM NGHIỆM:",
+        "about": (
+            "📌 VỀ GÓC CHIÊM NGHIỆM:\n"
+            "Nơi chia sẻ những câu chuyện cuộc sống sâu sắc, triết lý nhân sinh, bài học thành công & tư duy tích cực mỗi ngày.\n\n"
+            "🔔 Đăng ký kênh Góc Chiêm Nghiệm để đón xem những video chiêm nghiệm giá trị!"
+        ),
+        "default_hashtags": ["#Shorts", "#GocChiemNghiem", "#TrietLyCuocSong", "#BaiHocNhanSinh", "#TuDuyMo", "#YuuBin"]
+    },
+    "asinmochii_boni": {
+        "channel_name": "AsinMochii💕Boni",
+        "handle": "@AsinMochiiBoni",
+        "header": "📖 STORY SUMMARY & STRATEGIC INSIGHTS:",
+        "about": (
+            "📌 ABOUT ASINMOCHII💕BONI:\n"
+            "Inspiring short stories, ancient strategic wisdom, life lessons, mindset mastery & timeless historical narratives.\n\n"
+            "🔔 Subscribe to AsinMochii💕Boni for daily wisdom, life lessons & powerful story Shorts!"
+        ),
+        "default_hashtags": ["#Shorts", "#Storytelling", "#LifeLessons", "#Mindset", "#AncientWisdom", "#Strategy", "#AsinMochiiBoni", "#YuuBin"]
+    }
+}
+
+
+def format_channel_description(raw_summary: str, channel_key: str = "goc_chiem_nghiem", hashtags: list[str] | None = None) -> str:
+    """Format full multi-line channel description with custom channel branding footer."""
+    profile = CHANNEL_BRANDING_PROFILES.get(channel_key, CHANNEL_BRANDING_PROFILES["goc_chiem_nghiem"])
+    clean_summary = raw_summary.strip() if raw_summary else ""
+    
+    tags = hashtags or profile["default_hashtags"]
+    tags_str = " ".join(tags)
+
+    return (
+        f"{profile['header']}\n"
+        f"{clean_summary}\n\n"
+        f"{profile['about']}\n\n"
+        "------------------------------------\n"
+        f"{tags_str}"
+    )
+
+
 @dataclass(frozen=True)
 class VideoMetadataResult:
     title: str

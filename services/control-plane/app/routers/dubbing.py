@@ -221,7 +221,8 @@ def get_dubbing_job_status(
         except Exception:
             pass
 
-    seo_metadata = (wf.prompt_manifest or {}).get("seo") or {}
+    manifest = wf.prompt_manifest or {}
+    seo_metadata = manifest.get("seo") or {}
     proj = session.get(VideoProject, wf.project_id) if wf.project_id else getattr(wf, "project", None)
     
     raw_proj_title = proj.title if proj else None
@@ -234,8 +235,12 @@ def get_dubbing_job_status(
     else:
         video_title = raw_proj_title or "Video Lồng Tiếng AI Mới"
 
-    video_description = seo_metadata.get("caption_seo") or (proj.brief if proj else "")
+    channel_key = manifest.get("auto_publish_channel") or "goc_chiem_nghiem"
+    raw_summary = seo_metadata.get("caption_seo") or (proj.brief if proj else "")
     video_hashtags = seo_metadata.get("hashtags") or ["#VisionFlow", "#AIDubbing", "#YuuBin"]
+
+    from worker.services.video_metadata_strategy import format_channel_description
+    video_description = format_channel_description(raw_summary, channel_key=channel_key, hashtags=video_hashtags)
 
     return {
         "job_id": str(wf.id),
