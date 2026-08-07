@@ -221,10 +221,25 @@ def get_dubbing_job_status(
         except Exception:
             pass
 
+    seo_metadata = (wf.prompt_manifest or {}).get("seo") or {}
+    proj = wf.project if hasattr(wf, "project") else None
+    
+    raw_proj_title = proj.title if proj else None
+    if raw_proj_title and not any(kw in raw_proj_title for kw in ["Video Douyin", "Video TikTok", "Video YouTube", "Lồng Tiếng Tự Động"]):
+        video_title = raw_proj_title
+    else:
+        video_title = seo_metadata.get("title") or raw_proj_title or "Video Lồng Tiếng AI Mới"
+
+    video_description = seo_metadata.get("caption_seo") or (proj.brief if proj else "")
+    video_hashtags = seo_metadata.get("hashtags") or ["#VisionFlow", "#AIDubbing", "#YuuBin"]
+
     return {
         "job_id": str(wf.id),
         "workflow_run_id": str(wf.id),
         "state": wf.state,
+        "video_title": video_title,
+        "video_description": video_description,
+        "video_hashtags": video_hashtags,
         "output_path": asset.object_key if asset else None,
         "download_url": download_url,
         "error": wf.failure_detail,

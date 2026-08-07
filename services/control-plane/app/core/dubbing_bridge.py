@@ -99,10 +99,16 @@ def sync_dubbing_job_to_control_plane(
             session.add(wf)
             session.flush()
         else:
-            # Cập nhật state & tiêu đề bài viết
+            # Cập nhật state & tiêu đề bài viết & mô tả SEO tự động sinh
             wf.state = state
-            if title and hasattr(wf, "project") and wf.project:
-                wf.project.title = str(title)[:240]
+            seo_data = metadata.get("seo") or {}
+            ai_title = seo_data.get("title") or title
+            ai_caption = seo_data.get("caption_seo") or metadata.get("hook") or ""
+
+            if ai_title and hasattr(wf, "project") and wf.project:
+                wf.project.title = str(ai_title)[:240]
+                if ai_caption:
+                    wf.project.brief = str(ai_caption)[:500]
             wf.prompt_manifest = {**(wf.prompt_manifest or {}), **metadata}
 
         # 2. Ghi MediaAsset nếu có R2 key
