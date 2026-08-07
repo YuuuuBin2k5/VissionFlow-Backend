@@ -1031,6 +1031,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         progress_callback(f"Đang xử lý triệt giọng đọc tiếng Trung gốc (chế độ: {vocal_removal_mode})...")
                     clean_background_audio = self.apply_vocal_cleaner(ducked_audio_path, temp_dir, vocal_removal_mode)
 
+                t_args = ["-t", f"{video_dur:.3f}"] if video_dur > 0 else []
+
                 if mute_original_audio:
                     if prepared_bgm_path:
                         if progress_callback:
@@ -1040,8 +1042,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                             "-i", merged_vocal_path,
                             "-i", prepared_bgm_path,
                             "-filter_complex", "[0:a]apad,volume=1.8[vocal_b];[vocal_b][1:a]amix=inputs=2:duration=first[mix_raw];[mix_raw]volume=1.8[out]",
-                            "-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2", final_audio_path
-                        ]
+                            "-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2"
+                        ] + t_args + [final_audio_path]
                     else:
                         if progress_callback:
                             progress_callback("Đang xuất âm thanh lồng tiếng thuần khiết (đã tắt nhạc nền bản quyền)...")
@@ -1049,11 +1051,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                             "ffmpeg", "-y",
                             "-i", merged_vocal_path,
                             "-af", "apad",
-                            "-acodec", "libmp3lame", "-q:a", "2", final_audio_path
-                        ]
-                    if video_dur > 0:
-                        cmd_mix.insert(-4, "-t")
-                        cmd_mix.insert(-4, f"{video_dur:.3f}")
+                            "-acodec", "libmp3lame", "-q:a", "2"
+                        ] + t_args + [final_audio_path]
                 else:
                     if prepared_bgm_path:
                         if progress_callback:
@@ -1064,19 +1063,16 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                             "-i", merged_vocal_path,
                             "-i", prepared_bgm_path,
                             "-filter_complex", "[1:a]apad,volume=1.8[vocal_b];[0:a][vocal_b][2:a]amix=inputs=3:duration=first[mix_raw];[mix_raw]volume=1.8[out]",
-                            "-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2", final_audio_path
-                        ]
+                            "-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2"
+                        ] + t_args + [final_audio_path]
                     else:
                         cmd_mix = [
                             "ffmpeg", "-y",
                             "-i", clean_background_audio,
                             "-i", merged_vocal_path,
                             "-filter_complex", "[1:a]apad,volume=1.8[vocal_boosted];[0:a][vocal_boosted]amix=inputs=2:duration=first[mix_raw];[mix_raw]volume=1.8[out]",
-                            "-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2", final_audio_path
-                        ]
-                    if video_dur > 0:
-                        cmd_mix.insert(-4, "-t")
-                        cmd_mix.insert(-4, f"{video_dur:.3f}")
+                            "-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2"
+                        ] + t_args + [final_audio_path]
 
                 subprocess.run(cmd_mix, capture_output=True, check=True)
 
