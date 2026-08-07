@@ -1116,13 +1116,23 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                                 time_intervals.append((st, et))
 
                         if time_intervals:
-                            h_ratio = min(0.25, max(0.10, float(blur_region_height_ratio or 0.16)))
+                            tight_box = self.detect_text_bounding_box_tight(video_path, temp_dir)
                             enable_conditions = " + ".join([f"between(t,{st:.2f},{et:.2f})" for st, et in time_intervals])
-                            filter_nodes.append(
-                                f"{current_v}split=2[v_dyn_base][v_dyn_strip];"
-                                f"[v_dyn_strip]crop=iw:ih*{h_ratio:.2f}:0:ih*{1.0 - h_ratio:.2f},boxblur=15:2[v_dyn_blur];"
-                                f"[v_dyn_base][v_dyn_blur]overlay=0:H*{1.0 - h_ratio:.2f}:enable='{enable_conditions}'[v_unsub]"
-                            )
+                            
+                            if tight_box.get("is_tight"):
+                                bx, by, bw, bh = tight_box["x"], tight_box["y"], tight_box["w"], tight_box["h"]
+                                filter_nodes.append(
+                                    f"{current_v}split=2[v_dyn_base][v_dyn_strip];"
+                                    f"[v_dyn_strip]crop={bw}:{bh}:{bx}:{by},boxblur=15:2[v_dyn_blur];"
+                                    f"[v_dyn_base][v_dyn_blur]overlay={bx}:{by}:enable='{enable_conditions}'[v_unsub]"
+                                )
+                            else:
+                                h_ratio = min(0.25, max(0.10, float(blur_region_height_ratio or 0.16)))
+                                filter_nodes.append(
+                                    f"{current_v}split=2[v_dyn_base][v_dyn_strip];"
+                                    f"[v_dyn_strip]crop=iw:ih*{h_ratio:.2f}:0:ih*{1.0 - h_ratio:.2f},boxblur=15:2[v_dyn_blur];"
+                                    f"[v_dyn_base][v_dyn_blur]overlay=0:H*{1.0 - h_ratio:.2f}:enable='{enable_conditions}'[v_unsub]"
+                                )
                             current_v = "[v_unsub]"
                             dynamic_applied = True
                     except Exception as dyn_err:
