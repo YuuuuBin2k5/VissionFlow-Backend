@@ -378,6 +378,15 @@ class TestDubbingDispatchRequest(unittest.TestCase):
         self.assertAlmostEqual(res["metadata"]["bgm_volume"], 0.25)
         self.assertTrue(res["metadata"]["smart_dynamic_blur"])
 
+    def test_vocal_removal_mode_metadata_propagation(self):
+        DubbingDispatchRequest, dispatch_dubbing_job = self._import_request()
+        req = DubbingDispatchRequest(
+            source_url="https://v.douyin.com/xyz/",
+            vocal_removal_mode="ffmpeg_phase_cancel",
+        )
+        res = dispatch_dubbing_job(req)
+        self.assertEqual(res["metadata"]["vocal_removal_mode"], "ffmpeg_phase_cancel")
+
 
 # ===========================================================================
 # TEST GROUP 5: DubbingService — check_subtitles_supports_force_style

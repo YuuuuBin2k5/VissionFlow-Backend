@@ -652,6 +652,45 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         except Exception as e:
             print(f"[DubbingService Warning] Failed to generate SRT file: {e}")
 
+    def apply_vocal_cleaner(self, input_audio_path: str, temp_dir: Path, mode: str = "ffmpeg_phase_cancel") -> str:
+        """
+        Xử lý triệt giọng đọc tiếng Trung gốc bằng FFmpeg Phase-Cancellation hoặc AI Stem Separation.
+        Trả về đường dẫn tệp âm thanh đã triệt thoại gốc.
+        """
+        if not input_audio_path or not os.path.exists(input_audio_path):
+            return input_audio_path
+
+        output_cleaned = temp_dir / "cleaned_background_audio.mp3"
+        mode_str = str(mode or "").strip().lower()
+
+        if mode_str in ["ffmpeg_phase_cancel", "phase_cancel", "default"]:
+            try:
+                # Đảo pha kênh trung tâm FFmpeg pan=stereo|c0=c0-c1|c1=c1-c0 dập nốt thoại nhân vật
+                cmd = [
+                    "ffmpeg", "-y", "-i", str(input_audio_path),
+                    "-af", "pan=stereo|c0=c0-c1|c1=c1-c0,highpass=f=120,lowpass=f=7500,volume=1.2",
+                    "-acodec", "libmp3lame", "-q:a", "2", str(output_cleaned)
+                ]
+                res = subprocess.run(cmd, capture_output=True, text=True)
+                if res.returncode == 0 and output_cleaned.exists() and output_cleaned.stat().st_size > 0:
+                    print(f"[DubbingService VocalCleaner] Applied FFmpeg phase-cancellation successfully.")
+                    return str(output_cleaned)
+            except Exception as pe:
+                print(f"[DubbingService Warning] FFmpeg phase cancellation error: {pe}")
+
+        elif mode_str == "ai_demucs":
+            try:
+                cmd_demucs = ["demucs", "--two-stems", "vocals", "-o", str(temp_dir), str(input_audio_path)]
+                res = subprocess.run(cmd_demucs, capture_output=True, text=True)
+                no_vocals_file = list(temp_dir.glob("**/no_vocals.wav"))
+                if no_vocals_file:
+                    print(f"[DubbingService VocalCleaner] Applied AI Demucs stem separation successfully.")
+                    return str(no_vocals_file[0])
+            except Exception as de:
+                print(f"[DubbingService Warning] AI Demucs separation fallback: {de}")
+
+        return input_audio_path
+
     async def execute_dubbing_pipeline(
         self,
         video_path: str,
@@ -672,6 +711,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         bgm_custom_url: str = None,
         bgm_volume: float = 0.18,
         smart_dynamic_blur: bool = True,
+        vocal_removal_mode: str = "ffmpeg_phase_cancel",
     ) -> tuple:
         """Thực hiện toàn bộ 8 bước của pipeline lồng tiếng tự động miễn phí 100%"""
         temp_dir = Path(os.path.dirname(output_path)) / f"dub_temp_{os.path.basename(video_path).split('.')[0]}"
@@ -985,6 +1025,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         print(f"[DubbingService Warning] Failed to prepare BGM track: {bgm_err}")
 
                 # --- PHA TRỘN CÁC LUỒNG ÂM THANH (VOICE + DUCKED AUDIO + BGM) ---
+                clean_background_audio = ducked_audio_path
+                if not mute_original_audio and vocal_removal_mode not in ["ducking", "none", "off"]:
+                    if progress_callback:
+                        progress_callback(f"Đang xử lý triệt giọng đọc tiếng Trung gốc (chế độ: {vocal_removal_mode})...")
+                    clean_background_audio = self.apply_vocal_cleaner(ducked_audio_path, temp_dir, vocal_removal_mode)
+
                 if mute_original_audio:
                     if prepared_bgm_path:
                         if progress_callback:
@@ -1011,10 +1057,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 else:
                     if prepared_bgm_path:
                         if progress_callback:
-                            progress_callback("Đang pha trộn giọng lồng tiếng + Nhạc nền gốc + Nhạc BGM...")
+                            progress_callback("Đang pha trộn giọng lồng tiếng + Nhạc nền gốc đã triệt thoại + Nhạc BGM...")
                         cmd_mix = [
                             "ffmpeg", "-y",
-                            "-i", ducked_audio_path,
+                            "-i", clean_background_audio,
                             "-i", merged_vocal_path,
                             "-i", prepared_bgm_path,
                             "-filter_complex", "[1:a]apad,volume=1.8[vocal_b];[0:a][vocal_b][2:a]amix=inputs=3:duration=first[mix_raw];[mix_raw]volume=1.8[out]",
@@ -1023,7 +1069,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     else:
                         cmd_mix = [
                             "ffmpeg", "-y",
-                            "-i", ducked_audio_path,
+                            "-i", clean_background_audio,
                             "-i", merged_vocal_path,
                             "-filter_complex", "[1:a]apad,volume=1.8[vocal_boosted];[0:a][vocal_boosted]amix=inputs=2:duration=first[mix_raw];[mix_raw]volume=1.8[out]",
                             "-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2", final_audio_path

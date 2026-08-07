@@ -87,10 +87,9 @@ class DubbingStrategy(RenderStrategy):
         blur_region_height_ratio = metadata.get("blur_region_height_ratio", 0.20)
         logo_handle = metadata.get("logo_handle") or "@GocChiemNghiemYuuBin"
         caption_preset = metadata.get("caption_preset") or "montserrat"
-        bgm_preset = metadata.get("bgm_preset")
-        bgm_custom_url = metadata.get("bgm_custom_url")
         bgm_volume = float(metadata.get("bgm_volume") or 0.18)
         smart_dynamic_blur = metadata.get("smart_dynamic_blur", True)
+        vocal_removal_mode = metadata.get("vocal_removal_mode", "ffmpeg_phase_cancel")
 
         dubber = DubbingService()
         success, timeline = await dubber.execute_dubbing_pipeline(
@@ -112,6 +111,7 @@ class DubbingStrategy(RenderStrategy):
             bgm_custom_url=bgm_custom_url,
             bgm_volume=bgm_volume,
             smart_dynamic_blur=smart_dynamic_blur,
+            vocal_removal_mode=vocal_removal_mode,
         )
 
         if not success or not os.path.exists(output_path):
