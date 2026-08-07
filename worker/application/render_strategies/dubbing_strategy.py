@@ -90,6 +90,7 @@ class DubbingStrategy(RenderStrategy):
         bgm_preset = metadata.get("bgm_preset")
         bgm_custom_url = metadata.get("bgm_custom_url")
         bgm_volume = float(metadata.get("bgm_volume") or 0.18)
+        smart_dynamic_blur = metadata.get("smart_dynamic_blur", True)
 
         dubber = DubbingService()
         success, timeline = await dubber.execute_dubbing_pipeline(
@@ -110,6 +111,7 @@ class DubbingStrategy(RenderStrategy):
             bgm_preset=bgm_preset,
             bgm_custom_url=bgm_custom_url,
             bgm_volume=bgm_volume,
+            smart_dynamic_blur=smart_dynamic_blur,
         )
 
         if not success or not os.path.exists(output_path):

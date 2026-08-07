@@ -52,6 +52,7 @@ class DubbingDispatchRequest(BaseModel):
     bgm_preset: Optional[str] = "relaxing_chill"
     bgm_custom_url: Optional[str] = None
     bgm_volume: float = 0.18
+    smart_dynamic_blur: bool = True
 
 
 DubbingDispatchRequest.model_rebuild()
@@ -111,6 +112,7 @@ def dispatch_dubbing_job(
         "bgm_preset": payload.bgm_preset,
         "bgm_custom_url": payload.bgm_custom_url,
         "bgm_volume": payload.bgm_volume,
+        "smart_dynamic_blur": payload.smart_dynamic_blur,
         "render_mode": "TRANSLATE_DUB",
     }
 

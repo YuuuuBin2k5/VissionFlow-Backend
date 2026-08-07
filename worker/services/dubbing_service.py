@@ -671,6 +671,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         bgm_preset: str = "relaxing_chill",
         bgm_custom_url: str = None,
         bgm_volume: float = 0.18,
+        smart_dynamic_blur: bool = True,
     ) -> tuple:
         """Thực hiện toàn bộ 8 bước của pipeline lồng tiếng tự động miễn phí 100%"""
         temp_dir = Path(os.path.dirname(output_path)) / f"dub_temp_{os.path.basename(video_path).split('.')[0]}"
@@ -1096,17 +1097,48 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             )
             current_v = "[v_anti_wm]"
 
-            # 1. Original Subtitle Blur / Inpainting Strip (if enabled)
+            # 1. Original Subtitle Blur / Dynamic Time-Scoped Bounding Box Blur (if enabled)
             if blur_original_subtitles:
-                if progress_callback:
-                    progress_callback("Đang tự động che mờ vùng phụ đề tiếng Trung gốc...")
-                h_ratio = min(0.35, max(0.12, float(blur_region_height_ratio or 0.20)))
-                filter_nodes.append(
-                    f"{current_v}split=2[v_base][v_strip];"
-                    f"[v_strip]crop=iw:ih*{h_ratio:.2f}:0:ih*{1.0 - h_ratio:.2f},boxblur=15:2[v_blur_strip];"
-                    f"[v_base][v_blur_strip]overlay=0:H*{1.0 - h_ratio:.2f}[v_unsub]"
-                )
-                current_v = "[v_unsub]"
+                dynamic_applied = False
+                if smart_dynamic_blur and realized_timeline:
+                    try:
+                        if progress_callback:
+                            progress_callback("Đang áp dụng bộ lọc khoanh vùng động AI (chỉ mờ đúng giây chữ xuất hiện)...")
+                        
+                        # Gom nhóm các mốc thời gian thoại để sinh điều kiện enable='between(t,st,et)'
+                        time_intervals = []
+                        for seg in realized_timeline:
+                            st = max(0.0, float(seg.get("start", 0.0)))
+                            et = max(st + 0.1, float(seg.get("end", st + 0.5)))
+                            if time_intervals and (st - time_intervals[-1][1]) < 0.5:
+                                time_intervals[-1] = (time_intervals[-1][0], max(time_intervals[-1][1], et))
+                            else:
+                                time_intervals.append((st, et))
+
+                        if time_intervals:
+                            h_ratio = min(0.25, max(0.10, float(blur_region_height_ratio or 0.16)))
+                            enable_conditions = " + ".join([f"between(t,{st:.2f},{et:.2f})" for st, et in time_intervals])
+                            filter_nodes.append(
+                                f"{current_v}split=2[v_dyn_base][v_dyn_strip];"
+                                f"[v_dyn_strip]crop=iw:ih*{h_ratio:.2f}:0:ih*{1.0 - h_ratio:.2f},boxblur=15:2[v_dyn_blur];"
+                                f"[v_dyn_base][v_dyn_blur]overlay=0:H*{1.0 - h_ratio:.2f}:enable='{enable_conditions}'[v_unsub]"
+                            )
+                            current_v = "[v_unsub]"
+                            dynamic_applied = True
+                    except Exception as dyn_err:
+                        print(f"[DubbingService Warning] Dynamic blur fallback to static: {dyn_err}")
+                        dynamic_applied = False
+
+                if not dynamic_applied:
+                    if progress_callback:
+                        progress_callback("Đang tự động che mờ vùng phụ đề tiếng Trung gốc...")
+                    h_ratio = min(0.35, max(0.12, float(blur_region_height_ratio or 0.20)))
+                    filter_nodes.append(
+                        f"{current_v}split=2[v_base][v_strip];"
+                        f"[v_strip]crop=iw:ih*{h_ratio:.2f}:0:ih*{1.0 - h_ratio:.2f},boxblur=15:2[v_blur_strip];"
+                        f"[v_base][v_blur_strip]overlay=0:H*{1.0 - h_ratio:.2f}[v_unsub]"
+                    )
+                    current_v = "[v_unsub]"
 
             # 2. Channel Logo / Watermark Handle
             if logo_handle and logo_handle.strip():
