@@ -87,6 +87,10 @@ class DubbingStrategy(RenderStrategy):
         blur_region_height_ratio = metadata.get("blur_region_height_ratio", 0.20)
         logo_handle = metadata.get("logo_handle") or "@GocChiemNghiemYuuBin"
         caption_preset = metadata.get("caption_preset") or "montserrat"
+        caption_font_family = metadata.get("caption_font_family") or "Montserrat ExtraBold"
+        caption_font_size = int(metadata.get("caption_font_size") or 72)
+        caption_y_percent = float(metadata.get("caption_y_percent") or 80.0)
+        caption_color = metadata.get("caption_color") or "#FFFF00"
         bgm_preset = metadata.get("bgm_preset")
         bgm_custom_url = metadata.get("bgm_custom_url")
         bgm_volume = float(metadata.get("bgm_volume") or 0.18)
@@ -109,6 +113,10 @@ class DubbingStrategy(RenderStrategy):
             blur_region_height_ratio=blur_region_height_ratio,
             logo_handle=logo_handle,
             caption_preset=caption_preset,
+            caption_font_family=caption_font_family,
+            caption_font_size=caption_font_size,
+            caption_y_percent=caption_y_percent,
+            caption_color=caption_color,
             bgm_preset=bgm_preset,
             bgm_custom_url=bgm_custom_url,
             bgm_volume=bgm_volume,

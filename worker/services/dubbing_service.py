@@ -544,33 +544,47 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
         caption_preset: str = "hormozi",
         aspect_ratio: str = "short_vertical",
         enable_karaoke: bool = True,
+        font_family: str = "Montserrat",
+        custom_font_size: int = 72,
+        custom_y_percent: float = 80.0,
+        custom_color: str = "#FFFF00",
     ):
-        """Tạo file phụ đề ASS (Advanced SubStation Alpha) sắc nét, hỗ trợ Karaoke đổi màu từng từ theo nhịp phát âm AI."""
+        """Tạo file phụ đề ASS (Advanced SubStation Alpha) sắc nét, hỗ trợ Karaoke đổi màu từng từ và tọa độ Y-offset linh hoạt từ Canvas."""
         try:
-            font_name = "Arial"
-            margin_v = 360 if aspect_ratio == "vertical_blur" else 250
+            # Map Font Family
+            clean_font = str(font_family or "Montserrat").lower()
+            if "bebas" in clean_font:
+                font_name = "Bebas Neue"
+            elif "roboto" in clean_font:
+                font_name = "Roboto Condensed"
+            elif "outfit" in clean_font:
+                font_name = "Outfit"
+            elif "impact" in clean_font:
+                font_name = "Impact"
+            elif "playfair" in clean_font:
+                font_name = "Playfair Display"
+            else:
+                font_name = "Montserrat"
 
-            if caption_preset == "hormozi":
-                font_size = 72
-                primary_color = "&H0000FFFF"    # Vàng rực rỡ (#FFFF00) khi đọc đến
-                secondary_color = "&H00FFFFFF"  # Trắng khi chưa/đã đọc qua
-                outline_color = "&H00000000"    # Viền đen dày
-                outline = 4
-                shadow = 3
-            elif caption_preset == "neon":
-                font_size = 68
-                primary_color = "&H0000FF00"    # Xanh Neon (#00FF00) khi đọc đến
-                secondary_color = "&H00FFFFFF"
-                outline_color = "&H00000000"
-                outline = 4
-                shadow = 3
-            else:  # montserrat / clean_news / default
-                font_size = 66
-                primary_color = "&H0000FFFF"    # Vàng rực rỡ
-                secondary_color = "&H00FFFFFF"  # Trắng
-                outline_color = "&H00000000"
-                outline = 4
-                shadow = 2
+            font_size = max(36, min(96, int(custom_font_size or 72)))
+
+            # Quy đổi Y-percent (10-90%) sang MarginV pixel trên khung 1080x1920 (PlayResY=1920)
+            y_pct = max(10.0, min(90.0, float(custom_y_percent or 80.0)))
+            margin_v = int(round((100.0 - y_pct) * 1920.0 / 100.0))
+
+            # Helper quy đổi Hex color sang ASS BGR format (&H00BBGGRR)
+            def hex_to_ass_bgr(hex_str: str) -> str:
+                clean_hex = str(hex_str or "").strip().lstrip("#")
+                if len(clean_hex) == 6:
+                    r, g, b = clean_hex[0:2], clean_hex[2:4], clean_hex[4:6]
+                    return f"&H00{b}{g}{r}".upper()
+                return "&H0000FFFF"
+
+            primary_color = hex_to_ass_bgr(custom_color)
+            secondary_color = "&H00FFFFFF"
+            outline_color = "&H00000000"
+            outline = 4
+            shadow = 3
 
             header = f"""[Script Info]
 ScriptType: v4.00+
@@ -708,6 +722,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         blur_region_height_ratio: float = 0.20,
         logo_handle: str = "GócChiêmNghiệm||YuuuBin",
         caption_preset: str = "montserrat",
+        caption_font_family: str = "Montserrat ExtraBold",
+        caption_font_size: int = 72,
+        caption_y_percent: float = 80.0,
+        caption_color: str = "#FFFF00",
         bgm_preset: str = "relaxing_chill",
         bgm_custom_url: str = None,
         bgm_volume: float = 0.18,
@@ -1092,7 +1110,17 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 try:
                     if progress_callback:
                         progress_callback("Đang tự động biên soạn và tạo file phụ đề ASS tiếng Việt...")
-                    self.generate_ass_file(realized_timeline, str(ass_path), caption_preset=caption_preset, aspect_ratio=aspect_ratio)
+                    self.generate_ass_file(
+                        realized_timeline,
+                        str(ass_path),
+                        caption_preset=caption_preset,
+                        aspect_ratio=aspect_ratio,
+                        enable_karaoke=enable_karaoke if 'enable_karaoke' in locals() else True,
+                        font_family=caption_font_family,
+                        custom_font_size=caption_font_size,
+                        custom_y_percent=caption_y_percent,
+                        custom_color=caption_color,
+                    )
                     self.generate_srt_file(realized_timeline, str(srt_path))
                     has_subtitles = os.path.exists(ass_path) and os.path.getsize(ass_path) > 0
                 except Exception as sub_err:
