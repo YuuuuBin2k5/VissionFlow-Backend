@@ -123,7 +123,7 @@ def process_workflow_official(wf_id: str) -> bool:
         manifest = wf.prompt_manifest or {}
         payload = wf.input_payload or {}
         render_mode = str(manifest.get("render_mode") or payload.get("render_mode") or "").upper()
-        if render_mode == "TRANSLATE_DUB" or title.startswith("[DUB]") or "[dub]" in title.lower() or "lồng tiếng" in title.lower():
+        if render_mode == "TRANSLATE_DUB" or "dub" in title.lower() or "lồng tiếng" in title.lower() or "douyin" in title.lower() or "tiktok" in title.lower():
             print(f"  [Worker Route] Skipping '{title}' ({wf_id}) in standard B-roll pipeline (Handled by DubbingStrategy).")
             return False
 
