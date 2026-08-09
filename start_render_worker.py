@@ -386,46 +386,73 @@ def process_workflow_official(wf_id: str) -> bool:
             return True
 
 
-def run_worker_loop():
-    print("=======================================================")
-    print("🚀 VISIONFLOW LOCAL AUTOMATIC RENDER SERVER RUNNING")
-    print("   (100% Parity with Official GitHub Actions Workflow)")
-    print("=======================================================")
-    print("📌 Synchronizing Credential Vault & Listening for Video Requests...\n")
-
-    # Bootstrap API keys from Credential Vault
+def run_unified_render_pass() -> int:
+    """
+    Chạy 1 Lần Nhất Quán (Single Source of Truth) Chuỗi Pipeline Render:
+    100% Đồng nhất giữa GitHub Actions Runner & Local Worker Server!
+    """
+    # 0. Nạp Credential Vault
     try:
         from worker.credential_fetcher import bootstrap_credentials_from_vault
         bootstrap_credentials_from_vault()
     except Exception as cred_err:
-        print(f"[Vault Bootstrap Notice] {cred_err}")
+        print(f"[Vault Sync Notice] {cred_err}")
 
+    processed_total = 0
+
+    # 1. Pipeline Dubbing / Translation (Lồng tiếng AI)
+    try:
+        from worker.process_queued_jobs import process_postgresql_jobs
+        dub_count = process_postgresql_jobs()
+        processed_total += dub_count
+    except Exception as dub_err:
+        print(f"[Pass Notice] Dubbing queue step notice: {dub_err}")
+
+    # 2. Pipeline Short-Form AI B-Roll Video
     engine = get_engine()
+    try:
+        with Session(engine) as session_db:
+            pending_runs = session_db.query(WorkflowRun).filter(
+                WorkflowRun.state.in_(["QUEUED", "PLANNING", "SCRIPTED", "STORYBOARDED", "RENDERING", "ASSETS_READY"])
+            ).order_by(WorkflowRun.id.desc()).all()
+
+            for run in pending_runs:
+                try:
+                    ok = process_workflow_official(str(run.id))
+                    if ok:
+                        processed_total += 1
+                except Exception as err:
+                    print(f"❌ [Pass Error] Workflow #{run.id} render error: {err}")
+    except Exception as db_err:
+        print(f"[Pass Notice] Short-form DB queue query notice: {db_err}")
+
+    return processed_total
+
+
+def run_worker_loop():
+    import argparse
+    parser = argparse.ArgumentParser(description="VisionFlow Unified Render Engine (Local & GitHub Actions)")
+    parser.add_argument("--once", action="store_true", help="Chạy 1 pass duy nhất rồi thoát (GitHub Actions / CLI mode)")
+    parser.add_argument("--loop", action="store_true", help="Chạy lặp lại liên tục ngầm (Local Server Daemon mode)")
+    args, _ = parser.parse_known_args()
+
+    print("=======================================================")
+    print("🚀 VISIONFLOW UNIFIED AUTOMATIC RENDER SERVER RUNNING")
+    print("   (100% Single Source of Truth — Local & GitHub Actions)")
+    print("=======================================================")
+
+    if args.once:
+        print("📌 Running 1 Single Unified Render Pass...")
+        count = run_unified_render_pass()
+        print(f"✅ Pass Complete! Total Workflows Processed: {count}")
+        return
+
+    print("📌 Running Continuous Local Worker Daemon Loop...\n")
     while True:
         try:
-            # 1. GitHub Actions Step: Process Queued Dubbing/Translation Jobs first
-            try:
-                from worker.process_queued_jobs import process_postgresql_jobs
-                process_postgresql_jobs()
-            except Exception as dub_err:
-                print(f"⚠️ Dubbing queue check notice: {dub_err}")
-
-            # 2. GitHub Actions Step: Process Short-Form AI Video Workflows
-            with Session(engine) as session_db:
-                pending_runs = session_db.query(WorkflowRun).filter(
-                    WorkflowRun.state.in_(["QUEUED", "PLANNING", "SCRIPTED", "STORYBOARDED", "RENDERING", "ASSETS_READY"])
-                ).order_by(WorkflowRun.id.desc()).all()
-
-                for run in pending_runs:
-                    try:
-                        process_workflow_official(str(run.id))
-                    except Exception as err:
-                        print(f"❌ Error processing workflow {run.id}: {err}")
-                        import traceback
-                        traceback.print_exc()
-
+            run_unified_render_pass()
         except Exception as loop_err:
-            print(f"⚠️ Worker polling notice: {loop_err}")
+            print(f"⚠️ Unified Worker loop notice: {loop_err}")
 
         time.sleep(5)
 
