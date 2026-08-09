@@ -359,13 +359,28 @@ def process_workflow_official(wf_id: str) -> bool:
 def run_worker_loop():
     print("=======================================================")
     print("🚀 VISIONFLOW LOCAL AUTOMATIC RENDER SERVER RUNNING")
-    print("   (100% GitHub Actions Official Render Pipeline)")
+    print("   (100% Parity with Official GitHub Actions Workflow)")
     print("=======================================================")
-    print("📌 Waiting for new video requests from Website...")
+    print("📌 Synchronizing Credential Vault & Listening for Video Requests...\n")
+
+    # Bootstrap API keys from Credential Vault
+    try:
+        from worker.credential_fetcher import bootstrap_credentials_from_vault
+        bootstrap_credentials_from_vault()
+    except Exception as cred_err:
+        print(f"[Vault Bootstrap Notice] {cred_err}")
 
     engine = get_engine()
     while True:
         try:
+            # 1. GitHub Actions Step: Process Queued Dubbing/Translation Jobs first
+            try:
+                from worker.process_queued_jobs import process_postgresql_jobs
+                process_postgresql_jobs()
+            except Exception as dub_err:
+                print(f"⚠️ Dubbing queue check notice: {dub_err}")
+
+            # 2. GitHub Actions Step: Process Short-Form AI Video Workflows
             with Session(engine) as session_db:
                 pending_runs = session_db.query(WorkflowRun).filter(
                     WorkflowRun.state.in_(["QUEUED", "PLANNING", "SCRIPTED", "STORYBOARDED", "RENDERING", "ASSETS_READY"])
