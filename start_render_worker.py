@@ -29,31 +29,34 @@ class TeeLogger:
     def __init__(self, filepath: str):
         self.terminal = sys.stdout
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        self.log_file = open(filepath, "a", encoding="utf-8", buffering=1)
+        try:
+            self.log_file = open(filepath, "a", encoding="utf-8")
+        except Exception:
+            self.log_file = None
 
     def write(self, message):
-        try:
-            if self.terminal:
+        if self.terminal:
+            try:
                 self.terminal.write(message)
-        except Exception:
-            pass
-        try:
-            if self.log_file and not self.log_file.closed:
+            except BaseException:
+                pass
+        if self.log_file:
+            try:
                 self.log_file.write(message)
-        except Exception:
-            pass
+            except BaseException:
+                pass
 
     def flush(self):
-        try:
-            if self.terminal:
+        if self.terminal:
+            try:
                 self.terminal.flush()
-        except Exception:
-            pass
-        try:
-            if self.log_file and not self.log_file.closed:
+            except BaseException:
+                pass
+        if self.log_file:
+            try:
                 self.log_file.flush()
-        except Exception:
-            pass
+            except BaseException:
+                pass
 
 log_file_path = os.path.join(os.path.dirname(__file__), "logs", "render_worker.log")
 tee_instance = TeeLogger(log_file_path)
