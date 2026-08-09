@@ -28,10 +28,13 @@ class StockVideoCandidate:
         return self.width / self.height
 
 
+import os
+import subprocess
 from worker.services.fal_service import FalService
-
-
 from worker.services.local_asset_library_service import LocalAssetLibraryService
+from worker.services.visual_keyword_extractor import VisualKeywordExtractor
+
+HISTORY_LEDGER_FILE = ASSETS_DIR / "used_broll_assets.json"
 
 
 class AssetService:
@@ -44,6 +47,34 @@ class AssetService:
         }
         self.fal_service = FalService()
         self.local_lib = LocalAssetLibraryService()
+        self.keyword_extractor = VisualKeywordExtractor()
+
+    def _load_used_assets(self) -> set:
+        """Tải danh sách URL/ID video B-Roll đã từng dùng từ sổ nhật ký cục bộ."""
+        try:
+            if HISTORY_LEDGER_FILE.exists():
+                with open(HISTORY_LEDGER_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, list):
+                        return set(data)
+        except Exception:
+            pass
+        return set()
+
+    def _mark_asset_used(self, asset_id_or_url: str):
+        """Lưu vết ID/URL video vừa sử dụng để chặn lặp lại ở các tập phim tiếp theo."""
+        if not asset_id_or_url:
+            return
+        used = self._load_used_assets()
+        used.add(str(asset_id_or_url).strip())
+        # Giữ 500 ID gần nhất
+        used_list = list(used)[-500:]
+        try:
+            ASSETS_DIR.mkdir(parents=True, exist_ok=True)
+            with open(HISTORY_LEDGER_FILE, "w", encoding="utf-8") as f:
+                json.dump(used_list, f, indent=2)
+        except Exception as exc:
+            print(f"[AssetService Ledger Warning] Failed to update used assets ledger: {exc}")
 
     def get_scene_asset(
         self,
@@ -78,9 +109,12 @@ class AssetService:
 
     def search_and_download_video(self, keywords: str, scene_id: int) -> str:
         """
-        Tìm kiếm video nền dọc: Ưu tiên kho cục bộ (Local Asset Library) với 5 thuật toán thông minh:
-        (Scene-by-scene, Quality scoring, Anti-repetition, Sub-clip window, Top-K sampling).
-        Nếu kho cục bộ rỗng mới kết nối Pexels API.
+        Tìm kiếm video nền dọc thông minh:
+        1. Ưu tiên Kho tài nguyên cục bộ (Local Asset Library).
+        2. Trích xuất từ khóa thị giác chuẩn từ LLM/NLP (VisualKeywordExtractor).
+        3. Truy vấn song song Multi-Provider (Pexels + Pixabay + Coverr) với Random Page Offset.
+        4. Chống trùng lặp giữa các tập phim (Cross-Episode Deduplication Ledger).
+        5. Fallback Ken Burns FX (ảnh 4K -> video motion 60fps) nếu không có clip stock phù hợp.
         """
         # 0. Ưu tiên tìm kiếm từ kho tài nguyên cục bộ trước
         try:
@@ -91,25 +125,30 @@ class AssetService:
         except Exception as e_local:
             print(f"[AssetService Warning] Local asset search failed: {e_local}")
 
-        print(f"[AssetService] Searching Pexels for: '{keywords}' (Scene {scene_id})")
-        
-        # 1. Thử tìm kiếm với từ khóa gốc
-        selected_candidate = self._find_best_video_candidate(keywords)
-        
-        # Self-Healing 1: Nếu lỗi hoặc không có video, rút gọn từ khóa về các từ cơ bản (danh từ chính)
-        if not selected_candidate:
-            simplified_keywords = self._simplify_keywords(keywords)
-            if simplified_keywords != keywords:
-                print(f"[AssetService Fallback] No videos for '{keywords}'. Retrying simplified: '{simplified_keywords}'")
-                selected_candidate = self._find_best_video_candidate(simplified_keywords)
+        # 1. Trích xuất các cụm từ khóa thị giác súc tích tiếng Anh
+        extracted_queries = self.keyword_extractor.extract_keywords(keywords, scene_index=scene_id)
+        print(f"[AssetService Smart Queries] Scene {scene_id} -> Queries: {extracted_queries}")
 
-        # Self-Healing 2: Nếu vẫn lỗi, dùng các từ khóa mặc định an toàn cho nội dung
-        if not selected_candidate:
-            default_keywords = random.choice(["nature vertical", "abstract vertical", "city vertical", "aesthetic vertical"])
-            print(f"[AssetService Fallback] No videos for simplified keywords. Using safe default: '{default_keywords}'")
-            selected_candidate = self._find_best_video_candidate(default_keywords)
+        selected_candidate = None
+        for q in extracted_queries:
+            selected_candidate = self._find_best_video_candidate(q)
+            if selected_candidate:
+                break
 
-        # 2. Tải video về thư mục tạm
+        # Fallback 1: Rút gọn từ khóa
+        if not selected_candidate:
+            simplified = self._simplify_keywords(keywords)
+            if simplified != keywords:
+                print(f"[AssetService Fallback] Retrying simplified query: '{simplified}'")
+                selected_candidate = self._find_best_video_candidate(simplified)
+
+        # Fallback 2: Từ khóa mặc định ngẫu nhiên
+        if not selected_candidate:
+            default_query = random.choice(["nature vertical", "abstract vertical", "city vertical", "aesthetic vertical"])
+            print(f"[AssetService Fallback] Using safe default query: '{default_query}'")
+            selected_candidate = self._find_best_video_candidate(default_query)
+
+        # 2. Tải video về thư mục tạm & Ghi nhật ký chống trùng
         output_filename = f"scene_{scene_id}_{random.randint(1000, 9999)}.mp4"
         output_path = str(ASSETS_DIR / output_filename)
 
@@ -118,12 +157,28 @@ class AssetService:
                 self._download_file(selected_candidate.link, output_path)
                 self._write_asset_metadata(output_path, selected_candidate)
                 self._notify_provider_download(selected_candidate)
+                self._mark_asset_used(selected_candidate.link)
+                if selected_candidate.provider_asset_id:
+                    self._mark_asset_used(selected_candidate.provider_asset_id)
+                print(f"[AssetService Success] Scene {scene_id} downloaded from [{selected_candidate.provider.upper()}] -> {selected_candidate.link}")
                 return output_path
             except Exception as e:
-                print(f"[AssetService Error] Failed to download video: {e}")
-        
-        # Tình huống xấu nhất: Trả về một chuỗi rỗng để media engine xử lý tạo ảnh nền tĩnh hoặc báo lỗi
-        raise Exception("Không thể tìm và tải bất kỳ video nền nào từ Pexels API.")
+                print(f"[AssetService Error] Failed to download video candidate: {e}")
+
+        # Fallback 3: Ken Burns Photo-to-Video Motion Generator
+        print(f"[AssetService Ken Burns Fallback] Generating motion video from 4K Photo for Scene {scene_id}...")
+        try:
+            photo_url = self._search_pexels_image(extracted_queries[0] if extracted_queries else keywords)
+            if photo_url:
+                temp_photo = str(ASSETS_DIR / f"temp_photo_{scene_id}_{random.randint(1000,9999)}.jpg")
+                self._download_file(photo_url, temp_photo)
+                if self._convert_photo_to_ken_burns_video(temp_photo, output_path, duration=6.0):
+                    print(f"[AssetService Ken Burns Success] Created motion video for Scene {scene_id}: {output_path}")
+                    return output_path
+        except Exception as ken_err:
+            print(f"[AssetService Warning] Ken Burns fallback failed: {ken_err}")
+
+        raise Exception("Không thể tìm và tải bất kỳ video nền nào từ các nhà cung cấp (Pexels/Pixabay/Coverr).")
 
     def search_and_download_videos(self, keywords: str, job_id: int, count: int = 5) -> list:
         """
@@ -254,46 +309,66 @@ class AssetService:
         return self._select_candidate_from_ranked_pool(candidates)
 
     def _find_video_candidates(self, query: str, count: int = 5) -> list[StockVideoCandidate]:
-        candidates = self._search_pexels_candidates(
+        """
+        Gộp ứng viên từ nhiều nhà cung cấp (Pexels, Pixabay, Coverr) theo cơ chế Round-Robin 
+        kết hợp Random Page Offset (page 1-5) để xóa bỏ hoàn toàn sự lặp lại.
+        """
+        random_page = random.randint(1, 5)
+
+        # Trích xuất ứng viên từ 3 nhà cung cấp song song
+        pexels_list = self._search_pexels_candidates(
             query=query,
-            per_page=max(8, min(30, count * 4)),
+            per_page=max(8, min(30, count * 3)),
+            page=random_page,
             minimum_duration=4,
             prefer_portrait=True,
         )
-        if len(candidates) < count:
-            candidates.extend(
-                self._search_pixabay_candidates(
-                    query=query,
-                    per_page=max(8, min(30, count * 4)),
-                    minimum_duration=4,
-                    prefer_portrait=True,
-                )
-            )
-        if len(candidates) < count:
-            candidates.extend(
-                self._search_coverr_candidates(
-                    query=query,
-                    page_size=max(8, min(20, count * 3)),
-                    minimum_duration=4,
-                    prefer_portrait=True,
-                )
-            )
-        candidates.sort(key=lambda item: item.score, reverse=True)
+        pixabay_list = self._search_pixabay_candidates(
+            query=query,
+            per_page=max(8, min(30, count * 3)),
+            page=random_page,
+            minimum_duration=4,
+            prefer_portrait=True,
+        )
+        coverr_list = self._search_coverr_candidates(
+            query=query,
+            page_size=max(8, min(20, count * 2)),
+            minimum_duration=4,
+            prefer_portrait=True,
+        )
+
+        # Trộn Round-Robin (Pexels -> Pixabay -> Coverr -> Pexels...)
+        blended: list[StockVideoCandidate] = []
+        max_len = max(len(pexels_list), len(pixabay_list), len(coverr_list))
+        for i in range(max_len):
+            if i < len(pexels_list):
+                blended.append(pexels_list[i])
+            if i < len(pixabay_list):
+                blended.append(pixabay_list[i])
+            if i < len(coverr_list):
+                blended.append(coverr_list[i])
+
+        # Điểm đánh giá (Score) đã bao gồm điểm trừ -100 nếu video từng dùng trong Ledger
+        blended.sort(key=lambda item: item.score, reverse=True)
+
         deduped = []
         seen = set()
-        for candidate in candidates:
+        for candidate in blended:
             if candidate.link in seen:
                 continue
             seen.add(candidate.link)
             deduped.append(candidate)
             if len(deduped) >= count:
                 break
+
+        print(f"[AssetService Blended Pool] Fetched {len(deduped)} round-robin candidates (Pexels:{len(pexels_list)}, Pixabay:{len(pixabay_list)}, Coverr:{len(coverr_list)}, page={random_page})")
         return deduped
 
     def _search_pexels_candidates(
         self,
         query: str,
         per_page: int = 12,
+        page: int = 1,
         minimum_duration: int = 4,
         prefer_portrait: bool = True,
     ) -> list[StockVideoCandidate]:
@@ -305,6 +380,7 @@ class AssetService:
         params = {
             "query": query,
             "per_page": max(1, min(40, per_page)),
+            "page": max(1, min(10, page)),
         }
         if prefer_portrait:
             params["orientation"] = "portrait"
@@ -347,6 +423,7 @@ class AssetService:
                     str(creator),
                 ]),
                 prefer_portrait=prefer_portrait,
+                candidate_link=chosen_file["link"],
             )
             candidates.append(
                 StockVideoCandidate(
@@ -370,6 +447,7 @@ class AssetService:
         self,
         query: str,
         per_page: int = 12,
+        page: int = 1,
         minimum_duration: int = 4,
         prefer_portrait: bool = True,
     ) -> list[StockVideoCandidate]:
@@ -381,6 +459,7 @@ class AssetService:
             "key": self.pixabay_api_key,
             "q": query,
             "per_page": max(3, min(40, per_page)),
+            "page": max(1, min(10, page)),
             "safesearch": "true",
             "video_type": "all",
         }
@@ -422,6 +501,7 @@ class AssetService:
                 height=height,
                 metadata_text=" ".join([tags, creator, str(video.get("pageURL") or "")]),
                 prefer_portrait=prefer_portrait,
+                candidate_link=chosen_file["url"],
             )
             candidates.append(
                 StockVideoCandidate(
@@ -503,6 +583,7 @@ class AssetService:
                 height=height,
                 metadata_text=metadata_text,
                 prefer_portrait=prefer_portrait,
+                candidate_link=link,
             )
             if prefer_portrait and video.get("is_vertical"):
                 score += 5
@@ -584,8 +665,17 @@ class AssetService:
         height: int,
         metadata_text: str = "",
         prefer_portrait: bool = True,
+        candidate_link: str = "",
     ) -> int:
         score = 0
+
+        # Kiểm tra Ledger chống lặp video giữa các tập
+        if candidate_link:
+            used = self._load_used_assets()
+            if str(candidate_link).strip() in used:
+                # Phạt nặng điểm để ưu tiên tuyệt đối cho video chưa từng xuất hiện
+                score -= 100
+
         if duration >= 12:
             score += 4
         elif duration >= 7:
@@ -621,6 +711,26 @@ class AssetService:
             score -= 6
 
         return score
+
+    def _convert_photo_to_ken_burns_video(self, image_path: str, output_video_path: str, duration: float = 6.0) -> bool:
+        """Chuyển đổi ảnh 4K tĩnh thành video chuyển động Zoom/Pan (Ken Burns) 60fps mượt mà bằng FFmpeg."""
+        try:
+            cmd = [
+                "ffmpeg", "-y",
+                "-loop", "1",
+                "-i", image_path,
+                "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,zoompan=z='min(zoom+0.0015,1.25)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=180:s=1080x1920:fps=30",
+                "-t", str(duration),
+                "-c:v", "libx264",
+                "-preset", "superfast",
+                "-pix_fmt", "yuv420p",
+                output_video_path
+            ]
+            res = subprocess.run(cmd, capture_output=True, text=True)
+            return os.path.exists(output_video_path) and os.path.getsize(output_video_path) > 0
+        except Exception as exc:
+            print(f"[AssetService Warning] Ken Burns photo-to-video conversion failed: {exc}")
+            return False
 
     def _select_candidate_from_ranked_pool(self, candidates: list[StockVideoCandidate]) -> StockVideoCandidate | None:
         if not candidates:
