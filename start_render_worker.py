@@ -32,16 +32,26 @@ class TeeLogger:
         self.log_file = open(filepath, "a", encoding="utf-8", buffering=1)
 
     def write(self, message):
-        self.terminal.write(message)
         try:
-            self.log_file.write(message)
+            if self.terminal:
+                self.terminal.write(message)
+        except Exception:
+            pass
+        try:
+            if self.log_file and not self.log_file.closed:
+                self.log_file.write(message)
         except Exception:
             pass
 
     def flush(self):
-        self.terminal.flush()
         try:
-            self.log_file.flush()
+            if self.terminal:
+                self.terminal.flush()
+        except Exception:
+            pass
+        try:
+            if self.log_file and not self.log_file.closed:
+                self.log_file.flush()
         except Exception:
             pass
 
@@ -234,11 +244,10 @@ def process_workflow_official(wf_id: str) -> bool:
                 except Exception as fetch_err:
                     print(f"  [DB Fetch] Notice: {fetch_err}")
 
-            if not scenes:
-                scenes = [
-                    {"scene_id": "scene-1", "visual_search_keywords": f"{title} vertical", "duration": 6, "narration": script[:100], "caption": title[:40]},
-                    {"scene_id": "scene-2", "visual_search_keywords": f"{title} aesthetic", "duration": 6, "narration": script[100:200], "caption": "Dang ky ngay"}
-                ]
+            if not script and scenes:
+                script = " ".join([str(sc.get("narration") or sc.get("caption") or "").strip() for sc in scenes if str(sc.get("narration") or sc.get("caption") or "").strip()])
+            if not script or len(script.strip()) < 3:
+                script = f"Nội dung truyền cảm hứng và triết lý sống: {title}"
 
         vi_chars = "àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
         is_vietnamese = any(c in script.lower() for c in vi_chars)
