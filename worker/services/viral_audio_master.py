@@ -153,11 +153,11 @@ def master_viral_audio(
     print(f"[ViralAudioMaster] [WAIT] Pass 1: Phan tich Loudness thuc te...")
 
     if has_music:
-        # Với nhạc nền: voice chain → apad (2s max) → sidechain → amix → loudnorm analyze
+        # Với nhạc nền: voice chain -> apad -> sidechain ducking -> amix (Voice 100%, Music 12% pre-attenuated) -> loudnorm analyze
         filter_pass1 = (
             f"[1:a]{voice_filter},apad=pad_dur=2,asplit=2[vo_proc][sc_detector];"
-            f"[0:a][sc_detector]{sidechain_filter}[bg_ducked];"
-            f"[vo_proc][bg_ducked]amix=inputs=2:duration=first[mix_preview];"
+            f"[0:a]volume=0.12[bg_att];[bg_att][sc_detector]{sidechain_filter}[bg_ducked];"
+            f"[vo_proc][bg_ducked]amix=inputs=2:duration=first:weights=1.0 0.8[mix_preview];"
             f"[mix_preview]loudnorm=I={target_lufs}:TP={target_tp}:LRA={target_lra}:print_format=json"
         )
         cmd_pass1 = (
@@ -165,7 +165,7 @@ def master_viral_audio(
             f'-filter_complex "{filter_pass1}" -f null -'
         )
     else:
-        # Chỉ giọng đọc: voice chain → loudnorm analyze (no infinite apad)
+        # Chỉ giọng đọc: voice chain -> loudnorm analyze (no infinite apad)
         filter_pass1 = (
             f"[0:a]{voice_filter}[voice_proc];"
             f"[voice_proc]loudnorm=I={target_lufs}:TP={target_tp}:LRA={target_lra}:print_format=json"
@@ -183,8 +183,8 @@ def master_viral_audio(
         if has_music:
             filter_pass1 = (
                 f"[1:a]{voice_filter},apad=pad_dur=2,asplit=2[vo_proc][sc_detector];"
-                f"[0:a][sc_detector]{sidechain_filter}[bg_ducked];"
-                f"[vo_proc][bg_ducked]amix=inputs=2:duration=first[mix_preview];"
+                f"[0:a]volume=0.12[bg_att];[bg_att][sc_detector]{sidechain_filter}[bg_ducked];"
+                f"[vo_proc][bg_ducked]amix=inputs=2:duration=first:weights=1.0 0.8[mix_preview];"
                 f"[mix_preview]loudnorm=I={target_lufs}:TP={target_tp}:LRA={target_lra}:print_format=json"
             )
             cmd_pass1 = (
@@ -216,7 +216,7 @@ def master_viral_audio(
 
     # ──────────────────────────────────────────────────────────────────────
     # PASS 2: Áp dụng xử lý tuyến tính với thông số đo lường từ Pass 1
-    # linear=true → hệ số khuếch đại đồng nhất, bảo toàn dynamics giọng đọc
+    # linear=true -> hệ số khuếch đại đồng nhất, bảo toàn dynamics giọng đọc
     # ──────────────────────────────────────────────────────────────────────
     print(f"[ViralAudioMaster] [WAIT] Pass 2: Ap dung Studio Master (linear=true)...")
 
@@ -229,8 +229,8 @@ def master_viral_audio(
     if has_music:
         filter_pass2 = (
             f"[1:a]{voice_filter},apad=pad_dur=2,asplit=2[vo_proc][sc_detector];"
-            f"[0:a][sc_detector]{sidechain_filter}[bg_ducked];"
-            f"[vo_proc][bg_ducked]amix=inputs=2:duration=first[mix_unnormalized];"
+            f"[0:a]volume=0.12[bg_att];[bg_att][sc_detector]{sidechain_filter}[bg_ducked];"
+            f"[vo_proc][bg_ducked]amix=inputs=2:duration=first:weights=1.0 0.8[mix_unnormalized];"
             f"[mix_unnormalized]{loudnorm_pass2}[final_master]"
         )
         cmd_pass2 = (

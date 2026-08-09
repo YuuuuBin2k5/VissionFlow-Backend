@@ -45,13 +45,14 @@ class AudioMixer:
     def apply_ducking_to_music(self, music_clip: AudioFileClip, word_timestamps: list, total_duration: float) -> AudioFileClip:
         """
         MoviePy-based Auto-Ducking (Fallback khi FFmpeg không khả dụng).
+        Căn chỉnh âm lượng nhạc Lofi ở mức 12% (-18dB) khi nghỉ và dìm xuống 3% (-30dB) khi có lời nói.
         """
         intervals = self.get_speech_intervals(word_timestamps)
 
         def duck_filter(gf, t):
-            factor = np.full(t.shape, 0.25)  # Thường dùng 0.25 (-12dB)
+            factor = np.full(t.shape, 0.12)  # Mặc định 12% âm lượng (-18dB)
             for s, e in intervals:
-                factor[(t >= s - 0.1) & (t <= e + 0.1)] = 0.05  # Giảm xuống 0.05 (-26dB) khi nói
+                factor[(t >= s - 0.1) & (t <= e + 0.1)] = 0.03  # Dìm xuống 3% (-30dB) khi có giọng nói
             if len(factor.shape) > 0:
                 return gf(t) * factor[:, np.newaxis]
             return gf(t) * factor

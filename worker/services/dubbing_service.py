@@ -1029,7 +1029,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         if progress_callback:
                             progress_callback("Đang tự động căn chỉnh & lặp nhạc nền khớp với độ dài video...")
                         target_bgm_wav = temp_dir / "prepared_bgm.wav"
-                        vol_val = max(0.02, min(1.0, float(bgm_volume or 0.18)))
+                        vol_val = max(0.02, min(0.25, float(bgm_volume or 0.10)))
                         fade_start = max(0.0, video_dur - 2.0)
                         cmd_bgm = [
                             "ffmpeg", "-y",
