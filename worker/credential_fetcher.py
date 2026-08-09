@@ -78,8 +78,8 @@ def _get_worker_jwt() -> Optional[str]:
             if access_token:
                 print(f"[CredentialFetcher] 🔐 Worker JWT obtained via OAuth2 client credentials.")
                 return access_token
-    except Exception as e:
-        print(f"[CredentialFetcher] ⚠️  Could not obtain worker JWT via OAuth2: {e}")
+    except Exception:
+        pass
 
     return None
 
@@ -134,10 +134,6 @@ def bootstrap_credentials_from_vault() -> None:
     worker_jwt = _get_worker_jwt()
 
     if not worker_jwt:
-        print(
-            "[CredentialFetcher] ⚠️  VISIONFLOW_WORKER_JWT not set. "
-            "Skipping Credential Vault fetch — using env keys only."
-        )
         return
 
     print(f"[CredentialFetcher] 🔑 Fetching API keys from Credential Vault for org={organization_id}...")
