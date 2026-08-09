@@ -79,7 +79,6 @@ def process_postgresql_jobs() -> int:
                     dubbing_runs.append((wf, proj))
 
             if not dubbing_runs:
-                print("[ProcessQueuedJobs] No pending Dubbing workflows found in PostgreSQL.")
                 return 0
 
             print(f"[ProcessQueuedJobs] Found {len(dubbing_runs)} pending Dubbing workflow(s) in PostgreSQL:")
