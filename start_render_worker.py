@@ -252,6 +252,12 @@ def process_workflow_official(wf_id: str) -> bool:
             if not script or len(script.strip()) < 3:
                 script = f"Nội dung truyền cảm hứng và triết lý sống: {title}"
 
+            if not scenes:
+                scenes = [
+                    {"scene_id": "scene-1", "visual_search_keywords": f"{title} vertical", "duration": 6, "narration": script[:100], "caption": title[:40]},
+                    {"scene_id": "scene-2", "visual_search_keywords": f"{title} aesthetic", "duration": 6, "narration": script[100:200], "caption": "Đăng ký ngay"}
+                ]
+
         vi_chars = "àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
         is_vietnamese = any(c in script.lower() for c in vi_chars)
         manifest_voice = (
