@@ -24,37 +24,29 @@ if hasattr(sys.stdout, 'reconfigure'):
     except Exception:
         pass
 
-# Dual logger to output to screen AND write to logs/render_worker.log
 class TeeLogger:
     def __init__(self, filepath: str):
-        self.terminal = sys.stdout
+        self.filepath = filepath
+        self.terminal = sys.__stdout__
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        try:
-            self.log_file = open(filepath, "a", encoding="utf-8")
-        except Exception:
-            self.log_file = None
 
     def write(self, message):
         if self.terminal:
             try:
                 self.terminal.write(message)
+                self.terminal.flush()
             except BaseException:
                 pass
-        if self.log_file:
-            try:
-                self.log_file.write(message)
-            except BaseException:
-                pass
+        try:
+            with open(self.filepath, "a", encoding="utf-8") as f:
+                f.write(message)
+        except BaseException:
+            pass
 
     def flush(self):
         if self.terminal:
             try:
                 self.terminal.flush()
-            except BaseException:
-                pass
-        if self.log_file:
-            try:
-                self.log_file.flush()
             except BaseException:
                 pass
 
@@ -391,13 +383,6 @@ def run_unified_render_pass() -> int:
     Chạy 1 Lần Nhất Quán (Single Source of Truth) Chuỗi Pipeline Render:
     100% Đồng nhất giữa GitHub Actions Runner & Local Worker Server!
     """
-    # 0. Nạp Credential Vault
-    try:
-        from worker.credential_fetcher import bootstrap_credentials_from_vault
-        bootstrap_credentials_from_vault()
-    except Exception as cred_err:
-        print(f"[Vault Sync Notice] {cred_err}")
-
     processed_total = 0
 
     # 1. Pipeline Dubbing / Translation (Lồng tiếng AI)
@@ -448,6 +433,12 @@ def run_worker_loop():
         return
 
     print("📌 Running Continuous Local Worker Daemon Loop...\n")
+    try:
+        from worker.credential_fetcher import bootstrap_credentials_from_vault
+        bootstrap_credentials_from_vault()
+    except Exception:
+        pass
+
     while True:
         try:
             run_unified_render_pass()
