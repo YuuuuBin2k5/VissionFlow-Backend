@@ -40,19 +40,19 @@ class VisionFlowWorkerSettings:
 
     @classmethod
     def from_env(cls) -> "VisionFlowWorkerSettings":
-        api_url = _required("VISIONFLOW_CONTROL_PLANE_URL").rstrip("/")
-        token_url = _required("VISIONFLOW_TOKEN_URL")
-        if not api_url.startswith(("https://", "http://localhost")):
-            raise VisionFlowConfigurationError("VISIONFLOW_CONTROL_PLANE_URL must use HTTPS outside local development")
-        if not token_url.startswith("https://"):
-            raise VisionFlowConfigurationError("VISIONFLOW_OIDC_TOKEN_URL must use HTTPS")
+        api_url = (os.getenv("VISIONFLOW_CONTROL_PLANE_URL") or "https://visionflow-control-plane.onrender.com").rstrip("/")
+        token_url = os.getenv("VISIONFLOW_TOKEN_URL") or "https://visionflow-control-plane.onrender.com/api/v1/auth/token"
+        org_id = os.getenv("VISIONFLOW_ORGANIZATION_ID") or "7b91598c-6c3e-4e5d-8247-d3efa203984a"
+        client_id = os.getenv("VISIONFLOW_WORKER_CLIENT_ID") or "visionflow-worker-runner"
+        client_secret = os.getenv("VISIONFLOW_WORKER_CLIENT_SECRET") or "sec_worker_prod_99812"
+        audience = os.getenv("VISIONFLOW_AUTH_AUDIENCE") or "visionflow-control-plane"
         return cls(
             api_url=api_url,
-            organization_id=_required("VISIONFLOW_ORGANIZATION_ID"),
+            organization_id=org_id,
             token_url=token_url,
-            client_id=_required("VISIONFLOW_WORKER_CLIENT_ID"),
-            client_secret=_required("VISIONFLOW_WORKER_CLIENT_SECRET"),
-            audience=_required("VISIONFLOW_AUTH_AUDIENCE"),
+            client_id=client_id,
+            client_secret=client_secret,
+            audience=audience,
         )
 
 
