@@ -150,22 +150,44 @@ def process_workflow_official(wf_id: str) -> bool:
     if S3CompatibleObjectStorage and VisionFlowObjectStorageSettings:
         try:
             storage = S3CompatibleObjectStorage(VisionFlowObjectStorageSettings.from_env())
-        except Exception:
+            print(f"  [Storage] ✅ Connected to Cloud Storage R2 Bucket: {storage._settings.bucket}")
+        except Exception as st_err:
+            print(f"  [Storage Notice] R2 Settings notice: {st_err}")
             storage = None
 
     class LocalAssetPreparerAdapter:
         def prepare(self, contract):
             asset_svc = AssetService()
             bg_paths = []
-            for i, scene in enumerate(contract.scenes, start=1):
-                kw = scene.get("visual_search_keywords") or scene.get("visual_prompt") or f"{title} aesthetic vertical"
-                bg_file = asset_svc.get_scene_asset(
-                    keywords=kw,
-                    scene_id=i,
-                    prefer_ai=True,
-                    style_preset="cozy_anime_3d"
-                )
-                bg_paths.append(bg_file)
+            for i, sc in enumerate(contract.scenes, 1):
+                kw = sc.get("visual_search_keywords") or sc.get("narration") or contract.title
+                try:
+                    bg_file = asset_svc.get_scene_asset(
+                        keywords=kw,
+                        scene_id=i,
+                        prefer_ai=True,
+                        style_preset="cozy_anime_3d"
+                    )
+                    if bg_file and os.path.exists(bg_file):
+                        bg_paths.append(bg_file)
+                except Exception as err:
+                    print(f"  [AssetPreparer Warning] Scene #{i} asset fetch notice: {err}")
+
+            if not bg_paths:
+                print("  [AssetPreparer] 🎬 Generating Emergency Ken Burns motion video fallback...")
+                try:
+                    fallback_path = os.path.join("worker", "temp_assets", "emergency_fallback.mp4")
+                    os.makedirs(os.path.dirname(fallback_path), exist_ok=True)
+                    fallback_video = asset_svc._convert_photo_to_ken_burns_video(
+                        photo_path_or_url="https://images.pexels.com/photos/1624496/pexels-photo-1624496.jpeg",
+                        output_path=fallback_path,
+                        duration=15.0
+                    )
+                    if fallback_video and os.path.exists(fallback_video):
+                        bg_paths.append(fallback_video)
+                except Exception as kb_err:
+                    print(f"  [AssetPreparer Notice] Fallback generation notice: {kb_err}")
+
             return type("PreparedAssets", (), {"asset_keys": tuple(bg_paths)})()
 
     class LocalMaterializerAdapter:
@@ -310,6 +332,8 @@ def process_workflow_official(wf_id: str) -> bool:
         wf_target = fresh_db.get(WorkflowRun, wf_id)
         if wf_target:
             proj_target = fresh_db.get(VideoProject, wf_target.project_id)
+            if proj_target:
+                proj_target.preview_video_url = asset_key
             asset_key = real_video_url or output_video_path
             existing_asset = fresh_db.query(MediaAsset).filter(
                 MediaAsset.workflow_run_id == wf_target.id,

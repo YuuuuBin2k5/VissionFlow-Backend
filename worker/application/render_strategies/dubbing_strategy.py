@@ -181,26 +181,21 @@ class DubbingStrategy(RenderStrategy):
             print(f"[DubbingStrategy] MySQL legacy update skipped or failed (non-critical): {mysql_err}")
 
 
-        # Upload MP4 lên Cloudflare R2 & đồng bộ sang Control Plane PostgreSQL
-        # để video xuất hiện trong Review Queue / Publication Queue / Control Tower
+        # Upload MP4 lên Cloudflare R2 / Cloud CDN & đồng bộ sang Control Plane PostgreSQL
+        # để video xuất hiện trong Review Queue / Publication Queue / Control Tower trên Web
         r2_object_key = None
-        byte_size = 0
+        byte_size = os.path.getsize(output_path) if os.path.exists(output_path) else 0
         try:
-            from worker.services.visionflow_object_storage import S3CompatibleObjectStorage, VisionFlowObjectStorageSettings
-            storage = S3CompatibleObjectStorage(VisionFlowObjectStorageSettings.from_env())
-            r2_object_key = f"visionflow/dub-{job_id}/exports/final.mp4"
-            byte_size = os.path.getsize(output_path)
+            from worker.services.visionflow_object_storage import CloudAssetUploader
             log_realtime_progress(job_id, "DUBBING_PIPELINE", "INFO",
-                                  f"Đang tải MP4 lên Cloudflare R2: {r2_object_key}...")
-            with open(output_path, "rb") as f:
-                storage._client.upload_fileobj(
-                    f, storage._settings.bucket, r2_object_key,
-                    ExtraArgs={"ContentType": "video/mp4"}
-                )
-            log_realtime_progress(job_id, "DUBBING_PIPELINE", "SUCCESS",
-                                  f"Đã tải lên R2 thành công: {r2_object_key}")
-        except Exception as r2_err:
-            print(f"[DubbingStrategy] R2 upload failed (non-critical): {r2_err}")
+                                  f"Đang tải video xuất bản lên Cloud Storage / CDN...")
+            public_cloud_url = CloudAssetUploader.upload_export_video(str(job_id), output_path)
+            if public_cloud_url:
+                r2_object_key = public_cloud_url
+                log_realtime_progress(job_id, "DUBBING_PIPELINE", "SUCCESS",
+                                      f"Đã tải video lên Cloud CDN thành công: {r2_object_key}")
+        except Exception as cloud_err:
+            print(f"[DubbingStrategy] Cloud CDN upload notice: {cloud_err}")
 
         try:
             import sys as _sys
