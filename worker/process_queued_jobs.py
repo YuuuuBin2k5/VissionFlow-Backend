@@ -61,7 +61,7 @@ def process_postgresql_jobs() -> int:
             rows = session.execute(
                 select(WorkflowRun, VideoProject)
                 .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
-                .where(WorkflowRun.state.in_(["QUEUED", "STORYBOARDED", "RENDERING", "FAILED"]))
+                .where(WorkflowRun.state.in_(["QUEUED", "STORYBOARDED", "RENDERING"]))
             ).all()
 
             dubbing_runs = []

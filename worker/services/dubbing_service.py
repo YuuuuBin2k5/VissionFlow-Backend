@@ -9,6 +9,13 @@ from worker.services.tts_service import TTSService
 from worker.services.lyric_transcription_service import LyricTranscriptionService
 from worker.config import DEFAULT_TTS_VOICE, BACKUP_TTS_VOICE
 
+def _get_ffmpeg_exe() -> str:
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return "ffmpeg"
+
 class DubbingService:
     _supports_force_style_cache = None
 
@@ -1071,7 +1078,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         if progress_callback:
                             progress_callback("Đang xuất âm thanh lồng tiếng thuần khiết (đã tắt nhạc nền bản quyền)...")
                         cmd_mix = [
-                            "ffmpeg", "-y",
+                            _get_ffmpeg_exe(), "-y",
                             "-i", merged_vocal_path,
                             "-af", "apad",
                             "-acodec", "libmp3lame", "-q:a", "2"
@@ -1081,19 +1088,19 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         if progress_callback:
                             progress_callback("Đang pha trộn giọng lồng tiếng + Nhạc nền gốc đã triệt thoại + Nhạc BGM...")
                         cmd_mix = [
-                            "ffmpeg", "-y",
+                            _get_ffmpeg_exe(), "-y",
                             "-i", clean_background_audio,
                             "-i", merged_vocal_path,
                             "-i", prepared_bgm_path,
-                            "-filter_complex", "[1:a]apad,volume=1.5[vocal_b];[2:a]volume=1.8[bgm_b];[0:a][vocal_b][bgm_b]amix=inputs=3:duration=first:dropout_transition=0:weights=1 1.5 1.5:normalize=0[out]",
+                            "-filter_complex", "[1:a]apad,volume=1.5[vocal_b];[2:a]volume=1.8[bgm_b];[0:a][vocal_b][bgm_b]amix=inputs=3:duration=first:dropout_transition=0:normalize=0[out]",
                             "-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2"
                         ] + t_args + [final_audio_path]
                     else:
                         cmd_mix = [
-                            "ffmpeg", "-y",
+                            _get_ffmpeg_exe(), "-y",
                             "-i", clean_background_audio,
                             "-i", merged_vocal_path,
-                            "-filter_complex", "[1:a]apad,volume=1.5[vocal_boosted];[0:a][vocal_boosted]amix=inputs=2:duration=first:dropout_transition=0:weights=1 1.5:normalize=0[out]",
+                            "-filter_complex", "[1:a]apad,volume=1.5[vocal_boosted];[0:a][vocal_boosted]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[out]",
                             "-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2"
                         ] + t_args + [final_audio_path]
 

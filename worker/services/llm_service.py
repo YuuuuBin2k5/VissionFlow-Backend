@@ -188,19 +188,26 @@ class LLMService:
                     "HTTP-Referer": "https://github.com/YuuuBin2k5/YuuuBin_Agent_Bot",
                     "X-Title": "YuuuBin Agent Bot"
                 }
-                body = {
-                    "model": "google/gemini-2.5-flash:free",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.7
-                }
-                response = requests.post(url, headers=headers, json=body, timeout=30)
-                if response.status_code == 200:
-                    res_data = response.json()
-                    content = res_data["choices"][0]["message"]["content"]
-                    if content:
-                        print("[LLMService] Failover success using OpenRouter (Gemini-2.5-Flash-Free) ✅")
-                        return content
-                errors.append(f"OpenRouter API error {response.status_code}: {response.text}")
+                openrouter_models = [
+                    "google/gemini-2.0-flash-lite-preview-02-05:free",
+                    "meta-llama/llama-3.3-70b-instruct:free",
+                    "qwen/qwen-2.5-72b-instruct:free",
+                    "google/gemini-2.5-flash",
+                ]
+                for or_model in openrouter_models:
+                    body = {
+                        "model": or_model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.7
+                    }
+                    response = requests.post(url, headers=headers, json=body, timeout=30)
+                    if response.status_code == 200:
+                        res_data = response.json()
+                        content = res_data["choices"][0]["message"]["content"]
+                        if content:
+                            print(f"[LLMService] Failover success using OpenRouter ({or_model}) ✅")
+                            return content
+                    errors.append(f"OpenRouter ({or_model}) API error {response.status_code}: {response.text}")
             except Exception as e:
                 errors.append(f"OpenRouter exception: {e}")
 
