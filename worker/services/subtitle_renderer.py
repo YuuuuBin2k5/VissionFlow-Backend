@@ -12,16 +12,34 @@ class SubtitleRenderer:
     def __init__(self):
         self.font_path = self._get_best_font()
 
-    def _get_best_font(self) -> str:
-        """Lấy font chữ việt hóa tốt nhất có sẵn trên hệ thống Windows hoặc thư mục shared"""
+    def _get_best_font(self, font_family: str = None) -> str:
+        """Lấy font chữ việt hóa phù hợp nhất theo chỉ định font_family từ Canvas Studio."""
+        if font_family:
+            clean = str(font_family).lower().strip()
+            if "bebas" in clean:
+                target_files = ["BebasNeue-Bold.ttf", "BebasNeue.ttf", "impact.ttf"]
+            elif "roboto" in clean:
+                target_files = ["RobotoCondensed-Bold.ttf", "Roboto-Bold.ttf", "arialbd.ttf"]
+            elif "outfit" in clean:
+                target_files = ["Outfit-Bold.ttf", "Outfit-ExtraBold.ttf", "arialbd.ttf"]
+            elif "impact" in clean:
+                target_files = ["Impact.ttf", "impact.ttf"]
+            elif "playfair" in clean:
+                target_files = ["PlayfairDisplay-Bold.ttf", "georgiab.ttf"]
+            else:
+                target_files = ["Montserrat-ExtraBold.ttf", "Montserrat-Bold.ttf"]
+
+            for fname in target_files:
+                p = FONTS_DIR / fname
+                if p.exists():
+                    return str(p)
+                w_p = Path("C:\\Windows\\Fonts") / fname
+                if w_p.exists():
+                    return str(w_p)
+
         custom_font = FONTS_DIR / "Montserrat-ExtraBold.ttf"
         if custom_font.exists():
             return str(custom_font)
-
-        workspace_root = Path(__file__).resolve().parent.parent.parent
-        alt_font = workspace_root / "AgentTiktok" / "shared" / "fonts" / "Montserrat-ExtraBold.ttf"
-        if alt_font.exists():
-            return str(alt_font)
 
         windows_fonts = [
             "C:\\Windows\\Fonts\\Impact.ttf",
@@ -120,15 +138,12 @@ class SubtitleRenderer:
             if last_char == "." and len(prev_word) > 1 and prev_word[-2].isdigit():
                 has_punctuation = False
 
-            # 2. Kiểm tra độ dài ký tự nếu thêm từ mới
-            candidate_text = " ".join([w["word"] for w in current_chunk] + [word_str])
-            exceeds_chars = len(candidate_text) > max_chars_per_chunk
-
-            # 3. Số từ và khoảng nghỉ âm thanh
+            curr_chunk_text = " ".join(item.get("word", "") for item in current_chunk)
+            exceeds_length = len(curr_chunk_text) >= max_chars_per_chunk
             exceeds_words = len(current_chunk) >= max_words
             exceeds_gap = gap > max_gap_ms
 
-            if has_punctuation or exceeds_words or exceeds_chars or exceeds_gap:
+            if has_punctuation or exceeds_words or exceeds_length or exceeds_gap:
                 chunks.append(current_chunk)
                 current_chunk = [item]
             else:
@@ -182,100 +197,46 @@ class SubtitleRenderer:
             font = ImageFont.load_default()
         return font, self.wrap_text(text, font, max_width)
 
-    def _subtitle_style(self, style_name: str, accent: str) -> dict:
-        aliases = {
-            "cinematic_quote": "cinematic_quote",
-            "cinematic": "cinematic_quote",
-            "clean_news": "clean_news",
-            "news": "clean_news",
-            "hormozi": "moneyprinter_vietsub",
-        }
-        resolved = aliases.get(style_name, style_name)
+    def _subtitle_style(self, style_name: str, accent: str = "#ff3df2") -> dict:
+        resolved = (style_name or "bold_punchy").lower()
         styles = {
-            "cinematic_quote": {
-                "fill": "#FFF7ED",          # Warm off-white / cream text
-                "stroke": "#1C1917",        # Dark stroke outline
-                "stroke_width": 4,
-                "box": None,               # NO background box for cinematic subtitle!
-                "box_outline": None,
-                "accent": None,
-                "font_size": 54,
-                "highlight_mode": None,
-            },
-            "clean_news": {
-                "fill": "#0F172A",          # Dark Slate text
-                "stroke": "#FFFFFF",        # White outline
-                "stroke_width": 3,
-                "box": (245, 247, 250, 235), # Crisp white rectangular news banner
-                "box_outline": (15, 23, 42, 220),
-                "accent": None,
-                "font_size": 50,
-                "highlight_mode": None,
-            },
-            "moneyprinter_vietsub": {
-                "fill": "white",
-                "stroke": "black",
-                "stroke_width": 5,
-                "box": (0, 0, 0, 150),
-                "box_outline": (255, 255, 255, 42),
-                "accent": accent,
-                "font_size": 56,
-                "highlight_mode": "word",
-            },
-            "clean_authority": {
-                "fill": "white",
-                "stroke": "#07111f",
-                "stroke_width": 5,
-                "box": (7, 17, 31, 190),
-                "box_outline": (255, 255, 255, 42),
-                "accent": accent,
-                "font_size": 54,
-            },
-            "news_explainer": {
-                "fill": "#0f172a",
-                "stroke": "white",
-                "stroke_width": 3,
-                "box": (250, 250, 250, 230),
-                "box_outline": (0, 0, 0, 210),
-                "accent": accent,
-                "font_size": 52,
-            },
-            "warm_story": {
-                "fill": "#fff7ed",
-                "stroke": "#2f1d0b",
-                "stroke_width": 4,
-                "box": None,
-                "box_outline": None,
-                "accent": accent,
-                "font_size": 52,
-            },
-            "punchy": {
-                "fill": "white",
-                "stroke": "black",
-                "stroke_width": 6,
-                "box": (0, 0, 0, 90),
-                "box_outline": (255, 61, 242, 190),
-                "accent": accent,
-                "font_size": 58,
-            },
             "bold_punchy": {
                 "fill": "white",
                 "stroke": "black",
-                "stroke_width": 6,
-                "box": (0, 0, 0, 92),
-                "box_outline": (255, 61, 242, 190),
+                "stroke_width": 5,
+                "box": None,
                 "accent": accent,
                 "font_size": 60,
                 "highlight_mode": "word",
             },
-            "word_highlight": {
-                "fill": "white",
-                "stroke": "#07111f",
-                "stroke_width": 5,
-                "box": (7, 17, 31, 190),
-                "box_outline": (255, 255, 255, 46),
-                "accent": accent,
-                "font_size": 56,
+            "clean_authority": {
+                "fill": "#f8fafc",
+                "stroke": "#0f172a",
+                "stroke_width": 3,
+                "box": (15, 23, 42, 210),
+                "box_outline": (56, 189, 248, 255),
+                "accent": "#38bdf8",
+                "font_size": 48,
+                "highlight_mode": "word",
+            },
+            "news_explainer": {
+                "fill": "#ffffff",
+                "stroke": "#000000",
+                "stroke_width": 4,
+                "box": (250, 204, 21, 230),
+                "box_outline": (0, 0, 0, 255),
+                "accent": "#1e293b",
+                "font_size": 52,
+                "highlight_mode": "word",
+            },
+            "warm_story": {
+                "fill": "#fffbeb",
+                "stroke": "#451a03",
+                "stroke_width": 4,
+                "box": (120, 53, 15, 200),
+                "box_outline": (245, 158, 11, 255),
+                "accent": "#f59e0b",
+                "font_size": 50,
                 "highlight_mode": "word",
             },
             "karaoke_sweep": {
@@ -309,7 +270,7 @@ class SubtitleRenderer:
                 "highlight_mode": "sweep",
             },
         }
-        return styles.get(resolved, styles["punchy"])
+        return styles.get(resolved, styles["bold_punchy"])
 
     def _apply_default_vietsub_policy(self, visual_style_plan: dict | None) -> dict:
         plan = dict(visual_style_plan or {})
@@ -448,22 +409,21 @@ class SubtitleRenderer:
         for idx, word_obj in enumerate(words_in_line):
             word_str = word_obj["word"]
             token = word_str + (" " if idx < len(words_in_line) - 1 else "")
+            clean_word = word_str.strip(".,!?\"'()[]{}<>:;").lower()
+            clean_active = active_word_str.strip(".,!?\"'()[]{}<>:;").lower()
 
-            w_clean = word_str.strip(".,!?;:\"'()[]{}“”")
-            a_clean = active_word_str.strip(".,!?;:\"'()[]{}“”")
-            is_active = (w_clean.lower() == a_clean.lower())
+            is_active = (clean_word == clean_active) and len(clean_word) > 0
 
-            if is_word_highlight and is_active:
-                fill = "#00FF66"
-                scale = 1.1
-            elif is_word_highlight:
-                fill = "#FFDE4D" if self._is_keyword(word_str) else (style.get("fill") or "white")
-                scale = 1.0
+            sem_color = self._get_semantic_color(word_str, None)
+
+            if is_active:
+                fill = style.get("accent") or "#FFFF00"
+            elif sem_color is not None:
+                fill = sem_color
             else:
                 fill = style.get("fill") or "white"
-                scale = 1.0
 
-            if scale == 1.0:
+            if not is_active:
                 draw.text(
                     (cursor_x, y),
                     token,
@@ -475,7 +435,7 @@ class SubtitleRenderer:
                 bbox = draw.textbbox((0, 0), token, font=font)
                 cursor_x += bbox[2] - bbox[0]
             else:
-                active_fontsize = int(font.size * scale)
+                active_fontsize = int(font.size * 1.15)
                 try:
                     active_font = ImageFont.truetype(self.font_path, active_fontsize)
                 except Exception:
@@ -510,13 +470,24 @@ class SubtitleRenderer:
         draw = ImageDraw.Draw(image)
 
         visual_style_plan = visual_style_plan or {}
-        accent = visual_style_plan.get("accent", "#ff3df2")
+        accent = visual_style_plan.get("caption_color") or visual_style_plan.get("accent", "#FFFF00")
         style_name = (
             visual_style_plan.get("caption_preset")
             or visual_style_plan.get("caption_style")
             or visual_style_plan.get("subtitle_style", "bold_punchy")
         )
         subtitle_style = dict(self._subtitle_style(style_name, accent))
+
+        # Áp dụng Font chữ chỉ định từ Canvas Studio (Bebas Neue, Montserrat, Roboto, Outfit, Impact, Playfair...)
+        font_family = visual_style_plan.get("caption_font_family")
+        self.font_path = self._get_best_font(font_family)
+
+        # Áp dụng Kích thước phông chữ từ Canvas Studio
+        if visual_style_plan.get("caption_font_size"):
+            try:
+                subtitle_style["font_size"] = int(visual_style_plan["caption_font_size"])
+            except (ValueError, TypeError):
+                pass
 
         if glow:
             subtitle_style["stroke_width"] = subtitle_style.get("stroke_width", 5) + 4
@@ -534,7 +505,17 @@ class SubtitleRenderer:
         )
 
         panel_height = 118 + (len(lines) - 1) * 56
-        y_center = 1100
+        
+        # Áp dụng Tọa độ Y-percent động (10%-90%) chính xác từ Canvas Studio
+        custom_y_pct = visual_style_plan.get("caption_y_percent")
+        if custom_y_pct is not None:
+            try:
+                y_center = int((float(custom_y_pct) / 100.0) * size[1])
+            except (ValueError, TypeError):
+                y_center = 1536
+        else:
+            y_center = 1536
+
         y1 = y_center - panel_height // 2
         y2 = y_center + panel_height // 2
 

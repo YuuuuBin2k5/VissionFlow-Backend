@@ -159,6 +159,17 @@ class VideoStyleDirectorService:
             "cta_text": metadata.get("cta_text") or details.get("cta_text") or "Theo dõi để xem phần tiếp theo",
             "version": "campaign_visual_style_v1",
         })
+
+        # Đồng bộ toàn bộ thông số xem trước từ Canvas Studio
+        for canvas_key in [
+            "caption_font_family", "caption_font_size", "caption_y_percent",
+            "caption_color", "caption_preset", "caption_position",
+            "title_banner_style", "show_title_banner", "logo_handle",
+            "logo_position", "logo_opacity", "color_grading"
+        ]:
+            if metadata.get(canvas_key) is not None:
+                pack[canvas_key] = metadata[canvas_key]
+
         return pack
 
     def apply_music_pack(self, metadata: dict) -> dict:
