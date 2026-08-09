@@ -120,6 +120,12 @@ def process_workflow_official(wf_id: str) -> bool:
             return False
         proj = session_db.get(VideoProject, wf.project_id)
         title = proj.title if proj else "Video ngan tu dong"
+        manifest = wf.prompt_manifest or {}
+        payload = wf.input_payload or {}
+        render_mode = str(manifest.get("render_mode") or payload.get("render_mode") or "").upper()
+        if render_mode == "TRANSLATE_DUB" or title.startswith("[DUB]") or "[dub]" in title.lower() or "lồng tiếng" in title.lower():
+            print(f"  [Worker Route] Skipping '{title}' ({wf_id}) in standard B-roll pipeline (Handled by DubbingStrategy).")
+            return False
 
     print(f"\n=======================================================")
     print(f"[WORKER] PROCESSING VIDEO: '{title}' (ID: {wf_id})")
