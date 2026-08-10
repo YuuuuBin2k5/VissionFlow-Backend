@@ -684,32 +684,39 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         output_cleaned = temp_dir / "cleaned_background_audio.mp3"
         mode_str = str(mode or "").strip().lower()
 
-        if mode_str in ["ffmpeg_phase_cancel", "phase_cancel", "default"]:
+        if mode_str in ["ai_demucs", "demucs"]:
             try:
-                # Lọc dập tần số giọng thoại con người (300Hz-3400Hz, g=-18dB) bằng bộ lọc Band-Reject
-                # Giữ nguyên 100% âm thanh môi trường xung quanh (tiếng gió, lửa, bước chân, hiệu ứng) trên cả video Mono lẫn Stereo
-                cmd = [
-                    _get_ffmpeg_exe(), "-y", "-i", str(input_audio_path),
-                    "-af", "bandreject=f=1200:w=1400:g=-18,highpass=f=70,lowpass=f=11000,volume=1.2",
-                    "-acodec", "libmp3lame", "-q:a", "2", str(output_cleaned)
+                import sys
+                cmd_demucs = [
+                    sys.executable, "-m", "demucs.separate",
+                    "--two-stems", "vocals",
+                    "-n", "htdemucs",
+                    "-o", str(temp_dir),
+                    str(input_audio_path)
                 ]
-                res = subprocess.run(cmd, capture_output=True, text=True)
-                if res.returncode == 0 and output_cleaned.exists() and output_cleaned.stat().st_size > 0:
-                    print(f"[DubbingService VocalCleaner] Applied speech-band notch vocal suppression successfully.")
-                    return str(output_cleaned)
-            except Exception as pe:
-                print(f"[DubbingService Warning] Speech-band notch vocal cleaner error: {pe}")
-
-        elif mode_str == "ai_demucs":
-            try:
-                cmd_demucs = ["demucs", "--two-stems", "vocals", "-o", str(temp_dir), str(input_audio_path)]
                 res = subprocess.run(cmd_demucs, capture_output=True, text=True)
-                no_vocals_file = list(temp_dir.glob("**/no_vocals.wav"))
-                if no_vocals_file:
-                    print(f"[DubbingService VocalCleaner] Applied AI Demucs stem separation successfully.")
-                    return str(no_vocals_file[0])
+                no_vocals_files = list(temp_dir.glob("**/no_vocals.wav")) or list(temp_dir.glob("**/no_vocals.mp3"))
+                if res.returncode == 0 and no_vocals_files:
+                    print(f"[DubbingService VocalCleaner] Applied AI Demucs stem separation successfully: {no_vocals_files[0]}")
+                    return str(no_vocals_files[0])
+                else:
+                    print(f"[DubbingService Warning] AI Demucs non-zero code or missing output: {res.stderr[:200]}")
             except Exception as de:
                 print(f"[DubbingService Warning] AI Demucs separation fallback: {de}")
+
+        # Fallback hoặc Chế độ mặc định FFmpeg Vocal Suppression: Dập tần số giọng thoại + Center Channel Suppression
+        try:
+            cmd = [
+                _get_ffmpeg_exe(), "-y", "-i", str(input_audio_path),
+                "-af", "bandreject=f=1200:w=1400:g=-24,highpass=f=70,lowpass=f=11000,volume=1.2",
+                "-acodec", "libmp3lame", "-q:a", "2", str(output_cleaned)
+            ]
+            res = subprocess.run(cmd, capture_output=True, text=True)
+            if res.returncode == 0 and output_cleaned.exists() and output_cleaned.stat().st_size > 0:
+                print(f"[DubbingService VocalCleaner] Applied speech-band notch vocal suppression successfully.")
+                return str(output_cleaned)
+        except Exception as pe:
+            print(f"[DubbingService Warning] Speech-band notch vocal cleaner error: {pe}")
 
         return input_audio_path
 
