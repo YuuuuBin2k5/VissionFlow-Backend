@@ -211,9 +211,9 @@ def extract_douyin_video_sync(url: str, profile_dir: str) -> str:
                         name = c.get("name", "")
                         value = c.get("value", "")
                         f.write(f"{domain}\t{flag}\t{path}\t{secure}\t{expires}\t{name}\t{value}\n")
-                print(f"[Python Worker] Đã trích xuất thành công {len(cookies)} cookies phiên sạch vào {cookies_path}")
+                print(f"[Python Worker] Successfully extracted {len(cookies)} clean session cookies into {cookies_path}")
             except Exception as ce:
-                print(f"[Python Worker Warning] Không thể lưu cookies từ Playwright: {ce}")
+                print(f"[Python Worker Warning] Failed to save Playwright cookies: {ce}")
 
             browser_context.close()
 
@@ -388,9 +388,10 @@ async def download_video_link(job_id: int, url: str, output_dir: str) -> tuple:
 
     # Tự động chuẩn hóa và thu hoạch cookies sớm để phục vụ cho cả tiền kiểm tra (Pre-Validation) và tải về
     if is_douyin:
-        match = re.search(r"(?:modal_id|vid)=(\d+)", url)
-        if match:
-            video_id = match.group(1)
+        match_vid = re.search(r"vid=(\d+)", url)
+        match_modal = re.search(r"modal_id=(\d+)", url)
+        video_id = match_vid.group(1) if match_vid else (match_modal.group(1) if match_modal else None)
+        if video_id:
             url = f"https://www.douyin.com/video/{video_id}"
             print(f"[Python Worker] Chuẩn hóa link Douyin modal thành: {url}")
 

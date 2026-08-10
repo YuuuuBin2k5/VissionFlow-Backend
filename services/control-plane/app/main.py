@@ -7,6 +7,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+import dotenv
+dotenv.load_dotenv(dotenv.find_dotenv())
+
 from app.core.config import Settings
 from app.routers import (
     ai_video,
