@@ -1181,15 +1181,35 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             )
             current_v = "[v_anti_wm]"
 
+            # 0.1 Quét nhận diện Bounding Box chính xác bằng Computer Vision (OpenCV)
+            ai_sub_box = None
+            ai_logo_box = None
+            if blur_original_subtitles or blur_original_logo:
+                try:
+                    if progress_callback:
+                        progress_callback("Đang kích hoạt AI Computer Vision (OpenCV) quét nhận diện Bounding Box vị trí chữ & logo...")
+                    from worker.services.smart_text_detector import SmartTextDetector
+                    ai_regions = SmartTextDetector.detect_video_regions(video_path, realized_timeline)
+                    ai_sub_box = ai_regions.get("subtitle")
+                    ai_logo_box = ai_regions.get("logo")
+                except Exception as cv_err:
+                    print(f"[DubbingService Warning] CV Detector error: {cv_err}")
+
             # 1. Original Logo & Watermark Blur (Che mờ Logo Kênh Gốc & Watermark ID góc trên/dưới)
             if blur_original_logo or blur_original_subtitles:
                 if progress_callback:
                     progress_callback("Đang tự động che mờ Logo & Watermark kênh gốc (Góc trên trái & Góc dưới phải)...")
-                # Top-Left Logo / Username Blur (Góc trên bên trái: 38% chiều rộng, 7.5% chiều cao)
+
+                logo_w = ai_logo_box.get("w_ratio", 0.38) if ai_logo_box else 0.38
+                logo_h = ai_logo_box.get("h_ratio", 0.075) if ai_logo_box else 0.075
+                logo_x = ai_logo_box.get("x_ratio", 0.0) if ai_logo_box else 0.0
+                logo_y = ai_logo_box.get("y_top_ratio", 0.015) if ai_logo_box else 0.015
+
+                # Top-Left Logo / Username Blur
                 filter_nodes.append(
                     f"{current_v}split=2[v_logo_base][v_logo_topleft];"
-                    f"[v_logo_topleft]crop=iw*0.38:ih*0.075:0:ih*0.015,boxblur=18:3[v_blur_topleft];"
-                    f"[v_logo_base][v_blur_topleft]overlay=0:H*0.015[v_logo_clean]"
+                    f"[v_logo_topleft]crop=iw*{logo_w:.3f}:ih*{logo_h:.3f}:iw*{logo_x:.3f}:ih*{logo_y:.3f},boxblur=18:3[v_blur_topleft];"
+                    f"[v_logo_base][v_blur_topleft]overlay=W*{logo_x:.3f}:H*{logo_y:.3f}[v_logo_clean]"
                 )
                 current_v = "[v_logo_clean]"
 
@@ -1205,10 +1225,14 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             if blur_original_subtitles:
                 dynamic_applied = False
 
-                # Tính toán tọa độ dải che mờ căn chỉnh trung tâm chữ (Center-aligned Dynamic Crop)
-                y_center_pct = float(caption_y_percent or 80.0) / 100.0
-                h_ratio = min(0.20, max(0.08, float(blur_region_height_ratio or 0.14)))
-                y_top_ratio = max(0.50, min(0.85, y_center_pct - (h_ratio / 2.0)))
+                # Sử dụng tọa độ từ AI Computer Vision nếu phát hiện được
+                if ai_sub_box:
+                    y_top_ratio = ai_sub_box.get("y_top_ratio", 0.68)
+                    h_ratio = ai_sub_box.get("h_ratio", 0.16)
+                else:
+                    y_center_pct = float(caption_y_percent or 80.0) / 100.0
+                    h_ratio = min(0.20, max(0.08, float(blur_region_height_ratio or 0.14)))
+                    y_top_ratio = max(0.50, min(0.85, y_center_pct - (h_ratio / 2.0)))
 
                 if smart_dynamic_blur and realized_timeline:
                     try:
@@ -1229,8 +1253,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                             enable_conditions = " + ".join([f"between(t,{st:.2f},{et:.2f})" for st, et in time_intervals])
                             filter_nodes.append(
                                 f"{current_v}split=2[v_dyn_base][v_dyn_strip];"
-                                f"[v_dyn_strip]crop=iw:ih*{h_ratio:.2f}:0:ih*{y_top_ratio:.2f},boxblur=18:3[v_dyn_blur];"
-                                f"[v_dyn_base][v_dyn_blur]overlay=0:H*{y_top_ratio:.2f}:enable='{enable_conditions}'[v_unsub]"
+                                f"[v_dyn_strip]crop=iw:ih*{h_ratio:.3f}:0:ih*{y_top_ratio:.3f},boxblur=18:3[v_dyn_blur];"
+                                f"[v_dyn_base][v_dyn_blur]overlay=0:H*{y_top_ratio:.3f}:enable='{enable_conditions}'[v_unsub]"
                             )
                             current_v = "[v_unsub]"
                             dynamic_applied = True
@@ -1243,8 +1267,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         progress_callback("Đang tự động che mờ vùng phụ đề tiếng Trung gốc...")
                     filter_nodes.append(
                         f"{current_v}split=2[v_base][v_strip];"
-                        f"[v_strip]crop=iw:ih*{h_ratio:.2f}:0:ih*{y_top_ratio:.2f},boxblur=18:3[v_blur_strip];"
-                        f"[v_base][v_blur_strip]overlay=0:H*{y_top_ratio:.2f}[v_unsub]"
+                        f"[v_strip]crop=iw:ih*{h_ratio:.3f}:0:ih*{y_top_ratio:.3f},boxblur=18:3[v_blur_strip];"
+                        f"[v_base][v_blur_strip]overlay=0:H*{y_top_ratio:.3f}[v_unsub]"
                     )
                     current_v = "[v_unsub]"
 

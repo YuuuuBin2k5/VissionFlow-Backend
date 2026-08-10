@@ -77,9 +77,10 @@ class TestDubbingStrategy(unittest.TestCase):
         """Kiểm tra DubbingStrategy nhận diện chính xác render_mode TRANSLATE_DUB"""
         contract = RenderContract(
             job_id=101,
-            organization_id="org-test",
-            workflow_run_id="wf-test",
-            render_mode=RenderMode.TRANSLATE_DUB
+            title="Test",
+            topic="Test",
+            audience="Test",
+            mode=RenderMode.TRANSLATE_DUB
         )
         self.assertTrue(self.strategy.can_handle(contract))
 
