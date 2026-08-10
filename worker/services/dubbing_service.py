@@ -1239,7 +1239,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 # Top-Left Logo / Username Blur
                 filter_nodes.append(
                     f"{current_v}split=2[v_logo_base][v_logo_topleft];"
-                    f"[v_logo_topleft]crop=iw*{logo_w:.3f}:ih*{logo_h:.3f}:iw*{logo_x:.3f}:ih*{logo_y:.3f},boxblur=18:3[v_blur_topleft];"
+                    f"[v_logo_topleft]crop=iw*{logo_w:.3f}:ih*{logo_h:.3f}:iw*{logo_x:.3f}:ih*{logo_y:.3f},boxblur=8:2[v_blur_topleft];"
                     f"[v_logo_base][v_blur_topleft]overlay=W*{logo_x:.3f}:H*{logo_y:.3f}[v_logo_clean]"
                 )
                 current_v = "[v_logo_clean]"
@@ -1247,7 +1247,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 # Bottom-Right Watermark ID Blur (Góc dưới bên phải: 40% chiều rộng, 6.5% chiều cao)
                 filter_nodes.append(
                     f"{current_v}split=2[v_wm_base][v_wm_botright];"
-                    f"[v_wm_botright]crop=iw*0.40:ih*0.065:iw*0.60:ih*0.92,boxblur=18:3[v_blur_botright];"
+                    f"[v_wm_botright]crop=iw*0.40:ih*0.065:iw*0.60:ih*0.92,boxblur=8:2[v_blur_botright];"
                     f"[v_wm_base][v_blur_botright]overlay=W*0.60:H*0.92[v_wm_clean]"
                 )
                 current_v = "[v_wm_clean]"
@@ -1284,7 +1284,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                             enable_conditions = " + ".join([f"between(t,{st:.2f},{et:.2f})" for st, et in time_intervals])
                             filter_nodes.append(
                                 f"{current_v}split=2[v_dyn_base][v_dyn_strip];"
-                                f"[v_dyn_strip]crop=iw:ih*{h_ratio:.3f}:0:ih*{y_top_ratio:.3f},boxblur=18:3[v_dyn_blur];"
+                                f"[v_dyn_strip]crop=iw:ih*{h_ratio:.3f}:0:ih*{y_top_ratio:.3f},boxblur=8:2[v_dyn_blur];"
                                 f"[v_dyn_base][v_dyn_blur]overlay=0:H*{y_top_ratio:.3f}:enable='{enable_conditions}'[v_unsub]"
                             )
                             current_v = "[v_unsub]"
@@ -1298,7 +1298,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         progress_callback("Đang tự động che mờ vùng phụ đề tiếng Trung gốc...")
                     filter_nodes.append(
                         f"{current_v}split=2[v_base][v_strip];"
-                        f"[v_strip]crop=iw:ih*{h_ratio:.3f}:0:ih*{y_top_ratio:.3f},boxblur=18:3[v_blur_strip];"
+                        f"[v_strip]crop=iw:ih*{h_ratio:.3f}:0:ih*{y_top_ratio:.3f},boxblur=8:2[v_blur_strip];"
                         f"[v_base][v_blur_strip]overlay=0:H*{y_top_ratio:.3f}[v_unsub]"
                     )
                     current_v = "[v_unsub]"
@@ -1317,7 +1317,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     progress_callback("Đang chuyển đổi kích thước video sang Dọc 9:16 với viền mờ nghệ thuật...")
                 filter_nodes.append(
                     f"{current_v}split=2[v_split_bg][v_split_fg];"
-                    f"[v_split_bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=15:2,setsar=1[bg];"
+                    f"[v_split_bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=8:2,setsar=1[bg];"
                     f"[v_split_fg]scale=1080:-1:force_original_aspect_ratio=decrease,setsar=1[fg];"
                     f"[bg][fg]overlay=(W-w)/2:(H-h)/2[v_aspect]"
                 )
