@@ -2,10 +2,13 @@ import sys
 import unittest
 from pathlib import Path
 
-# Add backend directory to sys.path
+# Add backend directory and control plane to sys.path
 backend_dir = Path(__file__).resolve().parents[2]
+cp_dir = backend_dir / "services" / "control-plane"
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
+if str(cp_dir) not in sys.path:
+    sys.path.insert(0, str(cp_dir))
 
 from worker.services.dubbing_service import DubbingService
 from worker.application.render_strategies.dubbing_strategy import DubbingStrategy
@@ -32,11 +35,13 @@ class TestDubbingServiceFilters(unittest.TestCase):
         current_v = "[0:v]"
 
         if blur_original_subtitles:
-            h_ratio = min(0.35, max(0.12, float(blur_region_height_ratio or 0.20)))
+            y_center_pct = 0.80
+            h_ratio = min(0.20, max(0.08, float(blur_region_height_ratio or 0.14)))
+            y_top_ratio = max(0.50, min(0.85, y_center_pct - (h_ratio / 2.0)))
             filter_nodes.append(
                 f"{current_v}split=2[v_base][v_strip];"
-                f"[v_strip]crop=iw:ih*{h_ratio:.2f}:0:ih*{1.0 - h_ratio:.2f},boxblur=25:5[v_blur_strip];"
-                f"[v_base][v_blur_strip]overlay=0:H*{1.0 - h_ratio:.2f}[v_unsub]"
+                f"[v_strip]crop=iw:ih*{h_ratio:.2f}:0:ih*{y_top_ratio:.2f},boxblur=18:3[v_blur_strip];"
+                f"[v_base][v_blur_strip]overlay=0:H*{y_top_ratio:.2f}[v_unsub]"
             )
             current_v = "[v_unsub]"
 
@@ -53,8 +58,8 @@ class TestDubbingServiceFilters(unittest.TestCase):
 
         filter_complex_str = ";".join(filter_nodes)
 
-        self.assertIn("crop=iw:ih*0.22:0:ih*0.78", filter_complex_str)
-        self.assertIn("boxblur=25:5", filter_complex_str)
+        self.assertIn("crop=iw:ih*0.20:0:ih*0.70", filter_complex_str)
+        self.assertIn("boxblur=18:3", filter_complex_str)
         self.assertIn("drawtext=text='@GocChiemNghiemYuuBin'", filter_complex_str)
         self.assertIn("subtitles='subtitles.srt'", filter_complex_str)
 

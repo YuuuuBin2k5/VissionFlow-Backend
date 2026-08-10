@@ -738,6 +738,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         bgm_volume: float = 0.18,
         smart_dynamic_blur: bool = True,
         vocal_removal_mode: str = "ffmpeg_phase_cancel",
+        blur_original_logo: bool = True,
     ) -> tuple:
         """Thực hiện toàn bộ 8 bước của pipeline lồng tiếng tự động miễn phí 100%"""
         temp_dir = Path(os.path.dirname(output_path)) / f"dub_temp_{os.path.basename(video_path).split('.')[0]}"
@@ -1180,9 +1181,35 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             )
             current_v = "[v_anti_wm]"
 
-            # 1. Original Subtitle Blur / Dynamic Time-Scoped Bounding Box Blur (if enabled)
+            # 1. Original Logo & Watermark Blur (Che mờ Logo Kênh Gốc & Watermark ID góc trên/dưới)
+            if blur_original_logo or blur_original_subtitles:
+                if progress_callback:
+                    progress_callback("Đang tự động che mờ Logo & Watermark kênh gốc (Góc trên trái & Góc dưới phải)...")
+                # Top-Left Logo / Username Blur (Góc trên bên trái: 38% chiều rộng, 7.5% chiều cao)
+                filter_nodes.append(
+                    f"{current_v}split=2[v_logo_base][v_logo_topleft];"
+                    f"[v_logo_topleft]crop=iw*0.38:ih*0.075:0:ih*0.015,boxblur=18:3[v_blur_topleft];"
+                    f"[v_logo_base][v_blur_topleft]overlay=0:H*0.015[v_logo_clean]"
+                )
+                current_v = "[v_logo_clean]"
+
+                # Bottom-Right Watermark ID Blur (Góc dưới bên phải: 40% chiều rộng, 6.5% chiều cao)
+                filter_nodes.append(
+                    f"{current_v}split=2[v_wm_base][v_wm_botright];"
+                    f"[v_wm_botright]crop=iw*0.40:ih*0.065:iw*0.60:ih*0.92,boxblur=18:3[v_blur_botright];"
+                    f"[v_wm_base][v_blur_botright]overlay=W*0.60:H*0.92[v_wm_clean]"
+                )
+                current_v = "[v_wm_clean]"
+
+            # 2. Original Subtitle Blur / Smart Dynamic Centered Bounding Box Blur (if enabled)
             if blur_original_subtitles:
                 dynamic_applied = False
+
+                # Tính toán tọa độ dải che mờ căn chỉnh trung tâm chữ (Center-aligned Dynamic Crop)
+                y_center_pct = float(caption_y_percent or 80.0) / 100.0
+                h_ratio = min(0.20, max(0.08, float(blur_region_height_ratio or 0.14)))
+                y_top_ratio = max(0.50, min(0.85, y_center_pct - (h_ratio / 2.0)))
+
                 if smart_dynamic_blur and realized_timeline:
                     try:
                         if progress_callback:
@@ -1199,12 +1226,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                                 time_intervals.append((st, et))
 
                         if time_intervals:
-                            h_ratio = min(0.25, max(0.10, float(blur_region_height_ratio or 0.16)))
                             enable_conditions = " + ".join([f"between(t,{st:.2f},{et:.2f})" for st, et in time_intervals])
                             filter_nodes.append(
                                 f"{current_v}split=2[v_dyn_base][v_dyn_strip];"
-                                f"[v_dyn_strip]crop=iw:ih*{h_ratio:.2f}:0:ih*{1.0 - h_ratio:.2f},boxblur=15:2[v_dyn_blur];"
-                                f"[v_dyn_base][v_dyn_blur]overlay=0:H*{1.0 - h_ratio:.2f}:enable='{enable_conditions}'[v_unsub]"
+                                f"[v_dyn_strip]crop=iw:ih*{h_ratio:.2f}:0:ih*{y_top_ratio:.2f},boxblur=18:3[v_dyn_blur];"
+                                f"[v_dyn_base][v_dyn_blur]overlay=0:H*{y_top_ratio:.2f}:enable='{enable_conditions}'[v_unsub]"
                             )
                             current_v = "[v_unsub]"
                             dynamic_applied = True
@@ -1215,15 +1241,14 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 if not dynamic_applied:
                     if progress_callback:
                         progress_callback("Đang tự động che mờ vùng phụ đề tiếng Trung gốc...")
-                    h_ratio = min(0.35, max(0.12, float(blur_region_height_ratio or 0.20)))
                     filter_nodes.append(
                         f"{current_v}split=2[v_base][v_strip];"
-                        f"[v_strip]crop=iw:ih*{h_ratio:.2f}:0:ih*{1.0 - h_ratio:.2f},boxblur=15:2[v_blur_strip];"
-                        f"[v_base][v_blur_strip]overlay=0:H*{1.0 - h_ratio:.2f}[v_unsub]"
+                        f"[v_strip]crop=iw:ih*{h_ratio:.2f}:0:ih*{y_top_ratio:.2f},boxblur=18:3[v_blur_strip];"
+                        f"[v_base][v_blur_strip]overlay=0:H*{y_top_ratio:.2f}[v_unsub]"
                     )
                     current_v = "[v_unsub]"
 
-            # 2. Channel Logo / Watermark Handle
+            # 3. Channel Logo / Watermark Handle
             if logo_handle and logo_handle.strip():
                 clean_handle = logo_handle.strip().replace("'", "'\\''").replace(":", "\\:")
                 filter_nodes.append(

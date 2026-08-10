@@ -96,6 +96,7 @@ class DubbingStrategy(RenderStrategy):
         bgm_volume = float(metadata.get("bgm_volume") or 0.18)
         smart_dynamic_blur = metadata.get("smart_dynamic_blur", True)
         vocal_removal_mode = metadata.get("vocal_removal_mode", "ffmpeg_phase_cancel")
+        blur_original_logo = metadata.get("blur_original_logo", True)
 
         dubber = DubbingService()
         success, timeline = await dubber.execute_dubbing_pipeline(
@@ -122,6 +123,7 @@ class DubbingStrategy(RenderStrategy):
             bgm_volume=bgm_volume,
             smart_dynamic_blur=smart_dynamic_blur,
             vocal_removal_mode=vocal_removal_mode,
+            blur_original_logo=blur_original_logo,
         )
 
         if not success or not os.path.exists(output_path):

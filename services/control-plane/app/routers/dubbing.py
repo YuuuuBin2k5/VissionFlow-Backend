@@ -54,6 +54,7 @@ class DubbingDispatchRequest(BaseModel):
     bgm_volume: float = 0.18
     smart_dynamic_blur: bool = True
     vocal_removal_mode: Optional[str] = "ffmpeg_phase_cancel"
+    blur_original_logo: bool = True
 
 
 DubbingDispatchRequest.model_rebuild()
@@ -115,6 +116,7 @@ def dispatch_dubbing_job(
         "bgm_volume": payload.bgm_volume,
         "smart_dynamic_blur": payload.smart_dynamic_blur,
         "vocal_removal_mode": payload.vocal_removal_mode,
+        "blur_original_logo": payload.blur_original_logo,
         "render_mode": "TRANSLATE_DUB",
     }
 
