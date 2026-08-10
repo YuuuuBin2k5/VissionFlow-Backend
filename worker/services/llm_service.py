@@ -189,10 +189,12 @@ class LLMService:
                     "X-Title": "YuuuBin Agent Bot"
                 }
                 openrouter_models = [
-                    "google/gemini-2.0-flash-lite-preview-02-05:free",
-                    "meta-llama/llama-3.3-70b-instruct:free",
-                    "qwen/qwen-2.5-72b-instruct:free",
-                    "google/gemini-2.5-flash",
+                    "google/gemini-2.0-flash-exp:free",
+                    "google/gemini-2.0-flash-lite-001",
+                    "meta-llama/llama-3-8b-instruct:free",
+                    "mistralai/mistral-7b-instruct:free",
+                    "deepseek/deepseek-r1:free",
+                    "qwen/qwen-2.5-coder-32b-instruct:free",
                 ]
                 for or_model in openrouter_models:
                     body = {

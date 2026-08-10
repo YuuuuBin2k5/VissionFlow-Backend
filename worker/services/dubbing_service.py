@@ -204,8 +204,8 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
                         print(f"[DubbingService Warning] {last_error} Đang thử lại lần {attempt + 1}...")
                 except Exception as ex:
                     last_error = str(ex)
-                    print(f"[DubbingService Warning] Lỗi dịch lô {batch_idx + 1} lần {attempt + 1}: {ex}. Đang thử lại...")
-                    await asyncio.sleep(1.0)
+                    print(f"[DubbingService Warning] Lỗi dịch lô {batch_idx + 1} lần {attempt + 1}: {ex}. Tự động tạm dừng 8s để chờ reset hạn mức Rate-Limit...")
+                    await asyncio.sleep(8.0)
 
             # Nếu thử lại cả 3 lần vẫn thất bại, ném lỗi rõ ràng thay vì dịch thô
             if not success_batch:
