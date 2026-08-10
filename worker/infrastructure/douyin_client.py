@@ -153,9 +153,19 @@ def extract_douyin_video_sync(url: str, profile_dir: str) -> str:
             def handle_response(response):
                 try:
                     u = response.url
-                    ct = response.headers.get("content-type", "").lower()
-                    if ("video/mp4" in ct or "douyinvod.com" in u or "zjcdn.com" in u or "aweme/v1/play" in u) and "uuu_265.mp4" not in u and not u.startswith("blob:"):
-                        captured_streams.append(u)
+                    if "aweme/v1/web/aweme/detail" in u:
+                        data = response.json()
+                        aweme = data.get("aweme_detail", {})
+                        video = aweme.get("video", {})
+                        play_addr = video.get("play_addr", {})
+                        url_list = play_addr.get("url_list", [])
+                        for stream_url in url_list:
+                            if stream_url and "http" in stream_url:
+                                captured_streams.append(stream_url)
+                    else:
+                        ct = response.headers.get("content-type", "").lower()
+                        if ("video/mp4" in ct or "douyinvod.com" in u or "zjcdn.com" in u) and "uuu_265.mp4" not in u and not u.startswith("blob:"):
+                            captured_streams.append(u)
                 except Exception:
                     pass
 
@@ -168,9 +178,28 @@ def extract_douyin_video_sync(url: str, profile_dir: str) -> str:
 
             time.sleep(3)  # Đợi trình phát JS khởi tạo xong
 
+            # Nếu chưa bắt được luồng qua listener, gọi trực tiếp API aweme detail của Douyin qua session Playwright
+            if not captured_streams:
+                import re
+                vid_match = re.search(r"/video/(\d+)", url)
+                if vid_match:
+                    aweme_id = vid_match.group(1)
+                    api_url = f"https://www.douyin.com/aweme/v1/web/aweme/detail/?device_platform=webapp&aid=6383&channel=channel_pc_web&aweme_id={aweme_id}"
+                    try:
+                        print(f"[Python Worker] Gọi trực tiếp API aweme detail Douyin cho id: {aweme_id}...")
+                        api_res = page.request.get(api_url, headers={"Referer": url})
+                        if api_res.ok:
+                            data = api_res.json()
+                            url_list = data.get("aweme_detail", {}).get("video", {}).get("play_addr", {}).get("url_list", [])
+                            for stream_url in url_list:
+                                if stream_url and "http" in stream_url:
+                                    captured_streams.append(stream_url)
+                    except Exception as api_err:
+                        print(f"[Python Worker Warning] Gọi trực tiếp API aweme detail thất bại: {api_err}")
+
             if captured_streams:
-                print(f"[Python Worker Network Interceptor] Captured direct Douyin stream: {captured_streams[-1][:80]}...")
-                return captured_streams[-1]
+                print(f"[Python Worker Network Interceptor] Captured direct Douyin stream: {captured_streams[0][:100]}...")
+                return captured_streams[0]
 
             # Đợi thẻ video xuất hiện trong DOM
             try:
