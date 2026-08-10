@@ -372,11 +372,11 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
         # Khởi tạo mảng hệ số âm lượng cho từng khung hình (frame), mặc định là 1.0 (100% âm lượng)
         volume_factors = [1.0] * total_frames
 
-        fade_duration_frames = int(0.20 * framerate) # Fade transition dài 200ms
+        fade_duration_frames = int(0.32 * framerate) # Fade transition 320ms mượt mà chuẩn studio
 
         for segment in timeline:
-            start_sec = max(0.0, segment["start"] - 0.25)
-            end_sec = segment["end"] + 0.25
+            start_sec = max(0.0, segment["start"] - 0.20)
+            end_sec = segment["end"] + 0.20
 
             start_frame = int(start_sec * framerate)
             end_frame = int(end_sec * framerate)
@@ -385,27 +385,28 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
             start_frame = max(0, min(total_frames - 1, start_frame))
             end_frame = max(0, min(total_frames - 1, end_frame))
 
-            # 1. Đoạn nói chính (Dìm xuống 38% âm lượng - vừa đủ rõ lời thoại mà giữ trọn độ ấm/nhạc nền gốc)
+            # 1. Đoạn nói chính (Dìm nhẹ xuống 58% âm lượng - chuẩn studio lồng tiếng để giữ nguyên độ ấm/tiếng môi trường tự nhiên)
+            duck_vol = 0.58
             duck_start = min(total_frames - 1, start_frame + fade_duration_frames)
             duck_end = max(0, end_frame - fade_duration_frames)
 
             if duck_start < duck_end:
                 for f in range(duck_start, duck_end):
-                    volume_factors[f] = 0.38
+                    volume_factors[f] = duck_vol
 
-                # 2. Hiệu ứng Fade-out (Giảm dần từ 1.0 xuống 0.38) trước khi nói
+                # 2. Hiệu ứng Fade-out (Giảm dần từ 1.0 xuống 0.58) trước khi nói
                 for f in range(start_frame, duck_start):
                     progress = (f - start_frame) / fade_duration_frames
-                    volume_factors[f] = min(volume_factors[f], 1.0 - (1.0 - 0.38) * progress)
+                    volume_factors[f] = min(volume_factors[f], 1.0 - (1.0 - duck_vol) * progress)
 
-                # 3. Hiệu ứng Fade-in (Tăng dần từ 0.38 lên 1.0) sau khi nói xong
+                # 3. Hiệu ứng Fade-in (Tăng dần từ 0.58 lên 1.0) sau khi nói xong
                 for f in range(duck_end, end_frame):
                     progress = (f - duck_end) / fade_duration_frames
-                    volume_factors[f] = min(volume_factors[f], 0.38 + (1.0 - 0.38) * progress)
+                    volume_factors[f] = min(volume_factors[f], duck_vol + (1.0 - duck_vol) * progress)
             else:
-                # Nếu câu thoại quá ngắn, dìm đều xuống 38%
+                # Nếu câu thoại quá ngắn, dìm nhẹ xuống 58%
                 for f in range(start_frame, end_frame):
-                    volume_factors[f] = 0.38
+                    volume_factors[f] = duck_vol
 
         # 4. Áp dụng các hệ số âm lượng vào các mẫu âm thanh thực tế
         for f in range(total_frames):
@@ -980,9 +981,18 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 ]
                 subprocess.run(cmd_conv, capture_output=True, check=True)
 
-                ducked_audio_path = str(temp_dir / "ducked_original_audio.wav")
-                # Sử dụng giải pháp dìm âm thanh cục bộ bằng Python để độc lập với bộ lọc volume của các bản FFmpeg cũ
-                self.apply_audio_ducking_pure_python(orig_audio_wav_path, ducked_audio_path, realized_timeline)
+                # 1. Triệt giọng đọc tiếng Trung gốc TRƯỚC trên file full-gain nguyên bản để giữ nguyên năng lượng âm thanh môi trường
+                clean_background_audio = orig_audio_wav_path
+                if not mute_original_audio and vocal_removal_mode not in ["ducking", "none", "off"]:
+                    if progress_callback:
+                        progress_callback(f"Đang xử lý triệt giọng đọc tiếng Trung gốc (chế độ: {vocal_removal_mode})...")
+                    clean_background_audio = self.apply_vocal_cleaner(orig_audio_wav_path, temp_dir, vocal_removal_mode)
+
+                # 2. Áp dụng Audio Ducking SAU KHI đã bóc tách giọng thoại gốc để tiếng môi trường chìm nhẹ tự nhiên chuẩn Studio
+                if not mute_original_audio and enable_audio_ducking and realized_timeline:
+                    ducked_audio_path = str(temp_dir / "ducked_original_audio.wav")
+                    self.apply_audio_ducking_pure_python(clean_background_audio, ducked_audio_path, realized_timeline)
+                    clean_background_audio = ducked_audio_path
 
                 final_audio_path = str(temp_dir / "final_dubbed_audio.mp3")
                 video_dur = self.get_media_duration(video_path)
@@ -1087,13 +1097,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     except Exception as bgm_err:
                         print(f"[DubbingService Warning] Failed to prepare BGM track: {bgm_err}")
 
-                # --- PHA TRỘN CÁC LUỒNG ÂM THANH (VOICE + DUCKED AUDIO + BGM) ---
-                clean_background_audio = ducked_audio_path
-                if not mute_original_audio and vocal_removal_mode not in ["ducking", "none", "off"]:
-                    if progress_callback:
-                        progress_callback(f"Đang xử lý triệt giọng đọc tiếng Trung gốc (chế độ: {vocal_removal_mode})...")
-                    clean_background_audio = self.apply_vocal_cleaner(ducked_audio_path, temp_dir, vocal_removal_mode)
-
+                # --- PHA TRỘN CÁC LUỒNG ÂM THANH THEO TỶ LỆ CHUẨN STUDIO BROADCAST ---
                 t_args = ["-t", f"{video_dur:.3f}"] if video_dur > 0 else []
 
                 if mute_original_audio:
@@ -1104,7 +1108,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                             _get_ffmpeg_exe(), "-y",
                             "-i", merged_vocal_path,
                             "-i", prepared_bgm_path,
-                            "-filter_complex", "[0:a]apad,volume=1.8[vocal_b];[1:a]volume=1.0[bgm_b];[vocal_b][bgm_b]amix=inputs=2:duration=first[mix_raw];[mix_raw]volume=1.5[out]",
+                            "-filter_complex", "[0:a]apad,volume=1.5[vocal_b];[1:a]volume=1.0[bgm_b];[vocal_b][bgm_b]amix=inputs=2:duration=first[mix_raw];[mix_raw]volume=1.3[out]",
                             "-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2"
                         ] + t_args + [final_audio_path]
                     else:
@@ -1125,7 +1129,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                             "-i", clean_background_audio,
                             "-i", merged_vocal_path,
                             "-i", prepared_bgm_path,
-                            "-filter_complex", "[1:a]apad,volume=1.5[vocal_b];[2:a]volume=1.0[bgm_b];[0:a][vocal_b][bgm_b]amix=inputs=3:duration=first:dropout_transition=0:normalize=0[out]",
+                            "-filter_complex", "[0:a]volume=1.35[env_b];[1:a]apad,volume=1.25[vocal_b];[2:a]volume=0.90[bgm_b];[env_b][vocal_b][bgm_b]amix=inputs=3:duration=first:dropout_transition=0:normalize=0[out]",
                             "-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2"
                         ] + t_args + [final_audio_path]
                     else:
@@ -1133,7 +1137,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                             _get_ffmpeg_exe(), "-y",
                             "-i", clean_background_audio,
                             "-i", merged_vocal_path,
-                            "-filter_complex", "[1:a]apad,volume=1.5[vocal_boosted];[0:a][vocal_boosted]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[out]",
+                            "-filter_complex", "[0:a]volume=1.35[env_b];[1:a]apad,volume=1.25[vocal_b];[env_b][vocal_b]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[out]",
                             "-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2"
                         ] + t_args + [final_audio_path]
 
