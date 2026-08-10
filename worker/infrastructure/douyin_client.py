@@ -149,11 +149,34 @@ def extract_douyin_video_sync(url: str, profile_dir: str) -> str:
             page = browser_context.pages[0]
             Stealth().apply_stealth_sync(page)
 
-            page.goto(url, wait_until="domcontentloaded", timeout=20000)
-            time.sleep(4)  # Đợi trình phát JS khởi tạo xong
+            captured_streams = []
+            def handle_response(response):
+                try:
+                    u = response.url
+                    ct = response.headers.get("content-type", "").lower()
+                    if ("video/mp4" in ct or "douyinvod.com" in u or "zjcdn.com" in u or "aweme/v1/play" in u) and "uuu_265.mp4" not in u and not u.startswith("blob:"):
+                        captured_streams.append(u)
+                except Exception:
+                    pass
+
+            page.on("response", handle_response)
+
+            try:
+                page.goto(url, wait_until="domcontentloaded", timeout=25000)
+            except Exception as ge:
+                print(f"[Python Worker Warning] Playwright page.goto warning: {ge}")
+
+            time.sleep(3)  # Đợi trình phát JS khởi tạo xong
+
+            if captured_streams:
+                print(f"[Python Worker Network Interceptor] Captured direct Douyin stream: {captured_streams[-1][:80]}...")
+                return captured_streams[-1]
 
             # Đợi thẻ video xuất hiện trong DOM
-            page.wait_for_selector("video", state="attached", timeout=8000)
+            try:
+                page.wait_for_selector("video", state="attached", timeout=6000)
+            except Exception:
+                pass
 
             videos = page.locator("video")
             count = videos.count()
@@ -165,24 +188,21 @@ def extract_douyin_video_sync(url: str, profile_dir: str) -> str:
                 for j in range(sources.count()):
                     source_src = sources.nth(j).get_attribute("src")
                     if source_src:
-                        # Bỏ qua tệp tĩnh loop/placeholder mặc định của ByteDance
-                        if "uuu_265.mp4" in source_src:
+                        if "uuu_265.mp4" in source_src or source_src.startswith("blob:"):
                             continue
-                        if source_src.startswith("blob:"):
-                            continue
-                        if "zjcdn.com" in source_src or "play" in source_src:
-                            return source_src
+                        return source_src
 
             # Bước 2: Duyệt qua các thẻ video để lấy trực tiếp thuộc tính src làm fallback
             for i in range(count):
                 video = videos.nth(i)
                 src = video.get_attribute("src")
                 if src:
-                    if "uuu_265.mp4" in src:
-                        continue
-                    if src.startswith("blob:"):
+                    if "uuu_265.mp4" in src or src.startswith("blob:"):
                         continue
                     return src
+
+            if captured_streams:
+                return captured_streams[-1]
 
             raise RuntimeError("Không tìm thấy link video stream thực tế (chỉ phát hiện các blob URL).")
         finally:
@@ -388,9 +408,9 @@ async def download_video_link(job_id: int, url: str, output_dir: str) -> tuple:
 
     # Tự động chuẩn hóa và thu hoạch cookies sớm để phục vụ cho cả tiền kiểm tra (Pre-Validation) và tải về
     if is_douyin:
-        match_vid = re.search(r"vid=(\d+)", url)
         match_modal = re.search(r"modal_id=(\d+)", url)
-        video_id = match_vid.group(1) if match_vid else (match_modal.group(1) if match_modal else None)
+        match_vid = re.search(r"vid=(\d+)", url)
+        video_id = match_modal.group(1) if match_modal else (match_vid.group(1) if match_vid else None)
         if video_id:
             url = f"https://www.douyin.com/video/{video_id}"
             print(f"[Python Worker] Chuẩn hóa link Douyin modal thành: {url}")
@@ -471,6 +491,7 @@ async def download_video_link(job_id: int, url: str, output_dir: str) -> tuple:
     # ─────────────────────────────────────────────────────────────────
     # Xử lý chuẩn hóa và trích xuất link stream trực tiếp cho Douyin
     # ─────────────────────────────────────────────────────────────────
+    direct_stream_downloaded = False
     if is_douyin:
         is_douyin_note = "/note/" in url
         if is_douyin_note:
@@ -483,8 +504,27 @@ async def download_video_link(job_id: int, url: str, output_dir: str) -> tuple:
 
                 # Chạy hàm sync trích xuất trong luồng phụ (thread) để không chặn event loop
                 extracted_url = await asyncio.to_thread(extract_douyin_video_sync, url, profile_dir)
-                print(f"[Python Worker] Trích xuất thành công! Stream URL: {extracted_url[:120]}...")
+                print(f"[Python Worker] Trích xuất thành công! Stream URL: {extracted_url[:100]}...")
                 url = extracted_url
+
+                # Tải video trực tiếp từ stream URL đã trích xuất qua HTTP GET để không phụ thuộc yt-dlp cookies
+                if "http://" in url or "https://" in url:
+                    output_filename = f"dub_source_{uuid.uuid4().hex}.mp4"
+                    output_path = os.path.join(output_dir, output_filename)
+                    try:
+                        print(f"[Python Worker] Tải video Douyin trực tiếp từ CDN Stream URL...")
+                        import urllib.request
+                        req = urllib.request.Request(url, headers={
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+                            "Referer": "https://www.douyin.com/"
+                        })
+                        with urllib.request.urlopen(req, timeout=30) as resp, open(output_path, "wb") as f_out:
+                            f_out.write(resp.read())
+                        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+                            print(f"[Python Worker] ✅ Tải video Douyin trực tiếp từ CDN thành công! File: {output_path}")
+                            return output_path, original_title or "Video Douyin"
+                    except Exception as direct_err:
+                        print(f"[Python Worker Warning] Tải trực tiếp từ CDN URL thất bại: {direct_err}. Thử chuyển sang yt-dlp...")
             except Exception as e:
                 print(f"[Python Worker Warning] Thất bại khi trích xuất qua Playwright ({e}). Sẽ thử tải trực tiếp bằng yt-dlp...")
 
