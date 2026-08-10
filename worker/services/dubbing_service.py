@@ -1222,35 +1222,49 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     from worker.services.smart_text_detector import SmartTextDetector
                     ai_regions = SmartTextDetector.detect_video_regions(video_path, realized_timeline)
                     ai_sub_box = ai_regions.get("subtitle")
-                    ai_logo_box = ai_regions.get("logo")
+                    ai_logo_tl = ai_regions.get("logo_topleft")
+                    ai_logo_tr = ai_regions.get("logo_topright")
                 except Exception as cv_err:
                     print(f"[DubbingService Warning] CV Detector error: {cv_err}")
 
             # 1. Original Logo & Watermark Blur (Che mờ Logo Kênh Gốc & Watermark ID góc trên/dưới)
-            if blur_original_logo or blur_original_subtitles:
+            if blur_original_logo:
                 if progress_callback:
-                    progress_callback("Đang tự động che mờ Logo & Watermark kênh gốc (Góc trên trái & Góc dưới phải)...")
+                    progress_callback("Đang tự động che mờ Logo & Watermark kênh gốc (Góc trên trái & Góc trên phải)...")
 
-                logo_w = ai_logo_box.get("w_ratio", 0.38) if ai_logo_box else 0.38
-                logo_h = ai_logo_box.get("h_ratio", 0.075) if ai_logo_box else 0.075
-                logo_x = ai_logo_box.get("x_ratio", 0.0) if ai_logo_box else 0.0
-                logo_y = ai_logo_box.get("y_top_ratio", 0.015) if ai_logo_box else 0.015
+                # Lưu ý: hflip đã lật hình ngang, nên logo góc trên bên phải của gốc sẽ nằm ở góc trên bên trái sau hflip
+                if ai_logo_tr:
+                    logo_w = ai_logo_tr.get("w_ratio", 0.35)
+                    logo_h = ai_logo_tr.get("h_ratio", 0.065)
+                    logo_x = 0.0  # Sau hflip, góc phải về góc trái
+                    logo_y = ai_logo_tr.get("y_top_ratio", 0.01)
+                    filter_nodes.append(
+                        f"{current_v}split=2[v_logo_base1][v_logo_tr];"
+                        f"[v_logo_tr]crop=iw*{logo_w:.3f}:ih*{logo_h:.3f}:iw*{logo_x:.3f}:ih*{logo_y:.3f},boxblur=8:2[v_blur_tr];"
+                        f"[v_logo_base1][v_blur_tr]overlay=W*{logo_x:.3f}:H*{logo_y:.3f}[v_logo_clean1]"
+                    )
+                    current_v = "[v_logo_clean1]"
 
-                # Top-Left Logo / Username Blur
-                filter_nodes.append(
-                    f"{current_v}split=2[v_logo_base][v_logo_topleft];"
-                    f"[v_logo_topleft]crop=iw*{logo_w:.3f}:ih*{logo_h:.3f}:iw*{logo_x:.3f}:ih*{logo_y:.3f},boxblur=8:2[v_blur_topleft];"
-                    f"[v_logo_base][v_blur_topleft]overlay=W*{logo_x:.3f}:H*{logo_y:.3f}[v_logo_clean]"
-                )
-                current_v = "[v_logo_clean]"
+                if ai_logo_tl:
+                    logo_w = ai_logo_tl.get("w_ratio", 0.35)
+                    logo_h = ai_logo_tl.get("h_ratio", 0.065)
+                    logo_x = round(1.0 - logo_w, 3)  # Sau hflip, góc trái về góc phải
+                    logo_y = ai_logo_tl.get("y_top_ratio", 0.01)
+                    filter_nodes.append(
+                        f"{current_v}split=2[v_logo_base2][v_logo_tl];"
+                        f"[v_logo_tl]crop=iw*{logo_w:.3f}:ih*{logo_h:.3f}:iw*{logo_x:.3f}:ih*{logo_y:.3f},boxblur=8:2[v_blur_tl];"
+                        f"[v_logo_base2][v_blur_tl]overlay=W*{logo_x:.3f}:H*{logo_y:.3f}[v_logo_clean2]"
+                    )
+                    current_v = "[v_logo_clean2]"
 
-                # Bottom-Right Watermark ID Blur (Góc dưới bên phải: 40% chiều rộng, 6.5% chiều cao)
-                filter_nodes.append(
-                    f"{current_v}split=2[v_wm_base][v_wm_botright];"
-                    f"[v_wm_botright]crop=iw*0.40:ih*0.065:iw*0.60:ih*0.92,boxblur=8:2[v_blur_botright];"
-                    f"[v_wm_base][v_blur_botright]overlay=W*0.60:H*0.92[v_wm_clean]"
-                )
-                current_v = "[v_wm_clean]"
+                # Nếu không phát hiện logo nào cụ thể, chỉ che 2 ô nhỏ góc trên 30% width x 6% height
+                if not ai_logo_tr and not ai_logo_tl:
+                    filter_nodes.append(
+                        f"{current_v}split=2[v_logo_base1][v_logo_tr];"
+                        f"[v_logo_tr]crop=iw*0.32:ih*0.06:0:ih*0.01,boxblur=8:2[v_blur_tr];"
+                        f"[v_logo_base1][v_blur_tr]overlay=0:H*0.01[v_logo_clean1]"
+                    )
+                    current_v = "[v_logo_clean1]"
 
             # 2. Original Subtitle Blur / Smart Dynamic Centered Bounding Box Blur (if enabled)
             if blur_original_subtitles:
@@ -1258,8 +1272,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
                 # Sử dụng tọa độ từ AI Computer Vision nếu phát hiện được
                 if ai_sub_box:
-                    y_top_ratio = ai_sub_box.get("y_top_ratio", 0.68)
-                    h_ratio = ai_sub_box.get("h_ratio", 0.16)
+                    y_top_ratio = max(0.68, min(0.80, ai_sub_box.get("y_top_ratio", 0.74)))
+                    h_ratio = min(0.16, max(0.08, ai_sub_box.get("h_ratio", 0.14)))
                 else:
                     y_center_pct = float(caption_y_percent or 80.0) / 100.0
                     h_ratio = min(0.20, max(0.08, float(blur_region_height_ratio or 0.14)))

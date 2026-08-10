@@ -55,7 +55,8 @@ class SmartTextDetector:
                 sample_times = [dur * 0.15, dur * 0.35, dur * 0.55, dur * 0.75]
 
             detected_sub_boxes = []
-            detected_logo_boxes = []
+            detected_logo_tl_boxes = []
+            detected_logo_tr_boxes = []
 
             for t_sec in sample_times:
                 frame_num = int(t_sec * fps)
@@ -63,40 +64,56 @@ class SmartTextDetector:
                     cap.set(cv2.CAP_PROP_POS_FRAMES, frame_num)
                     ret, frame = cap.read()
                     if ret and frame is not None:
-                        # 1. Quét Bounding Box phụ đề ở vùng từ 52% đến 92% chiều cao video
+                        # 1. Quét Bounding Box phụ đề ở vùng từ 68% đến 92% chiều cao video (nơi chuẩn của phụ đề Douyin/Shorts)
                         sub_box = SmartTextDetector._detect_text_contour_in_region(
                             frame,
-                            y_start_ratio=0.52,
+                            y_start_ratio=0.68,
                             y_end_ratio=0.92,
-                            x_start_ratio=0.03,
-                            x_end_ratio=0.97
+                            x_start_ratio=0.05,
+                            x_end_ratio=0.95
                         )
                         if sub_box:
                             detected_sub_boxes.append(sub_box)
 
-                        # 2. Quét Bounding Box Logo ở 12% góc trên bên trái
-                        logo_box = SmartTextDetector._detect_text_contour_in_region(
+                        # 2a. Quét Bounding Box Logo ở 12% góc trên BÊN TRÁI
+                        logo_tl = SmartTextDetector._detect_text_contour_in_region(
                             frame,
-                            y_start_ratio=0.01,
+                            y_start_ratio=0.005,
                             y_end_ratio=0.12,
                             x_start_ratio=0.0,
                             x_end_ratio=0.45
                         )
-                        if logo_box:
-                            detected_logo_boxes.append(logo_box)
+                        if logo_tl:
+                            detected_logo_tl_boxes.append(logo_tl)
+
+                        # 2b. Quét Bounding Box Logo ở 12% góc trên BÊN PHẢI (VD: logo tên tác giả / 劍奇)
+                        logo_tr = SmartTextDetector._detect_text_contour_in_region(
+                            frame,
+                            y_start_ratio=0.005,
+                            y_end_ratio=0.12,
+                            x_start_ratio=0.55,
+                            x_end_ratio=1.0
+                        )
+                        if logo_tr:
+                            detected_logo_tr_boxes.append(logo_tr)
 
             cap.release()
 
             # Hợp nhất các Bounding Boxes thu hoạch được thành Vùng Bounding Envelope hoàn chỉnh
-            sub_region = SmartTextDetector._merge_boxes(detected_sub_boxes, default_y_top=0.68, default_h=0.16, full_w=True)
-            logo_region = SmartTextDetector._merge_boxes(detected_logo_boxes, default_y_top=0.015, default_h=0.075, w_ratio=0.38)
+            sub_region = SmartTextDetector._merge_sub_boxes(detected_sub_boxes)
+            logo_tl_region = SmartTextDetector._merge_logo_boxes(detected_logo_tl_boxes, is_right=False)
+            logo_tr_region = SmartTextDetector._merge_logo_boxes(detected_logo_tr_boxes, is_right=True)
 
             print(f"[SmartTextDetector AI] Subtitle Bounding Box Detected: {sub_region}")
-            print(f"[SmartTextDetector AI] Logo Bounding Box Detected: {logo_region}")
+            print(f"[SmartTextDetector AI] Logo Top-Left Bounding Box: {logo_tl_region}")
+            print(f"[SmartTextDetector AI] Logo Top-Right Bounding Box: {logo_tr_region}")
 
             return {
                 "subtitle": sub_region,
-                "logo": logo_region
+                "logo_topleft": logo_tl_region,
+                "logo_topright": logo_tr_region,
+                # Giữ tương thích ngược key logo
+                "logo": logo_tl_region if logo_tl_region else logo_tr_region
             }
         except Exception as err:
             print(f"[SmartTextDetector Warning] Frame text detection fallback: {err}")
@@ -155,47 +172,72 @@ class SmartTextDetector:
         return (min_x, min_y, max_x - min_x, max_y - min_y)
 
     @staticmethod
-    def _merge_boxes(boxes: list, default_y_top: float, default_h: float, full_w: bool = False, w_ratio: float = 0.38) -> dict:
-        """Thêm Safety Margin Padding và quy đổi sang format crop FFmpeg"""
+    def _merge_sub_boxes(boxes: list) -> dict:
+        """Hợp nhất và giới hạn chiều cao tối đa của vùng che phụ đề ở 14-16% chuẩn góc dưới"""
         if not boxes:
             return {
-                "x_ratio": 0.0 if full_w else 0.0,
-                "y_top_ratio": default_y_top,
-                "w_ratio": 1.0 if full_w else w_ratio,
-                "h_ratio": default_h
+                "x_ratio": 0.0,
+                "y_top_ratio": 0.74,
+                "w_ratio": 1.0,
+                "h_ratio": 0.14
             }
+
+        # Ép min_y chỉ lấy các contour nằm ở vùng phụ đề 70% trở xuống
+        sub_y_candidates = [b[1] for b in boxes if b[1] >= 0.65]
+        if not sub_y_candidates:
+            min_y = 0.74
+            max_y = 0.88
+        else:
+            min_y = min(sub_y_candidates)
+            max_y = max(b[1] + b[3] for b in boxes if b[1] >= 0.65)
+
+        # Padding 1.2% ở mép trên và mép dưới
+        padding_y = 0.012
+        padded_top = max(0.70, min_y - padding_y)
+        padded_bottom = min(0.92, max_y + padding_y)
+        # Chiều cao vùng mờ giới hạn tối đa 16% chiều cao màn hình (tránh mờ nửa màn hình)
+        padded_h = min(0.16, max(0.09, padded_bottom - padded_top))
+
+        return {
+            "x_ratio": 0.0,
+            "y_top_ratio": round(padded_top, 3),
+            "w_ratio": 1.0,
+            "h_ratio": round(padded_h, 3)
+        }
+
+    @staticmethod
+    def _merge_logo_boxes(boxes: list, is_right: bool = False) -> Optional[dict]:
+        """Hợp nhất các Bounding Box của Logo / Watermark góc trên"""
+        if not boxes:
+            return None
 
         min_y = min(b[1] for b in boxes)
         max_y = max(b[1] + b[3] for b in boxes)
+        min_x = min(b[0] for b in boxes)
+        max_x = max(b[0] + b[2] for b in boxes)
 
-        # Padding 1.8% ở mép trên và mép dưới để che mượt hoàn toàn các chân chữ
-        padding_y = 0.018
-        padded_top = max(0.01, min_y - padding_y)
-        padded_bottom = min(0.99, max_y + padding_y)
-        padded_h = max(0.08, padded_bottom - padded_top)
+        padded_top = max(0.005, min_y - 0.005)
+        padded_h = max(0.045, min(0.12, max_y - min_y + 0.01))
 
-        if full_w:
-            return {
-                "x_ratio": 0.0,
-                "y_top_ratio": round(padded_top, 3),
-                "w_ratio": 1.0,
-                "h_ratio": round(padded_h, 3)
-            }
+        if is_right:
+            padded_left = max(0.55, min_x - 0.01)
+            padded_w = max(0.20, min(0.44, max_x - padded_left + 0.02))
         else:
-            min_x = min(b[0] for b in boxes)
-            max_x = max(b[0] + b[2] for b in boxes)
             padded_left = max(0.0, min_x - 0.01)
-            padded_w = max(w_ratio, max_x - padded_left + 0.02)
-            return {
-                "x_ratio": round(padded_left, 3),
-                "y_top_ratio": round(padded_top, 3),
-                "w_ratio": round(padded_w, 3),
-                "h_ratio": round(padded_h, 3)
-            }
+            padded_w = max(0.20, min(0.44, max_x - padded_left + 0.02))
+
+        return {
+            "x_ratio": round(padded_left, 3),
+            "y_top_ratio": round(padded_top, 3),
+            "w_ratio": round(padded_w, 3),
+            "h_ratio": round(padded_h, 3)
+        }
 
     @staticmethod
     def _get_default_regions() -> Dict[str, dict]:
         return {
-            "subtitle": {"x_ratio": 0.0, "y_top_ratio": 0.68, "w_ratio": 1.0, "h_ratio": 0.16},
-            "logo": {"x_ratio": 0.0, "y_top_ratio": 0.015, "w_ratio": 0.38, "h_ratio": 0.075}
+            "subtitle": {"x_ratio": 0.0, "y_top_ratio": 0.74, "w_ratio": 1.0, "h_ratio": 0.14},
+            "logo_topleft": {"x_ratio": 0.0, "y_top_ratio": 0.01, "w_ratio": 0.35, "h_ratio": 0.075},
+            "logo_topright": {"x_ratio": 0.65, "y_top_ratio": 0.01, "w_ratio": 0.35, "h_ratio": 0.075},
+            "logo": {"x_ratio": 0.0, "y_top_ratio": 0.01, "w_ratio": 0.35, "h_ratio": 0.075}
         }
