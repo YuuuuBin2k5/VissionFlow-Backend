@@ -736,6 +736,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         bgm_preset: str = "relaxing_chill",
         bgm_custom_url: str = None,
         bgm_volume: float = 0.18,
+        enable_bgm: bool = True,
+        enable_audio_ducking: bool = True,
+        enable_bgm_fade: bool = True,
         smart_dynamic_blur: bool = True,
         vocal_removal_mode: str = "ffmpeg_phase_cancel",
         blur_original_logo: bool = True,
@@ -1033,25 +1036,46 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         raw_bgm_source = str(preset_file)
 
                 # 3. Tiến hành tự động lặp (loop) hoặc cắt (trim) nhạc nền theo đúng độ dài video_dur
-                if raw_bgm_source and video_dur > 0:
+                if enable_bgm and raw_bgm_source and video_dur > 0:
                     try:
                         if progress_callback:
                             progress_callback("Đang tự động căn chỉnh & lặp nhạc nền khớp với độ dài video...")
                         target_bgm_wav = temp_dir / "prepared_bgm.wav"
-                        vol_val = max(0.02, min(0.25, float(bgm_volume or 0.10)))
+                        
+                        # Chuẩn hóa âm lượng BGM (nếu truyền > 1.0 nghĩa là % thì chia 100)
+                        raw_vol = float(bgm_volume if bgm_volume is not None else 0.18)
+                        if raw_vol > 1.0:
+                            raw_vol = raw_vol / 100.0
+                        vol_val = max(0.01, min(1.0, raw_vol))
+
                         fade_start = max(0.0, video_dur - 2.0)
+                        if enable_bgm_fade:
+                            af_filter = f"afade=t=in:ss=0:d=1.5,volume={vol_val:.3f},afade=t=out:st={fade_start:.3f}:d=2.0"
+                        else:
+                            af_filter = f"volume={vol_val:.3f}"
+
                         cmd_bgm = [
                             _get_ffmpeg_exe(), "-y",
                             "-stream_loop", "-1",
                             "-i", raw_bgm_source,
                             "-t", f"{video_dur:.3f}",
-                            "-af", f"afade=t=in:ss=0:d=1.5,volume={vol_val:.2f},afade=t=out:st={fade_start:.3f}:d=2.0",
+                            "-af", af_filter,
                             "-ac", "2", "-ar", "44100",
                             str(target_bgm_wav)
                         ]
                         subprocess.run(cmd_bgm, capture_output=True, check=True)
                         if target_bgm_wav.exists() and target_bgm_wav.stat().st_size > 0:
-                            prepared_bgm_path = str(target_bgm_wav)
+                            # 4. Nếu bật Smart Audio Ducking trên BGM thì dìm nhạc BGM khi có giọng thoại lồng tiếng
+                            if enable_audio_ducking and realized_timeline:
+                                ducked_bgm_wav = temp_dir / "ducked_prepared_bgm.wav"
+                                self.apply_audio_ducking_pure_python(str(target_bgm_wav), str(ducked_bgm_wav), realized_timeline)
+                                if ducked_bgm_wav.exists() and ducked_bgm_wav.stat().st_size > 0:
+                                    prepared_bgm_path = str(ducked_bgm_wav)
+                                else:
+                                    prepared_bgm_path = str(target_bgm_wav)
+                            else:
+                                prepared_bgm_path = str(target_bgm_wav)
+
                             print(f"[DubbingService BGM] Prepared background track matched to {video_dur:.1f}s at {prepared_bgm_path}")
                     except Exception as bgm_err:
                         print(f"[DubbingService Warning] Failed to prepare BGM track: {bgm_err}")
@@ -1073,7 +1097,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                             _get_ffmpeg_exe(), "-y",
                             "-i", merged_vocal_path,
                             "-i", prepared_bgm_path,
-                            "-filter_complex", "[0:a]apad,volume=1.8[vocal_b];[vocal_b][1:a]amix=inputs=2:duration=first[mix_raw];[mix_raw]volume=1.8[out]",
+                            "-filter_complex", "[0:a]apad,volume=1.8[vocal_b];[1:a]volume=1.0[bgm_b];[vocal_b][bgm_b]amix=inputs=2:duration=first[mix_raw];[mix_raw]volume=1.5[out]",
                             "-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2"
                         ] + t_args + [final_audio_path]
                     else:
@@ -1094,7 +1118,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                             "-i", clean_background_audio,
                             "-i", merged_vocal_path,
                             "-i", prepared_bgm_path,
-                            "-filter_complex", "[1:a]apad,volume=1.5[vocal_b];[2:a]volume=1.8[bgm_b];[0:a][vocal_b][bgm_b]amix=inputs=3:duration=first:dropout_transition=0:normalize=0[out]",
+                            "-filter_complex", "[1:a]apad,volume=1.5[vocal_b];[2:a]volume=1.0[bgm_b];[0:a][vocal_b][bgm_b]amix=inputs=3:duration=first:dropout_transition=0:normalize=0[out]",
                             "-map", "[out]", "-acodec", "libmp3lame", "-q:a", "2"
                         ] + t_args + [final_audio_path]
                     else:

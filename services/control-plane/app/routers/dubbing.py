@@ -52,6 +52,9 @@ class DubbingDispatchRequest(BaseModel):
     bgm_preset: Optional[str] = "relaxing_chill"
     bgm_custom_url: Optional[str] = None
     bgm_volume: float = 0.18
+    enable_bgm: bool = True
+    enable_audio_ducking: bool = True
+    enable_bgm_fade: bool = True
     smart_dynamic_blur: bool = True
     vocal_removal_mode: Optional[str] = "ffmpeg_phase_cancel"
     blur_original_logo: bool = True
@@ -114,6 +117,9 @@ def dispatch_dubbing_job(
         "bgm_preset": payload.bgm_preset,
         "bgm_custom_url": payload.bgm_custom_url,
         "bgm_volume": payload.bgm_volume,
+        "enable_bgm": payload.enable_bgm,
+        "enable_audio_ducking": payload.enable_audio_ducking,
+        "enable_bgm_fade": payload.enable_bgm_fade,
         "smart_dynamic_blur": payload.smart_dynamic_blur,
         "vocal_removal_mode": payload.vocal_removal_mode,
         "blur_original_logo": payload.blur_original_logo,

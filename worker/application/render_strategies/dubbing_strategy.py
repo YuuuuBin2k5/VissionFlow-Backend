@@ -94,6 +94,9 @@ class DubbingStrategy(RenderStrategy):
         bgm_preset = metadata.get("bgm_preset")
         bgm_custom_url = metadata.get("bgm_custom_url")
         bgm_volume = float(metadata.get("bgm_volume") or 0.18)
+        enable_bgm = metadata.get("enable_bgm", True)
+        enable_audio_ducking = metadata.get("enable_audio_ducking", True)
+        enable_bgm_fade = metadata.get("enable_bgm_fade", True)
         smart_dynamic_blur = metadata.get("smart_dynamic_blur", True)
         vocal_removal_mode = metadata.get("vocal_removal_mode", "ffmpeg_phase_cancel")
         blur_original_logo = metadata.get("blur_original_logo", True)
@@ -121,6 +124,9 @@ class DubbingStrategy(RenderStrategy):
             bgm_preset=bgm_preset,
             bgm_custom_url=bgm_custom_url,
             bgm_volume=bgm_volume,
+            enable_bgm=enable_bgm,
+            enable_audio_ducking=enable_audio_ducking,
+            enable_bgm_fade=enable_bgm_fade,
             smart_dynamic_blur=smart_dynamic_blur,
             vocal_removal_mode=vocal_removal_mode,
             blur_original_logo=blur_original_logo,
