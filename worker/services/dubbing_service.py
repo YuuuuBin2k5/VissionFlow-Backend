@@ -29,7 +29,7 @@ class DubbingService:
             return DubbingService._supports_force_style_cache
 
         try:
-            cmd = ["ffmpeg", "-h", "filter=subtitles"]
+            cmd = [_get_ffmpeg_exe(), "-h", "filter=subtitles"]
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
             if res.returncode != 0:
                 DubbingService._supports_force_style_cache = False
@@ -529,7 +529,7 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
         try:
             # Chạy thử nghiệm 1 frame encoding thực tế với h264_nvenc để xác minh Driver CUDA khả dụng
             test_cmd = [
-                "ffmpeg", "-y", "-hide_banner",
+                _get_ffmpeg_exe(), "-y", "-hide_banner",
                 "-f", "lavfi", "-i", "color=c=black:s=64x64:d=0.1",
                 "-c:v", "h264_nvenc",
                 "-f", "null", "-"
@@ -689,7 +689,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 # Lọc dập tần số giọng thoại con người (300Hz-3400Hz, g=-18dB) bằng bộ lọc Band-Reject
                 # Giữ nguyên 100% âm thanh môi trường xung quanh (tiếng gió, lửa, bước chân, hiệu ứng) trên cả video Mono lẫn Stereo
                 cmd = [
-                    "ffmpeg", "-y", "-i", str(input_audio_path),
+                    _get_ffmpeg_exe(), "-y", "-i", str(input_audio_path),
                     "-af", "bandreject=f=1200:w=1400:g=-18,highpass=f=70,lowpass=f=11000,volume=1.2",
                     "-acodec", "libmp3lame", "-q:a", "2", str(output_cleaned)
                 ]
@@ -753,7 +753,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 if progress_callback:
                     progress_callback("Đang trích xuất âm thanh gốc từ video...")
                 cmd_extract = [
-                    "ffmpeg", "-y", "-i", video_path,
+                    _get_ffmpeg_exe(), "-y", "-i", video_path,
                     "-vn", "-acodec", "libmp3lame", "-q:a", "2", orig_audio_path
                 ]
                 subprocess.run(cmd_extract, capture_output=True, check=True)
@@ -910,7 +910,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
                             # Chạy FFmpeg để sinh file aligned với âm tần chuẩn
                             filter_str = ",".join(filters)
-                            cmd_tempo = ["ffmpeg", "-y", "-i", raw_clip_path]
+                            cmd_tempo = [_get_ffmpeg_exe(), "-y", "-i", raw_clip_path]
                             if filter_str:
                                 cmd_tempo += ["-filter_complex", f"[0:a]{filter_str}[outa]", "-map", "[outa]"]
                             cmd_tempo += ["-ac", "2", "-ar", "44100", aligned_clip_path]
@@ -964,7 +964,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 # Trích xuất file WAV stereo 44100Hz từ original_audio.mp3 trước khi xử lý
                 orig_audio_wav_path = str(temp_dir / "original_audio.wav")
                 cmd_conv = [
-                    "ffmpeg", "-y", "-i", orig_audio_path,
+                    _get_ffmpeg_exe(), "-y", "-i", orig_audio_path,
                     "-ac", "2", "-ar", "44100", orig_audio_wav_path
                 ]
                 subprocess.run(cmd_conv, capture_output=True, check=True)
@@ -993,8 +993,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                             if is_social_url:
                                 if progress_callback:
                                     progress_callback("Phát hiện link YouTube/Social Media. Đang dùng yt-dlp trích xuất âm thanh MP3...")
-                                cmd_yt = [
-                                    "yt-dlp", "-x", "--audio-format", "mp3", "--audio-quality", "0",
+                                from worker.infrastructure.douyin_client import _get_ytdlp_cmd
+                                cmd_yt = _get_ytdlp_cmd() + [
+                                    "-x", "--audio-format", "mp3", "--audio-quality", "0",
                                     "--no-playlist", "-o", str(custom_bgm_file), url_str
                                 ]
                                 res = subprocess.run(cmd_yt, capture_output=True, text=True)
@@ -1039,7 +1040,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         vol_val = max(0.02, min(0.25, float(bgm_volume or 0.10)))
                         fade_start = max(0.0, video_dur - 2.0)
                         cmd_bgm = [
-                            "ffmpeg", "-y",
+                            _get_ffmpeg_exe(), "-y",
                             "-stream_loop", "-1",
                             "-i", raw_bgm_source,
                             "-t", f"{video_dur:.3f}",
@@ -1068,7 +1069,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         if progress_callback:
                             progress_callback("Đang xuất âm thanh lồng tiếng + Nhạc nền BGM (đã tắt nhạc gốc)...")
                         cmd_mix = [
-                            "ffmpeg", "-y",
+                            _get_ffmpeg_exe(), "-y",
                             "-i", merged_vocal_path,
                             "-i", prepared_bgm_path,
                             "-filter_complex", "[0:a]apad,volume=1.8[vocal_b];[vocal_b][1:a]amix=inputs=2:duration=first[mix_raw];[mix_raw]volume=1.8[out]",
@@ -1254,7 +1255,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
             encoder_name, encoder_opts = self.detect_gpu_encoder()
             cmd_mux = [
-                "ffmpeg", "-y",
+                _get_ffmpeg_exe(), "-y",
                 "-i", video_path,
                 "-i", final_audio_path,
                 "-filter_complex", filter_complex_str,
