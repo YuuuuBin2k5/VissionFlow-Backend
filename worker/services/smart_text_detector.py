@@ -213,7 +213,7 @@ class SmartTextDetector:
 
     @staticmethod
     def _merge_logo_boxes(boxes: list, is_right: bool = False) -> Optional[dict]:
-        """Hợp nhất các Bounding Box của Logo / Watermark góc trên"""
+        """Hợp nhất các Bounding Box của Logo / Watermark góc trên. Chỉ trả về dict khi thực sự phát hiện thấy contour nét chữ/logo."""
         if not boxes:
             return None
 
@@ -222,15 +222,16 @@ class SmartTextDetector:
         min_x = min(b[0] for b in boxes)
         max_x = max(b[0] + b[2] for b in boxes)
 
-        padded_top = max(0.005, min_y - 0.005)
-        padded_h = max(0.045, min(0.12, max_y - min_y + 0.01))
+        padded_top = max(0.005, min_y - 0.003)
+        # Giới hạn chiều cao mờ logo tối đa 5.5% chiều cao video (nhỏ gọn vừa vặn nét chữ)
+        padded_h = min(0.055, max(0.03, max_y - min_y + 0.006))
 
         if is_right:
-            padded_left = max(0.55, min_x - 0.01)
-            padded_w = max(0.20, min(0.44, max_x - padded_left + 0.02))
+            padded_left = max(0.55, min_x - 0.008)
+            padded_w = min(0.40, max(0.12, max_x - padded_left + 0.015))
         else:
-            padded_left = max(0.0, min_x - 0.01)
-            padded_w = max(0.20, min(0.44, max_x - padded_left + 0.02))
+            padded_left = max(0.0, min_x - 0.008)
+            padded_w = min(0.40, max(0.12, max_x - padded_left + 0.015))
 
         return {
             "x_ratio": round(padded_left, 3),

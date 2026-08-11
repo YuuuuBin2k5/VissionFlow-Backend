@@ -1236,10 +1236,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 if progress_callback:
                     progress_callback("Đang tự động che mờ Logo & Watermark kênh gốc (Góc trên trái & Góc trên phải)...")
 
-                # Lưu ý: hflip đã lật hình ngang, nên logo góc trên bên phải của gốc sẽ nằm ở góc trên bên trái sau hflip
+                # Chỉ che mờ khi AI Computer Vision thực sự quét thấy Bounding Box của Logo/Watermark
                 if ai_logo_tr:
-                    logo_w = ai_logo_tr.get("w_ratio", 0.35)
-                    logo_h = ai_logo_tr.get("h_ratio", 0.065)
+                    logo_w = ai_logo_tr.get("w_ratio", 0.25)
+                    logo_h = ai_logo_tr.get("h_ratio", 0.05)
                     logo_x = 0.0  # Sau hflip, góc phải về góc trái
                     logo_y = ai_logo_tr.get("y_top_ratio", 0.01)
                     filter_nodes.append(
@@ -1250,8 +1250,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     current_v = "[v_logo_clean1]"
 
                 if ai_logo_tl:
-                    logo_w = ai_logo_tl.get("w_ratio", 0.35)
-                    logo_h = ai_logo_tl.get("h_ratio", 0.065)
+                    logo_w = ai_logo_tl.get("w_ratio", 0.25)
+                    logo_h = ai_logo_tl.get("h_ratio", 0.05)
                     logo_x = round(1.0 - logo_w, 3)  # Sau hflip, góc trái về góc phải
                     logo_y = ai_logo_tl.get("y_top_ratio", 0.01)
                     filter_nodes.append(
@@ -1260,15 +1260,6 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         f"[v_logo_base2][v_blur_tl]overlay=W*{logo_x:.3f}:H*{logo_y:.3f}[v_logo_clean2]"
                     )
                     current_v = "[v_logo_clean2]"
-
-                # Nếu không phát hiện logo nào cụ thể, chỉ che 2 ô nhỏ góc trên 30% width x 6% height
-                if not ai_logo_tr and not ai_logo_tl:
-                    filter_nodes.append(
-                        f"{current_v}split=2[v_logo_base1][v_logo_tr];"
-                        f"[v_logo_tr]crop=iw*0.32:ih*0.06:0:ih*0.01,boxblur=8:2[v_blur_tr];"
-                        f"[v_logo_base1][v_blur_tr]overlay=0:H*0.01[v_logo_clean1]"
-                    )
-                    current_v = "[v_logo_clean1]"
 
             # 2. Original Subtitle Blur / Smart Dynamic Centered Bounding Box Blur (if enabled)
             if blur_original_subtitles:
