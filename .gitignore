@@ -24,6 +24,10 @@ tmp_pip/
 orchestrator/.npm-cache/
 
 # Project specific paths (Sensitive session data & large media)
+# Temporary Test Profiles & Caches
+test_profile/
+LOCAL_APPDATA_FONTCONFIG_CACHE/
+*.log
 worker/.env
 worker/chrome_profile*/
 worker/temp_assets/
