@@ -173,36 +173,42 @@ class SmartTextDetector:
 
     @staticmethod
     def _merge_sub_boxes(boxes: list) -> dict:
-        """Hợp nhất và xác định vị trí thực tế của phụ đề Trung Quốc gốc ở vùng dưới video (y >= 75%)"""
+        """Hợp nhất và xác định vị trí Bounding Box chính xác vừa khít dòng chữ Trung Quốc gốc."""
         if not boxes:
             return {
-                "x_ratio": 0.05,
-                "y_top_ratio": 0.81,
-                "w_ratio": 0.90,
-                "h_ratio": 0.13
+                "x_ratio": 0.15,
+                "y_top_ratio": 0.82,
+                "w_ratio": 0.70,
+                "h_ratio": 0.11
             }
 
-        # Lọc chính xác các box thuộc vùng phụ đề tiếng Trung ở sát đáy video (y >= 0.70)
-        sub_y_candidates = [b for b in boxes if b[1] >= 0.70]
-        if not sub_y_candidates:
-            # Fallback nếu không quét được box nào ở y >= 0.70
-            min_y = 0.81
-            max_y = 0.94
-            min_x = 0.05
-            max_x = 0.95
+        # Lọc chính xác các box thuộc vùng phụ đề tiếng Trung sát đáy video (y >= 0.70)
+        sub_boxes = [b for b in boxes if b[1] >= 0.70]
+        if not sub_boxes:
+            min_y = 0.82
+            max_y = 0.93
+            min_x = 0.20
+            max_x = 0.80
         else:
-            min_y = min(b[1] for b in sub_y_candidates)
-            max_y = max(b[1] + b[3] for b in sub_y_candidates)
-            min_x = min(b[0] for b in sub_y_candidates)
-            max_x = max(b[0] + b[2] for b in sub_y_candidates)
+            # Tính trung bình vị trí x và w của các câu thoại để tránh 1 câu dài làm phình to toàn bộ các câu ngắn
+            xs = [b[0] for b in sub_boxes]
+            xw_rights = [b[0] + b[2] for b in sub_boxes]
+            ys = [b[1] for b in sub_boxes]
+            yh_bottoms = [b[1] + b[3] for b in sub_boxes]
 
-        # Thêm margin padding nhỏ 1%
-        padded_top = max(0.72, min_y - 0.01)
-        padded_bottom = min(0.97, max_y + 0.01)
-        padded_h = min(0.18, max(0.08, padded_bottom - padded_top))
+            # Dùng percentiles (15th và 85th) để loại bỏ outlier câu quá dài hoặc vệt sáng nhiễu
+            min_x = np.percentile(xs, 10) if len(xs) > 2 else min(xs)
+            max_x = np.percentile(xw_rights, 90) if len(xw_rights) > 2 else max(xw_rights)
+            min_y = min(ys)
+            max_y = max(yh_bottoms)
 
-        padded_left = max(0.0, min_x - 0.02)
-        padded_w = min(1.0, max_x - padded_left + 0.04)
+        # Padding vừa đủ 0.8%
+        padded_top = max(0.75, min_y - 0.008)
+        padded_bottom = min(0.96, max_y + 0.008)
+        padded_h = min(0.14, max(0.065, padded_bottom - padded_top))
+
+        padded_left = max(0.08, min_x - 0.015)
+        padded_w = min(0.84, max(0.35, max_x - padded_left + 0.03))
 
         return {
             "x_ratio": round(padded_left, 3),
