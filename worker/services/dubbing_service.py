@@ -1276,12 +1276,16 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
                 # Sử dụng tọa độ từ AI Computer Vision nếu phát hiện được
                 if ai_sub_box:
-                    y_top_ratio = max(0.68, min(0.80, ai_sub_box.get("y_top_ratio", 0.74)))
-                    h_ratio = min(0.16, max(0.08, ai_sub_box.get("h_ratio", 0.14)))
+                    y_top_ratio = max(0.72, min(0.85, ai_sub_box.get("y_top_ratio", 0.81)))
+                    h_ratio = min(0.18, max(0.08, ai_sub_box.get("h_ratio", 0.13)))
+                    x_ratio = max(0.0, min(0.30, ai_sub_box.get("x_ratio", 0.05)))
+                    w_ratio = min(1.0 - x_ratio, max(0.40, ai_sub_box.get("w_ratio", 0.90)))
                 else:
                     y_center_pct = float(caption_y_percent or 80.0) / 100.0
-                    h_ratio = min(0.20, max(0.08, float(blur_region_height_ratio or 0.14)))
-                    y_top_ratio = max(0.50, min(0.85, y_center_pct - (h_ratio / 2.0)))
+                    h_ratio = min(0.18, max(0.08, float(blur_region_height_ratio or 0.13)))
+                    y_top_ratio = max(0.72, min(0.88, y_center_pct - (h_ratio / 2.0)))
+                    x_ratio = 0.0
+                    w_ratio = 1.0
 
                 if smart_dynamic_blur and realized_timeline:
                     try:
@@ -1302,8 +1306,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                             enable_conditions = " + ".join([f"between(t,{st:.2f},{et:.2f})" for st, et in time_intervals])
                             filter_nodes.append(
                                 f"{current_v}split=2[v_dyn_base][v_dyn_strip];"
-                                f"[v_dyn_strip]crop=iw:ih*{h_ratio:.3f}:0:ih*{y_top_ratio:.3f},boxblur=8:2[v_dyn_blur];"
-                                f"[v_dyn_base][v_dyn_blur]overlay=0:H*{y_top_ratio:.3f}:enable='{enable_conditions}'[v_unsub]"
+                                f"[v_dyn_strip]crop=iw*{w_ratio:.3f}:ih*{h_ratio:.3f}:iw*{x_ratio:.3f}:ih*{y_top_ratio:.3f},boxblur=8:2[v_dyn_blur];"
+                                f"[v_dyn_base][v_dyn_blur]overlay=W*{x_ratio:.3f}:H*{y_top_ratio:.3f}:enable='{enable_conditions}'[v_unsub]"
                             )
                             current_v = "[v_unsub]"
                             dynamic_applied = True
@@ -1316,8 +1320,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         progress_callback("Đang tự động che mờ vùng phụ đề tiếng Trung gốc...")
                     filter_nodes.append(
                         f"{current_v}split=2[v_base][v_strip];"
-                        f"[v_strip]crop=iw:ih*{h_ratio:.3f}:0:ih*{y_top_ratio:.3f},boxblur=8:2[v_blur_strip];"
-                        f"[v_base][v_blur_strip]overlay=0:H*{y_top_ratio:.3f}[v_unsub]"
+                        f"[v_strip]crop=iw*{w_ratio:.3f}:ih*{h_ratio:.3f}:iw*{x_ratio:.3f}:ih*{y_top_ratio:.3f},boxblur=8:2[v_blur_strip];"
+                        f"[v_base][v_blur_strip]overlay=W*{x_ratio:.3f}:H*{y_top_ratio:.3f}[v_unsub]"
                     )
                     current_v = "[v_unsub]"
 

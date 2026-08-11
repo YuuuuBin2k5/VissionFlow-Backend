@@ -173,35 +173,41 @@ class SmartTextDetector:
 
     @staticmethod
     def _merge_sub_boxes(boxes: list) -> dict:
-        """Hợp nhất và giới hạn chiều cao tối đa của vùng che phụ đề ở 14-16% chuẩn góc dưới"""
+        """Hợp nhất và xác định vị trí thực tế của phụ đề Trung Quốc gốc ở vùng dưới video (y >= 75%)"""
         if not boxes:
             return {
-                "x_ratio": 0.0,
-                "y_top_ratio": 0.74,
-                "w_ratio": 1.0,
-                "h_ratio": 0.14
+                "x_ratio": 0.05,
+                "y_top_ratio": 0.81,
+                "w_ratio": 0.90,
+                "h_ratio": 0.13
             }
 
-        # Ép min_y chỉ lấy các contour nằm ở vùng phụ đề 70% trở xuống
-        sub_y_candidates = [b[1] for b in boxes if b[1] >= 0.65]
+        # Lọc chính xác các box thuộc vùng phụ đề tiếng Trung ở sát đáy video (y >= 0.70)
+        sub_y_candidates = [b for b in boxes if b[1] >= 0.70]
         if not sub_y_candidates:
-            min_y = 0.74
-            max_y = 0.88
+            # Fallback nếu không quét được box nào ở y >= 0.70
+            min_y = 0.81
+            max_y = 0.94
+            min_x = 0.05
+            max_x = 0.95
         else:
-            min_y = min(sub_y_candidates)
-            max_y = max(b[1] + b[3] for b in boxes if b[1] >= 0.65)
+            min_y = min(b[1] for b in sub_y_candidates)
+            max_y = max(b[1] + b[3] for b in sub_y_candidates)
+            min_x = min(b[0] for b in sub_y_candidates)
+            max_x = max(b[0] + b[2] for b in sub_y_candidates)
 
-        # Padding 1.2% ở mép trên và mép dưới
-        padding_y = 0.012
-        padded_top = max(0.70, min_y - padding_y)
-        padded_bottom = min(0.92, max_y + padding_y)
-        # Chiều cao vùng mờ giới hạn tối đa 16% chiều cao màn hình (tránh mờ nửa màn hình)
-        padded_h = min(0.16, max(0.09, padded_bottom - padded_top))
+        # Thêm margin padding nhỏ 1%
+        padded_top = max(0.72, min_y - 0.01)
+        padded_bottom = min(0.97, max_y + 0.01)
+        padded_h = min(0.18, max(0.08, padded_bottom - padded_top))
+
+        padded_left = max(0.0, min_x - 0.02)
+        padded_w = min(1.0, max_x - padded_left + 0.04)
 
         return {
-            "x_ratio": 0.0,
+            "x_ratio": round(padded_left, 3),
             "y_top_ratio": round(padded_top, 3),
-            "w_ratio": 1.0,
+            "w_ratio": round(padded_w, 3),
             "h_ratio": round(padded_h, 3)
         }
 
