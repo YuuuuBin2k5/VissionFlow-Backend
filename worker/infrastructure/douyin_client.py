@@ -520,6 +520,7 @@ async def download_video_link(job_id: int, url: str, output_dir: str) -> tuple:
     # ─────────────────────────────────────────────────────────────────
     # Xử lý chuẩn hóa và trích xuất link stream trực tiếp cho Douyin
     # ─────────────────────────────────────────────────────────────────
+    original_title = None
     direct_stream_downloaded = False
     if is_douyin:
         is_douyin_note = "/note/" in url
@@ -559,9 +560,9 @@ async def download_video_link(job_id: int, url: str, output_dir: str) -> tuple:
 
 
     # Thử lấy tiêu đề gốc của video trước qua yt-dlp
-    original_title = None
+    sub_env = {**os.environ, "TEMP": output_dir, "TMP": output_dir, "TMPDIR": output_dir}
     try:
-        cmd_title = _get_ytdlp_cmd() + ["--no-warnings", "--get-title"]
+        cmd_title = _get_ytdlp_cmd() + ["--no-warnings", "--paths", f"temp:{output_dir}", "--get-title"]
         if is_douyin:
             from worker.config import BASE_DIR
             cookies_path = os.path.join(BASE_DIR, "worker", "temp_assets", "douyin_cookies.txt")
@@ -572,7 +573,8 @@ async def download_video_link(job_id: int, url: str, output_dir: str) -> tuple:
         proc_title = await asyncio.create_subprocess_exec(
             *cmd_title,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            stderr=asyncio.subprocess.PIPE,
+            env=sub_env
         )
         stdout_t, stderr_t = await proc_title.communicate()
         if proc_title.returncode == 0:
@@ -586,6 +588,7 @@ async def download_video_link(job_id: int, url: str, output_dir: str) -> tuple:
 
     cmd = _get_ytdlp_cmd() + [
         "--no-warnings",
+        "--paths", f"temp:{output_dir}",
         "-f", "mp4",
         "-o", output_path
     ]
@@ -603,7 +606,8 @@ async def download_video_link(job_id: int, url: str, output_dir: str) -> tuple:
     proc = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE
+        stderr=asyncio.subprocess.PIPE,
+        env=sub_env
     )
     stdout, stderr = await proc.communicate()
     if proc.returncode != 0:
