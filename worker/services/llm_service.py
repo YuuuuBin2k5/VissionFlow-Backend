@@ -151,9 +151,8 @@ class LLMService:
         # Danh sách các mô hình Gemini hỗ trợ (xoay vòng khi bị 429 quota per-model)
         models_to_try = [
             os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
-            "gemini-1.5-pro",
+            "gemini-2.5-pro",
+            "gemini-2.0-flash-exp",
         ]
         # Xóa bớt trùng lặp nhưng giữ thứ tự
         seen = set()
