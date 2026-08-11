@@ -112,15 +112,49 @@ class LLMService:
 
     def _get_gemini_keys(self) -> list[str]:
         """Tự động đồng bộ và nạp tất cả các Gemini API Key từ Frontend API Vault & Environment"""
+        keys = []
+
+        # 1. Trích xuất trực tiếp từ PostgreSQL Provider Credentials Table nếu có
+        try:
+            import psycopg2, base64, hashlib
+            from cryptography.fernet import Fernet
+            db_url = os.environ.get("DATABASE_URL", "")
+            if "postgresql" in db_url:
+                conn = psycopg2.connect(db_url.replace("postgresql+psycopg://", "postgresql://"))
+                cur = conn.cursor()
+                cur.execute("SELECT secret_ciphertext FROM provider_credentials WHERE provider='gemini' AND status='active' ORDER BY priority")
+                rows = cur.fetchall()
+                conn.close()
+
+                enc_key = os.environ.get("VISIONFLOW_CREDENTIAL_ENCRYPTION_KEY", "7c82c3c7ef23758b9ea79dfa58f4a3e3c66baea5c704f47bb920b7efcfce38b4")
+                if enc_key and rows:
+                    raw = enc_key.strip().encode("utf-8")
+                    try:
+                        material = base64.urlsafe_b64decode(enc_key.strip() + "===")
+                    except Exception:
+                        material = raw
+                    fernet_key = base64.urlsafe_b64encode(hashlib.sha256(material if len(material) >= 32 else raw).digest())
+                    cipher = Fernet(fernet_key)
+                    for r in rows:
+                        try:
+                            decrypted = cipher.decrypt(r[0].encode("ascii")).decode("utf-8").strip()
+                            if decrypted and decrypted not in keys:
+                                keys.append(decrypted)
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+
+        # 2. Đồng bộ qua Control Plane client nếu có
         try:
             from worker.services.visionflow_control_plane_client import VisionFlowControlPlaneClient
             from worker.services.visionflow_provider_vault import hydrate_provider_environment
-            cp_client = VisionFlowControlPlaneClient()
+            from worker.application.narration_handoff import VisionFlowWorkerSettings
+            cp_client = VisionFlowControlPlaneClient(VisionFlowWorkerSettings.from_env())
             hydrate_provider_environment(cp_client)
         except Exception:
             pass
 
-        keys = []
         raw_keys = os.environ.get("GEMINI_API_KEYS", "")
         if raw_keys:
             for k in raw_keys.replace('"', '').split(","):
