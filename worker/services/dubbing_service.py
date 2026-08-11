@@ -16,6 +16,17 @@ def _get_ffmpeg_exe() -> str:
     except Exception:
         return "ffmpeg"
 
+def _get_ffprobe_exe() -> str:
+    try:
+        ffmpeg_exe = _get_ffmpeg_exe()
+        probe_exe = ffmpeg_exe.replace("ffmpeg", "ffprobe")
+        if os.path.exists(probe_exe):
+            return probe_exe
+        import shutil
+        return shutil.which("ffprobe") or "ffprobe"
+    except Exception:
+        return "ffprobe"
+
 class DubbingService:
     _supports_force_style_cache = None
 
@@ -45,7 +56,7 @@ class DubbingService:
         """Sử dụng ffprobe để lấy độ dài file media (video/audio) tính bằng giây"""
         try:
             cmd = [
-                "ffprobe", "-v", "quiet", "-print_format", "json",
+                _get_ffprobe_exe(), "-v", "quiet", "-print_format", "json",
                 "-show_format", "-show_streams", file_path
             ]
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
