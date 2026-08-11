@@ -1238,9 +1238,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
                 # Chỉ che mờ khi AI Computer Vision thực sự quét thấy Bounding Box của Logo/Watermark
                 if ai_logo_tr:
-                    logo_w = ai_logo_tr.get("w_ratio", 0.25)
-                    logo_h = ai_logo_tr.get("h_ratio", 0.05)
-                    logo_x = 0.0  # Sau hflip, góc phải về góc trái
+                    logo_w = ai_logo_tr.get("w_ratio", 0.15)
+                    logo_h = ai_logo_tr.get("h_ratio", 0.04)
+                    raw_x = ai_logo_tr.get("x_ratio", 0.65)
+                    # Sau hflip, tọa độ x_ratio bên phải lật về bên trái: x_flipped = 1.0 - raw_x - logo_w
+                    logo_x = max(0.0, round(1.0 - raw_x - logo_w, 3))
                     logo_y = ai_logo_tr.get("y_top_ratio", 0.01)
                     filter_nodes.append(
                         f"{current_v}split=2[v_logo_base1][v_logo_tr];"
@@ -1250,9 +1252,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     current_v = "[v_logo_clean1]"
 
                 if ai_logo_tl:
-                    logo_w = ai_logo_tl.get("w_ratio", 0.25)
-                    logo_h = ai_logo_tl.get("h_ratio", 0.05)
-                    logo_x = round(1.0 - logo_w, 3)  # Sau hflip, góc trái về góc phải
+                    logo_w = ai_logo_tl.get("w_ratio", 0.15)
+                    logo_h = ai_logo_tl.get("h_ratio", 0.04)
+                    raw_x = ai_logo_tl.get("x_ratio", 0.0)
+                    # Sau hflip, tọa độ x_ratio bên trái lật sang bên phải
+                    logo_x = max(0.0, round(1.0 - raw_x - logo_w, 3))
                     logo_y = ai_logo_tl.get("y_top_ratio", 0.01)
                     filter_nodes.append(
                         f"{current_v}split=2[v_logo_base2][v_logo_tl];"

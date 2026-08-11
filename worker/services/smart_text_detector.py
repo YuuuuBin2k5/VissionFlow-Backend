@@ -219,7 +219,7 @@ class SmartTextDetector:
 
     @staticmethod
     def _merge_logo_boxes(boxes: list, is_right: bool = False) -> Optional[dict]:
-        """Hợp nhất các Bounding Box của Logo / Watermark góc trên. Chỉ trả về dict khi thực sự phát hiện thấy contour nét chữ/logo."""
+        """Hợp nhất các Bounding Box của Logo / Watermark góc trên. Thu hẹp vừa sát dải chữ thực tế."""
         if not boxes:
             return None
 
@@ -229,18 +229,23 @@ class SmartTextDetector:
         max_x = max(b[0] + b[2] for b in boxes)
 
         padded_top = max(0.005, min_y - 0.003)
-        # Giới hạn chiều cao mờ logo tối đa 5.5% chiều cao video (nhỏ gọn vừa vặn nét chữ)
-        padded_h = min(0.055, max(0.03, max_y - min_y + 0.006))
+        padded_h = min(0.050, max(0.025, max_y - min_y + 0.005))
 
+        # Tính toán chính xác tọa độ góc x và chiều rộng w thực tế thu quét được
         if is_right:
+            # Logo góc trên bên phải: Bắt đầu từ min_x thực tế, padding 0.8%
             padded_left = max(0.55, min_x - 0.008)
-            padded_w = min(0.40, max(0.12, max_x - padded_left + 0.015))
+            padded_w = min(0.35, max(0.08, max_x - padded_left + 0.015))
+            # Sau hflip, logo_tr sẽ bị lật sang bên trái. Vì vậy, vị trí x khi hiển thị là padded_left
+            x_pos = padded_left
         else:
+            # Logo góc trên bên trái
             padded_left = max(0.0, min_x - 0.008)
-            padded_w = min(0.40, max(0.12, max_x - padded_left + 0.015))
+            padded_w = min(0.35, max(0.08, max_x - padded_left + 0.015))
+            x_pos = padded_left
 
         return {
-            "x_ratio": round(padded_left, 3),
+            "x_ratio": round(x_pos, 3),
             "y_top_ratio": round(padded_top, 3),
             "w_ratio": round(padded_w, 3),
             "h_ratio": round(padded_h, 3)
