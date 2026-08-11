@@ -174,10 +174,10 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
 5. Chỉ trả về chuỗi JSON hợp lệ, không viết thêm bất cứ văn bản giải thích hay ký tự markdown nào ngoài JSON.
 """
 
-            # Cơ chế tự động thử lại (Retry Loop) lên tới 3 lần nếu xảy ra lỗi JSON hoặc sai số lượng phân đoạn
+            # Cơ chế tự động thử lại (Retry Loop) lên tới 5 lần nếu xảy ra lỗi JSON hoặc Rate Limit
             success_batch = False
             last_error = ""
-            for attempt in range(3):
+            for attempt in range(5):
                 try:
                     raw_response = self.llm.call_gemini_direct(prompt)
                     cleaned = self.llm._clean_json_string(raw_response)
@@ -204,8 +204,8 @@ QUY TẮC DỊCH THUẬT & PHÂN VAI CHUYÊN NGHIỆP:
                         print(f"[DubbingService Warning] {last_error} Đang thử lại lần {attempt + 1}...")
                 except Exception as ex:
                     last_error = str(ex)
-                    print(f"[DubbingService Warning] Lỗi dịch lô {batch_idx + 1} lần {attempt + 1}: {ex}. Tự động tạm dừng 8s để chờ reset hạn mức Rate-Limit...")
-                    await asyncio.sleep(8.0)
+                    print(f"[DubbingService Warning] Lỗi dịch lô {batch_idx + 1} lần {attempt + 1}: {ex}. Tự động tạm dừng 15s để chờ reset hạn mức Rate-Limit...")
+                    await asyncio.sleep(15.0)
 
             # Nếu thử lại cả 3 lần vẫn thất bại, ném lỗi rõ ràng thay vì dịch thô
             if not success_batch:
