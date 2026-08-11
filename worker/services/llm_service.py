@@ -94,15 +94,15 @@ CONTENT_CATEGORIES_30_DAYS = [
 class LLMService:
     def __init__(self):
         from worker.config import GROQ_API_KEY, OPENROUTER_API_KEY
-        self.gemini_keys = GEMINI_API_KEYS
-        self.groq_key = GROQ_API_KEY
-        self.openrouter_key = OPENROUTER_API_KEY
+        self.groq_key = os.environ.get("GROQ_API_KEY", GROQ_API_KEY)
+        self.openrouter_key = os.environ.get("OPENROUTER_API_KEY", OPENROUTER_API_KEY)
+        self.gemini_keys = self._get_gemini_keys()
         
         self.api_available = len(self.gemini_keys) > 0 or bool(self.groq_key) or bool(self.openrouter_key)
         
         if self.gemini_keys:
             self.model = genai.Client(api_key=self.gemini_keys[0])
-            print(f"[LLMService] Gemini AI initialized successfully with {len(self.gemini_keys)} keys [OK]")
+            print(f"[LLMService] Gemini AI initialized successfully with {len(self.gemini_keys)} active keys from Vault & Env [OK]")
         elif self.groq_key:
             print("[LLMService] Groq AI initialized as primary LLM (Gemini keys unavailable) [OK]")
         elif self.openrouter_key:
@@ -110,9 +110,43 @@ class LLMService:
         else:
             print("[LLMService] ERROR: No LLM API keys set. Production generation is blocked.")
 
+    def _get_gemini_keys(self) -> list[str]:
+        """Tự động đồng bộ và nạp tất cả các Gemini API Key từ Frontend API Vault & Environment"""
+        try:
+            from worker.services.visionflow_control_plane_client import VisionFlowControlPlaneClient
+            from worker.services.visionflow_provider_vault import hydrate_provider_environment
+            cp_client = VisionFlowControlPlaneClient()
+            hydrate_provider_environment(cp_client)
+        except Exception:
+            pass
+
+        keys = []
+        raw_keys = os.environ.get("GEMINI_API_KEYS", "")
+        if raw_keys:
+            for k in raw_keys.replace('"', '').split(","):
+                k_clean = k.strip()
+                if k_clean and k_clean not in keys:
+                    keys.append(k_clean)
+
+        single_key = os.environ.get("GEMINI_API_KEY", "").strip()
+        if single_key and single_key not in keys:
+            keys.insert(0, single_key)
+
+        from worker.config import GEMINI_API_KEYS
+        for k in GEMINI_API_KEYS:
+            if k and k not in keys:
+                keys.append(k)
+
+        return keys
+
     def _call_llm(self, prompt: str) -> str:
         """Gọi LLM với cơ chế tự phục hồi, xoay vòng nhiều key + model Gemini và failover sang Groq / OpenRouter"""
         errors = []
+        
+        # Tự động nạp động lại tất cả các Key mới nhất từ Vault
+        self.gemini_keys = self._get_gemini_keys()
+        self.groq_key = os.environ.get("GROQ_API_KEY", self.groq_key)
+        self.openrouter_key = os.environ.get("OPENROUTER_API_KEY", self.openrouter_key)
         
         # Danh sách các mô hình Gemini hỗ trợ (xoay vòng khi bị 429 quota per-model)
         models_to_try = [
