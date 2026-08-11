@@ -24,6 +24,9 @@ Chào mừng bạn đến với trung tâm tài liệu kỹ thuật & kiến tr�
 6. 🧩 [**06. Code-Graph-RAG & MCP Server Developer Manual**](06_CODE_GRAPH_RAG_MEMGRAPH_GUIDE.md)  
    *Hướng dẫn vận hành Đồ thị Tri thức CodeGraph, script `scripts/run_cgr.py` và MCP Server.*
 
+7. 🛡️ [**07. Agency Agents Architecture & Security Guardrails Specification**](07_AGENCY_AGENTS_&_SECURITY_GUARDRAILS.md)  
+   *Kiến trúc 4 Agent chuyên biệt (Engineering, Marketing, Product, Security) và quy trình quét AI Security Scanner.*
+
 ---
 
 ## 📁 Technical Assets
