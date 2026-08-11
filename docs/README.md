@@ -1,27 +1,30 @@
-# VisionFlow Documentation
+# 📚 VisionFlow Backend Engineering Documentation Hub
 
-**Current implementation baseline:** [VISIONFLOW_V1_SCOPE.md](VISIONFLOW_V1_SCOPE.md)  
-**Release gate:** [VISIONFLOW_ACCEPTANCE_AND_OPERATIONS_RUNBOOK.md](VISIONFLOW_ACCEPTANCE_AND_OPERATIONS_RUNBOOK.md)
+Chào mừng bạn đến với trung tâm tài liệu kỹ thuật & kiến trúc mã nguồn chính thức của **VisionFlow Backend Core**.
 
-## Read in this order
+---
 
-1. [Current Product Scope](VISIONFLOW_V1_SCOPE.md) — implemented product surface and explicit non-claims.
-2. [Architecture](VISIONFLOW_ARCHITECTURE.md) — Control Plane, workers, media, tenancy and workflow boundaries.
-3. [UI System](VISIONFLOW_UI_SYSTEM.md) — Prism Flow design rules and accessibility/performance constraints.
-4. [Acceptance and Operations Runbook](VISIONFLOW_ACCEPTANCE_AND_OPERATIONS_RUNBOOK.md) — the evidence required before a release is called ready.
+## 🗺️ Master Table of Contents
 
-## Reference groups
+1. 🌐 [**01. Backend System Overview & Pro Developer Use-Case Specification**](01_BACKEND_SYSTEM_OVERVIEW_&_USE_CASES.md)  
+   *Tầm nhìn hệ thống, sơ đồ UML Use Case, đặc tả kỹ thuật UC-01 ➔ UC-06.*
 
-| Group | Documents |
-| --- | --- |
-| Product and execution | `VISIONFLOW_PRODUCT_COMPLETION_PLAN.md`, `VISIONFLOW_DELIVERY_PLAN.md`, `VISIONFLOW_MASTER_EXECUTION_PLAYBOOK.md`, `VISIONFLOW_COMPOSITION_NEXT_PHASES.md` |
-| Deployment and operations | `VISIONFLOW_STAGING_RUNBOOK.md`, `VISIONFLOW_RENDER_DEPLOYMENT.md`, `VISIONFLOW_PUBLISHER_DEPLOYMENT.md`, `VISIONFLOW_YOUTUBE_PUBLISHER_ACTIVATION.md`, `VISIONFLOW_R2_OVERLAY_STAGING.md` |
-| Migration | `VISIONFLOW_POSTGRES_CUTOVER_ASSESSMENT.md`, `POSTGRES_CUTOVER_PLAN.md`, `CUTOVER_RUNBOOK.md`, `adr/` |
-| Legacy context | `VISIONFLOW_LEGACY_*`, `ARCHITECTURE.md`, `DEPLOYMENT.md`, `MULTI_USER_CONNECTIONS.md` |
+2. 🏗️ [**02. Backend Component Architecture & Pipeline Sequence Specs**](02_BACKEND_ARCHITECTURE_&_PIPELINE_ENGINEERING.md)  
+   *Sơ đồ kiến trúc thành phần, sơ đồ UML Sequence B1-B7 và ma trận xử lý lỗi tự động.*
 
-## Maintenance rules
+3. 🗄️ [**03. Database Data Models & Fernet Credential Vault Spec**](03_DATABASE_SCHEMA_VA_BAO_MAT_VAULT.md)  
+   *Sơ đồ ERD cơ sở dữ liệu Neon Postgres, mô hình mã hóa Vault Fernet và chỉ mục truy vấn.*
 
-- Update `VISIONFLOW_V1_SCOPE.md` in the same change set as any material capability expansion or removal.
-- Keep roadmap documents future-facing; never use them as evidence of a deployed feature.
-- Link to the authoritative document instead of duplicating workflow states, provider lists, release claims or API contracts.
-- Mark an unknown, blocked or unverified state explicitly; do not use mock UI or a successful HTTP request as proof of production completion.
+4. 📢 [**04. Publisher Worker & Multi-Platform Social Media Integration**](04_PUBLISHER_WORKER_&_SOCIAL_INTEGRATION.md)  
+   *Quy trình tự động gia hạn OAuth token và đăng tải video lên YouTube Shorts/TikTok/Reels.*
+
+5. 🚀 [**05. Production Deployment Runbook & Cloud Infrastructure Spec**](05_DEPLOYMENT_RUNBOOK_&_CLOUD_INFRA.md)  
+   *Hướng dẫn triển khai Render.com, Local Worker Daemon, Cloudflare R2 và GitHub Actions CI/CD.*
+
+6. 🧩 [**06. Code-Graph-RAG & MCP Server Developer Manual**](06_CODE_GRAPH_RAG_MEMGRAPH_GUIDE.md)  
+   *Hướng dẫn vận hành Đồ thị Tri thức CodeGraph, script `scripts/run_cgr.py` và MCP Server.*
+
+---
+
+## 📁 Technical Assets
+- 📄 [`assets/ToiUuGiongDocAI.docx`](assets/ToiUuGiongDocAI.docx): Tệp tài liệu nghiên cứu giọng đọc AI & hiệu ứng phụ đề gốc.
