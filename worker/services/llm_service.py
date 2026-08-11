@@ -125,32 +125,28 @@ class LLMService:
         seen = set()
         models_to_try = [m for m in models_to_try if not (m in seen or seen.add(m))]
 
-        # 1. Thử gọi các key Gemini kết hợp xoay vòng models
-        for idx, api_key in enumerate(self.gemini_keys):
-            try:
-                client = genai.Client(api_key=api_key)
-                for model_name in models_to_try:
-                    try:
-                        response = client.models.generate_content(
-                            model=model_name,
-                            contents=prompt,
-                        )
-                        if response and getattr(response, "text", None):
-                            self.model = client
-                            print(f"[LLMService] Success using Gemini (Key {api_key[:6]}..., Model {model_name}) ✅")
-                            return response.text
-                        print(f"[LLMService Warning] Response text empty from Gemini model {model_name}")
-                    except Exception as m_err:
-                        m_err_str = str(m_err)
-                        errors.append(f"Gemini (Key {api_key[:6]}..., Model {model_name}): {m_err_str}")
-                        if "429" in m_err_str or "RESOURCE_EXHAUSTED" in m_err_str:
-                            print(f"[LLMService Warning] 429 Rate Limit on model {model_name}. Switching to next Gemini model...")
-                            continue
-                        else:
-                            # Lỗi khác (không phải 429), thử model tiếp theo
-                            continue
-            except Exception as e:
-                errors.append(f"Gemini (Key {api_key[:6]}...): {e}")
+        # 1. Thử xoay vòng theo thứ tự Model -> Mỗi Model thử TẤT CẢ các Keys Gemini khả dụng
+        for model_name in models_to_try:
+            for idx, api_key in enumerate(self.gemini_keys):
+                try:
+                    client = genai.Client(api_key=api_key)
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=prompt,
+                    )
+                    if response and getattr(response, "text", None):
+                        self.model = client
+                        print(f"[LLMService] Success using Gemini (Key #{idx+1} {api_key[:6]}..., Model {model_name}) ✅")
+                        return response.text
+                    print(f"[LLMService Warning] Response text empty from Gemini Key #{idx+1} model {model_name}")
+                except Exception as m_err:
+                    m_err_str = str(m_err)
+                    errors.append(f"Gemini (Key #{idx+1} {api_key[:6]}..., Model {model_name}): {m_err_str}")
+                    if "429" in m_err_str or "RESOURCE_EXHAUSTED" in m_err_str:
+                        print(f"[LLMService Warning] 429 Rate Limit on Gemini Key #{idx+1} model {model_name}. Xoay vòng sang Key #{idx+2} tiếp theo...")
+                        continue
+                    else:
+                        continue
                 
         # 2. Thử gọi Groq
         if self.groq_key:
