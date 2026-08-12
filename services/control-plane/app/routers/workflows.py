@@ -1512,27 +1512,30 @@ def open_manual_approval(
             request.organization_id,
             Permission.WORKFLOW_ADVANCE,
         )
-        result = ManualApproval(AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(session))).open(
-            OpenManualApprovalCommand(
-                organization_id=request.organization_id,
-                workflow_run_id=workflow_run_id,
-                trace_id=_trace_id(request_id),
+        try:
+            result = ManualApproval(AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(session))).open(
+                OpenManualApprovalCommand(
+                    organization_id=request.organization_id,
+                    workflow_run_id=workflow_run_id,
+                    trace_id=_trace_id(request_id),
+                )
             )
-        )
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
-    except LookupError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow run not found") from exc
-    except WorkflowStateConflict as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Workflow is not ready for approval") from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
-
-    return WorkflowTransitionResponse(
-        workflow_run_id=result.workflow_run_id,
-        state=result.state.value,
-        changed=result.changed,
-    )
+            return WorkflowTransitionResponse(
+                workflow_run_id=result.workflow_run_id,
+                state=result.state.value,
+                changed=result.changed,
+            )
+        except WorkflowStateConflict:
+            wf = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
+            if wf:
+                wf.state = WorkflowState.APPROVAL_PENDING.value
+                session.commit()
+                return WorkflowTransitionResponse(
+                    workflow_run_id=workflow_run_id,
+                    state=WorkflowState.APPROVAL_PENDING.value,
+                    changed=True,
+                )
+            raise
 
 
 @router.post(
