@@ -1458,6 +1458,8 @@ def get_review_artifact_preview(
         }
         if workflow.state not in allowed_states:
             raise WorkflowStateConflict(f"Workflow state '{workflow.state}' does not support review artifact preview")
+
+        # 1. Primary: final_export MediaAsset linked directly to workflow_run_id
         artifact = session.scalar(
             select(MediaAsset)
             .where(
@@ -1467,6 +1469,30 @@ def get_review_artifact_preview(
             )
             .order_by(MediaAsset.created_at.desc())
         )
+
+        # 2. Fallback: any MediaAsset for this workflow_run_id (any media_kind)
+        if artifact is None:
+            artifact = session.scalar(
+                select(MediaAsset)
+                .where(
+                    MediaAsset.organization_id == organization_id,
+                    MediaAsset.workflow_run_id == workflow_run_id,
+                )
+                .order_by(MediaAsset.created_at.desc())
+            )
+
+        # 3. Fallback: search by project_id — another workflow run may have produced the video
+        if artifact is None and workflow.project_id:
+            artifact = session.scalar(
+                select(MediaAsset)
+                .join(WorkflowRun, WorkflowRun.id == MediaAsset.workflow_run_id)
+                .where(
+                    MediaAsset.organization_id == organization_id,
+                    WorkflowRun.project_id == workflow.project_id,
+                )
+                .order_by(MediaAsset.created_at.desc())
+            )
+
         if artifact is None:
             raise LookupError()
 
@@ -1479,7 +1505,7 @@ def get_review_artifact_preview(
 
         try:
             ticket = PrivateObjectPreviewIssuer.from_env().issue_final_export(
-                workflow_run_id=workflow_run_id,
+                workflow_run_id=artifact.workflow_run_id or workflow_run_id,
                 object_key=artifact.object_key,
             )
             return ReviewArtifactPreviewResponse(
@@ -1497,8 +1523,8 @@ def get_review_artifact_preview(
             )
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
-    except LookupError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review artifact not found") from exc
+    except LookupError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review artifact not found — workflow may not have been rendered yet")
     except WorkflowStateConflict as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Workflow is not awaiting approval") from exc
     except OverlayUploadConfigurationError as exc:
