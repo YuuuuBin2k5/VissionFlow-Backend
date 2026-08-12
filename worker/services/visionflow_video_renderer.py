@@ -42,7 +42,8 @@ class VisionFlowVideoRenderer:
 
         print(f"[VisionFlowRenderer] 🎨 Applying overlay graphics & subtitle captions...", flush=True)
         overlays = self._overlay_materializer.download(contract.render_plan, workspace.path)
-        output_path = self._overlay_compositor.apply(output_path, overlays, workspace.path)
+        watermark_mask = getattr(contract, "watermark_mask", None) or getattr(contract.render_plan, "watermark_mask", None)
+        output_path = self._overlay_compositor.apply(output_path, overlays, workspace.path, watermark_mask=watermark_mask)
         try:
             output_path = self._caption_compositor.apply(output_path, contract.render_plan, workspace.path, caption_preset=getattr(contract, "caption_preset", "hormozi"))
         except TypeError:

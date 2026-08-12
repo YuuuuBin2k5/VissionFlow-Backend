@@ -59,16 +59,22 @@ class FfmpegOverlayCompositor:
     def __init__(self, executable: str | None = None) -> None:
         self._executable = resolve_ffmpeg_executable(executable or "ffmpeg")
 
-    def apply(self, source_path: str, layers: tuple[ResolvedOverlayLayer, ...], workspace: Path) -> str:
-        if not layers:
+    def apply(
+        self,
+        source_path: str,
+        layers: tuple[ResolvedOverlayLayer, ...],
+        workspace: Path,
+        watermark_mask: dict[str, Any] | None = None,
+    ) -> str:
+        if not layers and not (watermark_mask and watermark_mask.get("enabled")):
             return source_path
         output_path = workspace / "composition-overlaid.mp4"
         completed = subprocess.run(
-            build_ffmpeg_command(self._executable, Path(source_path), layers, output_path),
+            build_ffmpeg_command(self._executable, Path(source_path), layers, output_path, watermark_mask=watermark_mask),
             capture_output=True, text=True, check=False,
         )
         if completed.returncode != 0 or not output_path.is_file():
-            raise OverlayCompositingError("FFmpeg failed to apply the locked overlay layer")
+            raise OverlayCompositingError("FFmpeg failed to apply the locked overlay layer or watermark mask")
         return str(output_path)
 
 
@@ -84,26 +90,44 @@ def overlay_layers(render_plan: CompositionRenderPlan) -> tuple[OverlayLayer, ..
     return tuple(sorted(layers, key=lambda layer: (layer.start_ms, layer.duration_ms, layer.source_key)))
 
 
-def build_ffmpeg_command(executable: str, source_path: Path, layers: tuple[ResolvedOverlayLayer, ...], output_path: Path) -> list[str]:
+def build_ffmpeg_command(
+    executable: str,
+    source_path: Path,
+    layers: tuple[ResolvedOverlayLayer, ...],
+    output_path: Path,
+    watermark_mask: dict[str, Any] | None = None,
+) -> list[str]:
     command = [executable, "-y", "-i", str(source_path)]
     for layer in layers:
         command.extend(["-loop", "1", "-i", str(layer.path)])
     filters: list[str] = []
     previous = "0:v"
+
+    # 🛡️ Watermark Masking / Delogo Filter Pass
+    if watermark_mask and watermark_mask.get("enabled"):
+        x_pct = float(watermark_mask.get("xPercent", 80))
+        y_pct = float(watermark_mask.get("yPercent", 12))
+        w_pct = float(watermark_mask.get("widthPercent", 32))
+        h_pct = float(watermark_mask.get("heightPercent", 12))
+        mask_out = "video_masked"
+        filters.append(
+            f"[{previous}]delogo=x='trunc(main_w*{x_pct/100:.4f})':y='trunc(main_h*{y_pct/100:.4f})':w='trunc(main_w*{w_pct/100:.4f})':h='trunc(main_h*{h_pct/100:.4f})':show=0[{mask_out}]"
+        )
+        previous = mask_out
+
     for index, layer in enumerate(layers, start=1):
         scale, x, y, opacity = _normalized_transform(layer.transform)
         overlay_label, output_label = f"overlay{index}", f"video{index}"
-        # -1 is compatible with the older FFmpeg builds used by local Windows
-        # validation as well as the modern Debian worker image.
         filters.append(f"[{index}:v]scale=trunc(iw*{scale:.4f}/2)*2:-1,colorchannelmixer=aa={opacity:.4f}[{overlay_label}]")
         start, end = layer.start_ms / 1000, (layer.start_ms + layer.duration_ms) / 1000
         filters.append(f"[{previous}][{overlay_label}]overlay=x='(W-w)*{x:.4f}':y='(H-h)*{y:.4f}':enable='between(t,{start:.3f},{end:.3f})'[{output_label}]")
         previous = output_label
+
+    filter_str = ";".join(filters) if filters else f"[{previous}]copy[video0]"
+    out_map = previous if filters else "video0"
+
     command.extend([
-        # MediaService always emits the voice/audio stream. Map it explicitly
-        # rather than relying on optional-map syntax unsupported by older
-        # FFmpeg builds used in some local validation environments.
-        "-filter_complex", ";".join(filters), "-map", f"[{previous}]", "-map", "0:a",
+        "-filter_complex", filter_str, "-map", f"[{out_map}]", "-map", "0:a",
         "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-c:a", "copy",
         "-shortest", "-movflags", "+faststart", str(output_path),
     ])
