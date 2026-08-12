@@ -1512,7 +1512,11 @@ def open_manual_approval(
             request.organization_id,
             Permission.WORKFLOW_ADVANCE,
         )
-        try:
+        wf = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
+        if wf is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow run not found")
+
+        if wf.state == WorkflowState.RENDERED.value:
             result = ManualApproval(AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(session))).open(
                 OpenManualApprovalCommand(
                     organization_id=request.organization_id,
@@ -1525,17 +1529,14 @@ def open_manual_approval(
                 state=result.state.value,
                 changed=result.changed,
             )
-        except WorkflowStateConflict:
-            wf = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
-            if wf:
-                wf.state = WorkflowState.APPROVAL_PENDING.value
-                session.commit()
-                return WorkflowTransitionResponse(
-                    workflow_run_id=workflow_run_id,
-                    state=WorkflowState.APPROVAL_PENDING.value,
-                    changed=True,
-                )
-            raise
+        else:
+            wf.state = WorkflowState.APPROVAL_PENDING.value
+            session.commit()
+            return WorkflowTransitionResponse(
+                workflow_run_id=workflow_run_id,
+                state=WorkflowState.APPROVAL_PENDING.value,
+                changed=True,
+            )
 
 
 @router.post(
