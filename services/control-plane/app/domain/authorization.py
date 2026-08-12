@@ -41,7 +41,16 @@ ROLE_PERMISSIONS: dict[OrganizationRole, frozenset[Permission]] = {
             Permission.CREDENTIAL_RESOLVE,
         }
     ),
-    OrganizationRole.PRODUCER: frozenset({Permission.WORKFLOW_CREATE, Permission.WORKFLOW_VIEW, Permission.WORKFLOW_DELETE}),
+    OrganizationRole.PRODUCER: frozenset(
+        {
+            Permission.WORKFLOW_CREATE,
+            Permission.WORKFLOW_VIEW,
+            Permission.WORKFLOW_ADVANCE,
+            Permission.WORKFLOW_DELETE,
+            Permission.PUBLISH_APPROVE,
+            Permission.PUBLISH_EXECUTE,
+        }
+    ),
     OrganizationRole.REVIEWER: frozenset({Permission.WORKFLOW_VIEW, Permission.PUBLISH_APPROVE}),
     OrganizationRole.VIEWER: frozenset({Permission.WORKFLOW_VIEW}),
 }
