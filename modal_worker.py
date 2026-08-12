@@ -10,6 +10,7 @@ visionflow_image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("ffmpeg", "git", "curl", "wget")
     .pip_install(
+        "fastapi[standard]",
         "moviepy>=1.0.3",
         "edge-tts>=6.1.9",
         "pillow>=10.0.0",
@@ -80,7 +81,7 @@ def render_video_task(contract_payload: dict) -> dict:
 
 # 4. Live Webhook API Endpoint (Active 24/7 for Production Deployment)
 @app.function(image=visionflow_image)
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 def webhook_job(payload: dict):
     """
     Live HTTPS Webhook Endpoint
