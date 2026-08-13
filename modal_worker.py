@@ -122,6 +122,28 @@ def render_video_task(contract_payload: dict) -> dict:
 
         print(f"[Modal] ✅ Video render complete! Export path: {video_output}", flush=True)
 
+        # Upload rendered video to Cloudflare R2 Object Storage
+        r2_endpoint = os.environ.get("VISIONFLOW_OBJECT_STORE_ENDPOINT", "https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com")
+        r2_bucket = os.environ.get("VISIONFLOW_OBJECT_STORE_BUCKET", "vision-flow")
+        r2_access_key = os.environ.get("VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID", "fd28f47a85d2ebc22d713c7c2bfa35ed")
+        r2_secret_key = os.environ.get("VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY", "c32929321074e64f7b6cf9dbd0061e8cfbd6bfbbbd7a3d3c7d6c6e7eaee07dfd")
+        
+        object_key = f"visionflow/{workflow_run_id}/exports/final.mp4"
+        print(f"[Modal] ☁️ Uploading rendered video to R2 ({r2_bucket}/{object_key})...", flush=True)
+        try:
+            import boto3
+            s3 = boto3.client(
+                "s3",
+                endpoint_url=r2_endpoint,
+                aws_access_key_id=r2_access_key,
+                aws_secret_access_key=r2_secret_key,
+                region_name="auto"
+            )
+            s3.upload_file(video_output, r2_bucket, object_key, ExtraArgs={"ContentType": "video/mp4"})
+            print(f"[Modal] ✅ R2 Upload complete: {object_key}", flush=True)
+        except Exception as r2_err:
+            print(f"[Modal] ⚠️ R2 Upload notice: {r2_err}", flush=True)
+
         # Notify Control Plane of APPROVAL_PENDING state upon render success
         try:
             import requests

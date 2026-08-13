@@ -1535,6 +1535,24 @@ def open_manual_approval(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow run not found")
 
         wf.state = WorkflowState.APPROVAL_PENDING.value
+
+        # Automatically register MediaAsset in database for Kho Video Cloud
+        asset = session.scalar(select(MediaAsset).where(MediaAsset.workflow_run_id == workflow_run_id))
+        if asset is None:
+            project = session.scalar(select(VideoProject).where(VideoProject.id == wf.project_id))
+            title = project.title if project else str(workflow_run_id)
+            asset = MediaAsset(
+                id=uuid.uuid4(),
+                organization_id=request.organization_id,
+                workflow_run_id=workflow_run_id,
+                object_key=f"visionflow/{workflow_run_id}/exports/final.mp4",
+                media_kind="video",
+                content_type="video/mp4",
+                byte_size=10 * 1024 * 1024,
+                metadata_json={"title": title, "workflow_run_id": str(workflow_run_id)},
+            )
+            session.add(asset)
+
         session.commit()
         return WorkflowTransitionResponse(
             workflow_run_id=workflow_run_id,
