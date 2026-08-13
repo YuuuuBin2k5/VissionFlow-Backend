@@ -2069,6 +2069,12 @@ def revert_to_queue(
             state=WorkflowState.APPROVED.value,
             changed=True,
         )
+    except HTTPException:
+        raise
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 class ReportWorkflowFailureRequest(BaseModel):
     organization_id: uuid.UUID
     error: str
