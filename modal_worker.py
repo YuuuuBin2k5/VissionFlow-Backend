@@ -5,6 +5,43 @@ Modal.com Serverless Execution Engine & Live Webhook API for VisionFlow
 import os
 import modal
 
+# Voice Mapping Presets for Edge TTS
+VOICE_PRESET_MAP = {
+    "edge-nam-minh": "vi-VN-NamMinhNeural",
+    "edge-nu-hoai-my": "vi-VN-HoaiMyNeural",
+    "edge-nu-hoai-an": "vi-VN-HoaiMyNeural",
+    "edge-vi-andrew": "en-US-AndrewMultilingualNeural",
+    "edge-vi-ava": "en-US-AvaMultilingualNeural",
+    "edge-en-andrew": "en-US-AndrewNeural",
+    "edge-en-ava": "en-US-AvaNeural",
+    "edge-en-christopher": "en-US-ChristopherNeural",
+    "edge-en-ryan": "en-GB-RyanNeural",
+}
+
+def resolve_voice(voice_code: str | None) -> str:
+    if not voice_code:
+        return "vi-VN-NamMinhNeural"
+    clean = str(voice_code).strip()
+    if "-" in clean and "Neural" in clean:
+        return clean
+    return VOICE_PRESET_MAP.get(clean.lower(), "vi-VN-NamMinhNeural")
+
+def format_rate(rate: float | str | None) -> str:
+    if not rate:
+        return "+0%"
+    if isinstance(rate, (int, float)):
+        pct = int((float(rate) - 1.0) * 100)
+        return f"+{pct}%" if pct >= 0 else f"{pct}%"
+    s = str(rate).strip()
+    if s.endswith("%") and (s.startswith("+") or s.startswith("-")):
+        return s
+    try:
+        val = float(s.replace("x", ""))
+        pct = int((val - 1.0) * 100)
+        return f"+{pct}%" if pct >= 0 else f"{pct}%"
+    except Exception:
+        return "+0%"
+
 # 1. Define Debian Linux Image with FFmpeg, Playwright & Python Libraries
 visionflow_image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -49,27 +86,35 @@ def render_video_task(contract_payload: dict) -> dict:
 
     workflow_run_id = contract_payload.get("workflow_run_id", "modal_run_demo")
     script = contract_payload.get("script", "VisionFlow Serverless Video Render Test")
-    voice_code = contract_payload.get("voice_code", "vi-VN-HoaiMyNeural")
-    voice_rate = contract_payload.get("voice_rate", 1.12)
-    watermark_mask = contract_payload.get("watermark_mask", None)
+    raw_voice_code = contract_payload.get("voice_code", "vi-VN-NamMinhNeural")
+    voice_code = resolve_voice(raw_voice_code)
+    raw_voice_rate = contract_payload.get("voice_rate", 1.12)
+    voice_rate_str = format_rate(raw_voice_rate)
 
-    print(f"[Modal] 🎙️ Synthesizing speech with edge-tts (voice={voice_code}, rate={voice_rate}x)...", flush=True)
+    print(f"[Modal] 🎙️ Synthesizing speech with edge-tts (voice={voice_code}, rate={voice_rate_str})...", flush=True)
     import subprocess
     os.makedirs(f"/tmp/{workflow_run_id}", exist_ok=True)
     audio_output = f"/tmp/{workflow_run_id}/tts_voice.mp3"
     
-    tts_cmd = f"edge-tts --text '{script}' --voice {voice_code} --write-media {audio_output}"
-    subprocess.run(tts_cmd, shell=True, check=True)
+    tts_cmd = [
+        "edge-tts",
+        "--text", script,
+        "--voice", voice_code,
+        "--rate", voice_rate_str,
+        "--write-media", audio_output
+    ]
+    subprocess.run(tts_cmd, check=True)
 
     print(f"[Modal] 🎨 Applying FFmpeg Video Delogo & Subtitle Filters...", flush=True)
     video_output = f"/tmp/{workflow_run_id}/final_output.mp4"
     
     # Generate test video or combine with background assets
-    ffmpeg_cmd = (
-        f"ffmpeg -y -f lavfi -i color=c=black:s=1080x1920:d=10 "
-        f"-i {audio_output} -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p {video_output}"
-    )
-    subprocess.run(ffmpeg_cmd, shell=True, check=True)
+    ffmpeg_cmd = [
+        "ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=black:s=1080x1920:d=10",
+        "-i", audio_output, "-c:v", "libx264", "-tune", "stillimage",
+        "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p", video_output
+    ]
+    subprocess.run(ffmpeg_cmd, check=True)
 
     print(f"[Modal] ✅ Video render complete! Export path: {video_output}", flush=True)
     return {
@@ -102,7 +147,7 @@ def main():
     test_payload = {
         "workflow_run_id": "test_modal_001",
         "script": "Xin chào! Đây là video ngắn được tạo tự động 100% miễn phí từ Modal Cloud Serverless.",
-        "voice_code": "vi-VN-HoaiMyNeural",
+        "voice_code": "edge-nam-minh",
         "voice_rate": 1.12
     }
     result = render_video_task.remote(test_payload)
