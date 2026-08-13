@@ -42,10 +42,10 @@ def format_rate(rate: float | str | None) -> str:
     except Exception:
         return "+0%"
 
-# 1. Define Debian Linux Image with FFmpeg, Playwright & Python Libraries
+# 1. Define Debian Linux Image with FFmpeg, Fonts, Playwright & Python Libraries
 visionflow_image = (
     modal.Image.debian_slim(python_version="3.11")
-    .apt_install("ffmpeg", "git", "curl", "wget")
+    .apt_install("ffmpeg", "git", "curl", "wget", "fonts-dejavu-core", "fonts-liberation", "fontconfig")
     .pip_install(
         "fastapi[standard]",
         "moviepy>=1.0.3",
@@ -59,6 +59,81 @@ visionflow_image = (
     )
     .run_commands("playwright install chromium --with-deps")
 )
+
+def format_ass_time(seconds: float) -> str:
+    hrs = int(seconds // 3600)
+    mins = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    cs = int(round((seconds % 1) * 100))
+    if cs >= 100:
+        cs = 99
+    return f"{hrs}:{mins:02d}:{secs:02d}.{cs:02d}"
+
+def generate_ass_subtitles(
+    script_text: str,
+    transcripts: list[dict] | None,
+    title_banner: str | None,
+    video_duration: float,
+    output_ass_path: str,
+    caption_color: str = "#FFE600",
+    font_size: int = 64
+) -> str:
+    import re
+    c = caption_color.lstrip("#")
+    if len(c) == 6:
+        r, g, b = c[0:2], c[2:4], c[4:6]
+        ass_color = f"&H00{b}{g}{r}".upper()
+    else:
+        ass_color = "&H0000E6FF"
+
+    header = f"""[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,DejaVu Sans,{font_size},{ass_color},&H00000000,&H00000000,&H90000000,-1,0,0,0,100,100,0,0,1,4,2,2,60,60,260,1
+Style: TitleStyle,DejaVu Sans,48,&H00FFFFFF,&H00000000,&H00000000,&H90000000,-1,0,0,0,100,100,0,0,1,3,2,8,40,40,220,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+    events = []
+    if title_banner:
+        title_clean = title_banner.replace("\n", " ").strip()
+        end_time_str = format_ass_time(video_duration)
+        events.append(f"Dialogue: 0,0:00:00.00,{end_time_str},TitleStyle,,0,0,0,,{{\\b1\\an8}}{title_clean}")
+
+    lines_to_render = []
+    if transcripts and isinstance(transcripts, list) and len(transcripts) > 0:
+        for item in transcripts:
+            txt = str(item.get("text") or item.get("translated_text") or "").strip()
+            st = float(item.get("start", 0))
+            et = float(item.get("end", st + 2.0))
+            if txt and txt != ".":
+                lines_to_render.append((st, et, txt))
+    else:
+        chunks = [c.strip() for c in re.split(r'[.!?,\n]+', script_text) if c.strip()]
+        if not chunks:
+            chunks = [script_text]
+        chunk_duration = max(1.5, video_duration / max(1, len(chunks)))
+        curr_t = 0.0
+        for chunk in chunks:
+            next_t = min(video_duration, curr_t + chunk_duration)
+            lines_to_render.append((curr_t, next_t, chunk))
+            curr_t = next_t
+
+    for st, et, txt in lines_to_render:
+        start_str = format_ass_time(st)
+        end_str = format_ass_time(et)
+        txt_clean = txt.replace("\n", " ").replace('"', '').strip()
+        events.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{{\\b1}}{txt_clean}")
+
+    with open(output_ass_path, "w", encoding="utf-8") as f:
+        f.write(header + "\n".join(events) + "\n")
+    return output_ass_path
 
 # 2. Initialize Modal App
 app = modal.App("visionflow-render-engine")
@@ -110,13 +185,47 @@ def render_video_task(contract_payload: dict) -> dict:
         ]
         subprocess.run(tts_cmd, check=True)
 
-        print(f"[Modal] 🎨 Applying FFmpeg Video Delogo & Subtitle Filters...", flush=True)
+        # Probe exact audio duration
+        duration_cmd = [
+            "ffprobe", "-v", "error", "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1", audio_output
+        ]
+        dur_res = subprocess.run(duration_cmd, capture_output=True, text=True, check=True)
+        audio_duration = float(dur_res.stdout.strip())
+        video_duration = max(3.0, round(audio_duration + 0.5, 2))
+
+        # Generate ASS Subtitles
+        ass_path = f"/tmp/{workflow_run_id}/subtitles.ass"
+        generate_ass_subtitles(
+            script_text=script,
+            transcripts=contract_payload.get("transcripts"),
+            title_banner=contract_payload.get("titleBannerText") or contract_payload.get("title"),
+            video_duration=video_duration,
+            output_ass_path=ass_path,
+            caption_color=contract_payload.get("captionColor", "#FFE600"),
+            font_size=contract_payload.get("captionFontSize", 64)
+        )
+
+        print(f"[Modal] 🎨 Applying FFmpeg Motion Background & Subtitle Filters...", flush=True)
         video_output = f"/tmp/{workflow_run_id}/final_output.mp4"
-        
+
+        filter_complex = (
+            f"testsrc2=s=1080x1920:d={video_duration}:r=25,"
+            "format=yuv420p,"
+            "hue=h=140:s=2.0,"
+            "gblur=sigma=80,"
+            "colorbalance=rs=0.2:gs=-0.1:bs=0.6,"
+            f"subtitles='{ass_path}'"
+        )
+
         ffmpeg_cmd = [
-            "ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=black:s=1080x1920:d=10",
-            "-i", audio_output, "-c:v", "libx264", "-tune", "stillimage",
-            "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p", video_output
+            "ffmpeg", "-y",
+            "-f", "lavfi", "-i", f"color=c=0x0b0f19:s=1080x1920:d={video_duration}",
+            "-i", audio_output,
+            "-filter_complex", filter_complex,
+            "-c:v", "libx264", "-preset", "fast", "-crf", "20",
+            "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p",
+            "-shortest", video_output
         ]
         subprocess.run(ffmpeg_cmd, check=True)
 
