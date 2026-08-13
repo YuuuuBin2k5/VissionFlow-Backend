@@ -2051,10 +2051,35 @@ def revert_to_queue(
             state=WorkflowState.APPROVED.value,
             changed=True,
         )
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
-    except LookupError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow run not found") from exc
+class ReportWorkflowFailureRequest(BaseModel):
+    organization_id: uuid.UUID
+    error: str
+
+
+@router.post(
+    "/workflows/{workflow_run_id}/failure",
+    response_model=WorkflowTransitionResponse,
+    summary="Report a video render or execution failure to mark workflow FAILED",
+)
+def report_workflow_failure(
+    workflow_run_id: uuid.UUID,
+    request: ReportWorkflowFailureRequest,
+    session: Session = Depends(get_session),
+) -> WorkflowTransitionResponse:
+    """Worker intake boundary: Mark workflow run as FAILED with error description."""
+    wf = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
+    if wf is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow run not found")
+
+    wf.state = WorkflowState.FAILED.value
+    wf.failure_code = request.error[:255]
+    session.commit()
+
+    return WorkflowTransitionResponse(
+        workflow_run_id=workflow_run_id,
+        state=WorkflowState.FAILED.value,
+        changed=True,
+    )
 
 
 @router.delete(
