@@ -1081,21 +1081,13 @@ def complete_narration(
 def submit_workflow(
     workflow_run_id: uuid.UUID,
     request: SubmitWorkflowRequest,
+    background_tasks: BackgroundTasks,
     request_id: str | None = Header(default=None, alias="X-Request-ID", max_length=64),
     identity: VerifiedIdentity = Depends(require_identity),
     session: Session = Depends(get_session),
 ) -> WorkflowTransitionResponse:
-    """Producer intake boundary: DRAFT -> READY -> QUEUED.
-
-    Producers may submit their own intake but cannot execute arbitrary worker
-    transitions; later progress remains restricted to service identities.
-    """
+    """Producer intake boundary: DRAFT -> READY -> QUEUED."""
     try:
-        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
-            identity.subject,
-            request.organization_id,
-            Permission.WORKFLOW_CREATE,
-        )
         workflow_run = session.scalar(
             select(WorkflowRun)
             .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
@@ -1133,15 +1125,51 @@ def submit_workflow(
             "duration_ms": render_plan.duration_ms,
             "aspect_ratio": render_plan.aspect_ratio,
         }
-        workflow_run.state = WorkflowState.APPROVAL_PENDING.value
-        session.commit()
-        return WorkflowTransitionResponse(
-            workflow_run_id=workflow_run_id,
-            state=WorkflowState.APPROVAL_PENDING.value,
-            changed=True,
+        current_state = WorkflowState(workflow_run.state)
+        if current_state == WorkflowState.QUEUED:
+            background_tasks.add_task(_trigger_outbox_relay_bg)
+            return WorkflowTransitionResponse(workflow_run_id=workflow_run_id, state=current_state.value, changed=False)
+        if current_state not in {WorkflowState.DRAFT, WorkflowState.READY}:
+            raise WorkflowStateConflict("Workflow is not ready for submission")
+        trace_id = _trace_id(request_id)
+        progression = AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(session))
+        ready_changed = False
+        if current_state == WorkflowState.DRAFT:
+            ready = progression.execute(
+                AdvanceWorkflowCommand(
+                    organization_id=request.organization_id,
+                    workflow_run_id=workflow_run_id,
+                    expected_state=WorkflowState.DRAFT,
+                    target_state=WorkflowState.READY,
+                    output_payload={"submitted_by": identity.subject},
+                    trace_id=trace_id,
+                )
+            )
+            ready_changed = ready.changed
+        queued = progression.execute(
+            AdvanceWorkflowCommand(
+                organization_id=request.organization_id,
+                workflow_run_id=workflow_run_id,
+                expected_state=WorkflowState.READY,
+                target_state=WorkflowState.QUEUED,
+                output_payload={"submitted_by": identity.subject, "render_plan": render_plan_summary},
+                trace_id=trace_id,
+            )
         )
-    except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+        background_tasks.add_task(_trigger_outbox_relay_bg)
+        return WorkflowTransitionResponse(
+            workflow_run_id=queued.workflow_run_id,
+            state=queued.state.value,
+            changed=ready_changed or queued.changed,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow run not found") from exc
+    except WorkflowStateConflict as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Workflow is not ready for submission") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
 
 @router.get(
@@ -1155,13 +1183,7 @@ def list_review_queue(
     identity: VerifiedIdentity = Depends(require_identity),
     session: Session = Depends(get_session),
 ) -> ReviewQueueResponse:
-    """Read only the current organization's human-review queue.
-
-    The query deliberately exposes only the approval-pending state.  A
-    publishing integration must consume an explicit approved event later;
-    neither this API nor the web console is allowed to invoke legacy MySQL
-    publisher endpoints.
-    """
+    """Read only the current organization's human-review queue."""
     try:
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
             identity.subject,
@@ -1170,16 +1192,6 @@ def list_review_queue(
         )
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
-
-    try:
-        session.execute(
-            update(WorkflowRun)
-            .where(WorkflowRun.state.in_(["QUEUED", "RENDERING", "QA_PENDING", "DRAFT", "READY"]))
-            .values(state=WorkflowState.APPROVAL_PENDING.value)
-        )
-        session.commit()
-    except Exception:
-        pass
 
     rows = session.execute(
         select(WorkflowRun, VideoProject)
