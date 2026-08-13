@@ -13,7 +13,7 @@ import requests as _requests_mod
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import or_, select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -2108,15 +2108,15 @@ def report_workflow_failure(
 
 @router.delete(
     "/workflows/{workflow_run_id}",
-    summary="Admin endpoint: delete or cancel a video workflow run",
+    summary="Admin endpoint: permanently delete a video workflow run and child records",
 )
 def delete_workflow(
     workflow_run_id: uuid.UUID,
     organization_id: uuid.UUID = Query(...),
     identity: VerifiedIdentity = Depends(require_identity),
     session: Session = Depends(get_session),
-) -> dict[str, str]:
-    """Admin feature: Mark a workflow run as CANCELED so it is completely hidden from queues and calendar."""
+) -> dict[str, Any]:
+    """Admin feature: Permanently hard-delete a workflow run, publication attempts, steps, and media assets."""
     try:
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
             identity.subject, organization_id, Permission.WORKFLOW_VIEW
@@ -2125,19 +2125,13 @@ def delete_workflow(
         if wf is None:
             raise LookupError("Workflow run not found")
 
-        wf.state = WorkflowState.CANCELED.value
-
-        publish_step = session.scalar(
-            select(WorkflowStep).where(
-                WorkflowStep.workflow_run_id == workflow_run_id,
-                WorkflowStep.step_key == "publish",
-            )
-        )
-        if publish_step:
-            publish_step.state = WorkflowState.CANCELED.value
-
+        # Hard delete child records first to satisfy foreign key constraints
+        session.execute(delete(PublicationAttempt).where(PublicationAttempt.workflow_run_id == workflow_run_id))
+        session.execute(delete(WorkflowStep).where(WorkflowStep.workflow_run_id == workflow_run_id))
+        session.execute(delete(MediaAsset).where(MediaAsset.workflow_run_id == workflow_run_id))
+        session.delete(wf)
         session.commit()
-        return {"workflow_run_id": str(workflow_run_id), "status": "canceled"}
+        return {"workflow_run_id": str(workflow_run_id), "status": "deleted", "deleted": True}
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
     except LookupError as exc:
