@@ -78,51 +78,80 @@ def render_video_task(contract_payload: dict) -> dict:
     1-Pass Serverless Execution Pipeline on Modal.com
     Receives CreationSpec / Contract Payload from Frontend or Webhook,
     Executes Ingest -> TTS -> FFmpeg Delogo & Subtitle -> R2 Upload -> Social Publish.
+    Catches all exceptions gracefully and notifies Control Plane API of success/failure.
     """
+    workflow_run_id = contract_payload.get("workflow_run_id", "modal_run_demo")
+    control_plane_url = contract_payload.get("control_plane_url", "https://visionflow-control-plane-free.onrender.com/api/v1")
+    organization_id = contract_payload.get("organization_id", "7b91598c-6c3e-4e5d-8247-d3efa203984a")
+
     print("=================================================================", flush=True)
     print("🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...", flush=True)
-    print(f"📌 Payload: {contract_payload}", flush=True)
+    print(f"📌 Workflow Run ID: {workflow_run_id}", flush=True)
     print("=================================================================", flush=True)
 
-    workflow_run_id = contract_payload.get("workflow_run_id", "modal_run_demo")
-    script = contract_payload.get("script", "VisionFlow Serverless Video Render Test")
-    raw_voice_code = contract_payload.get("voice_code", "vi-VN-NamMinhNeural")
-    voice_code = resolve_voice(raw_voice_code)
-    raw_voice_rate = contract_payload.get("voice_rate", 1.12)
-    voice_rate_str = format_rate(raw_voice_rate)
+    try:
+        script = contract_payload.get("captionText") or contract_payload.get("script") or "VisionFlow Serverless Video Render Test"
+        raw_voice_code = contract_payload.get("voice_code", "vi-VN-NamMinhNeural")
+        voice_code = resolve_voice(raw_voice_code)
+        raw_voice_rate = contract_payload.get("voice_rate", 1.12)
+        voice_rate_str = format_rate(raw_voice_rate)
 
-    print(f"[Modal] 🎙️ Synthesizing speech with edge-tts (voice={voice_code}, rate={voice_rate_str})...", flush=True)
-    import subprocess
-    os.makedirs(f"/tmp/{workflow_run_id}", exist_ok=True)
-    audio_output = f"/tmp/{workflow_run_id}/tts_voice.mp3"
-    
-    tts_cmd = [
-        "edge-tts",
-        "--text", script,
-        "--voice", voice_code,
-        "--rate", voice_rate_str,
-        "--write-media", audio_output
-    ]
-    subprocess.run(tts_cmd, check=True)
+        print(f"[Modal] 🎙️ Synthesizing speech with edge-tts (voice={voice_code}, rate={voice_rate_str})...", flush=True)
+        import subprocess
+        os.makedirs(f"/tmp/{workflow_run_id}", exist_ok=True)
+        audio_output = f"/tmp/{workflow_run_id}/tts_voice.mp3"
+        
+        tts_cmd = [
+            "edge-tts",
+            "--text", script,
+            "--voice", voice_code,
+            "--rate", voice_rate_str,
+            "--write-media", audio_output
+        ]
+        subprocess.run(tts_cmd, check=True)
 
-    print(f"[Modal] 🎨 Applying FFmpeg Video Delogo & Subtitle Filters...", flush=True)
-    video_output = f"/tmp/{workflow_run_id}/final_output.mp4"
-    
-    # Generate test video or combine with background assets
-    ffmpeg_cmd = [
-        "ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=black:s=1080x1920:d=10",
-        "-i", audio_output, "-c:v", "libx264", "-tune", "stillimage",
-        "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p", video_output
-    ]
-    subprocess.run(ffmpeg_cmd, check=True)
+        print(f"[Modal] 🎨 Applying FFmpeg Video Delogo & Subtitle Filters...", flush=True)
+        video_output = f"/tmp/{workflow_run_id}/final_output.mp4"
+        
+        ffmpeg_cmd = [
+            "ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=black:s=1080x1920:d=10",
+            "-i", audio_output, "-c:v", "libx264", "-tune", "stillimage",
+            "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p", video_output
+        ]
+        subprocess.run(ffmpeg_cmd, check=True)
 
-    print(f"[Modal] ✅ Video render complete! Export path: {video_output}", flush=True)
-    return {
-        "status": "SUCCESS",
-        "workflow_run_id": workflow_run_id,
-        "video_output_path": video_output,
-        "message": "Render completed on Modal.com 0 VNĐ Serverless Infrastructure!"
-    }
+        print(f"[Modal] ✅ Video render complete! Export path: {video_output}", flush=True)
+
+        # Notify Control Plane of APPROVAL_PENDING state upon render success
+        try:
+            import requests
+            notify_url = f"{control_plane_url}/workflows/{workflow_run_id}/approval/open"
+            requests.post(notify_url, json={"organization_id": organization_id}, timeout=10)
+        except Exception as report_err:
+            print(f"[Modal] ⚠️ Notice reporting success to Control Plane: {report_err}", flush=True)
+
+        return {
+            "status": "SUCCESS",
+            "workflow_run_id": workflow_run_id,
+            "video_output_path": video_output,
+            "message": "Render completed on Modal.com 0 VNĐ Serverless Infrastructure!"
+        }
+
+    except Exception as exc:
+        error_msg = f"Modal Render Task Failed: {exc}"
+        print(f"❌ [Modal Worker Error] {error_msg}", flush=True)
+        # Notify Control Plane of FAILED state so frontend progress tracker stops polling immediately!
+        try:
+            import requests
+            fail_url = f"{control_plane_url}/workflows/{workflow_run_id}/failure"
+            requests.post(fail_url, json={"organization_id": organization_id, "error": error_msg}, timeout=10)
+        except Exception:
+            pass
+        return {
+            "status": "FAILED",
+            "workflow_run_id": workflow_run_id,
+            "error": error_msg
+        }
 
 # 4. Live Webhook API Endpoint (Active 24/7 for Production Deployment)
 @app.function(image=visionflow_image)
