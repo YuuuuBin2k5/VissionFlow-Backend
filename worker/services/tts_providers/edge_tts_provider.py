@@ -34,7 +34,9 @@ class EdgeTTSProvider(TTSProvider):
         output_path: str,
         voice_profile: dict,
     ) -> list[dict]:
-        voice = voice_profile.get("voice", "vi-VN-NamMinhNeural")
+        raw_voice = voice_profile.get("voice", "vi-VN-NamMinhNeural")
+        from worker.services.visionflow_tts import resolve_voice
+        voice = resolve_voice(raw_voice)
         rate = voice_profile.get("rate", "-6%")
 
         print(f"[EdgeTTSProvider] Generating TTS. Voice: {voice}, Rate: {rate}")
