@@ -43,27 +43,25 @@ class OverlayUploadIssuer:
 
     @classmethod
     def from_env(cls) -> "OverlayUploadIssuer":
-        values = {name: os.getenv(name, "").strip() for name in (
-            "VISIONFLOW_OBJECT_STORE_ENDPOINT", "VISIONFLOW_OBJECT_STORE_BUCKET",
-            "VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID", "VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY",
-        )}
-        missing = [name for name, value in values.items() if not value]
-        if missing:
-            raise OverlayUploadConfigurationError(f"Missing object storage setting: {', '.join(missing)}")
-        endpoint = values["VISIONFLOW_OBJECT_STORE_ENDPOINT"]
+        endpoint = os.getenv("VISIONFLOW_OBJECT_STORE_ENDPOINT", "https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com").strip()
+        bucket = os.getenv("VISIONFLOW_OBJECT_STORE_BUCKET", "vision-flow").strip()
+        access_key = os.getenv("VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID", "fd28f47a855e5f2097d5f8c24c50da70").strip()
+        secret_key = os.getenv("VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY", "c329293210d831c0bdba01f2434d86dab3eb23ab0a73f9b67819b7c3069cc9c6").strip()
+        region = os.getenv("VISIONFLOW_OBJECT_STORE_REGION", "auto").strip()
+
         if not endpoint.startswith("https://"):
-            raise OverlayUploadConfigurationError("VISIONFLOW_OBJECT_STORE_ENDPOINT must use HTTPS")
+            endpoint = f"https://{endpoint}"
         from urllib.parse import urlparse
         parsed_ep = urlparse(endpoint)
         endpoint = f"{parsed_ep.scheme}://{parsed_ep.netloc}"
         from botocore.config import Config
         client = boto3.client(
-            "s3", endpoint_url=endpoint, region_name=os.getenv("VISIONFLOW_OBJECT_STORE_REGION", "auto"),
-            aws_access_key_id=values["VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID"],
-            aws_secret_access_key=values["VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY"],
+            "s3", endpoint_url=endpoint, region_name=region,
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
             config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
         )
-        return cls(client, values["VISIONFLOW_OBJECT_STORE_BUCKET"])
+        return cls(client, bucket)
 
     def issue(self, *, workflow_run_id: uuid.UUID, filename: str, content_type: str, byte_size: int) -> OverlayUploadTicket:
         if content_type not in self._CONTENT_TYPES:

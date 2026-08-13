@@ -200,15 +200,16 @@ def list_video_vault_assets(
         # Tính Presigned Download URL từ R2
         download_url = asset.object_key
         if asset.object_key and not (asset.object_key.startswith("http://") or asset.object_key.startswith("https://")):
-            if preview_issuer and wf_run:
-                try:
-                    ticket = preview_issuer.issue_final_export(
-                        workflow_run_id=wf_run.id,
-                        object_key=asset.object_key,
-                    )
-                    download_url = ticket.download_url
-                except Exception:
-                    download_url = f"https://visionflow-preview.local/exports/{wf_run.id}/final.mp4"
+            try:
+                issuer = preview_issuer or PrivateObjectPreviewIssuer.from_env()
+                ticket = issuer.issue_final_export(
+                    workflow_run_id=asset.workflow_run_id or (wf_run.id if wf_run else asset.id),
+                    object_key=asset.object_key,
+                )
+                download_url = ticket.download_url
+            except Exception as err:
+                logger.warning("Error generating presigned URL for asset %s: %s", asset.id, err)
+                download_url = f"https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/{asset.object_key.split('?')[0]}"
 
         # Phân loại filter
         if state_filter:
