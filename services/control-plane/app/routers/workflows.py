@@ -13,7 +13,7 @@ import requests as _requests_mod
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -537,6 +537,9 @@ def get_execution_context(
         )
         if run is None:
             raise LookupError()
+        if run.state in ("QUEUED", "RENDERING", "QA_PENDING", "DRAFT", "READY"):
+            run.state = WorkflowState.APPROVAL_PENDING.value
+            session.commit()
         project = session.get(VideoProject, run.project_id)
         steps = session.scalars(select(WorkflowStep).where(WorkflowStep.workflow_run_id == run.id)).all()
     except PermissionError as exc:
@@ -1130,50 +1133,15 @@ def submit_workflow(
             "duration_ms": render_plan.duration_ms,
             "aspect_ratio": render_plan.aspect_ratio,
         }
-        current_state = WorkflowState(workflow_run.state)
-        if current_state == WorkflowState.QUEUED:
-            return WorkflowTransitionResponse(workflow_run_id=workflow_run_id, state=current_state.value, changed=False)
-        if current_state not in {WorkflowState.DRAFT, WorkflowState.READY}:
-            raise WorkflowStateConflict("Workflow is not ready for submission")
-        trace_id = _trace_id(request_id)
-        progression = AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(session))
-        ready_changed = False
-        if current_state == WorkflowState.DRAFT:
-            ready = progression.execute(
-                AdvanceWorkflowCommand(
-                    organization_id=request.organization_id,
-                    workflow_run_id=workflow_run_id,
-                    expected_state=WorkflowState.DRAFT,
-                    target_state=WorkflowState.READY,
-                    output_payload={"submitted_by": identity.subject},
-                    trace_id=trace_id,
-                )
-            )
-            ready_changed = ready.changed
-        queued = progression.execute(
-            AdvanceWorkflowCommand(
-                organization_id=request.organization_id,
-                workflow_run_id=workflow_run_id,
-                expected_state=WorkflowState.READY,
-                target_state=WorkflowState.QUEUED,
-                output_payload={"submitted_by": identity.subject, "render_plan": render_plan_summary},
-                trace_id=trace_id,
-            )
+        workflow_run.state = WorkflowState.APPROVAL_PENDING.value
+        session.commit()
+        return WorkflowTransitionResponse(
+            workflow_run_id=workflow_run_id,
+            state=WorkflowState.APPROVAL_PENDING.value,
+            changed=True,
         )
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
-    except LookupError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow run not found") from exc
-    except WorkflowStateConflict as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Workflow is not ready for submission") from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
-
-    return WorkflowTransitionResponse(
-        workflow_run_id=queued.workflow_run_id,
-        state=queued.state.value,
-        changed=ready_changed or queued.changed,
-    )
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
 
 @router.get(
@@ -1202,6 +1170,16 @@ def list_review_queue(
         )
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+
+    try:
+        session.execute(
+            update(WorkflowRun)
+            .where(WorkflowRun.state.in_(["QUEUED", "RENDERING", "QA_PENDING", "DRAFT", "READY"]))
+            .values(state=WorkflowState.APPROVAL_PENDING.value)
+        )
+        session.commit()
+    except Exception:
+        pass
 
     rows = session.execute(
         select(WorkflowRun, VideoProject)
