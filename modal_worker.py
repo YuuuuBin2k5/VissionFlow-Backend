@@ -206,27 +206,60 @@ def render_video_task(contract_payload: dict) -> dict:
             font_size=contract_payload.get("captionFontSize", 64)
         )
 
-        print(f"[Modal] 🎨 Applying FFmpeg Motion Background & Subtitle Filters...", flush=True)
+        # Check if custom background video or image URL is provided in contract payload
+        bg_url = contract_payload.get("background_video_url") or contract_payload.get("background_image_url") or contract_payload.get("background_url") or contract_payload.get("media_url")
+        custom_bg_downloaded = False
+        bg_file_path = f"/tmp/{workflow_run_id}/custom_bg"
+
+        if bg_url and (bg_url.startswith("http://") or bg_url.startswith("https://")):
+            try:
+                print(f"[Modal] 📥 Downloading custom background media from {bg_url[:60]}...", flush=True)
+                import requests
+                r_bg = requests.get(bg_url, timeout=30, stream=True)
+                if r_bg.status_code == 200:
+                    with open(bg_file_path, "wb") as f_bg:
+                        for chunk in r_bg.iter_content(chunk_size=8192):
+                            f_bg.write(chunk)
+                    custom_bg_downloaded = True
+                    print(f"[Modal] ✅ Downloaded custom background media ({os.path.getsize(bg_file_path)} bytes)", flush=True)
+            except Exception as bg_err:
+                print(f"[Modal] ⚠️ Notice: Could not download custom background ({bg_err}), using high-aesthetic motion gradient background.", flush=True)
+
         video_output = f"/tmp/{workflow_run_id}/final_output.mp4"
 
-        filter_complex = (
-            f"testsrc2=s=1080x1920:d={video_duration}:r=25,"
-            "format=yuv420p,"
-            "hue=h=140:s=2.0,"
-            "gblur=sigma=80,"
-            "colorbalance=rs=0.2:gs=-0.1:bs=0.6,"
-            f"subtitles='{ass_path}'"
-        )
+        if custom_bg_downloaded:
+            print(f"[Modal] 🎨 Applying custom background & ASS subtitle overlay...", flush=True)
+            ffmpeg_cmd = [
+                "ffmpeg", "-y",
+                "-stream_loop", "-1", "-i", bg_file_path,
+                "-i", audio_output,
+                "-vf", f"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,subtitles='{ass_path}'",
+                "-c:v", "libx264", "-preset", "fast", "-crf", "20",
+                "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p",
+                "-t", str(video_duration),
+                video_output
+            ]
+        else:
+            print(f"[Modal] 🎨 Applying FFmpeg Motion Background & Subtitle Filters...", flush=True)
+            filter_complex = (
+                f"testsrc2=s=1080x1920:d={video_duration}:r=25,"
+                "format=yuv420p,"
+                "hue=h=140:s=2.0,"
+                "gblur=sigma=80,"
+                "colorbalance=rs=0.2:gs=-0.1:bs=0.6,"
+                f"subtitles='{ass_path}'"
+            )
 
-        ffmpeg_cmd = [
-            "ffmpeg", "-y",
-            "-f", "lavfi", "-i", f"color=c=0x0b0f19:s=1080x1920:d={video_duration}",
-            "-i", audio_output,
-            "-filter_complex", filter_complex,
-            "-c:v", "libx264", "-preset", "fast", "-crf", "20",
-            "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p",
-            "-shortest", video_output
-        ]
+            ffmpeg_cmd = [
+                "ffmpeg", "-y",
+                "-f", "lavfi", "-i", f"color=c=0x0b0f19:s=1080x1920:d={video_duration}",
+                "-i", audio_output,
+                "-filter_complex", filter_complex,
+                "-c:v", "libx264", "-preset", "fast", "-crf", "20",
+                "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p",
+                "-shortest", video_output
+            ]
+
         subprocess.run(ffmpeg_cmd, check=True)
 
         print(f"[Modal] ✅ Video render complete! Export path: {video_output}", flush=True)
