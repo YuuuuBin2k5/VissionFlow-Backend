@@ -931,7 +931,10 @@ class ManageCreativeSession:
                 "enable_progress_bar": creation_spec.get("enable_progress_bar", True),
                 "enable_follow_cta": creation_spec.get("enable_follow_cta", True),
                 "enable_outro_card": creation_spec.get("enable_outro_card", True),
-                "target_platforms": ["tiktok", "youtube_shorts", "reels"],
+                "title": proposal.title or creation_spec.get("title") or sess.brief,
+                "brief": sess.brief,
+                "script": proposal.script or creation_spec.get("script") or "",
+                "scenes": proposal.scenes or [],
                 "session_id": str(session_id),
                 "accepted_proposal_id": str(accepted_proposal_id),
             }
