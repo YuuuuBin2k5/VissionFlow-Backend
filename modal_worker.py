@@ -64,8 +64,10 @@ visionflow_image = (
     )
     .run_commands(
         "mkdir -p /usr/share/fonts/truetype/googlefonts",
+        "wget -q -O /usr/share/fonts/truetype/googlefonts/Outfit-Bold.ttf https://github.com/google/fonts/raw/main/ofl/outfit/Outfit%5Bwght%5D.ttf || true",
         "wget -q -O /usr/share/fonts/truetype/googlefonts/Montserrat-Bold.ttf https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Bold.ttf || true",
         "wget -q -O /usr/share/fonts/truetype/googlefonts/BebasNeue-Regular.ttf https://github.com/google/fonts/raw/main/ofl/bebasneue/BebasNeue-Regular.ttf || true",
+        "wget -q -O /usr/share/fonts/truetype/googlefonts/Anton-Regular.ttf https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf || true",
         "fc-cache -fv"
     )
     .pip_install(
@@ -85,6 +87,28 @@ visionflow_image = (
     )
     .run_commands("playwright install chromium --with-deps")
 )
+
+def normalize_vietnamese_script(raw_text: str) -> str:
+    """
+    Cleans AI director tags, normalizes ellipses and brackets into natural speech punctuation,
+    ensuring 100% of words are preserved and naturally pronounced by Edge TTS.
+    """
+    if not raw_text:
+        return ""
+    # 1. Remove bracketed director emotion tags: [dramatic], [whispers], [excited], (thì thầm), etc.
+    text = re.sub(r'\[.*?\]', ' ', str(raw_text))
+    text = re.sub(r'\(.*?\)', ' ', text)
+    
+    # 2. Normalize ellipses ... into natural pauses (, or .) so TTS does not skip preceding words
+    text = re.sub(r'\.{3,}', ', ', text)
+    text = re.sub(r'…', ', ', text)
+    
+    # 3. Clean duplicate punctuation and extra spaces
+    text = re.sub(r'[,]{2,}', ',', text)
+    text = re.sub(r'[!]{2,}', '!', text)
+    text = re.sub(r'[?]{2,}', '?', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
 
 NOISE_WORDS = {
     "cappy", "para", "boni", "duck", "scholar", "robe", "mascot", "3d", "anime", "ghibli",
@@ -107,19 +131,53 @@ TOPIC_STOCK_MAP = {
 }
 
 def extract_visual_keywords(prompt: str, gemini_api_key: str | None = None) -> list[str]:
-    """Uses LLM Gemini or NLP Heuristics to extract clean 2-3 word stock queries."""
+    """Uses LLM Gemini or NLP Visual Metaphors to extract clean 2-3 word English stock queries for Pexels Video API."""
     prompt_clean = str(prompt or "").strip()
     if not prompt_clean:
-        return ["aesthetic nature vertical", "city night vertical", "abstract lighting vertical"]
+        return ["cinematic mountain peak", "city night lights", "cozy library room"]
 
+    # 1. Direct Visual Concept & Metaphor Mappings for Vietnamese & English terms
+    prompt_lower = prompt_clean.lower()
+    mapped_queries = []
+    
+    # Psychological / Philosophical / Mindset concepts
+    if any(k in prompt_lower for k in ["dunning", "kruger", "nghiên cứu", "tâm lý", "psychology", "khoa học", "chấn động"]):
+        mapped_queries.append("science laboratory research")
+        mapped_queries.append("brain psychology medical")
+    if any(k in prompt_lower for k in ["tự tin", "ngông cuồng", "ít năng lực", "arrogant", "confident", "thách thức"]):
+        mapped_queries.append("confident businessman walking")
+        mapped_queries.append("man standing edge mountain")
+    if any(k in prompt_lower for k in ["khiêm tốn", "cúi đầu", "cao thủ", "humble", "master", "thiền", "trưởng thành"]):
+        mapped_queries.append("meditation mountain silhouette")
+        mapped_queries.append("wise old master")
+    if any(k in prompt_lower for k in ["núi ngu ngốc", "đỉnh núi", "peak", "mountain", "climbing", "vực thẳm"]):
+        mapped_queries.append("foggy mountain peak sunrise")
+        mapped_queries.append("mountain climber summit")
+    if any(k in prompt_lower for k in ["tri thức", "sách", "học hỏi", "library", "knowledge", "reading", "ancient"]):
+        mapped_queries.append("ancient library book")
+        mapped_queries.append("turning book pages")
+    if any(k in prompt_lower for k in ["tiền", "tài chính", "giàu", "money", "finance", "wealth", "gold"]):
+        mapped_queries.append("money counting cash")
+        mapped_queries.append("gold coins glowing")
+    if any(k in prompt_lower for k in ["vũ trụ", "ngôi sao", "galaxy", "space", "stars", "nebula"]):
+        mapped_queries.append("starry night sky milkyway")
+        mapped_queries.append("deep space nebula")
+    if any(k in prompt_lower for k in ["biển", "sóng", "đại dương", "ocean", "sea", "waves"]):
+        mapped_queries.append("dramatic ocean waves sunset")
+
+    if mapped_queries:
+        return mapped_queries[:3]
+
+    # 2. Call Gemini 1.5 Flash AI to translate Vietnamese script into cinematic English stock queries
     if gemini_api_key:
         try:
             import google.generativeai as genai
             genai.configure(api_key=gemini_api_key)
-            model = genai.GenerativeModel("gemini-2.5-flash")
+            model = genai.GenerativeModel("gemini-1.5-flash")
             resp = model.generate_content(
-                f"You are a stock video researcher. Given this scene text: '{prompt_clean[:200]}', "
-                "return ONLY a JSON list of 3 distinct, concise 2-3 word English stock video search queries. Example: [\"foggy forest\", \"city night lights\", \"sea waves sunset\"]"
+                f"You are an expert cinematic director and stock video researcher. Given this Vietnamese or English scene text: '{prompt_clean[:300]}', "
+                "analyze the visual theme, emotional metaphor, and context, and return ONLY a valid JSON list of 3 distinct, high-quality 2-3 word English search queries for Pexels 4K vertical footage. "
+                "Examples: [\"arrogant confident man\", \"science laboratory graph\", \"foggy mountain peak silhouette\"]"
             )
             if resp and resp.text:
                 txt = resp.text.strip()
@@ -135,12 +193,12 @@ def extract_visual_keywords(prompt: str, gemini_api_key: str | None = None) -> l
     meaningful = [w for w in words if w not in NOISE_WORDS]
     if len(meaningful) >= 2:
         return [
-            " ".join(meaningful[:3]),
-            " ".join(meaningful[1:4]) if len(meaningful) >= 3 else f"{meaningful[0]} vertical",
-            f"{meaningful[0]} aesthetic vertical"
+            f"{meaningful[0]} {meaningful[1]}",
+            f"{meaningful[0]} cinematic",
+            "dramatic nature vertical"
         ]
 
-    return ["aesthetic nature vertical", "dramatic lighting vertical", "atmospheric background vertical"]
+    return ["cinematic nature vertical", "dramatic lighting vertical", "atmospheric background vertical"]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -521,7 +579,7 @@ ScaledBorderAndShadow: yes
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Default,{font_family},{font_size},{primary_ass_color},{secondary_ass_color},&H00000000,&H90000000,-1,0,0,0,100,100,0,0,1,5,3,2,60,60,100,1
 Style: TitleStyle,{font_family},44,{title_primary},&H00000000,{title_box_bg},&H80000000,-1,0,0,0,100,100,0,0,3,10,2,5,40,40,100,1
-Style: WatermarkStyle,{font_family},28,&H0038F5AB,&H00000000,&H00000000,&HE00A0C16,-1,0,0,0,100,100,0,0,1,4,2,5,30,30,40,1
+Style: WatermarkStyle,{font_family},26,&H0038F5AB,&H00000000,&HCE0A0C16,&H80000000,-1,0,0,0,100,100,0,0,3,6,2,5,30,30,40,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -529,9 +587,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     events = []
     end_time_str = format_ass_time(video_duration)
 
-    # 1. Channel Watermark / Handle Overlay (Entire video at exact X/Y coordinate)
+    # 1. Channel Watermark / Handle Overlay (Entire video at exact X/Y coordinate as a Pill Badge matching Frontend Preview)
     if watermark_text:
         wm_clean = watermark_text.replace("\n", " ").strip().upper()
+        if not wm_clean.startswith("●"):
+            wm_clean = f"●  {wm_clean}"
         events.append(f"Dialogue: 0,0:00:00.00,{end_time_str},WatermarkStyle,,0,0,0,,{{\\an5\\pos({wm_x_px},{wm_y_px})}}{wm_clean}")
 
     # 2. Title Banner Overlay (Intro Badge ONLY FOR 3.5 SECONDS at exact X/Y coordinate)
@@ -555,6 +615,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             st = float(group[0].get("start", group[0].get("start_sec", 0)))
             et = float(group[-1].get("end", group[-1].get("end_sec", st + 1.2)))
             
+            cur_x_px = int(1080 * (float(group[0].get("xPercent", caption_x_percent)) / 100.0))
+            cur_y_px = int(1920 * (float(group[0].get("yPercent", caption_y_percent)) / 100.0))
+
             phrase_words = []
             karaoke_text_parts = []
             for item in group:
@@ -580,9 +643,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             
             if enable_karaoke:
                 line_content = " ".join(karaoke_text_parts)
-                events.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{{\\b1\\an5\\pos({sub_x_px},{sub_y_px})\\fscx105\\fscy105}}{line_content}")
+                events.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{{\\b1\\an5\\pos({cur_x_px},{cur_y_px})\\fscx105\\fscy105}}{line_content}")
             else:
-                events.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{{\\b1\\an5\\pos({sub_x_px},{sub_y_px})\\fscx105\\fscy105}}{phrase_str}")
+                events.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{{\\b1\\an5\\pos({cur_x_px},{cur_y_px})\\fscx105\\fscy105}}{phrase_str}")
     else:
         lines_to_render = chunk_script_to_kinetic_phrases(script_text, video_duration, max_words_per_chunk=3)
         for st, et, txt in lines_to_render:
@@ -627,7 +690,56 @@ def render_video_task(contract_payload: dict) -> dict:
     print("=================================================================", flush=True)
 
     try:
-        script = contract_payload.get("captionText") or contract_payload.get("script") or "VisionFlow Serverless Video Render Test"
+        raw_script = contract_payload.get("captionText") or contract_payload.get("script") or ""
+        
+        # If script is missing or short from payload, fetch full script from PostgreSQL DB!
+        if len(raw_script.strip()) < 40 and workflow_run_id and workflow_run_id != "modal_run_demo":
+            db_url = "postgresql://neondb_owner:npg_EwgAC4iWTSj0@ep-calm-queen-az3o70qo-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+            try:
+                import psycopg2
+                conn_s = psycopg2.connect(db_url)
+                cur_s = conn_s.cursor()
+                def safe_uuid(val):
+                    try:
+                        return str(uuid.UUID(str(val)))
+                    except Exception:
+                        return str(uuid.uuid5(uuid.NAMESPACE_DNS, str(val)))
+                wf_u = safe_uuid(workflow_run_id)
+                cur_s.execute("SELECT prompt_manifest, input_payload FROM workflow_runs WHERE id = %s::uuid", (wf_u,))
+                row_s = cur_s.fetchone()
+                if row_s:
+                    pm = row_s[0] or {}
+                    inp = row_s[1] or {}
+                    db_script = pm.get("script") or inp.get("script") or pm.get("captionText") or inp.get("captionText")
+                    if not db_script:
+                        # Try creative_document_versions
+                        cur_s.execute(
+                            """
+                            SELECT content_json FROM creative_document_versions cdv
+                            JOIN creative_sessions cs ON cs.id = cdv.session_id
+                            WHERE cs.id = %s::uuid OR cdv.id = %s::uuid
+                            ORDER BY cdv.version_number DESC LIMIT 1
+                            """,
+                            (wf_u, wf_u)
+                        )
+                        doc_row = cur_s.fetchone()
+                        if doc_row and doc_row[0]:
+                            doc_data = doc_row[0]
+                            db_script = doc_data.get("script") or doc_data.get("narration")
+                    if db_script and len(str(db_script)) > len(raw_script):
+                        raw_script = str(db_script)
+                        print(f"[Modal] 📜 Auto-resolved full script from PostgreSQL DB ({len(raw_script)} chars)!", flush=True)
+                cur_s.close()
+                conn_s.close()
+            except Exception as s_err:
+                print(f"[Modal] Notice: DB script resolution fallback: {s_err}", flush=True)
+
+        if not raw_script:
+            raw_script = contract_payload.get("title") or "VisionFlow Serverless Video Render Test"
+
+        script = normalize_vietnamese_script(raw_script)
+        print(f"[Modal] 📜 Normalized Vietnamese script ({len(script)} chars): '{script[:60]}...'", flush=True)
+
         raw_voice_code = contract_payload.get("voice_code") or contract_payload.get("voice") or "vi-VN-NamMinhNeural"
         voice_code = resolve_voice(raw_voice_code)
         raw_voice_rate = contract_payload.get("voice_rate") or contract_payload.get("voiceRate") or 1.12
@@ -663,17 +775,17 @@ def render_video_task(contract_payload: dict) -> dict:
 
         # Parse Frontend Subtitle & Branding Configuration
         caption_color = contract_payload.get("captionColor") or contract_payload.get("caption_color") or "#FFE600"
-        caption_font_size = contract_payload.get("captionFontSize") or contract_payload.get("font_size") or 64
-        font_family = contract_payload.get("captionFontFamily") or contract_payload.get("fontFamily") or "DejaVu Sans"
+        caption_font_size = contract_payload.get("captionFontSize") or contract_payload.get("font_size") or 72
+        font_family = contract_payload.get("captionFontFamily") or contract_payload.get("fontFamily") or "Outfit"
         show_title_banner = contract_payload.get("showTitleBanner", True)
         title_banner_style = contract_payload.get("titleBannerStyle", "neon")
         caption_x_percent = contract_payload.get("captionXPercent", 50)
         caption_y_percent = contract_payload.get("captionYPercent", 78)
         title_banner_y_percent = contract_payload.get("titleBannerYPercent", 15)
         watermark_text = contract_payload.get("logoHandle") or contract_payload.get("watermarkText") or contract_payload.get("channel_handle")
-        watermark_x_percent = contract_payload.get("logoXPercent", 82)
+        watermark_x_percent = contract_payload.get("logoXPercent", 18 if contract_payload.get("logoPosition") == "top_left" else 82)
         watermark_y_percent = contract_payload.get("logoYPercent", 6)
-        watermark_position = contract_payload.get("logoPosition", "top_right")
+        watermark_position = contract_payload.get("logoPosition", "top_left")
         enable_progress_bar = contract_payload.get("enableProgressBar", False)
         color_grading = contract_payload.get("colorGrading", "none")
         enable_karaoke = contract_payload.get("enableKaraoke", True)
@@ -742,17 +854,58 @@ def render_video_task(contract_payload: dict) -> dict:
             except Exception as dub_bg_err:
                 print(f"[Modal 🎙️ Dubbing Mode] ⚠️ Source video download error: {dub_bg_err}", flush=True)
 
-        # Auto-chunk script into 3-4 visual scenes if no explicit scenes provided (Short Video Creation ONLY)
+        # Auto-resolve scenes from PostgreSQL DB if missing in payload
+        if (not scenes or len(scenes) == 0) and workflow_run_id and workflow_run_id != "modal_run_demo":
+            try:
+                import psycopg2
+                conn_sc = psycopg2.connect(db_url)
+                cur_sc = conn_sc.cursor()
+                wf_u = safe_uuid(workflow_run_id)
+                cur_sc.execute("SELECT prompt_manifest, input_payload FROM workflow_runs WHERE id = %s::uuid", (wf_u,))
+                row_sc = cur_sc.fetchone()
+                if row_sc:
+                    pm = row_sc[0] or {}
+                    inp = row_sc[1] or {}
+                    db_scenes = pm.get("scenes") or inp.get("scenes")
+                    if not db_scenes:
+                        cur_sc.execute(
+                            """
+                            SELECT content_json FROM creative_document_versions cdv
+                            JOIN creative_sessions cs ON cs.id = cdv.session_id
+                            WHERE cs.id = %s::uuid OR cdv.id = %s::uuid
+                            ORDER BY cdv.version_number DESC LIMIT 1
+                            """,
+                            (wf_u, wf_u)
+                        )
+                        doc_r = cur_sc.fetchone()
+                        if doc_r and doc_r[0]:
+                            db_scenes = doc_r[0].get("scenes")
+                    if db_scenes and isinstance(db_scenes, list) and len(db_scenes) > 0:
+                        scenes = db_scenes
+                        print(f"[Modal] 🎞️ Auto-resolved {len(scenes)} visual scenes from PostgreSQL DB!", flush=True)
+                cur_sc.close()
+                conn_sc.close()
+            except Exception as db_sc_err:
+                print(f"[Modal] Notice: DB scenes resolution fallback: {db_sc_err}", flush=True)
+
+        # Intelligent AI scene fallback: Chunk script into natural sentences with visual keywords
         if not is_dubbing_mode and (not scenes or not isinstance(scenes, list) or len(scenes) == 0):
-            clean_words = [w for w in re.split(r'\s+', script) if len(w) > 3]
-            kw1 = " ".join(clean_words[:3]) if len(clean_words) >= 3 else "cinematic nature 4k"
-            kw2 = " ".join(clean_words[3:6]) if len(clean_words) >= 6 else "modern city sunset"
-            kw3 = " ".join(clean_words[6:9]) if len(clean_words) >= 9 else "abstract technology"
-            scenes = [
-                {"scene_index": 1, "keyword": kw1},
-                {"scene_index": 2, "keyword": kw2},
-                {"scene_index": 3, "keyword": kw3}
-            ]
+            sentences = [s.strip() for s in re.split(r'[.,!?\n]+', script) if len(s.strip()) > 10]
+            if not sentences:
+                sentences = [script]
+            # Take up to 4 major scene sentences
+            scene_chunks = sentences[:4] if len(sentences) >= 4 else sentences
+            gemini_key = os.environ.get("GEMINI_API_KEY", "AIzaSyCNu2LQSzyBW6ACixl1D6SLy07_vdeu0ho")
+            scenes = []
+            for s_idx, s_text in enumerate(scene_chunks):
+                kw_list = extract_visual_keywords(s_text, gemini_api_key=gemini_key)
+                scenes.append({
+                    "scene_index": s_idx + 1,
+                    "narration": s_text,
+                    "visual_prompt": kw_list[0] if kw_list else "cinematic nature",
+                    "keyword": kw_list[0] if kw_list else "cinematic nature"
+                })
+            print(f"[Modal] 🧠 Generated {len(scenes)} AI Smart Scenes from script text!", flush=True)
 
         if not custom_bg_downloaded and not is_dubbing_mode and scenes and isinstance(scenes, list) and len(scenes) > 0:
             print(f"[Modal] 🎞️ Smart Auto-Director: Fetching HD stock videos for {len(scenes)} visual scenes...", flush=True)
@@ -889,12 +1042,11 @@ def render_video_task(contract_payload: dict) -> dict:
         video_output = f"/tmp/{workflow_run_id}/final_output.mp4"
         ass_path_escaped = ass_path.replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
 
-        # Base normalized video processing filter with dynamic retention zoompan
+        # Base normalized video processing filter (preserves live motion playback of stock video clips)
         v_prep = (
             "fps=25,format=yuv420p,"
             "scale=1080:1920:force_original_aspect_ratio=increase,"
-            "crop=1080:1920,setsar=1,"
-            "zoompan=z='min(zoom+0.001,1.10)':d=125:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1080x1920"
+            "crop=1080:1920,setsar=1"
         )
 
         # Smart Masking for Dubbing / Vietsub Mode (Che phụ đề & Logo gốc)
@@ -951,7 +1103,7 @@ def render_video_task(contract_payload: dict) -> dict:
                 ffmpeg_cmd = [
                     "ffmpeg", "-y",
                     "-f", "lavfi", "-i", f"color=c=0x0a0c16:s=1080x1920:d={video_duration}:r=25",
-                    "-ss", "00:00:00.000", "-stream_loop", "-1", "-i", bg_file_path,
+                    "-ss", "00:00:00.000", "-stream_loop", "-1", "-an", "-i", bg_file_path,
                     "-i", audio_output,
                     "-stream_loop", "-1", "-i", bgm_file_path,
                     "-filter_complex", filter_complex,
@@ -972,7 +1124,7 @@ def render_video_task(contract_payload: dict) -> dict:
                 ffmpeg_cmd = [
                     "ffmpeg", "-y",
                     "-f", "lavfi", "-i", f"color=c=0x0a0c16:s=1080x1920:d={video_duration}:r=25",
-                    "-ss", "00:00:00.000", "-stream_loop", "-1", "-i", bg_file_path,
+                    "-ss", "00:00:00.000", "-stream_loop", "-1", "-an", "-i", bg_file_path,
                     "-i", audio_output,
                     "-filter_complex", filter_complex,
                     "-map", "[vout]",
@@ -1114,6 +1266,31 @@ def render_video_task(contract_payload: dict) -> dict:
         print(f"[Modal] ❌ Execution Error: {exc}", flush=True)
         import traceback
         traceback.print_exc()
+
+        # Update Workflow Run State to FAILED in PostgreSQL so failure is accurately reported
+        db_url = "postgresql://neondb_owner:npg_EwgAC4iWTSj0@ep-calm-queen-az3o70qo-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+        try:
+            import psycopg2
+            conn = psycopg2.connect(db_url)
+            cur = conn.cursor()
+            def safe_uuid(val):
+                try:
+                    return str(uuid.UUID(str(val)))
+                except Exception:
+                    return str(uuid.uuid5(uuid.NAMESPACE_DNS, str(val)))
+            wf_uuid = safe_uuid(workflow_run_id)
+            err_msg = str(exc)[:240]
+            cur.execute(
+                "UPDATE workflow_runs SET state = 'FAILED', failure_code = %s, updated_at = NOW() WHERE id = %s::uuid",
+                (err_msg, wf_uuid)
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+            print(f"[Modal] ⚠️ Recorded FAILED state in DB for workflow {workflow_run_id}: {err_msg}", flush=True)
+        except Exception as db_f_err:
+            print(f"[Modal] ⚠️ Could not write FAILED state to DB: {db_f_err}", flush=True)
+
         return {
             "status": "ERROR",
             "workflow_run_id": workflow_run_id,
