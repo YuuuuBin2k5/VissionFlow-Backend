@@ -1225,6 +1225,30 @@ def render_video_task(contract_payload: dict) -> dict:
             wf_uuid = safe_uuid(workflow_run_id)
             org_uuid = safe_uuid(organization_id)
 
+            # Ensure parent video_project and workflow_run exist so foreign key constraint is always satisfied
+            cur.execute("SELECT id FROM workflow_runs WHERE id = %s::uuid", (wf_uuid,))
+            wf_exists = cur.fetchone()
+            if not wf_exists:
+                proj_id = str(uuid.uuid4())
+                wf_title = str(contract_payload.get("title") or contract_payload.get("titleBannerText") or f"VisionFlow Video {workflow_run_id}")
+                wf_brief = str(contract_payload.get("brief") or wf_title)
+                cur.execute(
+                    """
+                    INSERT INTO video_projects (id, organization_id, title, brief, format_profile, timezone, status, created_at, updated_at)
+                    VALUES (%s::uuid, %s::uuid, %s, %s, 'short_vertical', 'Asia/Ho_Chi_Minh', 'active', NOW(), NOW())
+                    ON CONFLICT DO NOTHING
+                    """,
+                    (proj_id, org_uuid, wf_title, wf_brief)
+                )
+                cur.execute(
+                    """
+                    INSERT INTO workflow_runs (id, project_id, state, input_payload, prompt_manifest, created_at, updated_at)
+                    VALUES (%s::uuid, %s::uuid, 'APPROVAL_PENDING', %s::jsonb, %s::jsonb, NOW(), NOW())
+                    ON CONFLICT (id) DO UPDATE SET state = 'APPROVAL_PENDING', updated_at = NOW()
+                    """,
+                    (wf_uuid, proj_id, json.dumps(contract_payload), json.dumps({"source": "modal_engine"}))
+                )
+
             # Check if MediaAsset already exists
             cur.execute("SELECT id FROM media_assets WHERE workflow_run_id = %s::uuid", (wf_uuid,))
             existing = cur.fetchone()
@@ -1250,7 +1274,7 @@ def render_video_task(contract_payload: dict) -> dict:
             conn.commit()
             cur.close()
             conn.close()
-            print(f"[Modal] 💾 Successfully updated DB record for workflow {workflow_run_id} (State: APPROVAL_PENDING)!", flush=True)
+            print(f"[Modal] 💾 Successfully saved MediaAsset & registered APPROVAL_PENDING in DB for workflow {workflow_run_id}!", flush=True)
         except Exception as db_err:
             print(f"[Modal] ⚠️ Direct DB update error: {db_err}", flush=True)
 
