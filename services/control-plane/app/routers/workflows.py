@@ -1429,81 +1429,56 @@ def get_review_artifact_preview(
             .join(VideoProject, WorkflowRun.project_id == VideoProject.id)
             .where(VideoProject.organization_id == organization_id, WorkflowRun.id == workflow_run_id)
         )
+        if workflow is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow run not found")
 
-        # 1. Primary: final_export MediaAsset linked directly to workflow_run_id
+        if workflow.state in ("FAILED", "CANCELED"):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Workflow '{workflow_run_id}' đã bị lỗi ({workflow.failure_code or 'FAILED'}). Không có video xuất cuối trên Cloud."
+            )
+
+        # STRICT: Retrieve ONLY the real media asset belonging directly to THIS specific workflow run
         artifact = session.scalar(
             select(MediaAsset)
             .where(
                 MediaAsset.organization_id == organization_id,
                 MediaAsset.workflow_run_id == workflow_run_id,
-                MediaAsset.media_kind == "final_export",
+                MediaAsset.media_kind.in_(["final_export", "video", "rendered_video", "export"]),
             )
             .order_by(MediaAsset.created_at.desc())
         )
 
-        # 2. Fallback: any MediaAsset for this workflow_run_id
-        if artifact is None:
-            artifact = session.scalar(
-                select(MediaAsset)
-                .where(
-                    MediaAsset.organization_id == organization_id,
-                    MediaAsset.workflow_run_id == workflow_run_id,
-                )
-                .order_by(MediaAsset.created_at.desc())
+        if artifact is None or not artifact.object_key:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Video của workflow '{workflow_run_id}' chưa được tạo thành công hoặc chưa được lưu lên Cloud Storage."
             )
 
-        # 3. Fallback: search by project_id if workflow exists
-        if artifact is None and workflow and workflow.project_id:
-            artifact = session.scalar(
-                select(MediaAsset)
-                .join(WorkflowRun, WorkflowRun.id == MediaAsset.workflow_run_id)
-                .where(
-                    MediaAsset.organization_id == organization_id,
-                    WorkflowRun.project_id == workflow.project_id,
-                )
-                .order_by(MediaAsset.created_at.desc())
-            )
+        object_key = artifact.object_key
 
-        # 4. Fallback: latest MediaAsset in the organization
-        if artifact is None:
-            artifact = session.scalar(
-                select(MediaAsset)
-                .where(MediaAsset.organization_id == organization_id)
-                .order_by(MediaAsset.created_at.desc())
-            )
-
-        object_key = artifact.object_key if artifact else f"visionflow/{workflow_run_id}/exports/final.mp4"
-
-        if object_key and (object_key.startswith("http://") or object_key.startswith("https://")):
+        if object_key.startswith("http://") or object_key.startswith("https://"):
             return ReviewArtifactPreviewResponse(
                 object_key=object_key,
                 download_url=object_key,
                 expires_in_seconds=300,
             )
 
-        try:
-            ticket = PrivateObjectPreviewIssuer.from_env().issue_final_export(
-                workflow_run_id=workflow_run_id,
-                object_key=object_key,
-            )
-            return ReviewArtifactPreviewResponse(
-                object_key=ticket.object_key,
-                download_url=ticket.download_url,
-                expires_in_seconds=ticket.expires_in_seconds,
-            )
-        except Exception:
-            fallback_url = object_key if (object_key and object_key.startswith("http")) else f"https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/{workflow_run_id}/exports/final.mp4"
-            return ReviewArtifactPreviewResponse(
-                object_key=object_key,
-                download_url=fallback_url,
-                expires_in_seconds=300,
-            )
-    except Exception as exc:
-        fallback_url = f"https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/{workflow_run_id}/exports/final.mp4"
+        ticket = PrivateObjectPreviewIssuer.from_env().issue_final_export(
+            workflow_run_id=workflow_run_id,
+            object_key=object_key,
+        )
         return ReviewArtifactPreviewResponse(
-            object_key=f"visionflow/{workflow_run_id}/exports/final.mp4",
-            download_url=fallback_url,
-            expires_in_seconds=300,
+            object_key=ticket.object_key,
+            download_url=ticket.download_url,
+            expires_in_seconds=ticket.expires_in_seconds,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Không tìm thấy video hợp lệ cho workflow '{workflow_run_id}': {str(exc)}"
         )
 
 
@@ -1534,25 +1509,22 @@ def open_manual_approval(
         if wf is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow run not found")
 
-        wf.state = WorkflowState.APPROVAL_PENDING.value
-
-        # Automatically register MediaAsset in database for Kho Video Cloud
-        asset = session.scalar(select(MediaAsset).where(MediaAsset.workflow_run_id == workflow_run_id))
-        if asset is None:
-            project = session.scalar(select(VideoProject).where(VideoProject.id == wf.project_id))
-            title = project.title if project else str(workflow_run_id)
-            asset = MediaAsset(
-                id=uuid.uuid4(),
-                organization_id=request.organization_id,
-                workflow_run_id=workflow_run_id,
-                object_key=f"visionflow/{workflow_run_id}/exports/final.mp4",
-                media_kind="video",
-                content_type="video/mp4",
-                byte_size=10 * 1024 * 1024,
-                metadata_json={"title": title, "workflow_run_id": str(workflow_run_id)},
+        # STRICT: Must have a verified MediaAsset produced for this workflow before moving to review
+        asset = session.scalar(
+            select(MediaAsset)
+            .where(
+                MediaAsset.organization_id == request.organization_id,
+                MediaAsset.workflow_run_id == workflow_run_id,
+                MediaAsset.media_kind.in_(["final_export", "video", "rendered_video", "export"]),
             )
-            session.add(asset)
+        )
+        if asset is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Workflow '{workflow_run_id}' chưa có video xuất cuối được tạo thành công trên Cloud Storage. Không thể mở duyệt."
+            )
 
+        wf.state = WorkflowState.APPROVAL_PENDING.value
         session.commit()
         return WorkflowTransitionResponse(
             workflow_run_id=workflow_run_id,

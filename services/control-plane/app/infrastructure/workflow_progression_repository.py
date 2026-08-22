@@ -225,8 +225,8 @@ class SqlAlchemyWorkflowProgressionRepository:
         }
 
     def _latest_final_export(self, workflow_run: WorkflowRun, organization_id: uuid.UUID) -> MediaAsset | None:
-        # 1. Primary: Match final_export or video kinds for this workflow run
-        asset = self._session.scalar(
+        """STRICT: Retrieve only the real, verified media asset produced for THIS exact workflow run."""
+        return self._session.scalar(
             select(MediaAsset)
             .where(
                 MediaAsset.organization_id == organization_id,
@@ -236,38 +236,6 @@ class SqlAlchemyWorkflowProgressionRepository:
             .order_by(MediaAsset.created_at.desc())
             .with_for_update()
         )
-        if asset is not None:
-            return asset
-
-        # 2. Fallback: Any MediaAsset attached to this workflow run
-        asset = self._session.scalar(
-            select(MediaAsset)
-            .where(
-                MediaAsset.organization_id == organization_id,
-                MediaAsset.workflow_run_id == workflow_run.id,
-            )
-            .order_by(MediaAsset.created_at.desc())
-            .with_for_update()
-        )
-        if asset is not None:
-            return asset
-
-        # 3. Fallback: Auto-create final_export MediaAsset from workflow R2 export location
-        project = self._session.get(VideoProject, workflow_run.project_id)
-        title = project.title if project else str(workflow_run.id)
-        auto_asset = MediaAsset(
-            id=uuid.uuid4(),
-            organization_id=organization_id,
-            workflow_run_id=workflow_run.id,
-            object_key=f"visionflow/{workflow_run.id}/exports/final.mp4",
-            media_kind="final_export",
-            content_type="video/mp4",
-            byte_size=15 * 1024 * 1024,
-            metadata_json={"title": title, "workflow_run_id": str(workflow_run.id)},
-        )
-        self._session.add(auto_asset)
-        self._session.flush()
-        return auto_asset
 
     def _create_initial_publication_attempt(self, workflow_run: WorkflowRun, command: AdvanceWorkflowCommand) -> None:
         """Create or reuse the publish lease and its outbox event in the state-change transaction."""
