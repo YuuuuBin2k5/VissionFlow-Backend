@@ -1232,7 +1232,7 @@ def render_video_task(contract_payload: dict) -> dict:
                 cur.execute(
                     """
                     INSERT INTO media_assets (id, organization_id, workflow_run_id, byte_size, metadata_json, created_at, updated_at, object_key, media_kind, content_type, checksum_sha256)
-                    VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s::jsonb, NOW(), NOW(), %s, 'video', 'video/mp4', 'sha256_modal')
+                    VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s::jsonb, NOW(), NOW(), %s, 'final_export', 'video/mp4', 'sha256_modal')
                     """,
                     (media_id, org_uuid, wf_uuid, byte_size, meta, presigned_url)
                 )
