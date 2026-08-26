@@ -15,32 +15,38 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # 1. Create prompt_templates table (system-scoped, per organization)
-    op.create_table(
-        "prompt_templates",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("organization_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("prompt_key", sa.String(length=100), nullable=False),
-        sa.Column("name", sa.String(length=160), nullable=False),
-        sa.Column("description", sa.Text(), nullable=False),
-        sa.Column("production_version", sa.Integer(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
-        sa.UniqueConstraint("organization_id", "prompt_key", name="uq_prompt_template_key"),
-    )
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    tables = inspector.get_table_names()
 
-    # 2. Create prompt_versions table
-    op.create_table(
-        "prompt_versions",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("prompt_template_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("prompt_templates.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("version", sa.Integer(), nullable=False),
-        sa.Column("content", sa.Text(), nullable=False),
-        sa.Column("config", postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'{}'::jsonb")),
-        sa.Column("change_note", sa.String(length=500), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
-        sa.UniqueConstraint("prompt_template_id", "version", name="uq_prompt_version"),
-    )
+    # 1. Create prompt_templates table if not exists
+    if "prompt_templates" not in tables:
+        op.create_table(
+            "prompt_templates",
+            sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+            sa.Column("organization_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False),
+            sa.Column("prompt_key", sa.String(length=100), nullable=False),
+            sa.Column("name", sa.String(length=160), nullable=False),
+            sa.Column("description", sa.Text(), nullable=False),
+            sa.Column("production_version", sa.Integer(), nullable=True),
+            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+            sa.UniqueConstraint("organization_id", "prompt_key", name="uq_prompt_template_key"),
+        )
+
+    # 2. Create prompt_versions table if not exists
+    if "prompt_versions" not in tables:
+        op.create_table(
+            "prompt_versions",
+            sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+            sa.Column("prompt_template_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("prompt_templates.id", ondelete="CASCADE"), nullable=False),
+            sa.Column("version", sa.Integer(), nullable=False),
+            sa.Column("content", sa.Text(), nullable=False),
+            sa.Column("config", postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'{}'::jsonb")),
+            sa.Column("change_note", sa.String(length=500), nullable=True),
+            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+            sa.UniqueConstraint("prompt_template_id", "version", name="uq_prompt_version"),
+        )
 
     # 3. Create system-wide seed entries for each existing organization.
     #    Uses a DO block so the INSERT is idempotent on re-run.

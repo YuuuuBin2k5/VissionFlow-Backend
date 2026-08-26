@@ -694,7 +694,7 @@ def render_video_task(contract_payload: dict) -> dict:
         
         # If script is missing or short from payload, fetch full script from PostgreSQL DB!
         if len(raw_script.strip()) < 40 and workflow_run_id and workflow_run_id != "modal_run_demo":
-            db_url = "postgresql://neondb_owner:npg_EwgAC4iWTSj0@ep-calm-queen-az3o70qo-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+            db_url = "postgresql://neondb_owner:npg_TD8BYOyg6AVC@ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
             try:
                 import psycopg2
                 conn_s = psycopg2.connect(db_url)
@@ -1207,7 +1207,7 @@ def render_video_task(contract_payload: dict) -> dict:
         # -------------------------------------------------------------------
         # Update PostgreSQL Database via Control Plane API or Direct SQL
         # -------------------------------------------------------------------
-        db_url = "postgresql://neondb_owner:npg_EwgAC4iWTSj0@ep-calm-queen-az3o70qo-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+        db_url = "postgresql://neondb_owner:npg_TD8BYOyg6AVC@ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
         try:
             import psycopg2
             conn = psycopg2.connect(db_url)
@@ -1292,7 +1292,7 @@ def render_video_task(contract_payload: dict) -> dict:
         traceback.print_exc()
 
         # Update Workflow Run State to FAILED in PostgreSQL so failure is accurately reported
-        db_url = "postgresql://neondb_owner:npg_EwgAC4iWTSj0@ep-calm-queen-az3o70qo-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+        db_url = "postgresql://neondb_owner:npg_TD8BYOyg6AVC@ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
         try:
             import psycopg2
             conn = psycopg2.connect(db_url)
