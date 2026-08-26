@@ -114,7 +114,7 @@ def seed(conn) -> None:
                 INSERT INTO prompt_versions
                     (id, prompt_template_id, version, content, config, change_note, created_at)
                 VALUES
-                    (:id, :tmpl_id, 1, :content, :config::jsonb, 'Seeded by seed_prompt_baselines.py', now())
+                    (:id, :tmpl_id, 1, :content, CAST(:config AS jsonb), 'Seeded by seed_prompt_baselines.py', now())
                 ON CONFLICT (prompt_template_id, version) DO NOTHING
             """), {
                 "id": str(uuid.uuid4()),
