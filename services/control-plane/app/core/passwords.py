@@ -59,8 +59,8 @@ class Argon2idPasswordHasher:
 
 
 def _validated_password(password: str) -> str:
-    if not isinstance(password, str) or len(password) < 12:
-        raise PasswordPolicyError("Password must contain at least 12 characters")
+    if not isinstance(password, str) or len(password) < 8:
+        raise PasswordPolicyError("Password must contain at least 8 characters")
     if len(password) > 1024:
         raise PasswordPolicyError("Password must not exceed 1024 characters")
     return password

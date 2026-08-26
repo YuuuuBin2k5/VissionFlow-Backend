@@ -17,8 +17,8 @@ def canonical_email(value: str) -> str:
 
 def validate_password(value: str) -> None:
     # Length is intentionally the only composition rule; Argon2id supplies the resistance.
-    if not 12 <= len(value) <= 1024:
-        raise ValueError("password must be 12-1024 characters")
+    if not 8 <= len(value) <= 1024:
+        raise ValueError("password must be 8-1024 characters")
 
 
 @dataclass(frozen=True)
