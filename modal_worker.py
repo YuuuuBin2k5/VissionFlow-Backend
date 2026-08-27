@@ -1736,8 +1736,7 @@ def render_video_task(contract_payload: dict) -> dict:
                 "ffmpeg", "-y",
                 "-ss", "00:00:01.500",
                 "-i", video_output,
-                "-frames:v", "1",
-                "-update", "1",
+                "-vframes", "1",
                 "-q:v", "2",
                 cover_path
             ]
@@ -1775,6 +1774,7 @@ def render_video_task(contract_payload: dict) -> dict:
                 proj_id = str(uuid.uuid4())
                 wf_title = str(contract_payload.get("title") or contract_payload.get("titleBannerText") or f"VisionFlow Video {workflow_run_id}")
                 wf_brief = str(contract_payload.get("brief") or wf_title)
+                idempotency_key = f"modal_{wf_uuid}"
                 cur.execute(
                     """
                     INSERT INTO video_projects (id, organization_id, title, brief, format_profile, timezone, created_at, updated_at)
@@ -1785,11 +1785,11 @@ def render_video_task(contract_payload: dict) -> dict:
                 )
                 cur.execute(
                     """
-                    INSERT INTO workflow_runs (id, project_id, state, input_payload, prompt_manifest, created_at, updated_at)
-                    VALUES (%s::uuid, %s::uuid, 'APPROVAL_PENDING', %s::jsonb, %s::jsonb, NOW(), NOW())
+                    INSERT INTO workflow_runs (id, project_id, idempotency_key, state, input_payload, prompt_manifest, created_at, updated_at)
+                    VALUES (%s::uuid, %s::uuid, %s, 'APPROVAL_PENDING', %s::jsonb, %s::jsonb, NOW(), NOW())
                     ON CONFLICT (id) DO UPDATE SET state = 'APPROVAL_PENDING', updated_at = NOW()
                     """,
-                    (wf_uuid, proj_id, json.dumps(contract_payload), json.dumps({"source": "modal_engine"}))
+                    (wf_uuid, proj_id, idempotency_key, json.dumps(contract_payload), json.dumps({"source": "modal_engine"}))
                 )
 
             # Check if MediaAsset already exists
@@ -1836,6 +1836,30 @@ def render_video_task(contract_payload: dict) -> dict:
 
         # Update Workflow Run State to FAILED in PostgreSQL so failure is accurately reported
         db_url = "postgresql://neondb_owner:npg_TD8BYOyg6AVC@ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+                # -------------------------------------------------------------------
+        # AI Golden Frame 3D Cover Thumbnail Extraction at 1.5s
+        # -------------------------------------------------------------------
+        cover_path = f"/tmp/{workflow_run_id}/cover.jpg"
+        cover_url = ""
+        try:
+            extract_cover_cmd = [
+                "ffmpeg", "-y",
+                "-ss", "00:00:01.500",
+                "-i", video_output,
+                "-vframes", "1",
+                "-q:v", "2",
+                cover_path
+            ]
+            subprocess.run(extract_cover_cmd, check=True)
+            if s3 and os.path.exists(cover_path):
+                cover_key = f"workflows/{workflow_run_id}/cover.jpg"
+                s3.upload_file(cover_path, r2_bucket, cover_key, ExtraArgs={"ContentType": "image/jpeg"})
+                r2_public = os.environ.get("VISIONFLOW_OBJECT_STORE_PUBLIC_BASE", "https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev")
+                cover_url = f"{r2_public}/{cover_key}"
+                print(f"[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 ({cover_url})!", flush=True)
+        except Exception as cov_err:
+            print(f"[Modal] ⚠️ Notice: Cover thumbnail extraction: {cov_err}", flush=True)
+
         try:
             import psycopg2
             conn = psycopg2.connect(db_url)
