@@ -1201,26 +1201,89 @@ def render_video_task(contract_payload: dict) -> dict:
                     custom_bg_downloaded = True
                 else:
                     try:
-                        concat_list_path = f"/tmp/{workflow_run_id}/concat_list.txt"
-                        with open(concat_list_path, "w", encoding="utf-8") as f_list:
-                            for sf in scene_files:
-                                f_list.write(f"file '{sf}'\n")
+                        TRANSITION_MAP = {
+                            "fade_to_black": "fadeblack",
+                            "fadeblack": "fadeblack",
+                            "fade": "fade",
+                            "fade_to_loop": "fade",
+                            "zoom_in": "zoomin",
+                            "zoomin": "zoomin",
+                            "shake_zoom": "zoomin",
+                            "whip_pan": "smoothleft",
+                            "slide_left": "slideleft",
+                            "slide_right": "slideright",
+                            "glitch": "pixelize",
+                            "pixelize": "pixelize",
+                            "strobe_flash": "fadeblack",
+                            "dissolve": "dissolve",
+                            "circle_crop": "circlecrop",
+                            "wipe_left": "wipeleft",
+                        }
+                        
+                        has_transitions = any(
+                            str(sc.get("transition", "")).lower() in TRANSITION_MAP for sc in scenes
+                        )
                         
                         concat_path = f"/tmp/{workflow_run_id}/concat_scenes.mp4"
-                        concat_cmd = [
-                            "ffmpeg", "-y",
-                            "-f", "concat",
-                            "-safe", "0",
-                            "-i", concat_list_path,
-                            "-c", "copy",
-                            concat_path
-                        ]
-                        subprocess.run(concat_cmd, check=True)
+                        
+                        if has_transitions and len(scene_files) > 1:
+                            trans_dur = 0.4
+                            filter_parts = []
+                            cmd_inputs = []
+                            for sf in scene_files:
+                                cmd_inputs.extend(["-i", sf])
+                            
+                            last_v = "[0:v]"
+                            current_offset = 0.0
+                            
+                            for i in range(len(scene_files) - 1):
+                                dur_i = float(scenes[i].get("duration_seconds", scene_dur)) if i < len(scenes) else scene_dur
+                                trans_name = scenes[i+1].get("transition") or scenes[i].get("transition") or "fade"
+                                xfade_effect = TRANSITION_MAP.get(str(trans_name).lower(), "fade")
+                                
+                                if i == 0:
+                                    current_offset = max(0.5, dur_i - trans_dur)
+                                else:
+                                    current_offset = max(0.5, current_offset + dur_i - trans_dur)
+                                    
+                                next_v = f"[v{i+1}]" if i < len(scene_files) - 2 else "[vout]"
+                                filter_parts.append(
+                                    f"{last_v}[{i+1}:v]xfade=transition={xfade_effect}:duration={trans_dur}:offset={current_offset:.2f}{next_v}"
+                                )
+                                last_v = f"[v{i+1}]"
+                                
+                            filter_graph = ";".join(filter_parts)
+                            xfade_cmd = [
+                                "ffmpeg", "-y",
+                                *cmd_inputs,
+                                "-filter_complex", filter_graph,
+                                "-map", "[vout]",
+                                "-c:v", "libx264", "-preset", "fast", "-crf", "18", "-pix_fmt", "yuv420p",
+                                concat_path
+                            ]
+                            subprocess.run(xfade_cmd, check=True)
+                            print(f"[Modal] ⚡ Applied Cinematic XFade Transitions across {len(scene_files)} scenes!", flush=True)
+                        else:
+                            # Direct stream concat fast path
+                            concat_list_path = f"/tmp/{workflow_run_id}/concat_list.txt"
+                            with open(concat_list_path, "w", encoding="utf-8") as f_list:
+                                for sf in scene_files:
+                                    f_list.write(f"file '{sf}'\n")
+                            concat_cmd = [
+                                "ffmpeg", "-y",
+                                "-f", "concat",
+                                "-safe", "0",
+                                "-i", concat_list_path,
+                                "-c", "copy",
+                                concat_path
+                            ]
+                            subprocess.run(concat_cmd, check=True)
+                            print(f"[Modal] ⚡ Direct Stream Concat: Joined {len(scene_files)} pre-normalized scenes in 0.2s without re-encoding!", flush=True)
+                            
                         bg_file_path = concat_path
                         custom_bg_downloaded = True
-                        print(f"[Modal] ⚡ Direct Stream Concat: Joined {len(scene_files)} pre-normalized scenes in 0.2s without re-encoding!", flush=True)
                     except Exception as cat_err:
-                        print(f"[Modal] ⚠️ Notice: Direct stream concat fallback ({cat_err})", flush=True)
+                        print(f"[Modal] ⚠️ Notice: Transition concat fallback ({cat_err})", flush=True)
                         bg_file_path = scene_files[0]
                         custom_bg_downloaded = True
 
