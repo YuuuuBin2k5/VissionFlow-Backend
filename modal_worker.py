@@ -810,7 +810,7 @@ def generate_ass_subtitles(
     res_w: int = 1080,
     res_h: int = 1920
 ) -> str:
-    r"""Generates ASS kinetic subtitles with 100% WYSIWYG parity to Studio Preview."""
+    r"""Generates ASS kinetic subtitles dynamically supporting all Studio customization presets, fonts, & colors."""
     def hex_to_ass_bgr(hex_str: str, default: str = "&H0000E6FF") -> str:
         h = str(hex_str).lstrip("#")
         if len(h) == 6:
@@ -823,15 +823,19 @@ def generate_ass_subtitles(
 
     cur_x_px = int(res_w * (caption_x_percent / 100.0))
     cur_y_px = int(res_h * (caption_y_percent / 100.0))
+    effective_font_size = max(54, font_size)
 
-    effective_font_size = max(72, font_size)
-    if caption_preset == "neon_cyber":
-        sub_style = f"Style: Default,{font_family},{effective_font_size},&H00F8BD38,&H00FFFFFF,&H00D946EF,&H8006B6D4,-1,0,0,0,100,100,0,0,1,10,4,2,60,60,120,1"
-    elif caption_preset == "karaoke_glow":
-        sub_style = f"Style: Default,{font_family},{effective_font_size},&H0000E6FF,&H00C0C0C0,&H00000000,&H800B9EF5,-1,0,0,0,100,100,0,0,1,10,5,2,60,60,120,1"
-    elif caption_preset == "clean_minimal":
-        sub_style = f"Style: Default,{font_family},{int(effective_font_size * 0.85)},&H00FFFFFF,&H00E0E0E0,&HCE160C0A,&H80000000,-1,0,0,0,100,100,0,0,3,10,0,2,60,60,120,1"
-    else: # hormozi / default
+    preset_lower = str(caption_preset).lower()
+
+    if preset_lower in ["neon", "neon_cyber"]:
+        sub_style = f"Style: Default,{font_family},{effective_font_size},{primary_ass_color},&H00FFFFFF,&H00D946EF,&H8006B6D4,-1,0,0,0,100,100,0,0,1,10,4,2,60,60,120,1"
+    elif preset_lower in ["clean_news", "news"]:
+        sub_style = f"Style: Default,{font_family},{effective_font_size},&H00FFFFFF,&H00E0E0E0,&H00101010,&H90000000,-1,0,0,0,100,100,0,0,1,10,4,2,60,60,120,1"
+    elif preset_lower in ["cinematic_quote", "minimal", "clean_minimal"]:
+        sub_style = f"Style: Default,{font_family},{int(effective_font_size * 0.9)},{primary_ass_color},&H00E0E0E0,&HCE160C0A,&H80000000,-1,0,0,0,100,100,0,0,3,8,0,2,60,60,120,1"
+    elif preset_lower in ["karaoke_glow"]:
+        sub_style = f"Style: Default,{font_family},{effective_font_size},{primary_ass_color},&H00C0C0C0,&H00000000,&H800B9EF5,-1,0,0,0,100,100,0,0,1,12,5,2,60,60,120,1"
+    else: # hormozi / default: Custom user color + heavy black outline & shadow
         sub_style = f"Style: Default,{font_family},{effective_font_size},{primary_ass_color},{secondary_ass_color},&H00000000,&H90000000,-1,0,0,0,100,100,0,0,1,12,4,2,60,60,120,1"
 
     header = f"""[Script Info]
@@ -901,6 +905,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     with open(output_ass_path, "w", encoding="utf-8") as f:
         f.write(header + "\n".join(events) + "\n")
     return output_ass_path
+
 
 
 
