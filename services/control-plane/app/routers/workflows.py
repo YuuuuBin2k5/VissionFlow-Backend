@@ -2110,10 +2110,14 @@ def delete_workflow(
         if wf is None:
             raise LookupError("Workflow run not found")
 
-        # Hard delete child records first to satisfy foreign key constraints
+        # Hard delete child records first in strict foreign-key order
+        session.execute(text("UPDATE creative_sessions SET workflow_run_id = NULL WHERE workflow_run_id = :wfid"), {"wfid": workflow_run_id})
+        session.execute(text("DELETE FROM channel_learning_metrics WHERE publication_attempt_id IN (SELECT id FROM publication_attempts WHERE workflow_run_id = :wfid)"), {"wfid": workflow_run_id})
+        session.execute(text("DELETE FROM publish_approvals WHERE workflow_run_id = :wfid"), {"wfid": workflow_run_id})
         session.execute(delete(PublicationAttempt).where(PublicationAttempt.workflow_run_id == workflow_run_id))
         session.execute(delete(WorkflowStep).where(WorkflowStep.workflow_run_id == workflow_run_id))
         session.execute(delete(MediaAsset).where(MediaAsset.workflow_run_id == workflow_run_id))
+        session.execute(text("DELETE FROM outbox_events WHERE aggregate_id = :wfid"), {"wfid": workflow_run_id})
         session.delete(wf)
         session.commit()
         return {"workflow_run_id": str(workflow_run_id), "status": "deleted", "deleted": True}
