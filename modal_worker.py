@@ -596,6 +596,16 @@ def generate_ass_subtitles(
         title_primary = "&H00050C0A"  # Dark Black Text
         title_box_bg = "&H0000E6FF"   # Bright Yellow Background Box (#FFE600)
 
+    # 4 Kinetic Typography Presets (Hormozi, Neon Cyber, Karaoke Glow, Clean Minimal)
+    if caption_preset == "neon_cyber":
+        sub_style = f"Style: Default,{font_family},{font_size},&H00F8BD38,&H00FFFFFF,&H00D946EF,&H80000000,-1,0,0,0,100,100,0,0,1,7,5,2,60,60,100,1"
+    elif caption_preset == "karaoke_glow":
+        sub_style = f"Style: Default,{font_family},{font_size},&H0000FFFF,&H00C0C0C0,&H00000000,&H000B9EF5,-1,0,0,0,100,100,0,0,1,6,6,2,60,60,100,1"
+    elif caption_preset == "clean_minimal":
+        sub_style = f"Style: Default,{font_family},{int(font_size * 0.9)},&H00FFFFFF,&H00E0E0E0,&HCE100C0A,&H80000000,-1,0,0,0,100,100,0,0,3,12,0,2,60,60,100,1"
+    else:  # hormozi
+        sub_style = f"Style: Default,{font_family},{font_size},{primary_ass_color},{secondary_ass_color},&H00000000,&H90000000,-1,0,0,0,100,100,0,0,1,8,3,2,60,60,100,1"
+
     header = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {res_w}
@@ -604,7 +614,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{font_family},{font_size},{primary_ass_color},{secondary_ass_color},&H00000000,&H90000000,-1,0,0,0,100,100,0,0,1,5,3,2,60,60,100,1
+{sub_style}
 Style: TitleStyle,{font_family},44,{title_primary},&H00000000,{title_box_bg},&H80000000,-1,0,0,0,100,100,0,0,3,10,2,5,40,40,100,1
 Style: WatermarkStyle,{font_family},30,&H0038F5AB,&H00000000,&HCE0A0C16,&H80000000,-1,0,0,0,100,100,0,0,3,10,3,5,30,30,40,1
 
@@ -964,13 +974,19 @@ def render_video_task(contract_payload: dict) -> dict:
 
         # Parse Frontend Subtitle & Branding Configuration
         caption_color = contract_payload.get("captionColor") or contract_payload.get("caption_color") or "#FFE600"
-        caption_font_size = contract_payload.get("captionFontSize") or contract_payload.get("font_size") or 72
-        font_family = contract_payload.get("captionFontFamily") or contract_payload.get("fontFamily") or "Outfit"
-        show_title_banner = contract_payload.get("showTitleBanner", True)
-        title_banner_style = contract_payload.get("titleBannerStyle", "neon")
-        caption_x_percent = contract_payload.get("captionXPercent", 50)
-        caption_y_percent = contract_payload.get("captionYPercent", 78)
-        title_banner_y_percent = contract_payload.get("titleBannerYPercent", 15)
+        caption_font_size = int(contract_payload.get("captionFontSize") or contract_payload.get("caption_font_size") or contract_payload.get("fontSize") or contract_payload.get("font_size") or 76)
+        font_family = contract_payload.get("captionFontFamily") or contract_payload.get("fontFamily") or contract_payload.get("caption_font_family") or "Montserrat"
+        show_title_banner = contract_payload.get("showTitleBanner", contract_payload.get("show_title_banner", True))
+        title_banner_style = contract_payload.get("titleBannerStyle") or contract_payload.get("title_banner_style") or "neon"
+        caption_x_percent = int(contract_payload.get("captionXPercent") or contract_payload.get("caption_x_percent") or 50)
+        caption_y_percent = int(contract_payload.get("captionYPercent") or contract_payload.get("caption_y_percent") or 78)
+        title_banner_y_percent = int(contract_payload.get("titleBannerYPercent") or contract_payload.get("title_banner_y_percent") or 15)
+        enable_progress_bar = contract_payload.get("enableProgressBar", contract_payload.get("enable_progress_bar", True))
+        enable_vignette = contract_payload.get("enableVignette", contract_payload.get("enable_vignette", True))
+        color_grading = contract_payload.get("colorGrading") or contract_payload.get("color_grading") or "none"
+        enable_karaoke = contract_payload.get("enableKaraoke", contract_payload.get("enable_karaoke", True))
+        enable_auto_emoji = contract_payload.get("enableAutoEmoji", contract_payload.get("enable_auto_emoji", True))
+        caption_preset = contract_payload.get("captionPreset") or contract_payload.get("caption_preset") or contract_payload.get("subtitle_preset") or "hormozi" 
         watermark_text = (
             contract_payload.get("logoHandle")
             or contract_payload.get("logo_handle")
@@ -1285,6 +1301,10 @@ def render_video_task(contract_payload: dict) -> dict:
             logo_mask_h = int(res_h * 0.06)
             v_prep += f",drawbox=x={logo_mask_x}:y={logo_mask_y}:color=0x0a0c16@0.88:t=fill:w={logo_mask_w}:h={logo_mask_h}"
         
+        # Cinematic Vignette Filter
+        if enable_vignette:
+            v_prep += ',vignette=PI/4.5'
+
         # Color Grading Filter
         if color_grading == "cyber_teal":
             v_prep += ",colorbalance=rs=0.1:gs=-0.1:bs=0.4,eq=contrast=1.1:saturation=1.2"
