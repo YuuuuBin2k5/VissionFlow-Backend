@@ -1080,6 +1080,7 @@ def render_video_task(contract_payload: dict) -> dict:
     print("=================================================================", flush=True)
 
     try:
+        video_output = f"/tmp/{workflow_run_id}/final_output.mp4"
         raw_script = contract_payload.get("captionText") or contract_payload.get("script") or ""
         
         # If script is missing or short from payload, fetch full script from PostgreSQL DB!
@@ -1133,7 +1134,11 @@ def render_video_task(contract_payload: dict) -> dict:
         raw_voice_code = contract_payload.get("voice_code") or contract_payload.get("voice") or "vi-VN-NamMinhNeural"
         voice_code = resolve_voice(raw_voice_code)
         raw_voice_rate = contract_payload.get("voice_rate") or contract_payload.get("voiceRate") or 1.12
-        voice_rate_str = format_rate(raw_voice_rate)
+        try:
+            voice_rate = float(raw_voice_rate)
+        except Exception:
+            voice_rate = 1.12
+        voice_rate_str = format_rate(voice_rate)
 
         # Custom AI Voice Clone & Pitch / Timbre Fine-tuning
         custom_voice_url = contract_payload.get("custom_voice_url") or contract_payload.get("customVoiceUrl")
@@ -1150,7 +1155,8 @@ def render_video_task(contract_payload: dict) -> dict:
         
         # Check if scenes have emotion tags for dynamic modulation
         scenes_list = contract_payload.get("scenes") or []
-        first_emotion = (scenes_list[0].get("emotion") if scenes_list and isinstance(scenes_list[0], dict) else "").lower().replace("-", "_")
+        raw_emo = (scenes_list[0].get("emotion") if scenes_list and isinstance(scenes_list[0], dict) else "") or ""
+        first_emotion = str(raw_emo).lower().replace("-", "_").strip()
         if first_emotion and first_emotion in EMOTION_PROSODY_MATRIX:
             mod = EMOTION_PROSODY_MATRIX[first_emotion]
             calc_rate = int(round(voice_rate * 100 + mod["rate_offset"])) - 100
