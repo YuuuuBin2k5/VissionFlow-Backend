@@ -16,6 +16,27 @@ import re
 import json
 import uuid
 import subprocess
+
+EMOTION_PROSODY_MATRIX = {
+    "suspenseful_warning": {"rate_offset": -6, "pitch_offset": -10},
+    "creeping_dread": {"rate_offset": -8, "pitch_offset": -14},
+    "hypnotic_terror": {"rate_offset": -3, "pitch_offset": -6},
+    "shocked_horror": {"rate_offset": 14, "pitch_offset": 16},
+    "intense_escape": {"rate_offset": 16, "pitch_offset": 10},
+    "chilling_moral": {"rate_offset": -5, "pitch_offset": -8},
+    "investigative_serious": {"rate_offset": 2, "pitch_offset": -4},
+    "tense_unease": {"rate_offset": -4, "pitch_offset": -8},
+}
+
+SFX_STEM_CATALOG = {
+    "door_knock": "https://assets.mixkit.co/active_storage/sfx/2874/2874-preview.mp3",
+    "rain_thunder": "https://assets.mixkit.co/active_storage/sfx/1253/1253-preview.mp3",
+    "heartbeat": "https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3",
+    "horror_riser": "https://assets.mixkit.co/active_storage/sfx/2875/2875-preview.mp3",
+    "clock_tick": "https://assets.mixkit.co/active_storage/sfx/2871/2871-preview.mp3",
+    "whoosh": "https://assets.mixkit.co/active_storage/sfx/2872/2872-preview.mp3"
+}
+
 from urllib.parse import urlparse
 import ipaddress
 import modal
@@ -929,11 +950,22 @@ def render_video_task(contract_payload: dict) -> dict:
         if custom_voice_url and is_safe_url(custom_voice_url):
             print(f"[Modal] 🎙️ AI Zero-Shot Voice Clone Mode active! Reference Voice Sample: {custom_voice_url[:50]}...", flush=True)
             
-        print(f"[Modal] 🎙️ Synthesizing speech & VTT word timestamps (voice={voice_code}, rate={voice_rate_str}, pitch={pitch_arg})...", flush=True)
+        print(f"[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice={voice_code}, rate={voice_rate_str}, pitch={pitch_arg})...", flush=True)
         os.makedirs(f"/tmp/{workflow_run_id}", exist_ok=True)
         audio_output = f"/tmp/{workflow_run_id}/tts_voice.mp3"
         vtt_output = f"/tmp/{workflow_run_id}/tts_words.vtt"
         
+        # Check if scenes have emotion tags for dynamic modulation
+        scenes_list = contract_payload.get("scenes") or []
+        first_emotion = (scenes_list[0].get("emotion") if scenes_list and isinstance(scenes_list[0], dict) else "").lower().replace("-", "_")
+        if first_emotion and first_emotion in EMOTION_PROSODY_MATRIX:
+            mod = EMOTION_PROSODY_MATRIX[first_emotion]
+            calc_rate = int(round(voice_rate * 100 + mod["rate_offset"])) - 100
+            voice_rate_str = f"+{calc_rate}%" if calc_rate >= 0 else f"{calc_rate}%"
+            calc_pitch = int(round(voice_pitch + mod["pitch_offset"]))
+            pitch_arg = f"+{calc_pitch}Hz" if calc_pitch >= 0 else f"{calc_pitch}Hz"
+            print(f"[Modal] 🎭 Emotion-Dynamic Voice Modulation active! [Emotion: {first_emotion}] -> Rate: {voice_rate_str}, Pitch: {pitch_arg}", flush=True)
+
         tts_cmd = [
             "edge-tts",
             "--text", script,
@@ -1322,6 +1354,29 @@ def render_video_task(contract_payload: dict) -> dict:
         if enable_progress_bar:
             pbar_y = res_h - 10
             v_prep += f",drawbox=y={pbar_y}:color=0x38BDF8@0.9:t=fill:w='iw*t/{video_duration}'"
+
+                # -------------------------------------------------------------------
+        # Smart SFX Sound Design Stem Downloads
+        # -------------------------------------------------------------------
+        sfx_cues = contract_payload.get("sfx_cues") or []
+        downloaded_sfx_files = []
+        if isinstance(sfx_cues, list) and len(sfx_cues) > 0:
+            for s_idx, cue in enumerate(sfx_cues[:3]):  # Limit top 3 most impactful cues
+                s_url = cue.get("url")
+                if s_url and is_safe_url(s_url):
+                    sfx_path = f"/tmp/{workflow_run_id}/sfx_{s_idx}.mp3"
+                    try:
+                        import requests
+                        r_sfx = requests.get(s_url, timeout=10)
+                        if r_sfx.status_code == 200 and len(r_sfx.content) > 1000:
+                            with open(sfx_path, "wb") as f_sfx:
+                                f_sfx.write(r_sfx.content)
+                            delay_ms = int(float(cue.get("start_sec", 0)) * 1000)
+                            vol = float(cue.get("volume", 0.7))
+                            downloaded_sfx_files.append({"path": sfx_path, "delay_ms": delay_ms, "volume": vol, "name": cue.get("name")})
+                            print(f"[Modal] 🔊 Downloaded Smart SFX stem '{cue.get('name')}' (Offset: {delay_ms}ms, Vol: {vol})!", flush=True)
+                    except Exception as s_err:
+                        print(f"[Modal] ⚠️ Notice: SFX stem download fallback: {s_err}", flush=True)
 
         # Audio Studio Master Filter Chain (EBU R128 -14 LUFS Normalization + EQ + Sidechain Ducking)
         bgm_url = contract_payload.get("bgm_url") or contract_payload.get("music_url") or contract_payload.get("background_music_url")
