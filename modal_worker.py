@@ -606,7 +606,7 @@ ScaledBorderAndShadow: yes
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Default,{font_family},{font_size},{primary_ass_color},{secondary_ass_color},&H00000000,&H90000000,-1,0,0,0,100,100,0,0,1,5,3,2,60,60,100,1
 Style: TitleStyle,{font_family},44,{title_primary},&H00000000,{title_box_bg},&H80000000,-1,0,0,0,100,100,0,0,3,10,2,5,40,40,100,1
-Style: WatermarkStyle,{font_family},26,&H0038F5AB,&H00000000,&HCE0A0C16,&H80000000,-1,0,0,0,100,100,0,0,3,6,2,5,30,30,40,1
+Style: WatermarkStyle,{font_family},30,&H0038F5AB,&H00000000,&HCE0A0C16,&H80000000,-1,0,0,0,100,100,0,0,3,10,3,5,30,30,40,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -971,10 +971,30 @@ def render_video_task(contract_payload: dict) -> dict:
         caption_x_percent = contract_payload.get("captionXPercent", 50)
         caption_y_percent = contract_payload.get("captionYPercent", 78)
         title_banner_y_percent = contract_payload.get("titleBannerYPercent", 15)
-        watermark_text = contract_payload.get("logoHandle") or contract_payload.get("watermarkText") or contract_payload.get("channel_handle")
-        watermark_x_percent = contract_payload.get("logoXPercent", 18 if contract_payload.get("logoPosition") == "top_left" else 82)
-        watermark_y_percent = contract_payload.get("logoYPercent", 6)
-        watermark_position = contract_payload.get("logoPosition", "top_left")
+        watermark_text = (
+            contract_payload.get("logoHandle")
+            or contract_payload.get("logo_handle")
+            or contract_payload.get("watermarkText")
+            or contract_payload.get("watermark_text")
+            or contract_payload.get("channel_handle")
+            or contract_payload.get("channelHandle")
+            or contract_payload.get("channel_name")
+            or contract_payload.get("channelName")
+            or (contract_payload.get("watermarkMask") or {}).get("brandText")
+            or contract_payload.get("brandText")
+            or "@GocChiemNghiem"
+        )
+        watermark_x_percent = int(
+            contract_payload.get("logoXPercent")
+            or contract_payload.get("logo_x_percent")
+            or (18 if (contract_payload.get("logoPosition") or contract_payload.get("logo_position")) == "top_left" else 82)
+        )
+        watermark_y_percent = int(
+            contract_payload.get("logoYPercent")
+            or contract_payload.get("logo_y_percent")
+            or 6
+        )
+        watermark_position = contract_payload.get("logoPosition") or contract_payload.get("logo_position") or "top_left" 
         enable_progress_bar = contract_payload.get("enableProgressBar", False)
         color_grading = contract_payload.get("colorGrading", "none")
         enable_karaoke = contract_payload.get("enableKaraoke", True)
