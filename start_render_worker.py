@@ -66,16 +66,20 @@ except Exception as ffmpeg_err:
     print(f"[FFmpeg] Setup notice: {ffmpeg_err}")
 
 # Environment Setup matching GitHub Actions Secrets & Control Plane Contract
-os.environ["ENVIRONMENT"] = "development"
-os.environ["DATABASE_URL"] = "postgresql://neondb_owner:npg_Di3nJLmsh5cB@ep-green-salad-aoq7advi-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
-os.environ["VISIONFLOW_CONTROL_PLANE_URL"] = "https://visionflow-control-plane.onrender.com"
-os.environ["VISIONFLOW_TOKEN_URL"] = "https://visionflow-control-plane.onrender.com/api/v1/auth/token"
-os.environ["VISIONFLOW_WORKER_CLIENT_ID"] = "visionflow-worker-runner"
-os.environ["VISIONFLOW_WORKER_CLIENT_SECRET"] = "sec_worker_prod_99812"
-os.environ["VISIONFLOW_ORGANIZATION_ID"] = "7b91598c-6c3e-4e5d-8247-d3efa203984a"
-os.environ["VISIONFLOW_AUTH_AUDIENCE"] = "visionflow-control-plane"
-os.environ["GEMINI_API_KEY"] = "AIzaSyCNu2LQSzyBW6ACixl1D6SLy07_vdeu0ho"
-os.environ["PEXELS_API_KEY"] = "j3CIlOLR1RdRejkZPi56CCmJALu9axEyFjik0U77W3semlJtXFpMqgVp"
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+
+if "DATABASE_URL" not in os.environ:
+    os.environ["DATABASE_URL"] = "postgresql://neondb_owner:npg_TD8BYOyg6AVC@ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+os.environ.setdefault("ENVIRONMENT", "development")
+os.environ.setdefault("VISIONFLOW_CONTROL_PLANE_URL", "https://visionflow-control-plane.onrender.com")
+os.environ.setdefault("VISIONFLOW_TOKEN_URL", "https://visionflow-control-plane.onrender.com/api/v1/auth/token")
+os.environ.setdefault("VISIONFLOW_WORKER_CLIENT_ID", "visionflow-worker-runner")
+os.environ.setdefault("VISIONFLOW_WORKER_CLIENT_SECRET", "sec_worker_prod_99812")
+os.environ.setdefault("VISIONFLOW_ORGANIZATION_ID", "7b91598c-6c3e-4e5d-8247-d3efa203984a")
+os.environ.setdefault("VISIONFLOW_AUTH_AUDIENCE", "visionflow-control-plane")
+os.environ.setdefault("GEMINI_API_KEY", "AIzaSyCNu2LQSzyBW6ACixl1D6SLy07_vdeu0ho")
+os.environ.setdefault("PEXELS_API_KEY", "j3CIlOLR1RdRejkZPi56CCmJALu9axEyFjik0U77W3semlJtXFpMqgVp")
 
 # Add worker and control-plane paths
 sys.path.insert(0, os.path.abspath("worker"))
@@ -330,9 +334,9 @@ def process_workflow_official(wf_id: str) -> bool:
         wf_target = fresh_db.get(WorkflowRun, wf_id)
         if wf_target:
             proj_target = fresh_db.get(VideoProject, wf_target.project_id)
+            asset_key = real_video_url or output_video_path
             if proj_target:
                 proj_target.preview_video_url = asset_key
-            asset_key = real_video_url or output_video_path
             existing_asset = fresh_db.query(MediaAsset).filter(
                 MediaAsset.workflow_run_id == wf_target.id,
                 MediaAsset.media_kind == "final_export"
