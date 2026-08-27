@@ -537,9 +537,6 @@ def get_execution_context(
         )
         if run is None:
             raise LookupError()
-        if run.state in ("QUEUED", "RENDERING", "QA_PENDING", "DRAFT", "READY"):
-            run.state = WorkflowState.APPROVAL_PENDING.value
-            session.commit()
         project = session.get(VideoProject, run.project_id)
         steps = session.scalars(select(WorkflowStep).where(WorkflowStep.workflow_run_id == run.id)).all()
     except PermissionError as exc:
