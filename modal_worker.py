@@ -19,13 +19,19 @@ import subprocess
 
 EMOTION_PROSODY_MATRIX = {
     "suspenseful_warning": {"rate_offset": -6, "pitch_offset": -10},
+    "ominous_urgency": {"rate_offset": -6, "pitch_offset": -10},
     "creeping_dread": {"rate_offset": -8, "pitch_offset": -14},
     "hypnotic_terror": {"rate_offset": -3, "pitch_offset": -6},
+    "baffled_terror": {"rate_offset": -3, "pitch_offset": -6},
     "shocked_horror": {"rate_offset": 14, "pitch_offset": 16},
     "intense_escape": {"rate_offset": 16, "pitch_offset": 10},
+    "hectic_escape": {"rate_offset": 16, "pitch_offset": 10},
     "chilling_moral": {"rate_offset": -5, "pitch_offset": -8},
+    "chilling_epilogue": {"rate_offset": -5, "pitch_offset": -8},
     "investigative_serious": {"rate_offset": 2, "pitch_offset": -4},
     "tense_unease": {"rate_offset": -4, "pitch_offset": -8},
+    "mysterious_tension": {"rate_offset": -4, "pitch_offset": -8},
+    "deep_suspense": {"rate_offset": -6, "pitch_offset": -10},
 }
 
 SFX_STEM_CATALOG = {
