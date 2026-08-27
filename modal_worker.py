@@ -1517,12 +1517,36 @@ def render_video_task(contract_payload: dict) -> dict:
         # Update PostgreSQL Database via Control Plane API or Direct SQL
         # -------------------------------------------------------------------
         db_url = "postgresql://neondb_owner:npg_TD8BYOyg6AVC@ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+                # -------------------------------------------------------------------
+        # AI Golden Frame 3D Cover Thumbnail Extraction at 1.5s
+        # -------------------------------------------------------------------
+        cover_path = f"/tmp/{workflow_run_id}/cover.jpg"
+        cover_url = ""
+        try:
+            extract_cover_cmd = [
+                "ffmpeg", "-y",
+                "-ss", "00:00:01.500",
+                "-i", video_output,
+                "-vframes", "1",
+                "-q:v", "2",
+                cover_path
+            ]
+            subprocess.run(extract_cover_cmd, check=True)
+            if s3 and os.path.exists(cover_path):
+                cover_key = f"workflows/{workflow_run_id}/cover.jpg"
+                s3.upload_file(cover_path, r2_bucket, cover_key, ExtraArgs={"ContentType": "image/jpeg"})
+                r2_public = os.environ.get("VISIONFLOW_OBJECT_STORE_PUBLIC_BASE", "https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev")
+                cover_url = f"{r2_public}/{cover_key}"
+                print(f"[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 ({cover_url})!", flush=True)
+        except Exception as cov_err:
+            print(f"[Modal] ⚠️ Notice: Cover thumbnail extraction: {cov_err}", flush=True)
+
         try:
             import psycopg2
             conn = psycopg2.connect(db_url)
             cur = conn.cursor()
             media_id = str(uuid.uuid4())
-            meta = json.dumps({"title": contract_payload.get("title", "Rendered Video"), "workflow_run_id": str(workflow_run_id)})
+            meta = json.dumps({"title": contract_payload.get("title", "Rendered Video"), "workflow_run_id": str(workflow_run_id), "cover_url": cover_url})
             byte_size = os.path.getsize(video_output)
 
             def safe_uuid(val):
@@ -1602,6 +1626,30 @@ def render_video_task(contract_payload: dict) -> dict:
 
         # Update Workflow Run State to FAILED in PostgreSQL so failure is accurately reported
         db_url = "postgresql://neondb_owner:npg_TD8BYOyg6AVC@ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+                # -------------------------------------------------------------------
+        # AI Golden Frame 3D Cover Thumbnail Extraction at 1.5s
+        # -------------------------------------------------------------------
+        cover_path = f"/tmp/{workflow_run_id}/cover.jpg"
+        cover_url = ""
+        try:
+            extract_cover_cmd = [
+                "ffmpeg", "-y",
+                "-ss", "00:00:01.500",
+                "-i", video_output,
+                "-vframes", "1",
+                "-q:v", "2",
+                cover_path
+            ]
+            subprocess.run(extract_cover_cmd, check=True)
+            if s3 and os.path.exists(cover_path):
+                cover_key = f"workflows/{workflow_run_id}/cover.jpg"
+                s3.upload_file(cover_path, r2_bucket, cover_key, ExtraArgs={"ContentType": "image/jpeg"})
+                r2_public = os.environ.get("VISIONFLOW_OBJECT_STORE_PUBLIC_BASE", "https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev")
+                cover_url = f"{r2_public}/{cover_key}"
+                print(f"[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 ({cover_url})!", flush=True)
+        except Exception as cov_err:
+            print(f"[Modal] ⚠️ Notice: Cover thumbnail extraction: {cov_err}", flush=True)
+
         try:
             import psycopg2
             conn = psycopg2.connect(db_url)
