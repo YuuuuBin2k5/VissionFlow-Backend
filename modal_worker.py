@@ -541,9 +541,13 @@ def smart_group_vtt_cues(cues: list[dict], max_words: int = 3, max_gap_sec: floa
         gap = curr_start - prev_end
 
         last_char = prev_word[-1] if prev_word else ""
-        has_punctuation = last_char in {",", ".", "!", "?", ";", ":", "—"}
-        if last_char == "." and len(prev_word) > 1 and prev_word[-2].isdigit():
-            has_punctuation = False
+        has_punctuation = last_char in {".", "!", "?", ";", ":", "—"}
+        if last_char == ",":
+            # Only break on comma if chunk has at least 3 words or 14 characters
+            if len(curr_chunk) >= 3 or len(curr_text) >= 14:
+                has_punctuation = True
+            else:
+                has_punctuation = False
 
         curr_text = " ".join(str(it.get("text") or it.get("word") or "") for it in curr_chunk)
         exceeds_length = len(curr_text) >= max_chars
