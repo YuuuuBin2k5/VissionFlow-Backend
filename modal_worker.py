@@ -596,25 +596,214 @@ def clean_and_wrap_title(title: str, max_chars_per_line: int = 34) -> str:
         return " ".join(line1) + "\\N" + " ".join(line2)
     return clean
 
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
+
+def create_title_banner_overlay(
+    title_text: str,
+    canvas_w: int = 1080,
+    canvas_h: int = 1920,
+    style: str = "neon",
+    y_percent: float = 14.0,
+    output_path: str = "/tmp/title_banner_overlay.png"
+) -> str:
+    """Generates pixel-perfect Title Card matching Studio Preview with true rounded corners & soft glow halo."""
+    img = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+    if not title_text:
+        img.save(output_path, "PNG")
+        return output_path
+        
+    import re
+    clean = re.sub(r'[\U00010000-\U0010ffff\u2600-\u27ff\u2300-\u23ff\ufe00-\ufe0f\u200d]', '', title_text)
+    clean = clean.replace("\n", " ").strip()
+    clean = re.sub(r'\s+', ' ', clean).upper()
+    
+    words = clean.split(" ")
+    lines = []
+    curr = []
+    for w in words:
+        if sum(len(x) for x in curr) + len(curr) + len(w) <= 18:
+            curr.append(w)
+        else:
+            if curr:
+                lines.append(" ".join(curr))
+            curr = [w]
+    if curr:
+        lines.append(" ".join(curr))
+    if not lines:
+        lines = ["TIÊU ĐỀ VIDEO"]
+        
+    line_text = "\n".join(lines)
+    
+    font_size = 40
+    font = None
+    for font_name in [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "C:/Windows/Fonts/arialbd.ttf",
+        "C:/Windows/Fonts/tahoma.ttf"
+    ]:
+        if os.path.exists(font_name):
+            try:
+                font = ImageFont.truetype(font_name, font_size)
+                break
+            except Exception:
+                pass
+    if not font:
+        font = ImageFont.load_default()
+        
+    dummy = ImageDraw.Draw(img)
+    bbox = dummy.multiline_textbbox((0, 0), line_text, font=font, align="center", spacing=10)
+    text_w = bbox[2] - bbox[0]
+    text_h = bbox[3] - bbox[1]
+    
+    pad_x = 44
+    pad_y = 26
+    box_w = max(400, text_w + pad_x * 2)
+    box_h = text_h + pad_y * 2
+    
+    center_x = canvas_w // 2
+    center_y = int(canvas_h * (y_percent / 100.0))
+    
+    box_x0 = center_x - box_w // 2
+    box_y0 = center_y - box_h // 2
+    box_x1 = center_x + box_w // 2
+    box_y1 = center_y + box_h // 2
+    
+    radius = 28
+    
+    if style == "news":
+        bg_color = (220, 38, 38, 255)       # Red #DC2626
+        border_color = (255, 255, 255, 255) # White
+        text_color = (255, 255, 255, 255)   # White
+        glow_color = (220, 38, 38, 140)
+    elif style == "glass":
+        bg_color = (15, 23, 42, 225)        # Dark slate 88%
+        border_color = (56, 189, 248, 180)  # Cyan #38BDF8
+        text_color = (56, 189, 248, 255)    # Cyan
+        glow_color = (6, 182, 212, 120)
+    else: # neon
+        bg_color = (250, 204, 21, 255)      # Bright Yellow #FACC15
+        border_color = (0, 0, 0, 255)       # Black #000000
+        text_color = (15, 23, 42, 255)      # Dark Black
+        glow_color = (250, 204, 21, 160)    # Soft Yellow Halo Glow
+        
+    # Soft Glow Halo Layer
+    glow_img = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+    glow_draw = ImageDraw.Draw(glow_img)
+    glow_pad = 16
+    glow_draw.rounded_rectangle(
+        (box_x0 - glow_pad, box_y0 - glow_pad, box_x1 + glow_pad, box_y1 + glow_pad),
+        radius=radius + 10,
+        fill=glow_color
+    )
+    glow_img = glow_img.filter(ImageFilter.GaussianBlur(16))
+    img = Image.alpha_composite(img, glow_img)
+    
+    # Main Card & Border
+    draw = ImageDraw.Draw(img)
+    draw.rounded_rectangle(
+        (box_x0, box_y0, box_x1, box_y1),
+        radius=radius,
+        fill=bg_color,
+        outline=border_color,
+        width=4
+    )
+    
+    # Multiline Text inside Card
+    tx = center_x
+    ty = center_y
+    draw.multiline_text((tx, ty), line_text, font=font, fill=text_color, anchor="mm", align="center", spacing=10)
+    
+    img.save(output_path, "PNG")
+    return output_path
+
+def create_logo_pill_overlay(
+    logo_handle: str,
+    canvas_w: int = 1080,
+    canvas_h: int = 1920,
+    x_percent: float = 18.0,
+    y_percent: float = 6.0,
+    output_path: str = "/tmp/logo_pill_overlay.png"
+) -> str:
+    """Generates pixel-perfect Glassmorphic Channel Logo Pill matching Studio Preview."""
+    img = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+    if not logo_handle:
+        img.save(output_path, "PNG")
+        return output_path
+        
+    draw = ImageDraw.Draw(img)
+    clean_handle = logo_handle.split("||")[0].strip()
+    if not clean_handle.startswith("@"):
+        clean_handle = f"@{clean_handle}"
+        
+    font_size = 28
+    font = None
+    for font_name in [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "C:/Windows/Fonts/courbd.ttf",
+        "C:/Windows/Fonts/arialbd.ttf"
+    ]:
+        if os.path.exists(font_name):
+            try:
+                font = ImageFont.truetype(font_name, font_size)
+                break
+            except Exception:
+                pass
+    if not font:
+        font = ImageFont.load_default()
+        
+    bbox = draw.textbbox((0, 0), clean_handle, font=font)
+    text_w = bbox[2] - bbox[0]
+    text_h = bbox[3] - bbox[1]
+    
+    dot_radius = 6
+    pad_l = 22
+    pad_r = 22
+    pad_y = 12
+    dot_spacing = 14
+    
+    pill_w = pad_l + (dot_radius * 2) + dot_spacing + text_w + pad_r
+    pill_h = max(text_h + pad_y * 2, 50)
+    
+    center_x = int(canvas_w * (x_percent / 100.0))
+    center_y = int(canvas_h * (y_percent / 100.0))
+    
+    x0 = center_x - pill_w // 2
+    y0 = center_y - pill_h // 2
+    x1 = center_x + pill_w // 2
+    y1 = center_y + pill_h // 2
+    
+    bg_color = (2, 6, 23, 215)          # Dark Slate 85%
+    border_color = (52, 211, 153, 110)  # Emerald border
+    dot_color = (52, 211, 153, 255)     # Glowing green dot
+    text_color = (110, 231, 183, 255)   # Mint Emerald text
+    
+    draw.rounded_rectangle((x0, y0, x1, y1), radius=pill_h // 2, fill=bg_color, outline=border_color, width=2)
+    
+    dot_cx = x0 + pad_l + dot_radius
+    dot_cy = center_y
+    draw.ellipse((dot_cx - dot_radius, dot_cy - dot_radius, dot_cx + dot_radius, dot_cy + dot_radius), fill=dot_color)
+    
+    text_x = dot_cx + dot_radius + dot_spacing
+    text_y = center_y
+    draw.text((text_x, text_y), clean_handle, font=font, fill=text_color, anchor="lm")
+    
+    img.save(output_path, "PNG")
+    return output_path
+
+
 def generate_ass_subtitles(
     script_text: str,
     transcripts: list[dict] | None,
     vtt_cues: list[dict] | None,
-    title_banner: str | None,
     video_duration: float,
     output_ass_path: str,
     caption_color: str = "#FFE600",
-    font_size: int = 80,
+    font_size: int = 82,
     font_family: str = "Montserrat",
-    show_title_banner: bool = True,
-    title_banner_style: str = "neon",
     caption_x_percent: int = 50,
     caption_y_percent: int = 76,
-    title_banner_y_percent: int = 14,
-    watermark_text: str | None = None,
-    watermark_x_percent: int = 18,
-    watermark_y_percent: int = 6,
-    watermark_position: str = "top_left",
     enable_karaoke: bool = True,
     enable_auto_emoji: bool = True,
     caption_preset: str = "hormozi",
@@ -622,7 +811,6 @@ def generate_ass_subtitles(
     res_h: int = 1920
 ) -> str:
     r"""Generates ASS kinetic subtitles with 100% WYSIWYG parity to Studio Preview."""
-    # Convert HEX color (#RRGGBB) to ASS BGR format (&H00BBGGRR)
     def hex_to_ass_bgr(hex_str: str, default: str = "&H0000E6FF") -> str:
         h = str(hex_str).lstrip("#")
         if len(h) == 6:
@@ -631,42 +819,20 @@ def generate_ass_subtitles(
         return default
 
     primary_ass_color = hex_to_ass_bgr(caption_color, default="&H0000E6FF")
-    secondary_ass_color = "&H00FFFFFF"  # Pre-spoken White
+    secondary_ass_color = "&H00FFFFFF"
 
-    # Calculate subtitle & badge pixel positions relative to dynamic canvas resolution
-    sub_x_px = int(res_w * (caption_x_percent / 100.0))
-    sub_y_px = int(res_h * (caption_y_percent / 100.0))
-    title_x_px = int(res_w / 2.0)
-    title_y_px = int(res_h * (title_banner_y_percent / 100.0))
+    cur_x_px = int(res_w * (caption_x_percent / 100.0))
+    cur_y_px = int(res_h * (caption_y_percent / 100.0))
 
-    if watermark_position == "top_left" or watermark_x_percent < 30:
-        wm_x_px = int(res_w * 0.18)
-        wm_y_px = int(res_h * 0.055)
-    else:
-        wm_x_px = int(res_w * (watermark_x_percent / 100.0))
-        wm_y_px = int(res_h * (watermark_y_percent / 100.0))
-
-    # Title Banner Style Presets matching Studio (In ASS BorderStyle 3: OutlineColour IS THE BOX BACKGROUND FILL COLOR!)
-    if title_banner_style == "news":
-        title_primary = "&H00FFFFFF"   # White Text
-        title_box_bg = "&H002626DC"    # News Red Box (#DC2626)
-    elif title_banner_style == "glass":
-        title_primary = "&H00F8BD38"   # Cyan Text (#38BDF8)
-        title_box_bg = "&HCE160C0A"    # Glassmorphism Dark Box (#0A0C16@85%)
-    else:  # neon
-        title_primary = "&H00050C0A"   # Deep Dark Black Text
-        title_box_bg = "&H0000E6FF"    # Bright Yellow Neon Box (#FFE600)
-
-    # 4 Kinetic Typography Presets (Hormozi, Neon Cyber, Karaoke Glow, Clean Minimal)
-    effective_font_size = max(64, font_size)
+    effective_font_size = max(72, font_size)
     if caption_preset == "neon_cyber":
-        sub_style = f"Style: Default,{font_family},{effective_font_size},&H00F8BD38,&H00FFFFFF,&H00D946EF,&H8006B6D4,-1,0,0,0,100,100,0,0,1,8,4,2,60,60,100,1"
+        sub_style = f"Style: Default,{font_family},{effective_font_size},&H00F8BD38,&H00FFFFFF,&H00D946EF,&H8006B6D4,-1,0,0,0,100,100,0,0,1,10,4,2,60,60,120,1"
     elif caption_preset == "karaoke_glow":
-        sub_style = f"Style: Default,{font_family},{effective_font_size},&H0000E6FF,&H00C0C0C0,&H00000000,&H800B9EF5,-1,0,0,0,100,100,0,0,1,9,5,2,60,60,100,1"
+        sub_style = f"Style: Default,{font_family},{effective_font_size},&H0000E6FF,&H00C0C0C0,&H00000000,&H800B9EF5,-1,0,0,0,100,100,0,0,1,10,5,2,60,60,120,1"
     elif caption_preset == "clean_minimal":
-        sub_style = f"Style: Default,{font_family},{int(effective_font_size * 0.85)},&H00FFFFFF,&H00E0E0E0,&HCE160C0A,&H80000000,-1,0,0,0,100,100,0,0,3,10,0,2,60,60,100,1"
-    else:  # hormozi / default
-        sub_style = f"Style: Default,{font_family},{effective_font_size},{primary_ass_color},{secondary_ass_color},&H00000000,&H90000000,-1,0,0,0,100,100,0,0,1,10,4,2,60,60,100,1"
+        sub_style = f"Style: Default,{font_family},{int(effective_font_size * 0.85)},&H00FFFFFF,&H00E0E0E0,&HCE160C0A,&H80000000,-1,0,0,0,100,100,0,0,3,10,0,2,60,60,120,1"
+    else: # hormozi / default
+        sub_style = f"Style: Default,{font_family},{effective_font_size},{primary_ass_color},{secondary_ass_color},&H00000000,&H90000000,-1,0,0,0,100,100,0,0,1,12,4,2,60,60,120,1"
 
     header = f"""[Script Info]
 ScriptType: v4.00+
@@ -677,29 +843,11 @@ ScaledBorderAndShadow: yes
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 {sub_style}
-Style: TitleStyle,{font_family},46,{title_primary},&H00000000,{title_box_bg},&H80000000,-1,0,0,0,100,100,0,0,3,12,3,5,40,40,100,1
-Style: WatermarkStyle,{font_family},28,&H00ABF538,&H00000000,&HCE160C0A,&H80000000,-1,0,0,0,100,100,0,0,3,10,3,5,30,30,40,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
     events = []
-    end_time_str = format_ass_time(video_duration)
-
-    # 1. Channel Watermark / Handle Overlay (Entire video at exact X/Y coordinate as a Pill Badge matching Frontend Preview)
-    if watermark_text:
-        wm_clean = watermark_text.replace("\n", " ").split("||")[0].strip()
-        if not wm_clean.startswith("●"):
-            wm_clean = f"●  {wm_clean}"
-        events.append(f"Dialogue: 0,0:00:00.00,{end_time_str},WatermarkStyle,,0,0,0,,{{\\b1\\an5\\pos({wm_x_px},{wm_y_px})}}{wm_clean}")
-
-    # 2. Title Banner Overlay (Intro Badge ONLY FOR 3.5 SECONDS with auto 2-line wrap)
-    if show_title_banner and title_banner:
-        title_clean = clean_and_wrap_title(title_banner)
-        intro_banner_end = format_ass_time(min(3.5, video_duration))
-        events.append(f"Dialogue: 0,0:00:00.00,{intro_banner_end},TitleStyle,,0,0,0,,{{\\b1\\an5\\pos({title_x_px},{title_y_px})\\fscx102\\fscy102}}{title_clean}")
-
-    # 3. Subtitles / Captions (Exact X/Y coordinate & 2-3 word Hormozi Karaoke)
     raw_words = []
     if vtt_cues and len(vtt_cues) > 0:
         raw_words = vtt_cues
@@ -713,9 +861,6 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         for idx, group in enumerate(word_chunks):
             st = float(group[0].get("start", group[0].get("start_sec", 0)))
             et = float(group[-1].get("end", group[-1].get("end_sec", st + 1.2)))
-            
-            cur_x_px = int(res_w * (float(group[0].get("xPercent", caption_x_percent)) / 100.0))
-            cur_y_px = int(res_h * (float(group[0].get("yPercent", caption_y_percent)) / 100.0))
 
             phrase_words = []
             karaoke_text_parts = []
@@ -751,11 +896,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             start_str = format_ass_time(st)
             end_str = format_ass_time(et)
             txt_clean = txt.replace("\n", " ").replace('"', '').strip()
-            events.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{{\\b1\\an5\\pos({sub_x_px},{sub_y_px})\\fscx105\\fscy105}}{txt_clean}")
+            events.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{{\\b1\\an5\\pos({cur_x_px},{cur_y_px})\\fscx105\\fscy105}}{txt_clean}")
 
     with open(output_ass_path, "w", encoding="utf-8") as f:
         f.write(header + "\n".join(events) + "\n")
     return output_ass_path
+
 
 
 # 2. Initialize Modal App
@@ -1091,27 +1237,56 @@ def render_video_task(contract_payload: dict) -> dict:
         enable_auto_emoji = contract_payload.get("enableAutoEmoji", True)
         caption_preset = contract_payload.get("captionPreset", "hormozi")
 
-        # Generate ASS Subtitles with Karaoke & 3.5s Intro Banner matching exact resolution
+        # 1. Generate Pixel-Perfect PIL PNG Overlays (Matching Studio Preview 100%)
+        banner_png_path = f"/tmp/{workflow_run_id}/banner_overlay.png"
+        has_banner = False
+        if show_title_banner and (contract_payload.get("titleBannerText") or contract_payload.get("title")):
+            try:
+                create_title_banner_overlay(
+                    title_text=contract_payload.get("titleBannerText") or contract_payload.get("title"),
+                    canvas_w=res_w,
+                    canvas_h=res_h,
+                    style=title_banner_style,
+                    y_percent=float(title_banner_y_percent),
+                    output_path=banner_png_path
+                )
+                has_banner = os.path.exists(banner_png_path) and os.path.getsize(banner_png_path) > 1000
+                if has_banner:
+                    print(f"[Modal] 🟨 Created Pixel-Perfect Title Banner Card with Yellow Glow Halo!", flush=True)
+            except Exception as b_err:
+                print(f"[Modal] Notice: Title Banner generation fallback: {b_err}", flush=True)
+
+        logo_png_path = f"/tmp/{workflow_run_id}/logo_overlay.png"
+        has_logo = False
+        if watermark_text:
+            try:
+                create_logo_pill_overlay(
+                    logo_handle=watermark_text,
+                    canvas_w=res_w,
+                    canvas_h=res_h,
+                    x_percent=float(watermark_x_percent),
+                    y_percent=float(watermark_y_percent),
+                    output_path=logo_png_path
+                )
+                has_logo = os.path.exists(logo_png_path) and os.path.getsize(logo_png_path) > 1000
+                if has_logo:
+                    print(f"[Modal] 🟢 Created Pixel-Perfect Glassmorphic Logo Pill!", flush=True)
+            except Exception as l_err:
+                print(f"[Modal] Notice: Logo Pill generation fallback: {l_err}", flush=True)
+
+        # 2. Generate ASS Subtitles with Kinetic Karaoke highlight
         ass_path = f"/tmp/{workflow_run_id}/subtitles.ass"
         generate_ass_subtitles(
             script_text=script,
             transcripts=contract_payload.get("transcripts"),
             vtt_cues=vtt_cues,
-            title_banner=contract_payload.get("titleBannerText") or contract_payload.get("title"),
             video_duration=video_duration,
             output_ass_path=ass_path,
             caption_color=caption_color,
             font_size=caption_font_size,
             font_family=font_family,
-            show_title_banner=show_title_banner,
-            title_banner_style=title_banner_style,
             caption_x_percent=caption_x_percent,
             caption_y_percent=caption_y_percent,
-            title_banner_y_percent=title_banner_y_percent,
-            watermark_text=watermark_text,
-            watermark_x_percent=watermark_x_percent,
-            watermark_y_percent=watermark_y_percent,
-            watermark_position=watermark_position,
             enable_karaoke=enable_karaoke,
             enable_auto_emoji=enable_auto_emoji,
             caption_preset=caption_preset,
@@ -1178,9 +1353,10 @@ def render_video_task(contract_payload: dict) -> dict:
                             """,
                             (wf_u, wf_u)
                         )
-                        doc_r = cur_sc.fetchone()
-                        if doc_r and doc_r[0]:
-                            db_scenes = doc_r[0].get("scenes")
+                        doc_row = cur_sc.fetchone()
+                        if doc_row and doc_row[0]:
+                            doc_data = doc_row[0]
+                            db_scenes = doc_data.get("scenes")
                     if db_scenes and isinstance(db_scenes, list) and len(db_scenes) > 0:
                         scenes = db_scenes
                         print(f"[Modal] 🎞️ Auto-resolved {len(scenes)} visual scenes from PostgreSQL DB!", flush=True)
@@ -1194,7 +1370,6 @@ def render_video_task(contract_payload: dict) -> dict:
             sentences = [s.strip() for s in re.split(r'[.,!?\n]+', script) if len(s.strip()) > 10]
             if not sentences:
                 sentences = [script]
-            # Take up to 4 major scene sentences
             scene_chunks = sentences[:4] if len(sentences) >= 4 else sentences
             gemini_key = os.environ.get("GEMINI_API_KEY", "AIzaSyCNu2LQSzyBW6ACixl1D6SLy07_vdeu0ho")
             scenes = []
@@ -1384,63 +1559,16 @@ def render_video_task(contract_payload: dict) -> dict:
                 print(f"[Modal] ⚠️ Notice: Pexels download fallback ({pex_err})", flush=True)
 
         # -------------------------------------------------------------------
-        # Optional Logo Image Download (Overlay PNG with Dynamic Scaling)
-        # -------------------------------------------------------------------
-        logo_url = contract_payload.get("logoUrl") or ""
-        has_logo_image = False
-        logo_img_path = f"/tmp/{workflow_run_id}/logo_overlay.png"
-        if logo_url and is_safe_url(logo_url):
-            try:
-                import requests
-                r_logo = requests.get(logo_url, timeout=15)
-                if r_logo.status_code == 200 and len(r_logo.content) > 100:
-                    with open(logo_img_path, "wb") as f_l:
-                        f_l.write(r_logo.content)
-                    has_logo_image = True
-                    print(f"[Modal] 🖼️ Downloaded custom logo image ({len(r_logo.content)} bytes)!", flush=True)
-            except Exception as l_err:
-                print(f"[Modal] ⚠️ Notice: Logo image download fallback: {l_err}", flush=True)
-
-        # -------------------------------------------------------------------
-        # Build FFmpeg Filter Chain (Dark Base Canvas + Color Grading + Subtitles + Zoom motion)
+        # Build FFmpeg Filter Chain with Pixel-Perfect PNG Overlays & Subtitles
         # -------------------------------------------------------------------
         video_output = f"/tmp/{workflow_run_id}/final_output.mp4"
         ass_path_escaped = ass_path.replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
 
-        # Base normalized video processing filter with dynamic resolution and target FPS
         v_prep = (
             f"fps={target_fps},format=yuv420p,"
             f"scale={res_w}:{res_h}:force_original_aspect_ratio=increase,"
             f"crop={res_w}:{res_h},setsar=1"
         )
-
-        # Dynamic Watermark & Subtitle Masking from Frontend Canvas
-        watermark_mask = contract_payload.get("watermarkMask") or {}
-        if isinstance(watermark_mask, dict) and watermark_mask.get("enabled"):
-            mask_x_pct = float(watermark_mask.get("xPercent", 80))
-            mask_y_pct = float(watermark_mask.get("yPercent", 12))
-            mask_w_pct = float(watermark_mask.get("widthPercent", 32))
-            mask_h_pct = float(watermark_mask.get("heightPercent", 12))
-            bx = max(0, int(res_w * (mask_x_pct - mask_w_pct / 2.0) / 100.0))
-            by = max(0, int(res_h * (mask_y_pct - mask_h_pct / 2.0) / 100.0))
-            bw = min(res_w - bx, int(res_w * mask_w_pct / 100.0))
-            bh = min(res_h - by, int(res_h * mask_h_pct / 100.0))
-            v_prep += f",drawbox=x={bx}:y={by}:w={bw}:h={bh}:color=0x0a0c16@0.92:t=fill"
-        elif enable_mask_subtitle or is_dubbing_mode:
-            sub_mask_y = int(res_h * 0.708)
-            sub_mask_h = int(res_h * 0.177)
-            v_prep += f",drawbox=y={sub_mask_y}:color=0x0a0c16@0.88:t=fill:w={res_w}:h={sub_mask_h}"
-
-        if enable_mask_logo and not (isinstance(watermark_mask, dict) and watermark_mask.get("enabled")):
-            logo_mask_x = int(res_w * 0.63)
-            logo_mask_y = int(res_h * 0.02)
-            logo_mask_w = int(res_w * 0.33)
-            logo_mask_h = int(res_h * 0.06)
-            v_prep += f",drawbox=x={logo_mask_x}:y={logo_mask_y}:color=0x0a0c16@0.88:t=fill:w={logo_mask_w}:h={logo_mask_h}"
-        
-        # Cinematic Vignette Filter
-        if enable_vignette:
-            v_prep += ',vignette=PI/4.5'
 
         # Color Grading Filter (Clean WYSIWYG matching Studio CSS)
         if color_grading == "cyber_teal":
@@ -1450,40 +1578,11 @@ def render_video_task(contract_payload: dict) -> dict:
         elif color_grading == "clean_tech":
             v_prep += ",eq=contrast=1.10:saturation=1.08:brightness=0.01"
 
-        # Beat-Reactive Music Drop Color Flash Filter
-        enable_beat_flash = contract_payload.get("enableBeatFlash", False) or contract_payload.get("enable_beat_flash", False)
-        if enable_beat_flash:
-            v_prep += build_beat_flash_filter()
-
-        # Animated Progress Bar at bottom
         if enable_progress_bar:
             pbar_y = res_h - 10
             v_prep += f",drawbox=y={pbar_y}:color=0x38BDF8@0.9:t=fill:w='iw*t/{video_duration}'"
 
-                # -------------------------------------------------------------------
-        # Smart SFX Sound Design Stem Downloads
-        # -------------------------------------------------------------------
-        sfx_cues = contract_payload.get("sfx_cues") or []
-        downloaded_sfx_files = []
-        if isinstance(sfx_cues, list) and len(sfx_cues) > 0:
-            for s_idx, cue in enumerate(sfx_cues[:3]):  # Limit top 3 most impactful cues
-                s_url = cue.get("url")
-                if s_url and is_safe_url(s_url):
-                    sfx_path = f"/tmp/{workflow_run_id}/sfx_{s_idx}.mp3"
-                    try:
-                        import requests
-                        r_sfx = requests.get(s_url, timeout=10)
-                        if r_sfx.status_code == 200 and len(r_sfx.content) > 1000:
-                            with open(sfx_path, "wb") as f_sfx:
-                                f_sfx.write(r_sfx.content)
-                            delay_ms = int(float(cue.get("start_sec", 0)) * 1000)
-                            vol = float(cue.get("volume", 0.7))
-                            downloaded_sfx_files.append({"path": sfx_path, "delay_ms": delay_ms, "volume": vol, "name": cue.get("name")})
-                            print(f"[Modal] 🔊 Downloaded Smart SFX stem '{cue.get('name')}' (Offset: {delay_ms}ms, Vol: {vol})!", flush=True)
-                    except Exception as s_err:
-                        print(f"[Modal] ⚠️ Notice: SFX stem download fallback: {s_err}", flush=True)
-
-        # Audio Studio Master Filter Chain (EBU R128 -14 LUFS Normalization + EQ + Sidechain Ducking)
+        # Audio Studio Master Filter Chain
         bgm_url = contract_payload.get("bgm_url") or contract_payload.get("music_url") or contract_payload.get("background_music_url")
         bgm_file_path = f"/tmp/{workflow_run_id}/bgm.mp3"
         has_bgm = False
@@ -1492,7 +1591,7 @@ def render_video_task(contract_payload: dict) -> dict:
                 import requests
                 r_m = requests.get(bgm_url, timeout=20, stream=True)
                 if r_m.status_code == 200:
-                    with open(bgm_file_path, "wb") as f_m:
+                    with open(bg_file_path, "wb") as f_m:
                         for chunk in r_m.iter_content(chunk_size=8192):
                             f_m.write(chunk)
                     has_bgm = True
@@ -1500,66 +1599,59 @@ def render_video_task(contract_payload: dict) -> dict:
             except Exception as m_err:
                 print(f"[Modal] ⚠️ Notice: BGM download fallback ({m_err})", flush=True)
 
-        if custom_bg_downloaded:
-            print(f"[Modal] 🎨 Applying Dark Canvas + Video Background & EBU R128 Audio Master Chain...", flush=True)
-            if has_bgm:
-                filter_complex = (
-                    f"[1:v]{v_prep}[vscaled];"
-                    f"[0:v][vscaled]overlay=0:0:repeatlast=1[vbg];"
-                    f"[vbg]subtitles=filename='{ass_path_escaped}'[vout];"
-                    f"[2:a]highpass=f=80,equalizer=f=350:t=q:w=1.0:g=-3,equalizer=f=4000:t=q:w=1.0:g=2,acompressor=threshold=-18dB:ratio=3:attack=10:release=100:makeup=1[vclean];"
-                    f"[3:a][vclean]sidechaincompress=threshold=0.05:ratio=12:attack=10:release=300[mducked];"
-                    f"[vclean][mducked]amix=inputs=2:duration=first:weights='1.0 0.25',loudnorm=I=-14:TP=-1.5:LRA=11[aout]"
-                )
-                ffmpeg_cmd = [
-                    "ffmpeg", "-y",
-                    "-f", "lavfi", "-i", f"color=c=0x0a0c16:s={res_w}x{res_h}:d={video_duration}:r={target_fps}",
-                    "-ss", "00:00:00.000", "-stream_loop", "-1", "-an", "-i", bg_file_path,
-                    "-i", audio_output,
-                    "-stream_loop", "-1", "-i", bgm_file_path,
-                    "-filter_complex", filter_complex,
-                    "-map", "[vout]",
-                    "-map", "[aout]",
-                    "-c:v", "libx264", "-preset", "fast", "-profile:v", "high", "-crf", "18",
-                    "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p",
-                    "-r", str(target_fps),
-                    "-t", str(video_duration),
-                    video_output
-                ]
-            else:
-                filter_complex = (
-                    f"[1:v]{v_prep}[vscaled];"
-                    f"[0:v][vscaled]overlay=0:0:repeatlast=1[vbg];"
-                    f"[vbg]subtitles=filename='{ass_path_escaped}'[vout];"
-                    f"[2:a]highpass=f=80,equalizer=f=350:t=q:w=1.0:g=-3,equalizer=f=4000:t=q:w=1.0:g=2,acompressor=threshold=-18dB:ratio=3:attack=10:release=100:makeup=1,loudnorm=I=-14:TP=-1.5:LRA=11[aout]"
-                )
-                ffmpeg_cmd = [
-                    "ffmpeg", "-y",
-                    "-f", "lavfi", "-i", f"color=c=0x0a0c16:s={res_w}x{res_h}:d={video_duration}:r={target_fps}",
-                    "-ss", "00:00:00.000", "-stream_loop", "-1", "-an", "-i", bg_file_path,
-                    "-i", audio_output,
-                    "-filter_complex", filter_complex,
-                    "-map", "[vout]",
-                    "-map", "[aout]",
-                    "-c:v", "libx264", "-preset", "fast", "-profile:v", "high", "-crf", "18",
-                    "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p",
-                    "-r", str(target_fps),
-                    "-t", str(video_duration),
-                    video_output
-                ]
-        else:
-            print(f"[Modal] 🎨 Applying FFmpeg Motion Dark Canvas Background & Audio Master Chain...", flush=True)
-            filter_complex = (
-                f"color=c=0x0b0f19:s={res_w}x{res_h}:d={video_duration}:r={target_fps},"
-                "format=yuv420p,"
-                "colorbalance=rs=0.15:gs=-0.05:bs=0.35,"
-                f"subtitles=filename='{ass_path_escaped}'[vout];"
-                f"[1:a]highpass=f=80,equalizer=f=350:t=q:w=1.0:g=-3,equalizer=f=4000:t=q:w=1.0:g=2,acompressor=threshold=-18dB:ratio=3:attack=10:release=100:makeup=1,loudnorm=I=-14:TP=-1.5:LRA=11[aout]"
-            )
+        # Assemble Inputs & Filter Chain
+        extra_inputs = []
+        filter_steps = [f"[1:v]{v_prep}[vscaled]", f"[0:v][vscaled]overlay=0:0:repeatlast=1[vbg]"]
+        curr_v = "[vbg]"
+
+        if has_banner:
+            banner_idx = len(extra_inputs) + (4 if has_bgm else 3)
+            extra_inputs.extend(["-loop", "1", "-i", banner_png_path])
+            filter_steps.append(f"{curr_v}[{banner_idx}:v]overlay=0:0:enable='between(t,0,3.5)'[vbanner]")
+            curr_v = "[vbanner]"
+
+        if has_logo:
+            logo_idx = len(extra_inputs) + (4 if has_bgm else 3)
+            extra_inputs.extend(["-loop", "1", "-i", logo_png_path])
+            filter_steps.append(f"{curr_v}[{logo_idx}:v]overlay=0:0[vlogo]")
+            curr_v = "[vlogo]"
+
+        filter_steps.append(f"{curr_v}subtitles=filename='{ass_path_escaped}'[vout]")
+
+        if has_bgm:
+            filter_steps.extend([
+                "[2:a]highpass=f=80,equalizer=f=350:t=q:w=1.0:g=-3,equalizer=f=4000:t=q:w=1.0:g=2,acompressor=threshold=-18dB:ratio=3:attack=10:release=100:makeup=1[vclean]",
+                "[3:a][vclean]sidechaincompress=threshold=0.05:ratio=12:attack=10:release=300[mducked]",
+                "[vclean][mducked]amix=inputs=2:duration=first:weights='1.0 0.25',loudnorm=I=-14:TP=-1.5:LRA=11[aout]"
+            ])
+            filter_complex = ";".join(filter_steps)
             ffmpeg_cmd = [
                 "ffmpeg", "-y",
-                "-f", "lavfi", "-i", f"color=c=0x0b0f19:s={res_w}x{res_h}:d={video_duration}",
+                "-f", "lavfi", "-i", f"color=c=0x0a0c16:s={res_w}x{res_h}:d={video_duration}:r={target_fps}",
+                "-ss", "00:00:00.000", "-stream_loop", "-1", "-an", "-i", bg_file_path if custom_bg_downloaded else f"color=c=0x0a0c16:s={res_w}x{res_h}:d={video_duration}",
                 "-i", audio_output,
+                "-stream_loop", "-1", "-i", bgm_file_path,
+                *extra_inputs,
+                "-filter_complex", filter_complex,
+                "-map", "[vout]",
+                "-map", "[aout]",
+                "-c:v", "libx264", "-preset", "fast", "-profile:v", "high", "-crf", "18",
+                "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p",
+                "-r", str(target_fps),
+                "-t", str(video_duration),
+                video_output
+            ]
+        else:
+            filter_steps.append(
+                "[2:a]highpass=f=80,equalizer=f=350:t=q:w=1.0:g=-3,equalizer=f=4000:t=q:w=1.0:g=2,acompressor=threshold=-18dB:ratio=3:attack=10:release=100:makeup=1,loudnorm=I=-14:TP=-1.5:LRA=11[aout]"
+            )
+            filter_complex = ";".join(filter_steps)
+            ffmpeg_cmd = [
+                "ffmpeg", "-y",
+                "-f", "lavfi", "-i", f"color=c=0x0a0c16:s={res_w}x{res_h}:d={video_duration}:r={target_fps}",
+                "-ss", "00:00:00.000", "-stream_loop", "-1", "-an", "-i", bg_file_path if custom_bg_downloaded else f"color=c=0x0a0c16:s={res_w}x{res_h}:d={video_duration}",
+                "-i", audio_output,
+                *extra_inputs,
                 "-filter_complex", filter_complex,
                 "-map", "[vout]",
                 "-map", "[aout]",
