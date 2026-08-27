@@ -498,24 +498,31 @@ def tokenize_cues_to_words(cues: list[dict]) -> list[dict]:
                 word_tokens.append({"start": round(w_st, 2), "end": round(w_et, 2), "text": w})
     return word_tokens
 
-def smart_group_vtt_cues(cues: list[dict], max_words: int = 3, max_gap_sec: float = 0.32, max_chars: int = 18) -> list[list[dict]]:
+TIME_UNITS_AND_CLASSIFIERS = {
+    "giờ", "phút", "giây", "ngày", "tháng", "năm", "tuổi", "người", "con", "tầng", "lần", "bước", "triệu", "nghìn", "tỷ", "đô", "k", "sáng", "chiều", "tối", "đêm"
+}
+
+VIETNAMESE_COMPOUND_WORDS = {
+    "dồn dập", "kinh hoàng", "bí ẩn", "xuất hiện", "trẻ con", "cầu xin", "tuyệt đối", "không được", "thang máy", "song song", "sinh tồn", "thế giới", "nghi thức", "nửa đêm", "quy tắc", "sống còn", "gõ cửa", "tiếng gõ", "mở cửa", "mắt đen"
+}
+
+def smart_group_vtt_cues(cues: list[dict], target_words: int = 4, max_words: int = 5, max_gap_sec: float = 0.35, max_chars: int = 24) -> list[list[dict]]:
     """
-    Advanced Word Chunking algorithm ported from legacy subtitle_renderer.py:
-    1. Filters out audio emotion tags like [excited], [dramatic], [whispers]
-    2. Splits chunks immediately on punctuation (., !?, :, ;)
-    3. Splits chunks on speech silence gap > 320ms
-    4. Limits max words <= 3-4 or max chars <= 18
+    Advanced Vietnamese Natural Phrasing & Kinetic Timing Algorithm:
+    1. Filters audio emotion tags like [excited], [whispers]
+    2. Respects Vietnamese grammar (numbers + units, compound words)
+    3. Splits cleanly on sentence endings and semantic comma pauses
+    4. Eliminates lone orphan words on screen
     """
     if not cues:
         return []
 
-    # Tokenize multi-word cues first
     word_cues = tokenize_cues_to_words(cues)
 
     clean_cues = []
     for c in word_cues:
         txt = str(c.get("text") or c.get("word") or "").strip()
-        clean_token = txt.strip(".,!?;:\"'()[]{}“”")
+        clean_token = txt.strip(".,!?;:\"\'()[]{}“”")
         if (
             txt
             and not (txt.startswith("[") and txt.endswith("]"))
@@ -526,44 +533,127 @@ def smart_group_vtt_cues(cues: list[dict], max_words: int = 3, max_gap_sec: floa
     if not clean_cues:
         return []
 
-    chunks = []
+    raw_chunks = []
     curr_chunk = []
+    in_quote = False
 
-    for item in clean_cues:
+    for i, item in enumerate(clean_cues):
         if not curr_chunk:
             curr_chunk.append(item)
+            curr_w = str(item.get("text") or item.get("word") or "").strip()
+            if "'" in curr_w or '"' in curr_w or '“' in curr_w or '‘' in curr_w:
+                in_quote = not (curr_w.count("'") % 2 == 0 or curr_w.count('"') % 2 == 0 or curr_w.endswith("'") or curr_w.endswith('"') or curr_w.endswith("’") or curr_w.endswith("”"))
             continue
 
         prev_item = curr_chunk[-1]
         prev_word = str(prev_item.get("text") or prev_item.get("word") or "").strip()
+        curr_word = str(item.get("text") or item.get("word") or "").strip()
+        
         prev_end = float(prev_item.get("end", prev_item.get("end_sec", 0)))
         curr_start = float(item.get("start", item.get("start_sec", 0)))
         gap = curr_start - prev_end
 
         last_char = prev_word[-1] if prev_word else ""
-        has_punctuation = last_char in {".", "!", "?", ";", ":", "—"}
-        if last_char == ",":
-            # Only break on comma if chunk has at least 3 words or 14 characters
-            if len(curr_chunk) >= 3 or len(curr_text) >= 14:
-                has_punctuation = True
-            else:
-                has_punctuation = False
+        has_strong_punct = last_char in {".", "!", "?", ";", ":", "—", "…"} or "..." in prev_word
+        
+        # Check if previous word is a number and current word is a time unit/classifier
+        clean_prev = prev_word.rstrip(".,!?;:").lower()
+        clean_curr = curr_word.lower().rstrip(".,!?;:")
+        is_number_unit = clean_prev.isdigit() and clean_curr in TIME_UNITS_AND_CLASSIFIERS
+        is_compound = f"{clean_prev} {clean_curr}" in VIETNAMESE_COMPOUND_WORDS
 
         curr_text = " ".join(str(it.get("text") or it.get("word") or "") for it in curr_chunk)
-        exceeds_length = len(curr_text) >= max_chars
+        
+        # Check comma break
+        has_comma_break = False
+        if last_char == "," and not is_number_unit and not in_quote:
+            if len(curr_chunk) >= 2 or len(curr_text) >= 10:
+                has_comma_break = True
+
+        exceeds_length = len(curr_text + " " + curr_word) > max_chars
         exceeds_words = len(curr_chunk) >= max_words
         exceeds_gap = gap > max_gap_sec
 
-        if has_punctuation or exceeds_words or exceeds_length or exceeds_gap:
-            chunks.append(curr_chunk)
+        should_split = (
+            (has_strong_punct and not in_quote)
+            or has_comma_break
+            or exceeds_gap
+            or (exceeds_words and not is_number_unit and not is_compound and not in_quote)
+            or (exceeds_length and not is_number_unit and not is_compound and len(curr_chunk) >= 2)
+        )
+
+        if should_split:
+            raw_chunks.append(curr_chunk)
             curr_chunk = [item]
         else:
             curr_chunk.append(item)
 
-    if curr_chunk:
-        chunks.append(curr_chunk)
+        # Update in_quote state
+        if "'" in curr_word or '"' in curr_word or '“' in curr_word or '‘' in curr_word or '”' in curr_word or '’' in curr_word:
+            if curr_word.startswith("'") or curr_word.startswith('"') or curr_word.startswith("“") or curr_word.startswith("‘"):
+                in_quote = True
+            if curr_word.endswith("'") or curr_word.endswith('"') or curr_word.endswith("”") or curr_word.endswith("’") or curr_word.endswith("'!") or curr_word.endswith("!?"):
+                in_quote = False
 
-    return chunks
+    if curr_chunk:
+        raw_chunks.append(curr_chunk)
+
+    # Post-process: Merge lone orphan words (len == 1) with previous chunk
+    merged_chunks = []
+    for ch in raw_chunks:
+        if len(ch) == 1 and merged_chunks:
+            prev_ch = merged_chunks[-1]
+            prev_len = len(" ".join(c.get("text", "") for c in prev_ch))
+            curr_len = len(ch[0].get("text", ""))
+            if len(prev_ch) < 5 and (prev_len + curr_len + 1) <= 28:
+                merged_chunks[-1] = prev_ch + ch
+                continue
+        merged_chunks.append(ch)
+
+    return merged_chunks
+
+
+def extract_sfx_cues(script_text: str, scenes: list[dict], vtt_cues: list[dict]) -> list[dict]:
+    """Extracts SFX sound effect cue events based on screenplay context and speech timing."""
+    sfx_keywords = {
+        "door_knock": ["gõ cửa", "tiếng gõ", "đập cửa", "mở cửa"],
+        "rain_thunder": ["mưa", "sấm sét", "giông bão", "sấm", "mưa gió"],
+        "heartbeat": ["tim", "thở dồn", "hồi hộp", "lo sợ", "tim đập", "nghẹt thở"],
+        "horror_riser": ["thang máy", "tầng 10", "tầng 5", "kinh hoàng", "quỷ", "bóng đen", "thế giới song song"],
+        "clock_tick": ["2 giờ sáng", "đồng hồ", "nửa đêm", "12 giờ", "tích tắc"],
+        "whoosh": ["biến mất", "chạy trốn", "lao vút", "thoát khỏi", "đóng sầm"]
+    }
+    found_sfx = []
+    # Check each scene
+    for sc_idx, sc in enumerate(scenes or []):
+        narr = str(sc.get("narration") or sc.get("prompt") or sc.get("keyword") or "").lower()
+        st_sec = float(sc_idx * 3.5)
+        for sfx_type, kw_list in sfx_keywords.items():
+            if any(kw in narr for kw in kw_list):
+                if not any(f["type"] == sfx_type for f in found_sfx):
+                    found_sfx.append({
+                        "type": sfx_type,
+                        "start_time": max(0.5, st_sec),
+                        "url": SFX_STEM_CATALOG[sfx_type],
+                        "volume": 0.45
+                    })
+                    break
+    # If no scene match, check against vtt_cues
+    if not found_sfx and vtt_cues:
+        for cue in vtt_cues:
+            word = str(cue.get("text") or cue.get("word") or "").lower().strip(".,!?;:")
+            st_sec = float(cue.get("start", 0))
+            for sfx_type, kw_list in sfx_keywords.items():
+                if any(kw in word for kw in kw_list):
+                    if not any(f["type"] == sfx_type for f in found_sfx):
+                        found_sfx.append({
+                            "type": sfx_type,
+                            "start_time": max(0.5, st_sec),
+                            "url": SFX_STEM_CATALOG[sfx_type],
+                            "volume": 0.45
+                        })
+                        break
+    return found_sfx[:3]
 
 
 def clean_and_wrap_title(title: str, max_chars_per_line: int = 34) -> str:
@@ -1610,7 +1700,14 @@ def render_video_task(contract_payload: dict) -> dict:
             except Exception as m_err:
                 print(f"[Modal] ⚠️ Notice: BGM download fallback ({m_err})", flush=True)
 
-        # Assemble Inputs & Filter Chain
+        # -------------------------------------------------------------------
+        # Smart SFX Sound Design Track Extraction & Mixing
+        # -------------------------------------------------------------------
+        sfx_events = extract_sfx_cues(script, scenes_list, vtt_cues)
+        sfx_extra_inputs = []
+        sfx_audio_labels = []
+
+        # Assemble Video & Image Inputs
         extra_inputs = []
         filter_steps = [f"[1:v]{v_prep}[vscaled]", f"[0:v][vscaled]overlay=0:0:repeatlast=1[vbg]"]
         curr_v = "[vbg]"
@@ -1630,49 +1727,71 @@ def render_video_task(contract_payload: dict) -> dict:
 
         filter_steps.append(f"{curr_v}subtitles=filename='{ass_path_escaped}'[vout]")
 
+        # Download and inject SFX sound effects
+        for sfx_idx, sfx_item in enumerate(sfx_events):
+            s_type = sfx_item["type"]
+            s_url = sfx_item["url"]
+            s_st = sfx_item["start_time"]
+            s_vol = sfx_item["volume"]
+            s_path = f"/tmp/{workflow_run_id}/sfx_{sfx_idx}_{s_type}.mp3"
+            try:
+                import requests
+                r_s = requests.get(s_url, timeout=10)
+                if r_s.status_code == 200:
+                    with open(s_path, "wb") as f_s:
+                        f_s.write(r_s.content)
+                    sfx_extra_inputs.extend(["-i", s_path])
+                    delay_ms = int(s_st * 1000)
+                    lbl = f"sfx_{sfx_idx}"
+                    filter_steps.append(f"[{next_input_idx}:a]adelay={delay_ms}|{delay_ms},volume={s_vol}[{lbl}]")
+                    sfx_audio_labels.append(f"[{lbl}]")
+                    next_input_idx += 1
+                    print(f"[Modal] 🔊 Smart SFX Sound Design: Injected '{s_type}' sound effect at {s_st:.1f}s!", flush=True)
+            except Exception as s_err:
+                print(f"[Modal] ⚠️ Notice: SFX download fallback: {s_err}", flush=True)
+
+        # Audio Filter Mixing
+        filter_steps.append(
+            "[2:a]highpass=f=80,equalizer=f=350:t=q:w=1.0:g=-3,equalizer=f=4000:t=q:w=1.0:g=2,acompressor=threshold=-18dB:ratio=3:attack=10:release=100:makeup=1[vclean]"
+        )
+        mix_inputs = ["[vclean]"]
+        mix_weights = ["1.0"]
+
         if has_bgm:
-            filter_steps.extend([
-                "[2:a]highpass=f=80,equalizer=f=350:t=q:w=1.0:g=-3,equalizer=f=4000:t=q:w=1.0:g=2,acompressor=threshold=-18dB:ratio=3:attack=10:release=100:makeup=1[vclean]",
-                "[3:a][vclean]sidechaincompress=threshold=0.05:ratio=12:attack=10:release=300[mducked]",
-                "[vclean][mducked]amix=inputs=2:duration=first:weights='1.0 0.25',loudnorm=I=-14:TP=-1.5:LRA=11[aout]"
-            ])
-            filter_complex = ";".join(filter_steps)
-            ffmpeg_cmd = [
-                "ffmpeg", "-y",
-                "-f", "lavfi", "-i", f"color=c=0x0a0c16:s={res_w}x{res_h}:d={video_duration}:r={target_fps}",
-                "-ss", "00:00:00.000", "-stream_loop", "-1", "-an", "-i", bg_file_path if custom_bg_downloaded else f"color=c=0x0a0c16:s={res_w}x{res_h}:d={video_duration}",
-                "-i", audio_output,
-                "-stream_loop", "-1", "-i", bgm_file_path,
-                *extra_inputs,
-                "-filter_complex", filter_complex,
-                "-map", "[vout]",
-                "-map", "[aout]",
-                "-c:v", "libx264", "-preset", "fast", "-profile:v", "high", "-crf", "18",
-                "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p",
-                "-r", str(target_fps),
-                "-t", str(video_duration),
-                video_output
-            ]
+            filter_steps.append("[3:a][vclean]sidechaincompress=threshold=0.05:ratio=12:attack=10:release=300[mducked]")
+            mix_inputs.append("[mducked]")
+            mix_weights.append("0.25")
+
+        for s_lbl in sfx_audio_labels:
+            mix_inputs.append(s_lbl)
+            mix_weights.append("0.5")
+
+        if len(mix_inputs) > 1:
+            amix_str = "".join(mix_inputs) + f"amix=inputs={len(mix_inputs)}:duration=first:weights='{' '.join(mix_weights)}',loudnorm=I=-14:TP=-1.5:LRA=11[aout]"
+            filter_steps.append(amix_str)
         else:
-            filter_steps.append(
-                "[2:a]highpass=f=80,equalizer=f=350:t=q:w=1.0:g=-3,equalizer=f=4000:t=q:w=1.0:g=2,acompressor=threshold=-18dB:ratio=3:attack=10:release=100:makeup=1,loudnorm=I=-14:TP=-1.5:LRA=11[aout]"
-            )
-            filter_complex = ";".join(filter_steps)
-            ffmpeg_cmd = [
-                "ffmpeg", "-y",
-                "-f", "lavfi", "-i", f"color=c=0x0a0c16:s={res_w}x{res_h}:d={video_duration}:r={target_fps}",
-                "-ss", "00:00:00.000", "-stream_loop", "-1", "-an", "-i", bg_file_path if custom_bg_downloaded else f"color=c=0x0a0c16:s={res_w}x{res_h}:d={video_duration}",
-                "-i", audio_output,
-                *extra_inputs,
-                "-filter_complex", filter_complex,
-                "-map", "[vout]",
-                "-map", "[aout]",
-                "-c:v", "libx264", "-preset", "fast", "-profile:v", "high", "-crf", "18",
-                "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p",
-                "-r", str(target_fps),
-                "-t", str(video_duration),
-                video_output
-            ]
+            filter_steps.append("[vclean]loudnorm=I=-14:TP=-1.5:LRA=11[aout]")
+
+        filter_complex = ";".join(filter_steps)
+
+        bgm_inputs = ["-stream_loop", "-1", "-i", bgm_file_path] if has_bgm else []
+        ffmpeg_cmd = [
+            "ffmpeg", "-y",
+            "-f", "lavfi", "-i", f"color=c=0x0a0c16:s={res_w}x{res_h}:d={video_duration}:r={target_fps}",
+            "-ss", "00:00:00.000", "-stream_loop", "-1", "-an", "-i", bg_file_path if custom_bg_downloaded else f"color=c=0x0a0c16:s={res_w}x{res_h}:d={video_duration}",
+            "-i", audio_output,
+            *bgm_inputs,
+            *extra_inputs,
+            *sfx_extra_inputs,
+            "-filter_complex", filter_complex,
+            "-map", "[vout]",
+            "-map", "[aout]",
+            "-c:v", "libx264", "-preset", "fast", "-profile:v", "high", "-crf", "18",
+            "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p",
+            "-r", str(target_fps),
+            "-t", str(video_duration),
+            video_output
+        ]
 
         subprocess.run(ffmpeg_cmd, check=True)
         print(f"[Modal] ✅ Video render complete! Export path: {video_output}", flush=True)
