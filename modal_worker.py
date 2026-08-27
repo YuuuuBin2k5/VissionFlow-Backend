@@ -1603,18 +1603,19 @@ def render_video_task(contract_payload: dict) -> dict:
         extra_inputs = []
         filter_steps = [f"[1:v]{v_prep}[vscaled]", f"[0:v][vscaled]overlay=0:0:repeatlast=1[vbg]"]
         curr_v = "[vbg]"
+        next_input_idx = 4 if has_bgm else 3
 
         if has_banner:
-            banner_idx = len(extra_inputs) + (4 if has_bgm else 3)
             extra_inputs.extend(["-loop", "1", "-i", banner_png_path])
-            filter_steps.append(f"{curr_v}[{banner_idx}:v]overlay=0:0:enable='between(t,0,3.5)'[vbanner]")
+            filter_steps.append(f"{curr_v}[{next_input_idx}:v]overlay=0:0:enable='between(t,0,3.5)'[vbanner]")
             curr_v = "[vbanner]"
+            next_input_idx += 1
 
         if has_logo:
-            logo_idx = len(extra_inputs) + (4 if has_bgm else 3)
             extra_inputs.extend(["-loop", "1", "-i", logo_png_path])
-            filter_steps.append(f"{curr_v}[{logo_idx}:v]overlay=0:0[vlogo]")
+            filter_steps.append(f"{curr_v}[{next_input_idx}:v]overlay=0:0[vlogo]")
             curr_v = "[vlogo]"
+            next_input_idx += 1
 
         filter_steps.append(f"{curr_v}subtitles=filename='{ass_path_escaped}'[vout]")
 
