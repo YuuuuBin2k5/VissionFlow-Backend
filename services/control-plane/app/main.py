@@ -13,6 +13,7 @@ dotenv.load_dotenv(dotenv.find_dotenv())
 from app.core.config import Settings
 from app.routers import (
     ai_video,
+    analytics,
     auth,
     creative_sessions,
     credentials,
@@ -57,6 +58,7 @@ app.include_router(creative_sessions.router, prefix=settings.api_prefix)
 app.include_router(ai_video.router, prefix=settings.api_prefix)
 app.include_router(dubbing.router, prefix=settings.api_prefix)
 app.include_router(video_vault.router, prefix=settings.api_prefix)
+app.include_router(analytics.router, prefix=settings.api_prefix)
 
 
 # ---------------------------------------------------------------------------

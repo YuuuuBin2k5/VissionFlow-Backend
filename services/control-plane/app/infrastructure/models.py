@@ -576,3 +576,25 @@ class CreativeCommandReceipt(Base):
     request_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     result_payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class ChannelLearningMetric(Timestamped, Base):
+    """Stores performance metrics and AI-deduced winning formula for automated self-improvement."""
+    __tablename__ = "channel_learning_metrics"
+    __table_args__ = (
+        Index("ix_channel_learnings_org_handle", "organization_id", "channel_handle"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    channel_handle: Mapped[str] = mapped_column(String(120), nullable=False)
+    publication_attempt_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("publication_attempts.id", ondelete="SET NULL"), nullable=True)
+    
+    views_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    completion_rate: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    likes_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    shares_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    average_watch_time_sec: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    
+    video_metadata_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    ai_winning_formula: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
