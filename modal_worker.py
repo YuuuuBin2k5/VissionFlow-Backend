@@ -562,6 +562,36 @@ def smart_group_vtt_cues(cues: list[dict], max_words: int = 3, max_gap_sec: floa
     return chunks
 
 
+def clean_and_wrap_title(title: str, max_chars_per_line: int = 34) -> str:
+    """Cleans emojis that fail in ASS subtitle renderers and wraps text into 2 balanced lines."""
+    if not title:
+        return ""
+    import re
+    # Strip emojis and special symbols that fail to render on Linux ASS engines
+    clean = re.sub(r'[\U00010000-\U0010ffff\u2600-\u27ff\u2300-\u23ff\ufe00-\ufe0f\u200d]', '', title)
+    clean = clean.replace("\n", " ").strip()
+    clean = re.sub(r'\s+', ' ', clean).upper()
+    
+    words = clean.split(" ")
+    if len(clean) <= max_chars_per_line or len(words) <= 3:
+        return clean
+        
+    line1 = []
+    line2 = []
+    curr_len = 0
+    half_target = len(clean) // 2
+    
+    for w in words:
+        if curr_len + len(w) <= half_target or not line1:
+            line1.append(w)
+            curr_len += len(w) + 1
+        else:
+            line2.append(w)
+            
+    if line2:
+        return " ".join(line1) + "\\N" + " ".join(line2)
+    return clean
+
 def generate_ass_subtitles(
     script_text: str,
     transcripts: list[dict] | None,
@@ -570,32 +600,33 @@ def generate_ass_subtitles(
     video_duration: float,
     output_ass_path: str,
     caption_color: str = "#FFE600",
-    font_size: int = 76,
+    font_size: int = 80,
     font_family: str = "Montserrat",
     show_title_banner: bool = True,
     title_banner_style: str = "neon",
     caption_x_percent: int = 50,
-    caption_y_percent: int = 78,
-    title_banner_y_percent: int = 15,
+    caption_y_percent: int = 76,
+    title_banner_y_percent: int = 14,
     watermark_text: str | None = None,
-    watermark_x_percent: int = 82,
+    watermark_x_percent: int = 18,
     watermark_y_percent: int = 6,
-    watermark_position: str = "top_right",
+    watermark_position: str = "top_left",
     enable_karaoke: bool = True,
     enable_auto_emoji: bool = True,
     caption_preset: str = "hormozi",
     res_w: int = 1080,
     res_h: int = 1920
 ) -> str:
-    r"""Generates ASS kinetic subtitles with Karaoke highlight ({\kf}) & 3.5s intro banner timing matching Web Preview."""
-    # Primary (Active Highlight) & Secondary (Pre-spoken Text) colors
-    c = caption_color.lstrip("#")
-    if len(c) == 6:
-        r, g, b = c[0:2], c[2:4], c[4:6]
-        primary_ass_color = f"&H00{b}{g}{r}".upper()
-    else:
-        primary_ass_color = "&H0000E6FF"  # Default Yellow #FFE600
+    r"""Generates ASS kinetic subtitles with 100% WYSIWYG parity to Studio Preview."""
+    # Convert HEX color (#RRGGBB) to ASS BGR format (&H00BBGGRR)
+    def hex_to_ass_bgr(hex_str: str, default: str = "&H0000E6FF") -> str:
+        h = str(hex_str).lstrip("#")
+        if len(h) == 6:
+            r, g, b = h[0:2], h[2:4], h[4:6]
+            return f"&H00{b}{g}{r}".upper()
+        return default
 
+    primary_ass_color = hex_to_ass_bgr(caption_color, default="&H0000E6FF")
     secondary_ass_color = "&H00FFFFFF"  # Pre-spoken White
 
     # Calculate subtitle & badge pixel positions relative to dynamic canvas resolution
@@ -603,29 +634,35 @@ def generate_ass_subtitles(
     sub_y_px = int(res_h * (caption_y_percent / 100.0))
     title_x_px = int(res_w / 2.0)
     title_y_px = int(res_h * (title_banner_y_percent / 100.0))
-    wm_x_px = int(res_w * (watermark_x_percent / 100.0))
-    wm_y_px = int(res_h * (watermark_y_percent / 100.0))
 
-    # Title Banner Style Presets (In ASS BorderStyle 3: OutlineColour IS THE BOX BACKGROUND FILL COLOR!)
+    if watermark_position == "top_left" or watermark_x_percent < 30:
+        wm_x_px = int(res_w * 0.18)
+        wm_y_px = int(res_h * 0.055)
+    else:
+        wm_x_px = int(res_w * (watermark_x_percent / 100.0))
+        wm_y_px = int(res_h * (watermark_y_percent / 100.0))
+
+    # Title Banner Style Presets matching Studio (In ASS BorderStyle 3: OutlineColour IS THE BOX BACKGROUND FILL COLOR!)
     if title_banner_style == "news":
-        title_primary = "&H00FFFFFF"  # White Text
-        title_box_bg = "&H001010D6"   # News Red Background Box (#D61010)
+        title_primary = "&H00FFFFFF"   # White Text
+        title_box_bg = "&H002626DC"    # News Red Box (#DC2626)
     elif title_banner_style == "glass":
-        title_primary = "&H00F5D038"  # Cyan Text
-        title_box_bg = "&HCE100C0A"   # Glassmorphism Dark Box
+        title_primary = "&H00F8BD38"   # Cyan Text (#38BDF8)
+        title_box_bg = "&HCE160C0A"    # Glassmorphism Dark Box (#0A0C16@85%)
     else:  # neon
-        title_primary = "&H00050C0A"  # Dark Black Text
-        title_box_bg = "&H0000E6FF"   # Bright Yellow Background Box (#FFE600)
+        title_primary = "&H00050C0A"   # Deep Dark Black Text
+        title_box_bg = "&H0000E6FF"    # Bright Yellow Neon Box (#FFE600)
 
     # 4 Kinetic Typography Presets (Hormozi, Neon Cyber, Karaoke Glow, Clean Minimal)
+    effective_font_size = max(64, font_size)
     if caption_preset == "neon_cyber":
-        sub_style = f"Style: Default,{font_family},{font_size},&H00F8BD38,&H00FFFFFF,&H00D946EF,&H80000000,-1,0,0,0,100,100,0,0,1,7,5,2,60,60,100,1"
+        sub_style = f"Style: Default,{font_family},{effective_font_size},&H00F8BD38,&H00FFFFFF,&H00D946EF,&H8006B6D4,-1,0,0,0,100,100,0,0,1,8,4,2,60,60,100,1"
     elif caption_preset == "karaoke_glow":
-        sub_style = f"Style: Default,{font_family},{font_size},&H0000FFFF,&H00C0C0C0,&H00000000,&H000B9EF5,-1,0,0,0,100,100,0,0,1,6,6,2,60,60,100,1"
+        sub_style = f"Style: Default,{font_family},{effective_font_size},&H0000E6FF,&H00C0C0C0,&H00000000,&H800B9EF5,-1,0,0,0,100,100,0,0,1,9,5,2,60,60,100,1"
     elif caption_preset == "clean_minimal":
-        sub_style = f"Style: Default,{font_family},{int(font_size * 0.9)},&H00FFFFFF,&H00E0E0E0,&HCE100C0A,&H80000000,-1,0,0,0,100,100,0,0,3,12,0,2,60,60,100,1"
-    else:  # hormozi
-        sub_style = f"Style: Default,{font_family},{font_size},{primary_ass_color},{secondary_ass_color},&H00000000,&H90000000,-1,0,0,0,100,100,0,0,1,8,3,2,60,60,100,1"
+        sub_style = f"Style: Default,{font_family},{int(effective_font_size * 0.85)},&H00FFFFFF,&H00E0E0E0,&HCE160C0A,&H80000000,-1,0,0,0,100,100,0,0,3,10,0,2,60,60,100,1"
+    else:  # hormozi / default
+        sub_style = f"Style: Default,{font_family},{effective_font_size},{primary_ass_color},{secondary_ass_color},&H00000000,&H90000000,-1,0,0,0,100,100,0,0,1,10,4,2,60,60,100,1"
 
     header = f"""[Script Info]
 ScriptType: v4.00+
@@ -636,8 +673,8 @@ ScaledBorderAndShadow: yes
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 {sub_style}
-Style: TitleStyle,{font_family},44,{title_primary},&H00000000,{title_box_bg},&H80000000,-1,0,0,0,100,100,0,0,3,10,2,5,40,40,100,1
-Style: WatermarkStyle,{font_family},30,&H0038F5AB,&H00000000,&HCE0A0C16,&H80000000,-1,0,0,0,100,100,0,0,3,10,3,5,30,30,40,1
+Style: TitleStyle,{font_family},46,{title_primary},&H00000000,{title_box_bg},&H80000000,-1,0,0,0,100,100,0,0,3,12,3,5,40,40,100,1
+Style: WatermarkStyle,{font_family},28,&H00ABF538,&H00000000,&HCE160C0A,&H80000000,-1,0,0,0,100,100,0,0,3,10,3,5,30,30,40,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -647,14 +684,14 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
     # 1. Channel Watermark / Handle Overlay (Entire video at exact X/Y coordinate as a Pill Badge matching Frontend Preview)
     if watermark_text:
-        wm_clean = watermark_text.replace("\n", " ").strip().upper()
+        wm_clean = watermark_text.replace("\n", " ").split("||")[0].strip()
         if not wm_clean.startswith("●"):
             wm_clean = f"●  {wm_clean}"
-        events.append(f"Dialogue: 0,0:00:00.00,{end_time_str},WatermarkStyle,,0,0,0,,{{\\an5\\pos({wm_x_px},{wm_y_px})}}{wm_clean}")
+        events.append(f"Dialogue: 0,0:00:00.00,{end_time_str},WatermarkStyle,,0,0,0,,{{\\b1\\an5\\pos({wm_x_px},{wm_y_px})}}{wm_clean}")
 
-    # 2. Title Banner Overlay (Intro Badge ONLY FOR 3.5 SECONDS at exact X/Y coordinate)
+    # 2. Title Banner Overlay (Intro Badge ONLY FOR 3.5 SECONDS with auto 2-line wrap)
     if show_title_banner and title_banner:
-        title_clean = title_banner.replace("\n", " ").strip().upper()
+        title_clean = clean_and_wrap_title(title_banner)
         intro_banner_end = format_ass_time(min(3.5, video_duration))
         events.append(f"Dialogue: 0,0:00:00.00,{intro_banner_end},TitleStyle,,0,0,0,,{{\\b1\\an5\\pos({title_x_px},{title_y_px})\\fscx102\\fscy102}}{title_clean}")
 
@@ -715,6 +752,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     with open(output_ass_path, "w", encoding="utf-8") as f:
         f.write(header + "\n".join(events) + "\n")
     return output_ass_path
+
 
 # 2. Initialize Modal App
 app = modal.App("visionflow-render-engine")
@@ -1400,13 +1438,13 @@ def render_video_task(contract_payload: dict) -> dict:
         if enable_vignette:
             v_prep += ',vignette=PI/4.5'
 
-        # Color Grading Filter
+        # Color Grading Filter (Clean WYSIWYG matching Studio CSS)
         if color_grading == "cyber_teal":
-            v_prep += ",colorbalance=rs=0.1:gs=-0.1:bs=0.4,eq=contrast=1.1:saturation=1.2"
+            v_prep += ",eq=contrast=1.18:saturation=1.25:brightness=-0.02,hue=h=-6"
         elif color_grading == "warm_film":
-            v_prep += ",colorbalance=rs=0.3:gs=0.1:bs=-0.2,eq=contrast=1.05:saturation=1.1"
+            v_prep += ",eq=contrast=1.10:saturation=1.18:brightness=-0.02,colorbalance=rs=0.15:gs=0.08:bs=-0.1"
         elif color_grading == "clean_tech":
-            v_prep += ",eq=contrast=1.08:saturation=1.05"
+            v_prep += ",eq=contrast=1.10:saturation=1.08:brightness=0.01"
 
         # Beat-Reactive Music Drop Color Flash Filter
         enable_beat_flash = contract_payload.get("enableBeatFlash", False) or contract_payload.get("enable_beat_flash", False)
