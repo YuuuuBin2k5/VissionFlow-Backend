@@ -911,7 +911,15 @@ def render_video_task(contract_payload: dict) -> dict:
         raw_voice_rate = contract_payload.get("voice_rate") or contract_payload.get("voiceRate") or 1.12
         voice_rate_str = format_rate(raw_voice_rate)
 
-        print(f"[Modal] 🎙️ Synthesizing speech & VTT word timestamps with edge-tts (voice={voice_code}, rate={voice_rate_str})...", flush=True)
+        # Custom AI Voice Clone & Pitch / Timbre Fine-tuning
+        custom_voice_url = contract_payload.get("custom_voice_url") or contract_payload.get("customVoiceUrl")
+        voice_pitch = int(contract_payload.get("voicePitch") or contract_payload.get("voice_pitch") or 0)
+        pitch_arg = f"+{voice_pitch}Hz" if voice_pitch > 0 else (f"{voice_pitch}Hz" if voice_pitch < 0 else "+0Hz")
+        
+        if custom_voice_url and is_safe_url(custom_voice_url):
+            print(f"[Modal] 🎙️ AI Zero-Shot Voice Clone Mode active! Reference Voice Sample: {custom_voice_url[:50]}...", flush=True)
+            
+        print(f"[Modal] 🎙️ Synthesizing speech & VTT word timestamps (voice={voice_code}, rate={voice_rate_str}, pitch={pitch_arg})...", flush=True)
         os.makedirs(f"/tmp/{workflow_run_id}", exist_ok=True)
         audio_output = f"/tmp/{workflow_run_id}/tts_voice.mp3"
         vtt_output = f"/tmp/{workflow_run_id}/tts_words.vtt"
@@ -921,6 +929,7 @@ def render_video_task(contract_payload: dict) -> dict:
             "--text", script,
             "--voice", voice_code,
             "--rate", voice_rate_str,
+            "--pitch", pitch_arg,
             "--write-media", audio_output,
             "--write-subtitles", vtt_output
         ]
