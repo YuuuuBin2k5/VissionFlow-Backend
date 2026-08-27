@@ -1169,8 +1169,8 @@ def render_video_task(contract_payload: dict) -> dict:
             "edge-tts",
             "--text", script,
             "--voice", voice_code,
-            "--rate", voice_rate_str,
-            "--pitch", pitch_arg,
+            f"--rate={voice_rate_str}",
+            f"--pitch={pitch_arg}",
             "--write-media", audio_output,
             "--write-subtitles", vtt_output
         ]
