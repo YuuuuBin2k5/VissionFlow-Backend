@@ -280,15 +280,26 @@ visionflow_image = (
 )
 
 VIETNAMESE_REPAIR_PAIRS = [
-    ("tĩnh", "lặng"), ("bão", "bùng"), ("hư", "vô"), ("dạn", "dày"),
-    ("kinh", "hoàng"), ("dồn", "dập"), ("gõ", "cửa"), ("thì", "thầm"),
-    ("sợ", "hãi"), ("kỳ", "quái"), ("bí", "ẩn"), ("mưa", "gió"),
-    ("hoàn", "toàn"), ("vụt", "tắt"), ("chết", "chóc"), ("lạnh", "buốt"),
-    ("bốc", "hơi"), ("biến", "mất"), ("nghi", "thức"), ("thang", "máy"),
-    ("tiếng", "bước"), ("mã", "morse"), ("phát", "nổ"), ("hải", "đăng"),
-    ("hoảng", "loạn"), ("rùng", "rợn"), ("bất", "thường"), ("đông", "cứng"),
-    ("tuyệt", "đối"), ("tự", "động"), ("chôn", "vùi"), ("thảm", "họa"),
-    ("đồng", "hồ"), ("bản", "lề"), ("quả", "lắc"), ("áo", "mưa"), ("vách", "đá")
+    ("nhật", "ký"), ("hàng", "hải"), ("cứu", "hộ"), ("hoang", "sơ"),
+    ("sương", "gió"), ("cầu", "nguyện"), ("khí", "tượng"), ("đất", "liền"),
+    ("thức", "ăn"), ("bước", "chân"), ("nghiêm", "ngặt"), ("bến", "tàu"),
+    ("vách", "đá"), ("tự", "nhiên"), ("vô", "hình"), ("đại", "dương"),
+    ("thủy", "thủ"), ("thuyền", "trưởng"), ("sấm", "sét"), ("kỳ", "cựu"),
+    ("dấu", "vết"), ("rợn", "người"), ("khổng", "lồ"), ("bầu", "trời"),
+    ("bật", "khóc"), ("xác", "nhận"), ("bên", "trong"), ("cửa", "gỗ"),
+    ("góc", "phòng"), ("linh", "hồn"), ("móc", "treo"), ("lan", "can"),
+    ("sức", "mạnh"), ("ngự", "trị"), ("tất", "cả"), ("nhiều", "năm"),
+    ("canh", "gác"), ("thường", "xuyên"), ("đêm", "khuya"), ("lênh", "đênh"),
+    ("biển", "đêm"), ("bắt", "đầu"), ("câu", "chuyện"), ("tĩnh", "lặng"),
+    ("bão", "bùng"), ("hư", "vô"), ("dạn", "dày"), ("kinh", "hoàng"),
+    ("dồn", "dập"), ("gõ", "cửa"), ("thì", "thầm"), ("sợ", "hãi"),
+    ("kỳ", "quái"), ("bí", "ẩn"), ("mưa", "gió"), ("hoàn", "toàn"),
+    ("vụt", "tắt"), ("chết", "chóc"), ("lạnh", "buốt"), ("bốc", "hơi"),
+    ("biến", "mất"), ("nghi", "thức"), ("thang", "máy"), ("tiếng", "bước"),
+    ("mã", "morse"), ("phát", "nổ"), ("hải", "đăng"), ("hoảng", "loạn"),
+    ("rùng", "rợn"), ("bất", "thường"), ("đông", "cứng"), ("tuyệt", "đối"),
+    ("tự", "động"), ("chôn", "vùi"), ("thảm", "họa"), ("đồng", "hồ"),
+    ("bản", "lề"), ("quả", "lắc"), ("áo", "mưa")
 ]
 
 def normalize_vietnamese_script(raw_text: str) -> str:
