@@ -43,6 +43,120 @@ SFX_STEM_CATALOG = {
     "whoosh": "https://assets.mixkit.co/active_storage/sfx/2872/2872-preview.mp3"
 }
 
+TRANSITION_MAP = {
+    # 1. Zoom & Directional Push
+    "zoom_in": "zoomin",
+    "zoomin": "zoomin",
+    "shake_zoom": "zoomin",
+    "zoom_out": "fade",
+    "distance": "distance",
+    "flash_push": "distance",
+
+    # 2. Smooth Whip Pan & Sliders
+    "whip_pan": "smoothleft",
+    "smooth_left": "smoothleft",
+    "smoothleft": "smoothleft",
+    "smooth_right": "smoothright",
+    "smoothright": "smoothright",
+    "smooth_up": "smoothup",
+    "smoothup": "smoothup",
+    "smooth_down": "smoothdown",
+    "smoothdown": "smoothdown",
+    "slide_left": "slideleft",
+    "slideleft": "slideleft",
+    "slide_right": "slideright",
+    "slideright": "slideright",
+    "slide_up": "slideup",
+    "slideup": "slideup",
+    "slide_down": "slidedown",
+    "slidedown": "slidedown",
+
+    # 3. Glitch, Pixel & Digital Distortion
+    "glitch": "pixelize",
+    "pixelize": "pixelize",
+    "pixel_sort": "pixelize",
+    "mosaic": "pixelize",
+
+    # 4. Cinematic Fades & Dips
+    "fade_to_black": "fadeblack",
+    "fadeblack": "fadeblack",
+    "fade_to_dark": "fadeblack",
+    "strobe_flash": "fadewhite",
+    "fade_to_white": "fadewhite",
+    "fadewhite": "fadewhite",
+    "fade": "fade",
+    "dissolve": "dissolve",
+    "cross_dissolve": "dissolve",
+    "fade_to_loop": "fade",
+
+    # 5. Wipes & Geometric Slices
+    "wipe_left": "wipeleft",
+    "wipeleft": "wipeleft",
+    "wipe_right": "wiperight",
+    "wiperight": "wiperight",
+    "wipe_up": "wipeup",
+    "wipeup": "wipeup",
+    "wipe_down": "wipedown",
+    "wipedown": "wipedown",
+    "circle_crop": "circlecrop",
+    "circlecrop": "circlecrop",
+    "circle_open": "circleopen",
+    "circleopen": "circleopen",
+    "circle_close": "circleclose",
+    "circleclose": "circleclose",
+    "radial": "radial",
+    "clock_wipe": "radial",
+    "hl_slice": "hlslice",
+    "hlslice": "hlslice",
+    "vr_slice": "vrslice",
+    "vrslice": "vrslice",
+    "diag_tl": "diagtl",
+    "diagtl": "diagtl",
+    "diag_tr": "diagtr",
+    "diagtr": "diagtr",
+    "horz_open": "horzopen",
+    "horzopen": "horzopen",
+    "vert_open": "vertopen",
+    "vertopen": "vertopen",
+    "squeeze_h": "squeezeh",
+    "squeezeh": "squeezeh",
+    "squeeze_v": "squeezev",
+    "squeezev": "squeezev",
+}
+
+TRANSITION_DURATION_MAP = {
+    "smoothleft": 0.25,
+    "smoothright": 0.25,
+    "slideleft": 0.28,
+    "slideright": 0.28,
+    "pixelize": 0.22,
+    "zoomin": 0.35,
+    "distance": 0.28,
+    "fadeblack": 0.55,
+    "fadewhite": 0.30,
+    "dissolve": 0.45,
+    "fade": 0.40,
+    "circlecrop": 0.40,
+    "radial": 0.35,
+    "hlslice": 0.30,
+    "diagtl": 0.30,
+    "horzopen": 0.40,
+}
+
+TRANSITION_SFX_MAP = {
+    "smoothleft": ("whoosh", 0.45),
+    "smoothright": ("whoosh", 0.45),
+    "slideleft": ("whoosh", 0.40),
+    "slideright": ("whoosh", 0.40),
+    "zoomin": ("whoosh", 0.45),
+    "distance": ("whoosh", 0.50),
+    "pixelize": ("horror_riser", 0.35),
+    "fadeblack": ("heartbeat", 0.30),
+    "fadewhite": ("horror_riser", 0.40),
+    "radial": ("clock_tick", 0.40),
+}
+
+
 from urllib.parse import urlparse
 import ipaddress
 import modal
@@ -1525,33 +1639,13 @@ def render_video_task(contract_payload: dict) -> dict:
                     custom_bg_downloaded = True
                 else:
                     try:
-                        TRANSITION_MAP = {
-                            "fade_to_black": "fadeblack",
-                            "fadeblack": "fadeblack",
-                            "fade": "fade",
-                            "fade_to_loop": "fade",
-                            "zoom_in": "zoomin",
-                            "zoomin": "zoomin",
-                            "shake_zoom": "zoomin",
-                            "whip_pan": "smoothleft",
-                            "slide_left": "slideleft",
-                            "slide_right": "slideright",
-                            "glitch": "pixelize",
-                            "pixelize": "pixelize",
-                            "strobe_flash": "fadeblack",
-                            "dissolve": "dissolve",
-                            "circle_crop": "circlecrop",
-                            "wipe_left": "wipeleft",
-                        }
-                        
                         has_transitions = any(
                             str(sc.get("transition", "")).lower() in TRANSITION_MAP for sc in scenes
-                        )
+                        ) or contract_payload.get("enable_transitions", True)
                         
                         concat_path = f"/tmp/{workflow_run_id}/concat_scenes.mp4"
                         
                         if has_transitions and len(scene_files) > 1:
-                            trans_dur = 0.4
                             filter_parts = []
                             cmd_inputs = []
                             for sf in scene_files:
@@ -1559,11 +1653,31 @@ def render_video_task(contract_payload: dict) -> dict:
                             
                             last_v = "[0:v]"
                             current_offset = 0.0
+                            global_trans_dur = float(contract_payload.get("transitionDuration") or contract_payload.get("transition_duration") or 0.0)
                             
                             for i in range(len(scene_files) - 1):
                                 dur_i = float(scenes[i].get("duration_seconds", scene_dur)) if i < len(scenes) else scene_dur
-                                trans_name = scenes[i+1].get("transition") or scenes[i].get("transition") or "fade"
-                                xfade_effect = TRANSITION_MAP.get(str(trans_name).lower(), "fade")
+                                raw_trans = scenes[i+1].get("transition") or scenes[i].get("transition") or contract_payload.get("transition_preset") or ""
+                                
+                                # AI Smart Director: Infer best transition from camera motion & emotion
+                                if not raw_trans or raw_trans == "auto":
+                                    cam_motion = str(scenes[i].get("camera_motion", "")).lower()
+                                    emo = str(scenes[i].get("emotion", "")).lower()
+                                    if "right" in cam_motion or "pan" in cam_motion:
+                                        raw_trans = "smoothright"
+                                    elif "left" in cam_motion:
+                                        raw_trans = "smoothleft"
+                                    elif "dolly" in cam_motion or "zoom" in cam_motion:
+                                        raw_trans = "zoomin"
+                                    elif "horror" in emo or "shock" in emo:
+                                        raw_trans = "pixelize"
+                                    elif "dread" in emo or "moral" in emo:
+                                        raw_trans = "fadeblack"
+                                    else:
+                                        raw_trans = "dissolve"
+                                
+                                xfade_effect = TRANSITION_MAP.get(str(raw_trans).lower(), "fade")
+                                trans_dur = global_trans_dur if global_trans_dur > 0 else TRANSITION_DURATION_MAP.get(xfade_effect, 0.35)
                                 
                                 if i == 0:
                                     current_offset = max(0.5, dur_i - trans_dur)
@@ -1576,6 +1690,17 @@ def render_video_task(contract_payload: dict) -> dict:
                                 )
                                 last_v = f"[v{i+1}]"
                                 
+                                # Register dynamic Transition SFX sound design cue
+                                if xfade_effect in TRANSITION_SFX_MAP:
+                                    sfx_name, sfx_vol = TRANSITION_SFX_MAP[xfade_effect]
+                                    if not any(f.get("start_time") == current_offset for f in sfx_events):
+                                        sfx_events.append({
+                                            "type": sfx_name,
+                                            "start_time": max(0.2, current_offset),
+                                            "url": SFX_STEM_CATALOG.get(sfx_name, SFX_STEM_CATALOG["whoosh"]),
+                                            "volume": sfx_vol
+                                        })
+                                
                             filter_graph = ";".join(filter_parts)
                             xfade_cmd = [
                                 "ffmpeg", "-y",
@@ -1586,7 +1711,7 @@ def render_video_task(contract_payload: dict) -> dict:
                                 concat_path
                             ]
                             subprocess.run(xfade_cmd, check=True)
-                            print(f"[Modal] ⚡ Applied Cinematic XFade Transitions across {len(scene_files)} scenes!", flush=True)
+                            print(f"[Modal] ⚡ Applied 30+ Cinematic XFade Transitions across {len(scene_files)} scenes with auto SFX sync!", flush=True)
                         else:
                             # Direct stream concat fast path
                             concat_list_path = f"/tmp/{workflow_run_id}/concat_list.txt"
