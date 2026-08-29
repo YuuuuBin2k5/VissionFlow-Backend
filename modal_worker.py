@@ -378,75 +378,359 @@ TOPIC_STOCK_MAP = {
     "mountain": ["majestic mountain peaks", "foggy mountain sunrise", "snowy mountain aerial"],
 }
 
-def extract_visual_keywords(prompt: str, gemini_api_key: str | None = None) -> list[str]:
-    """Uses LLM Gemini or NLP Visual Metaphors to extract clean 2-3 word English stock queries for Pexels Video API."""
-    prompt_clean = str(prompt or "").strip()
-    if not prompt_clean:
-        return ["cinematic mountain peak", "city night lights", "cozy library room"]
+# ═══════════════════════════════════════════════════════════════════════════
+# 🌟 VISUAL METAPHOR DIRECTOR (AI CINEMATOGRAPHER FOR 9:16 VIRAL FOOTAGE)
+# ═══════════════════════════════════════════════════════════════════════════
 
-    # 1. Direct Visual Concept & Metaphor Mappings for Vietnamese & English terms
-    prompt_lower = prompt_clean.lower()
-    mapped_queries = []
+VISUAL_METAPHOR_SYSTEM_PROMPT = """You are VISUAL METAPHOR DIRECTOR — a senior cinematographer with 15 years of experience 
+directing viral short-form content for TikTok, Reels, and YouTube Shorts. You have shot 
+b-roll for Netflix documentaries and luxury brand commercials.
+
+Your ONLY job: transform each scene of a script into 3 cinematic search queries that will 
+retrieve visually stunning, emotionally resonant 9:16 vertical footage from stock libraries 
+(Pexels, Pixabay, Artgrid).
+
+═══════════════ CORE PHILOSOPHY ═══════════════
+1. NEVER translate literally. A script line is EMOTION + INTENT, not a shopping list.
+   Bad:  "empty dinner table" -> "empty dinner table"
+   Good: "empty dinner table" -> "moody candlelit dining room slow dolly cinematic 4k"
+
+2. Every query MUST resolve to ONE of these five "million-view visual archetypes":
+   • EPIC_NATURE       — ocean waves, storms, aerial mountains, forests, sky
+   • AESTHETIC_HUMAN   — cinematic portraits, silhouettes, emotive gaze, hair in wind
+   • DARK_MOOD         — candles, shadows, smoke, rain on window, film noir
+   • URBAN_CINEMATIC   — neon city, wet streets, tokyo/hongkong night, luxury interior
+   • ABSTRACT_MOTION   — macro liquid, ink in water, fire, dust particles, bokeh
+
+3. Every query MUST include AT LEAST ONE of these camera/quality tokens:
+   [aerial drone | slow motion | dolly shot | macro close-up | handheld cinematic | 
+   depth of field | anamorphic | 60fps | 4k cinematic | golden hour | blue hour]
+
+═══════════════ HARD RULES ═══════════════
+• Output STRICTLY valid JSON schema - no prose, no markdown fences.
+• Each query = 5-9 English words, lowercase, no punctuation.
+• Query #1 = PRIMARY archetype match (highest relevance).
+• Query #2 = ALTERNATE archetype (safety net if #1 returns bad results).
+• Query #3 = ABSTRACT/METAPHOR fallback (always retrievable, never literal).
+• If the scene describes something IMPOSSIBLE for stock (specific people, named 
+  events, fictional creatures), set "needs_generative": true and craft queries that 
+  capture the MOOD, not the literal subject.
+• Detect and preserve the emotional beat: hope | dread | awe | melancholy | tension | 
+  serenity | mystery | triumph.
+• REJECT amateur signifiers - never use words: "person", "people", "someone", 
+  "family", "kids playing", "smartphone", "selfie".
+
+═══════════════ OUTPUT SCHEMA ═══════════════
+{
+  "scene_id": <int>,
+  "emotion": "<one of the 8 beats>",
+  "archetype_primary": "<one of the 5 archetypes>",
+  "archetype_alternate": "<one of the 5 archetypes>",
+  "queries": [
+    {"rank": 1, "query": "<5-9 words>", "archetype": "<archetype>", "duration_hint_sec": <int 4-15>},
+    {"rank": 2, "query": "<5-9 words>", "archetype": "<archetype>", "duration_hint_sec": <int 4-15>},
+    {"rank": 3, "query": "<5-9 words>", "archetype": "<archetype>", "duration_hint_sec": <int 4-15>}
+  ],
+  "needs_generative": <bool>,
+  "generative_prompt": "<null OR a Veo3/Kling-ready prompt if needs_generative is true>",
+  "reject_terms": ["<literal terms to blacklist during retrieval>"]
+}"""
+
+VISUAL_METAPHOR_FEW_SHOTS = [
+    {
+        "role": "user",
+        "parts": [{"text": 'Scene 3 (target duration 8s):\n"Ba người gác hải đăng cùng biến mất trong một đêm. Không ai biết chuyện gì đã xảy ra."\n\nReturn ONLY the JSON.'}]
+    },
+    {
+        "role": "model",
+        "parts": [{"text": json.dumps({
+            "scene_id": 3,
+            "emotion": "mystery",
+            "archetype_primary": "DARK_MOOD",
+            "archetype_alternate": "EPIC_NATURE",
+            "queries": [
+                {"rank": 1, "query": "abandoned lighthouse foggy night cinematic 4k", "archetype": "DARK_MOOD", "duration_hint_sec": 8},
+                {"rank": 2, "query": "violent stormy ocean waves crashing cliff aerial", "archetype": "EPIC_NATURE", "duration_hint_sec": 10},
+                {"rank": 3, "query": "dark smoke rolling slow motion cinematic", "archetype": "ABSTRACT_MOTION", "duration_hint_sec": 6}
+            ],
+            "needs_generative": False,
+            "generative_prompt": None,
+            "reject_terms": ["three people", "lighthouse keeper", "missing person", "family"]
+        })}]
+    },
+    {
+        "role": "user",
+        "parts": [{"text": 'Scene 7 (target duration 7s):\n"Cô ấy nhận ra mình đã yêu người ấy từ rất lâu rồi."\n\nReturn ONLY the JSON.'}]
+    },
+    {
+        "role": "model",
+        "parts": [{"text": json.dumps({
+            "scene_id": 7,
+            "emotion": "melancholy",
+            "archetype_primary": "AESTHETIC_HUMAN",
+            "archetype_alternate": "URBAN_CINEMATIC",
+            "queries": [
+                {"rank": 1, "query": "aesthetic woman portrait golden hour hair wind cinematic", "archetype": "AESTHETIC_HUMAN", "duration_hint_sec": 7},
+                {"rank": 2, "query": "silhouette against rainy window neon reflection slow motion", "archetype": "URBAN_CINEMATIC", "duration_hint_sec": 8},
+                {"rank": 3, "query": "warm bokeh lights defocus depth of field", "archetype": "ABSTRACT_MOTION", "duration_hint_sec": 5}
+            ],
+            "needs_generative": False,
+            "generative_prompt": None,
+            "reject_terms": ["couple", "smiling girl", "romantic dinner"]
+        })}]
+    },
+    {
+        "role": "user",
+        "parts": [{"text": 'Scene 12 (target duration 9s):\n"Linh hồn cậu bé nhẹ nhàng bay lên từ đống tro tàn của ngôi làng đã cháy rụi."\n\nReturn ONLY the JSON.'}]
+    },
+    {
+        "role": "model",
+        "parts": [{"text": json.dumps({
+            "scene_id": 12,
+            "emotion": "awe",
+            "archetype_primary": "ABSTRACT_MOTION",
+            "archetype_alternate": "DARK_MOOD",
+            "queries": [
+                {"rank": 1, "query": "glowing ember particles rising slow motion black background", "archetype": "ABSTRACT_MOTION", "duration_hint_sec": 6},
+                {"rank": 2, "query": "burned village ruins smoke drone aerial cinematic", "archetype": "DARK_MOOD", "duration_hint_sec": 9},
+                {"rank": 3, "query": "soft light beam through smoke god rays cinematic", "archetype": "ABSTRACT_MOTION", "duration_hint_sec": 6}
+            ],
+            "needs_generative": True,
+            "generative_prompt": "A translucent ghostly figure of a small child, softly luminous, gently ascending from smoldering ashes of a burned village at dusk, embers floating around, cinematic 4k, volumetric light, 9:16 vertical, slow ethereal motion, muted teal and orange palette",
+            "reject_terms": ["child spirit", "ghost", "burning village literal"]
+        })}]
+    },
+    {
+        "role": "user",
+        "parts": [{"text": 'Scene 2 (target duration 8s):\n"Bàn ăn còn nguyên đĩa thức ăn dở, như thể họ vừa vội vàng bỏ đi."\n\nReturn ONLY the JSON.'}]
+    },
+    {
+        "role": "model",
+        "parts": [{"text": json.dumps({
+            "scene_id": 2,
+            "emotion": "tension",
+            "archetype_primary": "DARK_MOOD",
+            "archetype_alternate": "ABSTRACT_MOTION",
+            "queries": [
+                {"rank": 1, "query": "moody candlelit dining room slow dolly cinematic 4k", "archetype": "DARK_MOOD", "duration_hint_sec": 8},
+                {"rank": 2, "query": "flickering candle flame macro close up slow motion", "archetype": "ABSTRACT_MOTION", "duration_hint_sec": 5},
+                {"rank": 3, "query": "empty vintage interior window light dust particles", "archetype": "DARK_MOOD", "duration_hint_sec": 7}
+            ],
+            "needs_generative": False,
+            "generative_prompt": None,
+            "reject_terms": ["half eaten food", "leftover plate", "dirty dishes"]
+        })}]
+    },
+    {
+        "role": "user",
+        "parts": [{"text": 'Scene 1 (target duration 10s):\n"Trước cơn bão, đại dương yên tĩnh đến rợn người."\n\nReturn ONLY the JSON.'}]
+    },
+    {
+        "role": "model",
+        "parts": [{"text": json.dumps({
+            "scene_id": 1,
+            "emotion": "dread",
+            "archetype_primary": "EPIC_NATURE",
+            "archetype_alternate": "DARK_MOOD",
+            "queries": [
+                {"rank": 1, "query": "calm dark ocean before storm aerial drone cinematic 4k", "archetype": "EPIC_NATURE", "duration_hint_sec": 10},
+                {"rank": 2, "query": "heavy dark clouds forming timelapse ocean horizon", "archetype": "EPIC_NATURE", "duration_hint_sec": 8},
+                {"rank": 3, "query": "black water surface ripples macro slow motion", "archetype": "ABSTRACT_MOTION", "duration_hint_sec": 6}
+            ],
+            "needs_generative": False,
+            "generative_prompt": None,
+            "reject_terms": ["quiet sea", "beach sunset happy"]
+        })}]
+    }
+]
+
+def fallback_rule_based_director(scene_text: str, scene_id: int = 1, target_dur: int = 8) -> dict:
+    """Zero-Latency Linguistic & Metaphor Rule Engine for 5 Million-View Archetypes"""
+    t = str(scene_text or "").lower()
     
-    # Psychological / Philosophical / Mindset concepts
-    if any(k in prompt_lower for k in ["dunning", "kruger", "nghiên cứu", "tâm lý", "psychology", "khoa học", "chấn động"]):
-        mapped_queries.append("science laboratory research")
-        mapped_queries.append("brain psychology medical")
-    if any(k in prompt_lower for k in ["tự tin", "ngông cuồng", "ít năng lực", "arrogant", "confident", "thách thức"]):
-        mapped_queries.append("confident businessman walking")
-        mapped_queries.append("man standing edge mountain")
-    if any(k in prompt_lower for k in ["khiêm tốn", "cúi đầu", "cao thủ", "humble", "master", "thiền", "trưởng thành"]):
-        mapped_queries.append("meditation mountain silhouette")
-        mapped_queries.append("wise old master")
-    if any(k in prompt_lower for k in ["núi ngu ngốc", "đỉnh núi", "peak", "mountain", "climbing", "vực thẳm"]):
-        mapped_queries.append("foggy mountain peak sunrise")
-        mapped_queries.append("mountain climber summit")
-    if any(k in prompt_lower for k in ["tri thức", "sách", "học hỏi", "library", "knowledge", "reading", "ancient"]):
-        mapped_queries.append("ancient library book")
-        mapped_queries.append("turning book pages")
-    if any(k in prompt_lower for k in ["tiền", "tài chính", "giàu", "money", "finance", "wealth", "gold"]):
-        mapped_queries.append("money counting cash")
-        mapped_queries.append("gold coins glowing")
-    if any(k in prompt_lower for k in ["vũ trụ", "ngôi sao", "galaxy", "space", "stars", "nebula"]):
-        mapped_queries.append("starry night sky milkyway")
-        mapped_queries.append("deep space nebula")
-    if any(k in prompt_lower for k in ["biển", "sóng", "đại dương", "ocean", "sea", "waves"]):
-        mapped_queries.append("dramatic ocean waves sunset")
+    # 1. EPIC NATURE: Oceans, Storms, Cliffs, Mountains, Sky
+    if any(k in t for k in ["biển", "sóng", "đại dương", "bão", "sấm", "hải đăng", "hòn đảo", "vách đá", "núi", "rừng", "ocean", "sea", "storm", "waves", "cliff", "nature", "mountain"]):
+        return {
+            "scene_id": scene_id,
+            "emotion": "dread" if any(k in t for k in ["bão", "sấm", "kinh hoàng", "vụt tắt"]) else "awe",
+            "archetype_primary": "EPIC_NATURE",
+            "archetype_alternate": "DARK_MOOD",
+            "queries": [
+                {"rank": 1, "query": "violent stormy ocean waves crashing cliff aerial", "archetype": "EPIC_NATURE", "duration_hint_sec": target_dur},
+                {"rank": 2, "query": "dark moody ocean horizon drone cinematic 4k", "archetype": "EPIC_NATURE", "duration_hint_sec": target_dur},
+                {"rank": 3, "query": "lightning storm clouds dark sky slow motion", "archetype": "ABSTRACT_MOTION", "duration_hint_sec": target_dur}
+            ],
+            "needs_generative": False,
+            "generative_prompt": None,
+            "reject_terms": ["beach party", "sunny beach", "swimmer", "boat toy"]
+        }
+    
+    # 2. AESTHETIC HUMAN: Cinematic Portraits, Silhouettes, Emotive Gaze
+    if any(k in t for k in ["gái", "cô ấy", "người đẹp", "mắt", "khóc", "cầu nguyện", "tình yêu", "yêu", "nhìn", "chân dung", "woman", "girl", "portrait", "silhouette"]):
+        return {
+            "scene_id": scene_id,
+            "emotion": "melancholy",
+            "archetype_primary": "AESTHETIC_HUMAN",
+            "archetype_alternate": "DARK_MOOD",
+            "queries": [
+                {"rank": 1, "query": "aesthetic woman portrait in rain cinematic 4k", "archetype": "AESTHETIC_HUMAN", "duration_hint_sec": target_dur},
+                {"rank": 2, "query": "mysterious silhouette against window neon light slow motion", "archetype": "DARK_MOOD", "duration_hint_sec": target_dur},
+                {"rank": 3, "query": "cinematic moody portrait depth of field 60fps", "archetype": "AESTHETIC_HUMAN", "duration_hint_sec": target_dur}
+            ],
+            "needs_generative": False,
+            "generative_prompt": None,
+            "reject_terms": ["selfie", "smiling girl", "smartphone", "happy couple"]
+        }
 
-    if mapped_queries:
-        return mapped_queries[:3]
+    # 3. DARK MOOD: Candles, Shadows, Smoke, Clocks, Footsteps, Ghostly Doors
+    if any(k in t for k in ["cửa", "gõ", "đồng hồ", "nửa đêm", "2 giờ", "nhật ký", "tĩnh lặng", "bước chân", "ma", "rùng rợn", "kinh hoàng", "chết", "hư vô"]):
+        return {
+            "scene_id": scene_id,
+            "emotion": "mystery",
+            "archetype_primary": "DARK_MOOD",
+            "archetype_alternate": "ABSTRACT_MOTION",
+            "queries": [
+                {"rank": 1, "query": "moody candlelit dark room slow dolly cinematic 4k", "archetype": "DARK_MOOD", "duration_hint_sec": target_dur},
+                {"rank": 2, "query": "flickering candle flame macro close up slow motion", "archetype": "ABSTRACT_MOTION", "duration_hint_sec": target_dur},
+                {"rank": 3, "query": "dark hallway shadow footsteps depth of field", "archetype": "DARK_MOOD", "duration_hint_sec": target_dur}
+            ],
+            "needs_generative": False,
+            "generative_prompt": None,
+            "reject_terms": ["family dinner", "kids", "toy clock", "office meeting"]
+        }
 
-    # 2. Call Gemini 1.5 Flash AI to translate Vietnamese script into cinematic English stock queries
+    # 4. URBAN CINEMATIC: Neon Night, Wet Streets, Luxury, Technology
+    if any(k in t for k in ["tiền", "thành phố", "công nghệ", "ai", "robot", "xe", "đô thị", "city", "neon", "cyberpunk", "finance"]):
+        return {
+            "scene_id": scene_id,
+            "emotion": "triumph",
+            "archetype_primary": "URBAN_CINEMATIC",
+            "archetype_alternate": "ABSTRACT_MOTION",
+            "queries": [
+                {"rank": 1, "query": "tokyo neon night street wet reflections slow motion", "archetype": "URBAN_CINEMATIC", "duration_hint_sec": target_dur},
+                {"rank": 2, "query": "modern luxury skyscraper city aerial drone 4k", "archetype": "URBAN_CINEMATIC", "duration_hint_sec": target_dur},
+                {"rank": 3, "query": "digital data matrix cyber tunnel 60fps cinematic", "archetype": "ABSTRACT_MOTION", "duration_hint_sec": target_dur}
+            ],
+            "needs_generative": False,
+            "generative_prompt": None,
+            "reject_terms": ["traffic jam amateur", "walking crowd phone", "street market"]
+        }
+
+    # Default Epic Cinematic Atmosphere
+    return {
+        "scene_id": scene_id,
+        "emotion": "awe",
+        "archetype_primary": "EPIC_NATURE",
+        "archetype_alternate": "DARK_MOOD",
+        "queries": [
+            {"rank": 1, "query": "majestic foggy mountains aerial drone cinematic 4k", "archetype": "EPIC_NATURE", "duration_hint_sec": target_dur},
+            {"rank": 2, "query": "dark moody twilight clouds golden hour slow motion", "archetype": "EPIC_NATURE", "duration_hint_sec": target_dur},
+            {"rank": 3, "query": "cinematic dust particles bokeh depth of field", "archetype": "ABSTRACT_MOTION", "duration_hint_sec": target_dur}
+        ],
+        "needs_generative": False,
+        "generative_prompt": None,
+        "reject_terms": ["amateur video", "tourist", "selfie"]
+    }
+
+def visual_metaphor_direct(scene_text: str, scene_id: int = 1, target_duration_sec: int = 8, gemini_api_key: str | None = None) -> dict:
+    """
+    VISUAL METAPHOR DIRECTOR Service:
+    Transforms raw scene text into 3 structured cinematic search queries matching the 5 million-view archetypes.
+    """
+    scene_clean = str(scene_text or "").strip()
+    if not scene_clean:
+        return fallback_rule_based_director("cinematic nature", scene_id, target_duration_sec)
+
     if gemini_api_key:
         try:
-            import google.generativeai as genai
-            genai.configure(api_key=gemini_api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
-            resp = model.generate_content(
-                f"You are an expert cinematic director and stock video researcher. Given this Vietnamese or English scene text: '{prompt_clean[:300]}', "
-                "analyze the visual theme, emotional metaphor, and context, and return ONLY a valid JSON list of 3 distinct, high-quality 2-3 word English search queries for Pexels 4K vertical footage. "
-                "Examples: [\"arrogant confident man\", \"science laboratory graph\", \"foggy mountain peak silhouette\"]"
+            import urllib.request
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_api_key}"
+            prompt = f'Scene {scene_id} (target duration {target_duration_sec}s):\n"{scene_clean}"\n\nReturn ONLY the JSON.'
+            
+            contents = list(VISUAL_METAPHOR_FEW_SHOTS)
+            contents.append({
+                "role": "user",
+                "parts": [{"text": prompt}]
+            })
+            
+            payload = {
+                "system_instruction": {"parts": [{"text": VISUAL_METAPHOR_SYSTEM_PROMPT}]},
+                "generationConfig": {
+                    "temperature": 0.4,
+                    "topP": 0.9,
+                    "responseMimeType": "application/json"
+                },
+                "contents": contents
+            }
+            
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode('utf-8'),
+                headers={"Content-Type": "application/json"}
             )
-            if resp and resp.text:
-                txt = resp.text.strip()
-                match = re.search(r'\[.*\]', txt, re.DOTALL)
-                if match:
-                    data = json.loads(match.group(0))
-                    if isinstance(data, list) and len(data) > 0:
-                        return [str(q).strip() for q in data if q][:3]
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                text_resp = data["candidates"][0]["content"]["parts"][0]["text"]
+                parsed = json.loads(text_resp)
+                if isinstance(parsed, dict) and "queries" in parsed:
+                    print(f"[VisualDirector] 🎬 Generated Visual Metaphor Plan via Gemini for Scene {scene_id} ({parsed.get('archetype_primary')})", flush=True)
+                    return parsed
+        except Exception as e:
+            print(f"[VisualDirector Notice] LLM Director fallback to rule engine: {e}", flush=True)
+
+    return fallback_rule_based_director(scene_clean, scene_id, target_duration_sec)
+
+def fetch_pexels_video_for_keyword(queries_or_keyword: list[str] | str, pexels_key: str = "j3CIlOLR1RdRejkZPi56CCmJALu9axEyFjik0U77W3semlJtXFpMqgVp", reject_terms: list[str] | None = None) -> str | None:
+    """
+    Multi-Tier HD/4K Vertical Pexels B-Roll Downloader with Client-Side Blacklist Filtering.
+    """
+    import urllib.parse
+    import requests
+    
+    if isinstance(queries_or_keyword, str):
+        queries = [queries_or_keyword]
+    else:
+        queries = list(queries_or_keyword or [])
+        
+    reject_terms = [r.lower().strip() for r in (reject_terms or [])]
+    headers = {"Authorization": pexels_key}
+    
+    for q in queries:
+        clean_q = urllib.parse.quote(str(q).strip())
+        url = f"https://api.pexels.com/videos/search?query={clean_q}&orientation=portrait&per_page=10"
+        try:
+            r = requests.get(url, headers=headers, timeout=12)
+            if r.status_code == 200:
+                data = r.json()
+                videos = data.get("videos") or []
+                for v in videos:
+                    # 1. Blacklist reject_terms check
+                    v_str = f"{v.get('url', '')} {v.get('user', {}).get('name', '')}".lower()
+                    if any(reject in v_str for reject in reject_terms if len(reject) > 2):
+                        continue
+                    
+                    # 2. Filter for portrait HD files
+                    v_files = v.get("video_files") or []
+                    # Sort files by resolution (height * width) descending
+                    v_files = sorted(v_files, key=lambda x: (x.get("height") or 0) * (x.get("width") or 0), reverse=True)
+                    for vf in v_files:
+                        w = vf.get("width") or 0
+                        h = vf.get("height") or 0
+                        link = vf.get("link") or ""
+                        if h >= w and h >= 720 and link:
+                            print(f"[Pexels 4K/HD] 🎯 Found Cinematic Footage for '{q}': [{w}x{h}]", flush=True)
+                            return link
         except Exception as err:
-            print(f"[Modal] ⚠️ Gemini keyword extraction notice: {err}", flush=True)
+            print(f"[Pexels Engine Notice] Query '{q}' check: {err}", flush=True)
+            
+    return None
 
-    words = re.findall(r'\b[a-zA-Z]{3,}\b', prompt_clean.lower())
-    meaningful = [w for w in words if w not in NOISE_WORDS]
-    if len(meaningful) >= 2:
-        return [
-            f"{meaningful[0]} {meaningful[1]}",
-            f"{meaningful[0]} cinematic",
-            "dramatic nature vertical"
-        ]
+def extract_visual_keywords(prompt: str, gemini_api_key: str | None = None) -> list[str]:
+    """Compatibility wrapper for extract_visual_keywords using Visual Metaphor Director"""
+    plan = visual_metaphor_direct(prompt, 1, 8, gemini_api_key)
+    queries = [item.get("query") for item in plan.get("queries", []) if item.get("query")]
+    return queries or ["cinematic nature vertical", "dramatic lighting vertical", "atmospheric background vertical"]
 
-    return ["cinematic nature vertical", "dramatic lighting vertical", "atmospheric background vertical"]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1316,7 +1600,20 @@ def render_scene_chunk(scene_payload: dict) -> dict:
                 
         if not downloaded:
             pexels_key = os.environ.get("PEXELS_API_KEY", "j3CIlOLR1RdRejkZPi56CCmJALu9axEyFjik0U77W3semlJtXFpMqgVp")
-            pex_url = fetch_pexels_video_for_keyword(keyword, pexels_key)
+            gemini_key = os.environ.get("GEMINI_API_KEY", "AIzaSyCNu2LQSzyBW6ACixl1D6SLy07_vdeu0ho")
+            
+            # 1. Visual Metaphor Director Plan
+            director_plan = visual_metaphor_direct(
+                scene_text=keyword,
+                scene_id=scene_idx + 1,
+                target_duration_sec=int(round(scene_dur)),
+                gemini_api_key=gemini_key
+            )
+            queries = [item.get("query") for item in director_plan.get("queries", []) if item.get("query")] or [keyword]
+            reject_terms = director_plan.get("reject_terms") or []
+            
+            # 2. Multi-tier cinematic Pexels search
+            pex_url = fetch_pexels_video_for_keyword(queries, pexels_key=pexels_key, reject_terms=reject_terms)
             if pex_url and is_safe_url(pex_url):
                 try:
                     r_pex = requests.get(pex_url, timeout=25, stream=True)
@@ -1325,9 +1622,14 @@ def render_scene_chunk(scene_payload: dict) -> dict:
                             for chunk in r_pex.iter_content(chunk_size=8192):
                                 f_raw.write(chunk)
                         downloaded = True
-                        print(f"[MicroWorker {scene_idx}] 🎯 Downloaded Pexels video for query: '{keyword}'", flush=True)
+                        print(f"[MicroWorker {scene_idx}] 🎯 Downloaded Pexels 4K/HD Video for query: '{queries[0]}'", flush=True)
                 except Exception:
                     pass
+                    
+            # 3. Generative fallback if impossible for stock
+            if not downloaded and director_plan.get("needs_generative") and director_plan.get("generative_prompt"):
+                gen_prompt = director_plan["generative_prompt"]
+                downloaded = fetch_ai_image_fallback(gen_prompt, raw_media_path)
                     
         # Normalize and trim to exact duration, resolution, 60fps CRF 18
         if downloaded and os.path.exists(raw_media_path) and os.path.getsize(raw_media_path) > 10000:
