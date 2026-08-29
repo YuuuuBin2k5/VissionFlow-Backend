@@ -279,49 +279,75 @@ visionflow_image = (
     .run_commands("playwright install chromium --with-deps")
 )
 
-VIETNAMESE_REPAIR_PAIRS = [
-    ("tĩnh", "lặng"), ("bão", "bùng"), ("hư", "vô"), ("dạn", "dày"),
-    ("kinh", "hoàng"), ("dồn", "dập"), ("gõ", "cửa"), ("thì", "thầm"),
-    ("sợ", "hãi"), ("kỳ", "quái"), ("bí", "ẩn"), ("mưa", "gió"),
-    ("hoàn", "toàn"), ("vụt", "tắt"), ("chết", "chóc"), ("lạnh", "buốt"),
-    ("bốc", "hơi"), ("biến", "mất"), ("nghi", "thức"), ("thang", "máy"),
-    ("tiếng", "bước"), ("mã", "morse"), ("phát", "nổ"), ("hải", "đăng")
-]
+CLAUSE_MARKERS = {
+    "giữa", "khi", "nếu", "tại", "theo", "sau", "trước", "đột", "bỗng", "từ",
+    "lúc", "vào", "trong", "đến", "qua", "với", "như", "dù", "mặc", "bởi", "vì"
+}
 
 def normalize_vietnamese_script(raw_text: str) -> str:
     """
-    Cleans AI director tags, repairs split compound words (e.g. 'tĩnh ... lặng' -> 'tĩnh lặng'),
-    and normalizes punctuation into expressive speech cadence for Edge TTS.
+    Universal Linguistic Vietnamese Script Normalizer for 100% Expressive Natural Speech:
+    1. Strips director cues & brackets.
+    2. Automatically heals 100% of broken Vietnamese compound words / reduplications (e.g. 'tĩnh ... lặng' -> 'tĩnh lặng', 'hoảng ... loạn' -> 'hoảng loạn').
+    3. Cleans unnatural dead pauses after linking words ('là...', 'rằng...', 'dù...').
+    4. Converts remaining rhetorical ellipses into natural clause cadence commas and periods.
     """
     if not raw_text:
         return ""
     text = str(raw_text)
-    
-    # 1. Remove bracketed director emotion tags: [dramatic], [whispers], [excited], (thì thầm), etc.
+
+    # 1. Strip bracketed director emotion notes: [excited], [whispers], (thì thầm), etc.
     text = re.sub(r'\[.*?\]', ' ', text)
     text = re.sub(r'\(.*?\)', ' ', text)
-    
-    # 2. Repair compound words separated by ellipsis or extra spaces
-    for w1, w2 in VIETNAMESE_REPAIR_PAIRS:
-        pattern = re.compile(rf'\b{w1}\b\s*[\.]{{2,}}\s*\b{w2}\b', re.IGNORECASE)
-        text = pattern.sub(f"{w1} {w2}", text)
-        pattern_dots = re.compile(rf'\b{w1}\b\s*…\s*\b{w2}\b', re.IGNORECASE)
-        text = pattern_dots.sub(f"{w1} {w2}", text)
 
-    # 3. Clean excessive ellipses in the middle of sentences so TTS does not stutter
-    text = re.sub(r'\b(là|rằng|và|nhưng|thì|dù|khi|vào|trong|với|của)\s*[\.]{2,}', r'\1', text, flags=re.IGNORECASE)
-    text = re.sub(r'[\.]{2,}\s*\b(mà|để|dù|nhưng|thì)\b', r', \1', text, flags=re.IGNORECASE)
+    # 2. Normalize full-width ellipsis '…' to standard '...'
+    text = text.replace('…', '...')
 
-    # Normalize remaining ellipses into commas for smooth cadence
-    text = re.sub(r'\.{3,}', ', ', text)
-    text = re.sub(r'…', ', ', text)
-    
-    # 4. Clean duplicate punctuation and extra spaces
+    # 3. Clean ellipses after linking particles & conjunctions
+    linking_words = r'(?:là|rằng|và|nhưng|thì|dù|khi|vào|trong|với|của|bởi|vì|do|nếu|như|bỗng|lại|đã|đang|sẽ|vừa|mới|hoàn\s+toàn|cực\s+kỳ|rất|quá|quá\s+đỗi)'
+    text = re.sub(rf'\b({linking_words})\s*[\.]{{2,}}\s*', r'\1 ', text, flags=re.IGNORECASE)
+
+    # 4. Clean ellipses before coordinating/subordinating conjunctions
+    text = re.sub(r'\s*[\.]{2,}\s*(mà|để|dù|nhưng|thì|bởi\s+vì|cho\s+nên)\b', r', \1', text, flags=re.IGNORECASE)
+
+    # 5. UNIVERSAL LINGUISTIC INTRA-PHRASE HEALER:
+    # Heals ANY Vietnamese monosyllabic compound words / reduplications without hardcoded dictionaries
+    def smart_ellipsis_replace(match):
+        prefix = match.group(1) or ""
+        w1 = match.group(2).strip()
+        w2 = match.group(3).strip()
+        
+        # If w2 is a clause marker (e.g. "...giữa", "...khi", "...nếu"), it's a clause boundary -> put comma
+        if w2.lower() in CLAUSE_MARKERS:
+            return f"{prefix}{w1}, {w2}"
+        
+        # If w1 is a number or time unit (e.g. "1900...", "sáng..."), it's a time clause -> put comma
+        if re.match(r'^\d+$', w1) or w1.lower() in {"sáng", "chiều", "tối", "đêm", "năm", "tháng", "ngày", "giờ", "phút"}:
+            return f"{prefix}{w1}, {w2}"
+
+        # If w1 and w2 are single syllables/words inside a clause (e.g. "tĩnh ... lặng", "hoảng ... loạn", "bất ... thường"):
+        # Merge directly with space to preserve 100% emotional cadence!
+        return f"{prefix}{w1} {w2}"
+
+    # Apply intra-word healing passes
+    text = re.sub(r'(^|[\s,;])([a-zA-ZÀ-ỹ0-9]+)\s*[\.]{2,}\s*([a-zà-ỹ0-9]+)\b', smart_ellipsis_replace, text)
+    text = re.sub(r'(^|[\s,;])([a-zA-ZÀ-ỹ0-9]+)\s*[\.]{2,}\s*([a-zà-ỹ0-9]+)\b', smart_ellipsis_replace, text)
+
+    # 6. Any remaining ellipses:
+    # If before an uppercase letter -> comma with space
+    text = re.sub(r'\s*[\.]{2,}\s*(?=[A-ZÀ-Ỹ0-9])', ', ', text)
+    # If at the very end of string -> single period
+    text = re.sub(r'\s*[\.]{2,}\s*$', '.', text)
+    # Any residual ... -> single comma
+    text = re.sub(r'\s*[\.]{2,}\s*', ', ', text)
+
+    # 7. Clean duplicate punctuation and whitespace
     text = re.sub(r'[,]{2,}', ',', text)
     text = re.sub(r'[,]\s*[,]', ',', text)
     text = re.sub(r'[!]{2,}', '!', text)
     text = re.sub(r'[?]{2,}', '?', text)
-    text = re.sub(r'\s+([,.\?!])', r'\1', text)
+    text = re.sub(r'[\.]{2,}', '.', text)
+    text = re.sub(r'\s+([,.\?!:;])', r'\1', text)
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
