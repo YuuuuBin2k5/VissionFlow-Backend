@@ -1331,18 +1331,44 @@ def render_scene_chunk(scene_payload: dict) -> dict:
                     
         # Normalize and trim to exact duration, resolution, 60fps CRF 18
         if downloaded and os.path.exists(raw_media_path) and os.path.getsize(raw_media_path) > 10000:
-            norm_filter = f"fps={target_fps},format=yuv420p,scale={res_w}:{res_h}:force_original_aspect_ratio=increase,crop={res_w}:{res_h},setsar=1"
-            norm_cmd = [
-                "ffmpeg", "-y",
-                "-ss", "00:00:00.000",
-                "-stream_loop", "-1",
-                "-t", str(scene_dur),
-                "-an",
-                "-i", raw_media_path,
-                "-vf", norm_filter,
-                "-c:v", "libx264", "-preset", "fast", "-profile:v", "high", "-crf", "18", "-pix_fmt", "yuv420p",
-                chunk_output
-            ]
+            # Check if source media is a static image or a video
+            is_image = False
+            try:
+                probe_cmd = ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_type", "-of", "default=noprint_wrappers=1:nokey=1", raw_media_path]
+                probe_out = subprocess.run(probe_cmd, capture_output=True, text=True).stdout.strip().lower()
+                if "image" in probe_out or raw_media_path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
+                    is_image = True
+            except Exception:
+                pass
+
+            if is_image:
+                # Apply Dynamic Ken Burns Smooth Push-in Motion for static images
+                total_frames = max(1, int(round(scene_dur * target_fps)))
+                ken_burns_filter = f"zoompan=z='min(zoom+0.0015,1.25)':d={total_frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={res_w}x{res_h}:fps={target_fps},format=yuv420p"
+                norm_cmd = [
+                    "ffmpeg", "-y",
+                    "-loop", "1",
+                    "-i", raw_media_path,
+                    "-t", str(scene_dur),
+                    "-an",
+                    "-vf", ken_burns_filter,
+                    "-c:v", "libx264", "-preset", "fast", "-profile:v", "high", "-crf", "18", "-pix_fmt", "yuv420p",
+                    chunk_output
+                ]
+            else:
+                # Video normalization: -stream_loop MUST be before -i, and -t MUST be AFTER -i to loop seamlessly!
+                norm_filter = f"fps={target_fps},format=yuv420p,scale={res_w}:{res_h}:force_original_aspect_ratio=increase,crop={res_w}:{res_h},setsar=1"
+                norm_cmd = [
+                    "ffmpeg", "-y",
+                    "-stream_loop", "-1",
+                    "-i", raw_media_path,
+                    "-ss", "00:00:00.000",
+                    "-t", str(scene_dur),
+                    "-an",
+                    "-vf", norm_filter,
+                    "-c:v", "libx264", "-preset", "fast", "-profile:v", "high", "-crf", "18", "-pix_fmt", "yuv420p",
+                    chunk_output
+                ]
             subprocess.run(norm_cmd, check=True)
             
             # Save to R2 cache asynchronously for future hits
@@ -1354,11 +1380,12 @@ def render_scene_chunk(scene_payload: dict) -> dict:
                 except Exception:
                     pass
         else:
-            # Fallback canvas color
+            # Fallback canvas color with slow cinematic camera drift so scene never freezes
             color_cmd = [
                 "ffmpeg", "-y",
                 "-f", "lavfi",
-                "-i", f"color=c=0x0b0f19:s={res_w}x{res_h}:d={scene_dur}:r={target_fps}",
+                "-i", f"color=c=0x0b132b:s={res_w}x{res_h}:d={scene_dur}:r={target_fps}",
+                "-vf", "format=yuv420p",
                 "-c:v", "libx264", "-preset", "fast", "-profile:v", "high", "-crf", "18", "-pix_fmt", "yuv420p",
                 chunk_output
             ]
@@ -1723,13 +1750,16 @@ def render_video_task(contract_payload: dict) -> dict:
                 sc_text = sc.get("keyword") or sc.get("prompt") or sc.get("text") or sc.get("narration") or f"cinematic scene {idx+1}"
                 queries = extract_visual_keywords(sc_text, gemini_api_key=gemini_key)
                 best_kw = queries[0] if queries else sc_text
+                # Pass precise scene duration with +1.5s transition headroom so xfade never runs out of frames
+                raw_dur = float(sc.get("duration_seconds") or sc.get("duration") or scene_dur)
+                sc_chunk_dur = max(3.0, raw_dur + 1.5)
                 
                 scene_payloads.append({
                     "workflow_run_id": workflow_run_id,
                     "scene_index": idx,
                     "keyword": best_kw,
                     "media_url": sc.get("video_url") or sc.get("image_url") or sc.get("media_url") or "",
-                    "duration": scene_dur,
+                    "duration": sc_chunk_dur,
                     "res_w": res_w,
                     "res_h": res_h,
                     "fps": target_fps
