@@ -35,12 +35,43 @@ EMOTION_PROSODY_MATRIX = {
 }
 
 SFX_STEM_CATALOG = {
+    # ── 1. TRANSITIONS, WHOOSHES & SWEEPERS ──
+    "whoosh_fast": "https://assets.mixkit.co/active_storage/sfx/2872/2872-preview.mp3",
+    "whoosh_cinematic": "https://assets.mixkit.co/active_storage/sfx/2873/2873-preview.mp3",
+    "whoosh_air": "https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3",
+    "sub_boom": "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3",
+    "camera_shutter": "https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3",
+    "swish": "https://assets.mixkit.co/active_storage/sfx/2872/2872-preview.mp3",
+    "whoosh": "https://assets.mixkit.co/active_storage/sfx/2872/2872-preview.mp3",
+
+    # ── 2. IMPACTS, RISERS & THRILLERS ──
+    "cinematic_hit": "https://assets.mixkit.co/active_storage/sfx/2868/2868-preview.mp3",
+    "horror_riser": "https://assets.mixkit.co/active_storage/sfx/2875/2875-preview.mp3",
+    "heartbeat": "https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3",
+    "glitch_static": "https://assets.mixkit.co/active_storage/sfx/2575/2575-preview.mp3",
+    "glass_shatter": "https://assets.mixkit.co/active_storage/sfx/2580/2580-preview.mp3",
+    "metal_impact": "https://assets.mixkit.co/active_storage/sfx/2867/2867-preview.mp3",
+    "explosion_distant": "https://assets.mixkit.co/active_storage/sfx/2585/2585-preview.mp3",
+
+    # ── 3. FOLEY & MYSTERY AMBIENCE ──
     "door_knock": "https://assets.mixkit.co/active_storage/sfx/2874/2874-preview.mp3",
+    "creaking_door": "https://assets.mixkit.co/active_storage/sfx/2876/2876-preview.mp3",
+    "clock_tick": "https://assets.mixkit.co/active_storage/sfx/2871/2871-preview.mp3",
+    "morse_code": "https://assets.mixkit.co/active_storage/sfx/2583/2583-preview.mp3",
     "rain_thunder": "https://assets.mixkit.co/active_storage/sfx/1253/1253-preview.mp3",
     "heartbeat": "https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3",
     "horror_riser": "https://assets.mixkit.co/active_storage/sfx/2875/2875-preview.mp3",
     "clock_tick": "https://assets.mixkit.co/active_storage/sfx/2871/2871-preview.mp3",
     "whoosh": "https://assets.mixkit.co/active_storage/sfx/2872/2872-preview.mp3"
+    "footsteps_wood": "https://assets.mixkit.co/active_storage/sfx/2878/2878-preview.mp3",
+    "whisper_ghost": "https://assets.mixkit.co/active_storage/sfx/2877/2877-preview.mp3",
+    "ocean_waves_deep": "https://assets.mixkit.co/active_storage/sfx/1240/1240-preview.mp3",
+
+    # ── 4. VIRAL RETENTION, ACCENTS & UI ──
+    "pop_accent": "https://assets.mixkit.co/active_storage/sfx/2574/2574-preview.mp3",
+    "ding_bell": "https://assets.mixkit.co/active_storage/sfx/2865/2865-preview.mp3",
+    "cash_register": "https://assets.mixkit.co/active_storage/sfx/2582/2582-preview.mp3",
+    "record_scratch": "https://assets.mixkit.co/active_storage/sfx/2576/2576-preview.mp3",
 }
 
 TRANSITION_MAP = {
@@ -743,6 +774,36 @@ def extract_sfx_cues(script_text: str, scenes: list[dict], vtt_cues: list[dict])
         "clock_tick": ["2 giờ sáng", "đồng hồ", "nửa đêm", "12 giờ", "tích tắc"],
         "whoosh": ["biến mất", "chạy trốn", "lao vút", "thoát khỏi", "đóng sầm"]
     }
+    """
+    Extracts high-precision SFX sound design cues aligned to exact VTT word timestamps
+    and screenplay dramatic context with balanced, non-intrusive volume mastering.
+    """
+    sfx_rules = [
+        # Foley & Environment
+        ("door_knock", ["gõ cửa", "tiếng gõ", "đập cửa", "gõ cộc"], 0.32),
+        ("creaking_door", ["cót két", "mở cửa", "khép cửa", "cửa phòng", "cửa sắt", "cánh cửa"], 0.22),
+        ("clock_tick", ["2 giờ sáng", "đồng hồ", "nửa đêm", "12 giờ", "tích tắc", "đếm ngược"], 0.18),
+        ("morse_code", ["morse", "vô tuyến", "điện đài", "tín hiệu sos", "s.o.s", "phím bấm"], 0.24),
+        ("rain_thunder", ["mưa", "sấm sét", "giông bão", "sấm", "mưa gió", "bão biển"], 0.18),
+        ("ocean_waves_deep", ["đại dương", "biển vắng", "đáy biển", "chìm sâu", "trôi dạt", "tàu buôn", "sóng biển"], 0.18),
+        ("footsteps_wood", ["bước lên", "bước vào", "tiếng bước chân", "tiến lại", "dò dẫm"], 0.22),
+        ("whisper_ghost", ["thì thầm", "lạnh buốt", "linh hồn", "ma quái", "vô hình", "lạnh gáy"], 0.20),
+        
+        # Drama & Hits
+        ("heartbeat", ["tim", "thở dồn", "hồi hộp", "lo sợ", "tim đập", "nghẹt thở", "kinh hãi"], 0.30),
+        ("horror_riser", ["thang máy", "tầng 10", "tầng 5", "quỷ", "bóng đen", "thế giới song song", "đông cứng"], 0.28),
+        ("glitch_static", ["nhiễu sóng", "lỗi", "mất tín hiệu", "chập chờn", "glitch", "tê liệt"], 0.24),
+        ("cinematic_hit", ["tất cả đã chết", "chết đây", "đột ngột", "nguy hiểm", "chết đứng", "bất ngờ"], 0.32),
+        ("explosion_distant", ["phát nổ", "nổ tung", "bốc cháy", "khói xanh", "lửa"], 0.28),
+        ("sub_boom", ["bí ẩn", "vĩnh viễn", "chôn vùi", "không thể giải thích", "thảm kịch", "cấm kỵ"], 0.32),
+
+        # Retentions & Accents
+        ("ding_bell", ["chú ý", "lưu ý", "quy tắc", "bài học", "nhớ kỹ", "bật mí"], 0.22),
+        ("cash_register", ["tiền", "tỷ phú", "doanh thu", "lợi nhuận", "đắt giá", "giàu có"], 0.25),
+        ("pop_accent", ["đặc biệt", "quan trọng", "sự thật", "top", "bí mật"], 0.24),
+        ("record_scratch", ["dừng lại", "khoan đã", "chờ chút", "sai lầm"], 0.25)
+    ]
+    
     found_sfx = []
     # Check each scene
     for sc_idx, sc in enumerate(scenes or []):
@@ -760,20 +821,47 @@ def extract_sfx_cues(script_text: str, scenes: list[dict], vtt_cues: list[dict])
                     break
     # If no scene match, check against vtt_cues
     if not found_sfx and vtt_cues:
+    
+    # 1. Scan VTT word timestamps for micro-second precision alignment
+    if vtt_cues and isinstance(vtt_cues, list):
         for cue in vtt_cues:
             word = str(cue.get("text") or cue.get("word") or "").lower().strip(".,!?;:")
             st_sec = float(cue.get("start", 0))
             for sfx_type, kw_list in sfx_keywords.items():
                 if any(kw in word for kw in kw_list):
+            word_text = str(cue.get("text") or cue.get("word") or "").lower()
+            cue_start = float(cue.get("start", 0.0))
+            for sfx_type, kw_list, sfx_vol in sfx_rules:
+                if any(kw in word_text for kw in kw_list):
+                    # Prevent duplicate SFX within 3 seconds
+                    if not any(f["type"] == sfx_type and abs(f["start_time"] - cue_start) < 3.0 for f in found_sfx):
+                        found_sfx.append({
+                            "type": sfx_type,
+                            "start_time": max(0.2, cue_start),
+                            "url": SFX_STEM_CATALOG.get(sfx_type, SFX_STEM_CATALOG["whoosh"]),
+                            "volume": sfx_vol
+                        })
+    
+    # 2. Fallback scan on scene narrations
+    if len(found_sfx) < 2 and scenes and isinstance(scenes, list):
+        for sc_idx, sc in enumerate(scenes):
+            narr = str(sc.get("narration") or sc.get("prompt") or sc.get("keyword") or "").lower()
+            st_sec = float(sc_idx * 4.0)
+            for sfx_type, kw_list, sfx_vol in sfx_rules:
+                if any(kw in narr for kw in kw_list):
                     if not any(f["type"] == sfx_type for f in found_sfx):
                         found_sfx.append({
                             "type": sfx_type,
                             "start_time": max(0.5, st_sec),
                             "url": SFX_STEM_CATALOG[sfx_type],
                             "volume": 0.45
+                            "url": SFX_STEM_CATALOG.get(sfx_type, SFX_STEM_CATALOG["whoosh"]),
+                            "volume": sfx_vol
                         })
                         break
     return found_sfx[:3]
+                        
+    return found_sfx
 
 
 def clean_and_wrap_title(title: str, max_chars_per_line: int = 34) -> str:
@@ -1896,6 +1984,7 @@ def render_video_task(contract_payload: dict) -> dict:
         for s_lbl in sfx_audio_labels:
             mix_inputs.append(s_lbl)
             mix_weights.append("0.5")
+            mix_weights.append("0.35")
 
         if len(mix_inputs) > 1:
             amix_str = "".join(mix_inputs) + f"amix=inputs={len(mix_inputs)}:duration=first:weights='{' '.join(mix_weights)}',loudnorm=I=-14:TP=-1.5:LRA=11[aout]"
