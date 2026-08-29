@@ -59,10 +59,6 @@ SFX_STEM_CATALOG = {
     "clock_tick": "https://assets.mixkit.co/active_storage/sfx/2871/2871-preview.mp3",
     "morse_code": "https://assets.mixkit.co/active_storage/sfx/2583/2583-preview.mp3",
     "rain_thunder": "https://assets.mixkit.co/active_storage/sfx/1253/1253-preview.mp3",
-    "heartbeat": "https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3",
-    "horror_riser": "https://assets.mixkit.co/active_storage/sfx/2875/2875-preview.mp3",
-    "clock_tick": "https://assets.mixkit.co/active_storage/sfx/2871/2871-preview.mp3",
-    "whoosh": "https://assets.mixkit.co/active_storage/sfx/2872/2872-preview.mp3"
     "footsteps_wood": "https://assets.mixkit.co/active_storage/sfx/2878/2878-preview.mp3",
     "whisper_ghost": "https://assets.mixkit.co/active_storage/sfx/2877/2877-preview.mp3",
     "ocean_waves_deep": "https://assets.mixkit.co/active_storage/sfx/1240/1240-preview.mp3",
@@ -283,25 +279,49 @@ visionflow_image = (
     .run_commands("playwright install chromium --with-deps")
 )
 
+VIETNAMESE_REPAIR_PAIRS = [
+    ("tĩnh", "lặng"), ("bão", "bùng"), ("hư", "vô"), ("dạn", "dày"),
+    ("kinh", "hoàng"), ("dồn", "dập"), ("gõ", "cửa"), ("thì", "thầm"),
+    ("sợ", "hãi"), ("kỳ", "quái"), ("bí", "ẩn"), ("mưa", "gió"),
+    ("hoàn", "toàn"), ("vụt", "tắt"), ("chết", "chóc"), ("lạnh", "buốt"),
+    ("bốc", "hơi"), ("biến", "mất"), ("nghi", "thức"), ("thang", "máy"),
+    ("tiếng", "bước"), ("mã", "morse"), ("phát", "nổ"), ("hải", "đăng")
+]
+
 def normalize_vietnamese_script(raw_text: str) -> str:
     """
-    Cleans AI director tags, normalizes ellipses and brackets into natural speech punctuation,
-    ensuring 100% of words are preserved and naturally pronounced by Edge TTS.
+    Cleans AI director tags, repairs split compound words (e.g. 'tĩnh ... lặng' -> 'tĩnh lặng'),
+    and normalizes punctuation into expressive speech cadence for Edge TTS.
     """
     if not raw_text:
         return ""
+    text = str(raw_text)
+    
     # 1. Remove bracketed director emotion tags: [dramatic], [whispers], [excited], (thì thầm), etc.
-    text = re.sub(r'\[.*?\]', ' ', str(raw_text))
+    text = re.sub(r'\[.*?\]', ' ', text)
     text = re.sub(r'\(.*?\)', ' ', text)
     
-    # 2. Normalize ellipses ... into natural pauses (, or .) so TTS does not skip preceding words
+    # 2. Repair compound words separated by ellipsis or extra spaces
+    for w1, w2 in VIETNAMESE_REPAIR_PAIRS:
+        pattern = re.compile(rf'\b{w1}\b\s*[\.]{{2,}}\s*\b{w2}\b', re.IGNORECASE)
+        text = pattern.sub(f"{w1} {w2}", text)
+        pattern_dots = re.compile(rf'\b{w1}\b\s*…\s*\b{w2}\b', re.IGNORECASE)
+        text = pattern_dots.sub(f"{w1} {w2}", text)
+
+    # 3. Clean excessive ellipses in the middle of sentences so TTS does not stutter
+    text = re.sub(r'\b(là|rằng|và|nhưng|thì|dù|khi|vào|trong|với|của)\s*[\.]{2,}', r'\1', text, flags=re.IGNORECASE)
+    text = re.sub(r'[\.]{2,}\s*\b(mà|để|dù|nhưng|thì)\b', r', \1', text, flags=re.IGNORECASE)
+
+    # Normalize remaining ellipses into commas for smooth cadence
     text = re.sub(r'\.{3,}', ', ', text)
     text = re.sub(r'…', ', ', text)
     
-    # 3. Clean duplicate punctuation and extra spaces
+    # 4. Clean duplicate punctuation and extra spaces
     text = re.sub(r'[,]{2,}', ',', text)
+    text = re.sub(r'[,]\s*[,]', ',', text)
     text = re.sub(r'[!]{2,}', '!', text)
     text = re.sub(r'[?]{2,}', '?', text)
+    text = re.sub(r'\s+([,.\?!])', r'\1', text)
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
@@ -765,15 +785,6 @@ def smart_group_vtt_cues(cues: list[dict], target_words: int = 4, max_words: int
 
 
 def extract_sfx_cues(script_text: str, scenes: list[dict], vtt_cues: list[dict]) -> list[dict]:
-    """Extracts SFX sound effect cue events based on screenplay context and speech timing."""
-    sfx_keywords = {
-        "door_knock": ["gõ cửa", "tiếng gõ", "đập cửa", "mở cửa"],
-        "rain_thunder": ["mưa", "sấm sét", "giông bão", "sấm", "mưa gió"],
-        "heartbeat": ["tim", "thở dồn", "hồi hộp", "lo sợ", "tim đập", "nghẹt thở"],
-        "horror_riser": ["thang máy", "tầng 10", "tầng 5", "kinh hoàng", "quỷ", "bóng đen", "thế giới song song"],
-        "clock_tick": ["2 giờ sáng", "đồng hồ", "nửa đêm", "12 giờ", "tích tắc"],
-        "whoosh": ["biến mất", "chạy trốn", "lao vút", "thoát khỏi", "đóng sầm"]
-    }
     """
     Extracts high-precision SFX sound design cues aligned to exact VTT word timestamps
     and screenplay dramatic context with balanced, non-intrusive volume mastering.
@@ -805,30 +816,10 @@ def extract_sfx_cues(script_text: str, scenes: list[dict], vtt_cues: list[dict])
     ]
     
     found_sfx = []
-    # Check each scene
-    for sc_idx, sc in enumerate(scenes or []):
-        narr = str(sc.get("narration") or sc.get("prompt") or sc.get("keyword") or "").lower()
-        st_sec = float(sc_idx * 3.5)
-        for sfx_type, kw_list in sfx_keywords.items():
-            if any(kw in narr for kw in kw_list):
-                if not any(f["type"] == sfx_type for f in found_sfx):
-                    found_sfx.append({
-                        "type": sfx_type,
-                        "start_time": max(0.5, st_sec),
-                        "url": SFX_STEM_CATALOG[sfx_type],
-                        "volume": 0.45
-                    })
-                    break
-    # If no scene match, check against vtt_cues
-    if not found_sfx and vtt_cues:
     
     # 1. Scan VTT word timestamps for micro-second precision alignment
     if vtt_cues and isinstance(vtt_cues, list):
         for cue in vtt_cues:
-            word = str(cue.get("text") or cue.get("word") or "").lower().strip(".,!?;:")
-            st_sec = float(cue.get("start", 0))
-            for sfx_type, kw_list in sfx_keywords.items():
-                if any(kw in word for kw in kw_list):
             word_text = str(cue.get("text") or cue.get("word") or "").lower()
             cue_start = float(cue.get("start", 0.0))
             for sfx_type, kw_list, sfx_vol in sfx_rules:
@@ -853,13 +844,10 @@ def extract_sfx_cues(script_text: str, scenes: list[dict], vtt_cues: list[dict])
                         found_sfx.append({
                             "type": sfx_type,
                             "start_time": max(0.5, st_sec),
-                            "url": SFX_STEM_CATALOG[sfx_type],
-                            "volume": 0.45
                             "url": SFX_STEM_CATALOG.get(sfx_type, SFX_STEM_CATALOG["whoosh"]),
                             "volume": sfx_vol
                         })
                         break
-    return found_sfx[:3]
                         
     return found_sfx
 
@@ -1983,7 +1971,6 @@ def render_video_task(contract_payload: dict) -> dict:
 
         for s_lbl in sfx_audio_labels:
             mix_inputs.append(s_lbl)
-            mix_weights.append("0.5")
             mix_weights.append("0.35")
 
         if len(mix_inputs) > 1:
