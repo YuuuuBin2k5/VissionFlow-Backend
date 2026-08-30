@@ -523,88 +523,83 @@ NOISE_WORDS = {
     "4k", "8k", "hd", "wallpaper", "masterpiece", "concept", "art", "illustration", "tôi", "là", "bạn"
 }
 
-TOPIC_STOCK_MAP = {
-    "ship": ["burning ship ocean", "ancient sailing ship", "sea galleon twilight"],
-    "fire": ["campfire night beach", "dramatic bonfire flames", "cozy fire light"],
-    "forest": ["misty pine forest aerial", "deep woods sunlight", "foggy forest trees"],
-    "ocean": ["dramatic ocean waves", "stormy sea sunset", "dark beach twilight"],
-    "city": ["city night lights aerial", "rainy city street night", "tokyo neon lights"],
-    "crowd": ["crowd walking city street", "blurred people walking", "busy urban sidewalk"],
-    "money": ["money counting cash", "gold coins glowing", "financial growth chart"],
-    "space": ["starry night sky milkyway", "deep space nebula", "glowing stars galaxy"],
-    "rain": ["rain drops window night", "rainy street reflections", "stormy rain forest"],
-    "mountain": ["majestic mountain peaks", "foggy mountain sunrise", "snowy mountain aerial"],
+THEMATIC_HD_LIBRARY = {
+    "mystery_horror": [
+        "https://videos.pexels.com/video-files/6707366/6707366-hd_1080_1920_30fps.mp4",
+        "https://videos.pexels.com/video-files/14517238/14517238-sd_360_640_30fps.mp4",
+        "https://videos.pexels.com/video-files/34016972/14428869_360_640_30fps.mp4",
+        "https://videos.pexels.com/video-files/36443293/15453406_360_640_60fps.mp4",
+        "https://videos.pexels.com/video-files/26791723/12007066_360_640_60fps.mp4",
+        "https://videos.pexels.com/video-files/37398776/15839357_360_640_30fps.mp4",
+        "https://videos.pexels.com/video-files/9467038/9467038-sd_540_960_25fps.mp4",
+        "https://videos.pexels.com/video-files/5856435/5856435-hd_1080_1920_24fps.mp4",
+        "https://videos.pexels.com/video-files/19997487/19997487-hd_1080_1920_30fps.mp4"
+    ],
+    "tech_ai": [
+        "https://videos.pexels.com/video-files/34672414/14696003_360_640_24fps.mp4",
+        "https://videos.pexels.com/video-files/34908311/14788190_360_640_30fps.mp4",
+        "https://videos.pexels.com/video-files/3129671/3129671-hd_1080_1920_30fps.mp4"
+    ],
+    "finance_motivation": [
+        "https://videos.pexels.com/video-files/34504957/14619602_360_640_24fps.mp4",
+        "https://videos.pexels.com/video-files/3196285/3196285-hd_1080_1920_25fps.mp4"
+    ],
+    "nature_cinematic": [
+        "https://videos.pexels.com/video-files/30474696/13058529_360_640_60fps.mp4",
+        "https://videos.pexels.com/video-files/5391986/5391986-hd_720_1280_30fps.mp4"
+    ]
 }
 
-def extract_visual_keywords(prompt: str, gemini_api_key: str | None = None) -> list[str]:
-    """Uses LLM Gemini or NLP Visual Metaphors to extract clean 2-3 word English stock queries for Pexels Video API."""
+SEMANTIC_THEMES = [
+    # Horror / Mystery / Mansion / Storm / Gun
+    (r'(mưa|bão|gió|sấm|sét|rain|storm|thunder|lightning)', ['dark thunderstorm rain', 'lightning storm night', 'dark rain clouds']),
+    (r'(súng|đạn|súng trường|rifle|gun|bullet|shot|winchester)', ['vintage rifle smoke', 'antique gun bullets', 'firing old weapon']),
+    (r'(hồn|linh hồn|oan hồn|ma|quỷ|tâm linh|spirit|ghost|demon|séance|ngoại cảm)', ['spooky ghost shadow', 'séance candle dark', 'mysterious mist shadow']),
+    (r'(cầu thang|trần nhà|mê cung|lạc|staircase|stairs|ceiling|maze|labyrinth)', ['wooden staircase ceiling', 'creepy mystery maze hallway', 'winding dark stairs']),
+    (r'(cửa|cánh cửa|gõ cửa|khóa|door|doorway|corridor|hallway|khoảng không)', ['door open empty dark', 'creepy door knock night', 'dark eerie hallway doors']),
+    (r'(búa|đóng đinh|xây|thợ|hammer|nail|construction|building)', ['vintage hammer wood', 'construction antique tools', 'striking hammer sparks']),
+    (r'(dinh thự|lâu đài|nhà ma|phòng|mansion|castle|haunted|house)', ['mysterious haunted house', 'dark victorian mansion', 'creepy old house night']),
+    (r'(chết|tang|góa phụ|nữ tỷ phú|widow|death|parlor|funeral)', ['victorian mansion parlor', 'sad woman silhouette dark', 'vintage mourning portrait']),
+    (r'(đồng hồ|2 giờ sáng|nửa đêm|clock|midnight|tick)', ['antique clock ticking night', 'pocket watch pendulum', 'dark vintage clock']),
+    (r'(nến|đèn|lửa|candle|lantern|flame|fire)', ['flickering candle dark', 'antique lantern night', 'candle flame close up']),
+    
+    # Tech / AI / Matrix
+    (r'(ai|tech|robot|công nghệ|dữ liệu|matrix|cyber|code)', ['cyberpunk neon tunnel', 'digital matrix data code', 'futuristic tech interface']),
+    
+    # Finance / Success / Money
+    (r'(tiền|tài chính|giàu|thành công|doanh nhân|money|finance|gold)', ['money counting cash', 'gold coins glowing', 'city traffic night aerial']),
+    
+    # Ocean / Sea / Ship
+    (r'(biển|đại dương|thuyền|tàu|sóng|ocean|sea|ship|waves)', ['dramatic stormy ocean waves', 'ancient sailing ship sea', 'dark sea twilight']),
+    
+    # Nature / Mountain / Space
+    (r'(rừng|núi|vũ trụ|sao|forest|mountain|space|galaxy)', ['foggy mountain sunrise', 'misty pine forest dusk', 'starry night milkyway'])
+]
+
+def extract_visual_keywords(prompt: str, gemini_api_key: str | None = None, scene_idx: int = 0) -> list[str]:
+    """Uses Smart NLP Semantic Concept Engine to extract rich 2-3 word English stock queries for Pexels Video API."""
     prompt_clean = str(prompt or "").strip()
     if not prompt_clean:
-        return ["cinematic mountain peak", "city night lights", "cozy library room"]
+        return ["dark atmospheric cinematic", "mysterious night vertical", "cinematic lighting vertical"]
 
-    # 1. Direct Visual Concept & Metaphor Mappings for Vietnamese & English terms
-    prompt_lower = prompt_clean.lower()
-    mapped_queries = []
-    
-    # Psychological / Philosophical / Mindset concepts
-    if any(k in prompt_lower for k in ["dunning", "kruger", "nghiên cứu", "tâm lý", "psychology", "khoa học", "chấn động"]):
-        mapped_queries.append("science laboratory research")
-        mapped_queries.append("brain psychology medical")
-    if any(k in prompt_lower for k in ["tự tin", "ngông cuồng", "ít năng lực", "arrogant", "confident", "thách thức"]):
-        mapped_queries.append("confident businessman walking")
-        mapped_queries.append("man standing edge mountain")
-    if any(k in prompt_lower for k in ["khiêm tốn", "cúi đầu", "cao thủ", "humble", "master", "thiền", "trưởng thành"]):
-        mapped_queries.append("meditation mountain silhouette")
-        mapped_queries.append("wise old master")
-    if any(k in prompt_lower for k in ["núi ngu ngốc", "đỉnh núi", "peak", "mountain", "climbing", "vực thẳm"]):
-        mapped_queries.append("foggy mountain peak sunrise")
-        mapped_queries.append("mountain climber summit")
-    if any(k in prompt_lower for k in ["tri thức", "sách", "học hỏi", "library", "knowledge", "reading", "ancient"]):
-        mapped_queries.append("ancient library book")
-        mapped_queries.append("turning book pages")
-    if any(k in prompt_lower for k in ["tiền", "tài chính", "giàu", "money", "finance", "wealth", "gold"]):
-        mapped_queries.append("money counting cash")
-        mapped_queries.append("gold coins glowing")
-    if any(k in prompt_lower for k in ["vũ trụ", "ngôi sao", "galaxy", "space", "stars", "nebula"]):
-        mapped_queries.append("starry night sky milkyway")
-        mapped_queries.append("deep space nebula")
-    if any(k in prompt_lower for k in ["biển", "sóng", "đại dương", "ocean", "sea", "waves"]):
-        mapped_queries.append("dramatic ocean waves sunset")
+    # 1. Strip UI prefixes like 'Cảnh 1:', 'Scene 1:'
+    clean_text = re.sub(r'^(cảnh|scene)\s*\d+[\s\:\-]+', '', prompt_clean, flags=re.IGNORECASE).strip().lower()
 
-    if mapped_queries:
-        return mapped_queries[:3]
+    # 2. Fast Rule-Based & Semantic Concept Matching
+    matched = []
+    for pattern, queries in SEMANTIC_THEMES:
+        if re.search(pattern, clean_text):
+            matched.extend(queries)
 
-    # 2. Call Gemini 1.5 Flash AI to translate Vietnamese script into cinematic English stock queries
-    if gemini_api_key:
-        try:
-            import google.generativeai as genai
-            genai.configure(api_key=gemini_api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
-            resp = model.generate_content(
-                f"You are an expert cinematic director and stock video researcher. Given this Vietnamese or English scene text: '{prompt_clean[:300]}', "
-                "analyze the visual theme, emotional metaphor, and context, and return ONLY a valid JSON list of 3 distinct, high-quality 2-3 word English search queries for Pexels 4K vertical footage. "
-                "Examples: [\"arrogant confident man\", \"science laboratory graph\", \"foggy mountain peak silhouette\"]"
-            )
-            if resp and resp.text:
-                txt = resp.text.strip()
-                match = re.search(r'\[.*\]', txt, re.DOTALL)
-                if match:
-                    data = json.loads(match.group(0))
-                    if isinstance(data, list) and len(data) > 0:
-                        return [str(q).strip() for q in data if q][:3]
-        except Exception as err:
-            print(f"[Modal] ⚠️ Gemini keyword extraction notice: {err}", flush=True)
+    if matched:
+        # Deduplicate while preserving order
+        unique_q = list(dict.fromkeys(matched))
+        # Rotate candidate queries based on scene_idx so identical categories get different visuals
+        rot_idx = scene_idx % len(unique_q)
+        rotated = unique_q[rot_idx:] + unique_q[:rot_idx]
+        return rotated[:3]
 
-    words = re.findall(r'\b[a-zA-Z]{3,}\b', prompt_clean.lower())
-    meaningful = [w for w in words if w not in NOISE_WORDS]
-    if len(meaningful) >= 2:
-        return [
-            f"{meaningful[0]} {meaningful[1]}",
-            f"{meaningful[0]} cinematic",
-            "dramatic nature vertical"
-        ]
-
-    return ["cinematic nature vertical", "dramatic lighting vertical", "atmospheric background vertical"]
+    return ["dark atmospheric cinematic", "mysterious vertical footage", "dramatic lighting vertical"]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -777,8 +772,8 @@ def chunk_script_to_kinetic_phrases(script_text: str, total_duration: float, max
 
     return phrases_with_timing
 
-def fetch_pexels_video_for_keyword(query: str, pexels_key: str) -> str | None:
-    """Searches Pexels HD Stock API for a vertical portrait video matching query keyword."""
+def fetch_pexels_video_for_keyword(query: str, pexels_key: str, scene_idx: int = 0) -> str | None:
+    """Searches Pexels HD Stock API for a vertical portrait video matching query keyword with scene rotation."""
     if not query:
         return None
     try:
@@ -787,23 +782,36 @@ def fetch_pexels_video_for_keyword(query: str, pexels_key: str) -> str | None:
         pex_res = requests.get(
             "https://api.pexels.com/videos/search",
             headers=headers,
-            params={"query": query, "orientation": "portrait", "per_page": 5},
-            timeout=10
+            params={"query": query, "orientation": "portrait", "per_page": 8},
+            timeout=12
         )
         if pex_res.status_code == 200:
             data = pex_res.json()
             videos = data.get("videos", [])
             if videos:
-                for v in videos:
-                    video_files = v.get("video_files", [])
-                    for vf in video_files:
-                        if vf.get("height", 0) >= 1280:
-                            return vf.get("link")
-                    if video_files:
-                        return video_files[0].get("link")
+                # Pick distinct candidate using scene_idx
+                selected_v = videos[scene_idx % len(videos)]
+                video_files = selected_v.get("video_files", [])
+                for vf in video_files:
+                    if vf.get("height", 0) >= 1280:
+                        return vf.get("link")
+                if video_files:
+                    return video_files[0].get("link")
     except Exception as e:
         print(f"[Modal] ⚠️ Notice: Pexels scene search ({query}): {e}", flush=True)
-    return None
+
+    # 2. Fallback to Curated THEMATIC_HD_LIBRARY
+    q_lower = query.lower()
+    cat = "mystery_horror"
+    if any(k in q_lower for k in ["tech", "ai", "matrix", "cyber", "data"]):
+        cat = "tech_ai"
+    elif any(k in q_lower for k in ["money", "finance", "gold", "cash", "traffic"]):
+        cat = "finance_motivation"
+    elif any(k in q_lower for k in ["nature", "ocean", "sea", "forest", "mountain", "waves"]):
+        cat = "nature_cinematic"
+
+    fallback_list = THEMATIC_HD_LIBRARY.get(cat, THEMATIC_HD_LIBRARY["mystery_horror"])
+    return fallback_list[scene_idx % len(fallback_list)]
 
 def parse_webvtt_cues(vtt_path: str) -> list[dict]:
     """Parses Edge TTS generated WebVTT file to extract exact word timings."""
@@ -1461,20 +1469,30 @@ def render_scene_chunk(scene_payload: dict) -> dict:
             
     if not cache_hit:
         downloaded = False
-        if media_url and is_safe_url(media_url):
-            try:
-                r_m = requests.get(media_url, timeout=20, stream=True)
-                if r_m.status_code == 200:
-                    with open(raw_media_path, "wb") as f_raw:
-                        for chunk in r_m.iter_content(chunk_size=8192):
-                            f_raw.write(chunk)
+        if media_url:
+            if os.path.exists(media_url) and os.path.getsize(media_url) > 1000:
+                import shutil
+                try:
+                    shutil.copyfile(media_url, raw_media_path)
                     downloaded = True
-            except Exception:
-                pass
+                    print(f"[MicroWorker {scene_idx}] 📁 Copied local media file: {media_url}", flush=True)
+                except Exception as cp_err:
+                    print(f"[MicroWorker {scene_idx}] Notice: Local media copy error: {cp_err}", flush=True)
+            elif is_safe_url(media_url):
+                try:
+                    r_m = requests.get(media_url, timeout=25, stream=True)
+                    if r_m.status_code == 200:
+                        with open(raw_media_path, "wb") as f_raw:
+                            for chunk in r_m.iter_content(chunk_size=8192):
+                                f_raw.write(chunk)
+                        downloaded = True
+                        print(f"[MicroWorker {scene_idx}] 🌐 Downloaded scene media from URL: {media_url[:60]}...", flush=True)
+                except Exception as dl_err:
+                    print(f"[MicroWorker {scene_idx}] Notice: Media URL download error: {dl_err}", flush=True)
                 
         if not downloaded:
             pexels_key = os.environ.get("PEXELS_API_KEY", "j3CIlOLR1RdRejkZPi56CCmJALu9axEyFjik0U77W3semlJtXFpMqgVp")
-            pex_url = fetch_pexels_video_for_keyword(keyword, pexels_key)
+            pex_url = fetch_pexels_video_for_keyword(keyword, pexels_key, scene_idx=scene_idx)
             if pex_url and is_safe_url(pex_url):
                 try:
                     r_pex = requests.get(pex_url, timeout=25, stream=True)
@@ -1483,9 +1501,9 @@ def render_scene_chunk(scene_payload: dict) -> dict:
                             for chunk in r_pex.iter_content(chunk_size=8192):
                                 f_raw.write(chunk)
                         downloaded = True
-                        print(f"[MicroWorker {scene_idx}] 🎯 Downloaded Pexels video for query: '{keyword}'", flush=True)
-                except Exception:
-                    pass
+                        print(f"[MicroWorker {scene_idx}] 🎯 Downloaded Stock HD video for query: '{keyword}' ({pex_url[:60]}...)", flush=True)
+                except Exception as pex_err:
+                    print(f"[MicroWorker {scene_idx}] Notice: Stock video download error: {pex_err}", flush=True)
                     
         # Normalize and trim to exact duration, resolution, 60fps CRF 18
         if downloaded and os.path.exists(raw_media_path) and os.path.getsize(raw_media_path) > 10000:
@@ -1923,8 +1941,11 @@ def render_video_task(contract_payload: dict) -> dict:
             scene_payloads = []
             gemini_key = os.environ.get("GEMINI_API_KEY", "AIzaSyCNu2LQSzyBW6ACixl1D6SLy07_vdeu0ho")
             for idx, sc in enumerate(scenes):
-                sc_text = sc.get("keyword") or sc.get("prompt") or sc.get("text") or sc.get("narration") or f"cinematic scene {idx+1}"
-                queries = extract_visual_keywords(sc_text, gemini_api_key=gemini_key)
+                # Build rich scene text combining prompt, narration, keywords
+                sc_text = f"{sc.get('visual_prompt') or ''} {sc.get('prompt') or ''} {sc.get('narration') or ''} {sc.get('keyword') or ''} {sc.get('text') or ''}".strip()
+                if not sc_text:
+                    sc_text = f"cinematic scene {idx+1}"
+                queries = extract_visual_keywords(sc_text, gemini_api_key=gemini_key, scene_idx=idx)
                 best_kw = queries[0] if queries else sc_text
                 
                 # Pass precise voice-synced scene duration with +1.5s transition headroom
@@ -1935,7 +1956,7 @@ def render_video_task(contract_payload: dict) -> dict:
                     "workflow_run_id": workflow_run_id,
                     "scene_index": idx,
                     "keyword": best_kw,
-                    "media_url": sc.get("video_url") or sc.get("image_url") or sc.get("media_url") or "",
+                    "media_url": sc.get("video_url") or sc.get("image_url") or sc.get("media_url") or sc.get("source_url") or "",
                     "duration": sc_chunk_dur,
                     "res_w": res_w,
                     "res_h": res_h,
