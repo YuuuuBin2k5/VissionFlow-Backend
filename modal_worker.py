@@ -1915,18 +1915,35 @@ def render_video_task(contract_payload: dict) -> dict:
             print(f"[Modal] 🧠 Generated {len(scenes)} AI Smart Scenes from script text!", flush=True)
 
         if not custom_bg_downloaded and not is_dubbing_mode and scenes and isinstance(scenes, list) and len(scenes) > 0:
-            print(f"[Modal] ⚡ Distributed Smart Director: Fan-out parallel rendering for {len(scenes)} visual scenes...", flush=True)
-            scene_dur = max(2.5, round(video_duration / len(scenes), 2))
-            scene_payloads = []
+            print(f"[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for {len(scenes)} visual scenes...", flush=True)
             
+            # --- VOICE-DRIVEN AUTO SCENE SYNCHRONIZATION ---
+            # Automatically calculate exact visual duration for each scene from speech audio duration so that
+            # visual transitions NEVER cut off dialogue or jump early!
+            word_counts = []
+            for sc in scenes:
+                narration_text = sc.get("narration") or sc.get("text") or sc.get("caption") or ""
+                cnt = max(1, len(narration_text.split()))
+                word_counts.append(cnt)
+                
+            total_words = sum(word_counts)
+            synced_scene_durations = []
+            for cnt in word_counts:
+                prop_dur = (cnt / total_words) * audio_duration
+                synced_scene_durations.append(round(max(2.5, prop_dur), 2))
+                
+            print(f"[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: {audio_duration:.1f}s): {synced_scene_durations}", flush=True)
+
+            scene_payloads = []
             gemini_key = os.environ.get("GEMINI_API_KEY", "AIzaSyCNu2LQSzyBW6ACixl1D6SLy07_vdeu0ho")
             for idx, sc in enumerate(scenes):
                 sc_text = sc.get("keyword") or sc.get("prompt") or sc.get("text") or sc.get("narration") or f"cinematic scene {idx+1}"
                 queries = extract_visual_keywords(sc_text, gemini_api_key=gemini_key)
                 best_kw = queries[0] if queries else sc_text
-                # Pass precise scene duration with +1.5s transition headroom so xfade never runs out of frames
-                raw_dur = float(sc.get("duration_seconds") or sc.get("duration") or scene_dur)
-                sc_chunk_dur = max(3.0, raw_dur + 1.5)
+                
+                # Pass precise voice-synced scene duration with +1.5s transition headroom
+                exact_dur = synced_scene_durations[idx]
+                sc_chunk_dur = max(3.0, exact_dur + 1.5)
                 
                 scene_payloads.append({
                     "workflow_run_id": workflow_run_id,
@@ -1969,7 +1986,7 @@ def render_video_task(contract_payload: dict) -> dict:
                             global_trans_dur = float(contract_payload.get("transitionDuration") or contract_payload.get("transition_duration") or 0.0)
                             
                             for i in range(len(scene_files) - 1):
-                                dur_i = float(scenes[i].get("duration_seconds", scene_dur)) if i < len(scenes) else scene_dur
+                                dur_i = synced_scene_durations[i] if i < len(synced_scene_durations) else (float(scenes[i].get("duration_seconds", 5.0)) if i < len(scenes) else 5.0)
                                 raw_trans = scenes[i+1].get("transition") or scenes[i].get("transition") or contract_payload.get("transition_preset") or ""
                                 
                                 # AI Smart Director: Infer best transition from camera motion & emotion
