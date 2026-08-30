@@ -480,10 +480,7 @@ def list_workflows(
 ) -> WorkflowListResponse:
     """List real tenant workflows for the operator Control Tower.
 
-    This is a read projection only. It deliberately excludes published and
-    cancelled runs by default while retaining failures, so operators can see
-    every item that may need attention without exposing another tenant's
-    projects or mutating workflow state.
+    This is a read projection only with Zero-TOAST Column Projection.
     """
 
     try:
@@ -491,7 +488,15 @@ def list_workflows(
             identity.subject, organization_id, Permission.WORKFLOW_VIEW
         )
         query = (
-            select(WorkflowRun, VideoProject)
+            select(
+                WorkflowRun.id.label("workflow_run_id"),
+                WorkflowRun.state,
+                WorkflowRun.failure_code,
+                WorkflowRun.created_at,
+                WorkflowRun.updated_at,
+                VideoProject.id.label("project_id"),
+                VideoProject.title,
+            )
             .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
             .where(VideoProject.organization_id == organization_id)
         )
@@ -506,15 +511,15 @@ def list_workflows(
     return WorkflowListResponse(
         items=[
             WorkflowListItemResponse(
-                workflow_run_id=run.id,
-                project_id=project.id,
-                title=project.title,
-                state=run.state,
-                failure_code=run.failure_code,
-                created_at=run.created_at,
-                updated_at=run.updated_at,
+                workflow_run_id=row.workflow_run_id,
+                project_id=row.project_id,
+                title=row.title,
+                state=row.state,
+                failure_code=row.failure_code,
+                created_at=row.created_at,
+                updated_at=row.updated_at,
             )
-            for run, project in rows
+            for row in rows
         ]
     )
 
@@ -1191,7 +1196,13 @@ def list_review_queue(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
 
     rows = session.execute(
-        select(WorkflowRun, VideoProject)
+        select(
+            WorkflowRun.id.label("workflow_run_id"),
+            WorkflowRun.state,
+            WorkflowRun.created_at,
+            VideoProject.id.label("project_id"),
+            VideoProject.title,
+        )
         .join(VideoProject, WorkflowRun.project_id == VideoProject.id)
         .where(
             VideoProject.organization_id == organization_id,
@@ -1203,13 +1214,13 @@ def list_review_queue(
     return ReviewQueueResponse(
         items=[
             ReviewQueueItemResponse(
-                workflow_run_id=workflow.id,
-                project_id=project.id,
-                title=project.title,
-                state=workflow.state,
-                created_at=workflow.created_at,
+                workflow_run_id=row.workflow_run_id,
+                project_id=row.project_id,
+                title=row.title,
+                state=row.state,
+                created_at=row.created_at,
             )
-            for workflow, project in rows
+            for row in rows
         ]
     )
 
