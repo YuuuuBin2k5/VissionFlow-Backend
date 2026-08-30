@@ -65,10 +65,20 @@ CHANNEL_BRANDING_PROFILES = {
 }
 
 
+def clean_system_tags(text: str) -> str:
+    """Loại bỏ 100% các nhãn tiền tố debug hoặc hệ thống rác."""
+    if not text:
+        return ""
+    text = re.sub(r'\[(OpenCut|Studio|Prompt|Debug|AI Director|Scene|Hook|Voice|Karaoke|Step|B2|B6|B7).*?\]', '', str(text), flags=re.IGNORECASE)
+    text = re.sub(r'\[.*?\]', '', text)
+    text = re.sub(r'#+\s*', '', text)
+    return re.sub(r'\s+', ' ', text).strip()
+
+
 def format_channel_description(raw_summary: str, channel_key: str = "goc_chiem_nghiem", hashtags: list[str] | None = None) -> str:
     """Format full multi-line channel description with custom channel branding footer."""
     profile = CHANNEL_BRANDING_PROFILES.get(channel_key, CHANNEL_BRANDING_PROFILES["goc_chiem_nghiem"])
-    clean_summary = raw_summary.strip() if raw_summary else ""
+    clean_summary = clean_system_tags(raw_summary) if raw_summary else ""
     
     tags = hashtags or profile["default_hashtags"]
     tags_str = " ".join(tags)
