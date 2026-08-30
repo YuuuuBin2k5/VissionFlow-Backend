@@ -249,7 +249,15 @@ def build_high_converting_description(title: str, script: str = "", seo_data: di
                 f"🔔 Subscribe to AsinMochii💕Boni for daily wisdom, life lessons & powerful story Shorts!"
             )
 
+    # 3. Bổ sung ghi công bản quyền nhạc nền (BGM Credit) nếu có
+    bgm_credit_block = ""
+    bgm_info = seo_data.get("bgm_info") or seo_data.get("selected_music") or {}
+    if isinstance(bgm_info, dict) and bgm_info.get("credit"):
+        credit_txt = str(bgm_info.get("credit")).strip()
+        if credit_txt:
+            bgm_credit_block = f"\n\n🎵 Âm thanh & Nhạc nền:\n• {credit_txt}\n• Licensed under Creative Commons (Royalty-Free)"
+
     hashtags = build_topic_hashtags(clean_title, script, seo_data, language)
     hashtag_str = " ".join(hashtags)
     
-    return f"{desc_body}\n\n------------------------------------\n{hashtag_str}".strip()
+    return f"{desc_body}{bgm_credit_block}\n\n------------------------------------\n{hashtag_str}".strip()

@@ -358,6 +358,180 @@ def normalize_vietnamese_script(raw_text: str) -> str:
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
+# ---------------------------------------------------------------------------
+# Dynamic Royalty-Free BGM Soundbank Registry (Open/Closed Architecture)
+# ---------------------------------------------------------------------------
+R2_AUDIO_BASE = "https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev/audio/bgm"
+
+SOUNDBANK_REGISTRY = {
+    "MYSTERY_PARANORMAL_HISTORY": [
+        {
+            "id": "bgm_mystery_blackout",
+            "name": "Blackout Dark Ambiance",
+            "artist": "Myuu (The Dark Piano)",
+            "url": f"{R2_AUDIO_BASE}/mystery_blackout.mp3",
+            "volume_gain": 0.12,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Blackout by Myuu (thedarkpiano.com)",
+            "mood": "ominous_creepy"
+        },
+        {
+            "id": "bgm_mystery_escalation",
+            "name": "The Escalation",
+            "artist": "Kevin MacLeod",
+            "url": f"{R2_AUDIO_BASE}/mystery_escalation.mp3",
+            "volume_gain": 0.11,
+            "license": "CC-BY 4.0",
+            "credit": "Music: The Escalation by Kevin MacLeod (incompetech.com)",
+            "mood": "suspense_investigation"
+        },
+        {
+            "id": "bgm_mystery_gathering",
+            "name": "Gathering Darkness",
+            "artist": "Kevin MacLeod",
+            "url": f"{R2_AUDIO_BASE}/mystery_gathering_darkness.mp3",
+            "volume_gain": 0.10,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Gathering Darkness by Kevin MacLeod (incompetech.com)",
+            "mood": "eerie_drone"
+        }
+    ],
+    "PHILOSOPHY_LIFE_LESSON": [
+        {
+            "id": "bgm_chiem_nghiem_clover",
+            "name": "Clover 3 Nostalgic Piano",
+            "artist": "YouTube Audio Library",
+            "url": f"{R2_AUDIO_BASE}/chiem_nghiem_clover3.mp3",
+            "volume_gain": 0.14,
+            "license": "Royalty Free (No Attribution Required)",
+            "credit": "Music: YouTube Audio Library",
+            "mood": "healing_nostalgic"
+        },
+        {
+            "id": "bgm_chiem_nghiem_acoustic",
+            "name": "Acoustic Breeze",
+            "artist": "Bensound",
+            "url": f"{R2_AUDIO_BASE}/chiem_nghiem_acoustic_breeze.mp3",
+            "volume_gain": 0.13,
+            "license": "Royalty Free",
+            "credit": "Music: Bensound.com",
+            "mood": "warm_guitar"
+        },
+        {
+            "id": "bgm_chiem_nghiem_clean_soul",
+            "name": "Clean Soul",
+            "artist": "Kevin MacLeod",
+            "url": f"{R2_AUDIO_BASE}/chiem_nghiem_clean_soul.mp3",
+            "volume_gain": 0.12,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Clean Soul by Kevin MacLeod (incompetech.com)",
+            "mood": "peaceful_wisdom"
+        }
+    ],
+    "WEALTH_FINANCE_MINDSET": [
+        {
+            "id": "bgm_wealth_better_days",
+            "name": "Better Days",
+            "artist": "LAKEY INSPIRED",
+            "url": f"{R2_AUDIO_BASE}/wealth_better_days.mp3",
+            "volume_gain": 0.13,
+            "license": "CC-BY 3.0",
+            "credit": "Music: Better Days by LAKEY INSPIRED",
+            "mood": "modern_inspiring"
+        },
+        {
+            "id": "bgm_wealth_chill_day",
+            "name": "Chill Day",
+            "artist": "LAKEY INSPIRED",
+            "url": f"{R2_AUDIO_BASE}/wealth_chill_day.mp3",
+            "volume_gain": 0.13,
+            "license": "CC-BY 3.0",
+            "credit": "Music: Chill Day by LAKEY INSPIRED",
+            "mood": "upbeat_focus"
+        }
+    ],
+    "ANCIENT_STRATEGY_WAR": [
+        {
+            "id": "bgm_strategy_taiko",
+            "name": "Ancient Battle Drums",
+            "artist": "YouTube Audio Library",
+            "url": f"{R2_AUDIO_BASE}/strategy_battle_drums.mp3",
+            "volume_gain": 0.12,
+            "license": "Royalty Free",
+            "credit": "Music: YouTube Audio Library",
+            "mood": "heroic_tactical"
+        },
+        {
+            "id": "bgm_strategy_epic_hero",
+            "name": "The Epic Hero",
+            "artist": "Keys of Moon",
+            "url": f"{R2_AUDIO_BASE}/strategy_epic_hero.mp3",
+            "volume_gain": 0.11,
+            "license": "CC-BY 4.0",
+            "credit": "Music: The Epic Hero by Keys of Moon",
+            "mood": "cinematic_grand"
+        }
+    ],
+    "SCIENCE_TECH_FUTURE": [
+        {
+            "id": "bgm_tech_space_ambient",
+            "name": "Deep Space Pulse",
+            "artist": "YouTube Audio Library",
+            "url": f"{R2_AUDIO_BASE}/tech_deep_space.mp3",
+            "volume_gain": 0.12,
+            "license": "Royalty Free",
+            "credit": "Music: YouTube Audio Library",
+            "mood": "futuristic_cosmic"
+        }
+    ],
+    "GENERAL_DISCOVERY": [
+        {
+            "id": "bgm_general_carefree",
+            "name": "Carefree",
+            "artist": "Kevin MacLeod",
+            "url": f"{R2_AUDIO_BASE}/general_carefree.mp3",
+            "volume_gain": 0.13,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Carefree by Kevin MacLeod (incompetech.com)",
+            "mood": "curious_light"
+        }
+    ]
+}
+
+def detect_video_genre_modal(title: str, script: str = "", explicit_genre: str = "") -> str:
+    combined = f"{explicit_genre} {title} {script}".lower()
+    if any(k in combined for k in ["mary celeste", "flannan", "bí ẩn", "mất tích", "hải đăng", "tàu ma", "bốc hơi", "rùng rợn", "hồ sơ", "vụ án", "đại dương", "paranormal", "mystery", "unsolved", "ghost ship", "horror"]):
+        return "MYSTERY_PARANORMAL_HISTORY"
+    if any(k in combined for k in ["làm giàu", "tài chính", "tiền bạc", "đầu tư", "kinh doanh", "tư duy triệu phú", "thành công", "wealth", "finance", "money"]):
+        return "WEALTH_FINANCE_MINDSET"
+    if any(k in combined for k in ["sun bin", "tôn tẫn", "bàng quyên", "tam quốc", "tào tháo", "khổng minh", "binh pháp", "chiến thuật", "mã lăng", "ancient tactics", "war"]):
+        return "ANCIENT_STRATEGY_WAR"
+    if any(k in combined for k in ["khoa học", "vũ trụ", "công nghệ", "ai", "trí tuệ nhân tạo", "robot", "hố đen", "tương lai", "science", "universe"]):
+        return "SCIENCE_TECH_FUTURE"
+    if any(k in combined for k in ["bài học", "triết lý", "nhân sinh", "kinh nghiệm sống", "thức tỉnh", "tâm hồn", "lời người xưa", "thời xưa", "đạo làm người", "goc chiem nghiem", "cuộc sống", "wisdom", "life lesson"]):
+        return "PHILOSOPHY_LIFE_LESSON"
+    return "GENERAL_DISCOVERY"
+
+def resolve_genre_bgm_modal(genre: str, mood_override: str = "", custom_url: str = "", track_index: int = 0) -> dict:
+    if custom_url and custom_url.startswith("http"):
+        return {
+            "id": "bgm_custom",
+            "name": "Custom Background Audio",
+            "artist": "User Upload",
+            "url": custom_url,
+            "volume_gain": 0.14,
+            "license": "Custom License",
+            "credit": "",
+            "mood": mood_override or "custom"
+        }
+    genre_key = genre.upper() if genre else "GENERAL_DISCOVERY"
+    tracks = SOUNDBANK_REGISTRY.get(genre_key, SOUNDBANK_REGISTRY["GENERAL_DISCOVERY"])
+    if mood_override:
+        for t in tracks:
+            if mood_override.lower() in t.get("mood", "").lower():
+                return t
+    return tracks[track_index % len(tracks)]
+
 NOISE_WORDS = {
     "cappy", "para", "boni", "duck", "scholar", "robe", "mascot", "3d", "anime", "ghibli",
     "pixar", "render", "character", "godfather", "looking", "camera", "standing", "sitting",
@@ -1953,20 +2127,52 @@ def render_video_task(contract_payload: dict) -> dict:
             pbar_y = res_h - 10
             v_prep += f",drawbox=y={pbar_y}:color=0x38BDF8@0.9:t=fill:w='iw*t/{video_duration}'"
 
-        # Audio Studio Master Filter Chain
-        bgm_url = contract_payload.get("bgm_url") or contract_payload.get("music_url") or contract_payload.get("background_music_url")
+        # -------------------------------------------------------------------
+        # Dynamic Genre-Adaptive BGM Resolution & Download Engine
+        # -------------------------------------------------------------------
+        enable_bgm = contract_payload.get("enable_bgm", contract_payload.get("enableBgm", True))
+        custom_bgm_url = (
+            contract_payload.get("bgm_url")
+            or contract_payload.get("music_url")
+            or contract_payload.get("background_music_url")
+            or contract_payload.get("bgm_custom_url")
+        )
+        bgm_mood = contract_payload.get("bgm_mood") or contract_payload.get("bgm_preset") or ""
+        
+        detected_genre = detect_video_genre_modal(
+            title=contract_payload.get("title", ""),
+            script=raw_script,
+            explicit_genre=contract_payload.get("video_genre") or contract_payload.get("genre") or ""
+        )
+        
+        bgm_meta = resolve_genre_bgm_modal(
+            genre=detected_genre,
+            mood_override=bgm_mood,
+            custom_url=custom_bgm_url if (custom_bgm_url and is_safe_url(custom_bgm_url)) else ""
+        )
+        
+        target_bgm_url = bgm_meta.get("url", "")
         bgm_file_path = f"/tmp/{workflow_run_id}/bgm.mp3"
         has_bgm = False
-        if bgm_url and is_safe_url(bgm_url):
+        
+        user_bgm_vol = contract_payload.get("bgm_volume") or contract_payload.get("bgmVolume")
+        try:
+            bgm_volume_gain = float(user_bgm_vol) if user_bgm_vol is not None else float(bgm_meta.get("volume_gain", 0.12))
+        except Exception:
+            bgm_volume_gain = 0.12
+
+        if enable_bgm and target_bgm_url and is_safe_url(target_bgm_url):
             try:
                 import requests
-                r_m = requests.get(bgm_url, timeout=20, stream=True)
+                print(f"[Modal] 🎵 Auto-resolving BGM track '{bgm_meta.get('name')}' for genre [{detected_genre}] from CDN...", flush=True)
+                r_m = requests.get(target_bgm_url, timeout=20, stream=True)
                 if r_m.status_code == 200:
-                    with open(bg_file_path, "wb") as f_m:
+                    with open(bgm_file_path, "wb") as f_m:
                         for chunk in r_m.iter_content(chunk_size=8192):
                             f_m.write(chunk)
-                    has_bgm = True
-                    print(f"[Modal] 🎵 Downloaded BGM track ({os.path.getsize(bgm_file_path)} bytes) for Sidechain Ducking!", flush=True)
+                    if os.path.exists(bgm_file_path) and os.path.getsize(bgm_file_path) > 1000:
+                        has_bgm = True
+                        print(f"[Modal] ✅ Downloaded BGM track '{bgm_meta.get('name')}' ({os.path.getsize(bgm_file_path)} bytes) [Artist: {bgm_meta.get('artist')}]!", flush=True)
             except Exception as m_err:
                 print(f"[Modal] ⚠️ Notice: BGM download fallback ({m_err})", flush=True)
 
@@ -2020,7 +2226,7 @@ def render_video_task(contract_payload: dict) -> dict:
             except Exception as s_err:
                 print(f"[Modal] ⚠️ Notice: SFX download fallback: {s_err}", flush=True)
 
-        # Audio Filter Mixing
+        # Audio Filter Mixing: Clean Voice + EQ Sculpted Ducked BGM + SFX
         filter_steps.append(
             "[2:a]highpass=f=80,equalizer=f=350:t=q:w=1.0:g=-3,equalizer=f=4000:t=q:w=1.0:g=2,acompressor=threshold=-18dB:ratio=3:attack=10:release=100:makeup=1[vclean]"
         )
@@ -2028,9 +2234,12 @@ def render_video_task(contract_payload: dict) -> dict:
         mix_weights = ["1.0"]
 
         if has_bgm:
-            filter_steps.append("[3:a][vclean]sidechaincompress=threshold=0.05:ratio=12:attack=10:release=300[mducked]")
+            filter_steps.append(
+                f"[3:a]equalizer=f=2500:t=q:w=1.5:g=-4,volume={bgm_volume_gain}[bgm_shaped];"
+                f"[bgm_shaped][vclean]sidechaincompress=threshold=0.08:ratio=12:attack=15:release=250[mducked]"
+            )
             mix_inputs.append("[mducked]")
-            mix_weights.append("0.25")
+            mix_weights.append("1.0")
 
         for s_lbl in sfx_audio_labels:
             mix_inputs.append(s_lbl)
