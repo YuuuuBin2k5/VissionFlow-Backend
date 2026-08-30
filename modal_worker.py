@@ -16,6 +16,20 @@ import re
 import json
 import uuid
 import subprocess
+import sys
+
+# Modern FFmpeg v7.1 Setup for local Windows execution
+try:
+    import imageio_ffmpeg
+    import shutil
+    _ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    _ffmpeg_dir = os.path.dirname(_ffmpeg_exe)
+    _dest_ffmpeg = os.path.join(_ffmpeg_dir, "ffmpeg.exe")
+    if not os.path.exists(_dest_ffmpeg):
+        shutil.copyfile(_ffmpeg_exe, _dest_ffmpeg)
+    os.environ["PATH"] = _ffmpeg_dir + os.path.pathsep + os.environ.get("PATH", "")
+except Exception:
+    pass
 
 EMOTION_PROSODY_MATRIX = {
     "suspenseful_warning": {"rate_offset": -6, "pitch_offset": -10},
@@ -300,6 +314,21 @@ VIETNAMESE_REPAIR_PAIRS = [
     ("rùng", "rợn"), ("bất", "thường"), ("đông", "cứng"), ("tuyệt", "đối"),
     ("tự", "động"), ("chôn", "vùi"), ("thảm", "họa"), ("đồng", "hồ"),
     ("bản", "lề"), ("quả", "lắc"), ("áo", "mưa")
+    ("bản", "lề"), ("quả", "lắc"), ("áo", "mưa"),
+    ("bất", "đắc"), ("kỳ", "tử"), ("bất", "đắc", "kỳ", "tử"), ("súng", "đạn"),
+    ("nữ", "tỷ", "phú"), ("thừa", "kế"), ("tập", "đoàn"), ("tột", "độ"),
+    ("ngoại", "cảm"), ("cảnh", "báo"), ("sát", "hại"), ("đòi", "mạng"),
+    ("sống", "sót"), ("liên", "tục"), ("dừng", "lại"), ("suốt", "ngày"),
+    ("ngày", "đêm"), ("cõi", "âm"), ("cõi", "chết"), ("mê", "cung"),
+    ("điên", "rồ"), ("căn", "phòng"), ("cót", "két"), ("khoảng", "không"),
+    ("tự", "do"), ("tầng", "ba"), ("trần", "nhà"), ("đặc", "quánh"),
+    ("lối", "đi"), ("bí", "mật"), ("ngoằn", "ngoèo"), ("lạc", "hướng"),
+    ("xé", "toạc"), ("màn", "đêm"), ("nhốt", "mình"), ("gọi", "hồn"),
+    ("chỉ", "dẫn"), ("thiết", "kế"), ("hôm", "sau"), ("thình", "thịch"),
+    ("nhận", "ra"), ("súng", "trường"), ("viên", "gạch"), ("giam", "giữ"),
+    ("oan", "hồn"), ("vĩnh", "viễn"), ("thù", "hận"), ("ngày", "nay"),
+    ("sừng", "sững"), ("lối", "thoát"), ("nửa", "đêm"), ("ngôi", "nhà"),
+    ("nhớ", "lại")
 ]
 
 def normalize_vietnamese_script(raw_text: str) -> str:
@@ -310,6 +339,16 @@ def normalize_vietnamese_script(raw_text: str) -> str:
     3. Maps ellipses before uppercase letters to '.' (Sentence end, lowering pitch).
     4. Maps ellipses before lowercase letters to ',' (Natural 200ms clause breath pause, holding emotional pitch).
     5. Maps quotes to ':' for dramatic dialogue delivery.
+    Flawless Storytelling Speech Rhythm & Cadence Engine (Universal Smooth Flow):
+    1. Normalizes all ellipsis variations (including spaced dots '. . .', '. .', '…').
+    2. Cleans unnatural stray dots placed before lowercase letters or inside phrases.
+    3. Explicitly repairs known Vietnamese compound words & multi-word terms.
+    4. Eliminates unnatural dead pauses after linking particles ('là', 'rằng', 'của', 'vào'...).
+    5. Unicode-Aware Cadence Mapper:
+       - Ellipses before UPPERCASE -> '.' (Sentence end, lowering emotional pitch).
+       - Ellipses before lowercase -> ',' (Natural 200ms clause breath pause).
+       - Ellipses before quotes -> ':' (Dramatic speech delivery).
+    6. Normalizes clean spacing and punctuation.
     """
     if not raw_text:
         return ""
@@ -320,25 +359,43 @@ def normalize_vietnamese_script(raw_text: str) -> str:
     text = re.sub(r'\(.*?\)', ' ', text)
 
     # 2. Normalize full-width ellipsis '…' to standard '...'
+    # 2. Normalize full-width ellipsis '…' and spaced dots '. . .' to standard placeholder
     text = text.replace('…', '...')
+    text = re.sub(r'(?:\.\s*){2,}', ' ___ELLIPSIS___ ', text)
 
     # 3. Explicitly repair broken compound words
     for w1, w2 in VIETNAMESE_REPAIR_PAIRS:
         pattern = re.compile(rf'\b{w1}\b\s*[\.]{{2,}}\s*\b{w2}\b', re.IGNORECASE)
         text = pattern.sub(f"{w1} {w2}", text)
+    # 3. Clean stray single dots or commas surrounded by spaces or placed before lowercase words
+    text = re.sub(r'\s*\.\s*(?=[a-zà-ỹ\d])', ' ', text)
+    text = re.sub(r'\s*,\s*(?=[a-zà-ỹ\d])', ', ', text)
 
     # 4. Clean ellipsis after particles that should never pause
     no_pause_particles = r'(?:là|rằng|của|vào|trong|với|bởi|do|như)'
     text = re.sub(rf'\b({no_pause_particles})\s*[\.]{{2,}}\s*', r'\1 ', text, flags=re.IGNORECASE)
+    # 4. Explicitly repair broken compound words
+    for item in sorted(VIETNAMESE_REPAIR_PAIRS, key=lambda x: -len(x)):
+        if isinstance(item, (list, tuple)):
+            pattern_str = r'\b' + r'\b\s*(?:___ELLIPSIS___|[,.\s]+)\s*\b'.join(map(re.escape, item)) + r'\b'
+            text = re.sub(pattern_str, ' '.join(item), text, flags=re.IGNORECASE)
 
     # 5. Unicode-Aware Ellipsis Cadence Mapper:
     # If followed by UPPERCASE -> Period with space (New sentence!)
     # If followed by lowercase -> Comma with space (Clause breath pause 200ms, avoids breathless rushing!)
+    # 5. Clean ellipsis and pauses after particles that should never pause
+    particles = r'(?:là|rằng|của|vào|trong|với|bởi|do|như|và|hoặc|nhưng|để|khi|nếu|thì|mà|ở|tại|từ|sang|lên|xuống|cho|ra)'
+    text = re.sub(rf'\b({particles})\s*(?:___ELLIPSIS___|[,.])\s*', r'\1 ', text, flags=re.IGNORECASE)
+
+    # 6. Unicode-Aware Ellipsis Cadence Mapper:
     def replace_ellipsis(match):
         following_char = match.group(1)
         if following_char.isupper():
             return f". {following_char}"
         elif following_char.islower():
+        elif following_char in ('"', "'", '“', '‘'):
+            return f": {following_char}"
+        else:
             return f", {following_char}"
         elif following_char in ("'", '"', '“', '‘'):
             return f": {following_char}"
@@ -347,14 +404,18 @@ def normalize_vietnamese_script(raw_text: str) -> str:
     text = re.sub(r'\s*[\.]{2,}\s*([^\s\.])', replace_ellipsis, text)
     # If at the very end of string -> Period
     text = re.sub(r'\s*[\.]{2,}\s*$', '.', text)
+    text = re.sub(r'\s*___ELLIPSIS___\s*([^\s])', replace_ellipsis, text)
+    text = re.sub(r'\s*___ELLIPSIS___\s*$', '.', text)
 
     # 6. Clean duplicate punctuation and whitespace
+    # 7. Clean duplicate punctuation and whitespace
     text = re.sub(r'[,]{2,}', ',', text)
     text = re.sub(r'[,]\s*[,]', ',', text)
     text = re.sub(r'[\.]{2,}', '.', text)
     text = re.sub(r'[!]{2,}', '!', text)
     text = re.sub(r'[?]{2,}', '?', text)
     text = re.sub(r'\s+([,.\?!:;])', r'\1', text)
+    text = re.sub(r'([,.\?!:;])(?=[^\s\d])', r'\1 ', text)
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
@@ -1436,7 +1497,7 @@ def render_scene_chunk(scene_payload: dict) -> dict:
     res_h = int(scene_payload.get("res_h") or 1920)
     target_fps = int(scene_payload.get("fps") or 60)
     
-    out_dir = f"/tmp/{workflow_run_id}"
+    out_dir = os.path.abspath(f"/tmp/{workflow_run_id}").replace("\\", "/")
     os.makedirs(out_dir, exist_ok=True)
     chunk_output = f"{out_dir}/scene_chunk_{scene_idx}.mp4"
     raw_media_path = f"{out_dir}/scene_raw_{scene_idx}.mp4"
@@ -1669,9 +1730,10 @@ def render_video_task(contract_payload: dict) -> dict:
             print(f"[Modal] 🎙️ AI Zero-Shot Voice Clone Mode active! Reference Voice Sample: {custom_voice_url[:50]}...", flush=True)
             
         print(f"[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice={voice_code}, rate={voice_rate_str}, pitch={pitch_arg})...", flush=True)
-        os.makedirs(f"/tmp/{workflow_run_id}", exist_ok=True)
-        audio_output = f"/tmp/{workflow_run_id}/tts_voice.mp3"
-        vtt_output = f"/tmp/{workflow_run_id}/tts_words.vtt"
+        work_dir = os.path.abspath(f"/tmp/{workflow_run_id}").replace("\\", "/")
+        os.makedirs(work_dir, exist_ok=True)
+        audio_output = f"{work_dir}/tts_voice.mp3"
+        vtt_output = f"{work_dir}/tts_words.vtt"
         
         # Check if scenes have emotion tags for dynamic modulation
         scenes_list = contract_payload.get("scenes") or []
@@ -1686,7 +1748,7 @@ def render_video_task(contract_payload: dict) -> dict:
             print(f"[Modal] 🎭 Emotion-Dynamic Voice Modulation active! [Emotion: {first_emotion}] -> Rate: {voice_rate_str}, Pitch: {pitch_arg}", flush=True)
 
         tts_cmd = [
-            "edge-tts",
+            sys.executable, "-m", "edge_tts",
             "--text", script,
             "--voice", voice_code,
             f"--rate={voice_rate_str}",
@@ -1769,7 +1831,7 @@ def render_video_task(contract_payload: dict) -> dict:
         caption_preset = contract_payload.get("captionPreset", "hormozi")
 
         # 1. Generate Pixel-Perfect PIL PNG Overlays (Matching Studio Preview 100%)
-        banner_png_path = f"/tmp/{workflow_run_id}/banner_overlay.png"
+        banner_png_path = f"{work_dir}/banner_overlay.png"
         has_banner = False
         if show_title_banner and (contract_payload.get("titleBannerText") or contract_payload.get("title")):
             try:
@@ -1787,7 +1849,7 @@ def render_video_task(contract_payload: dict) -> dict:
             except Exception as b_err:
                 print(f"[Modal] Notice: Title Banner generation fallback: {b_err}", flush=True)
 
-        logo_png_path = f"/tmp/{workflow_run_id}/logo_overlay.png"
+        logo_png_path = f"{work_dir}/logo_overlay.png"
         has_logo = False
         if watermark_text:
             try:
@@ -1806,7 +1868,7 @@ def render_video_task(contract_payload: dict) -> dict:
                 print(f"[Modal] Notice: Logo Pill generation fallback: {l_err}", flush=True)
 
         # 2. Generate ASS Subtitles with Kinetic Karaoke highlight
-        ass_path = f"/tmp/{workflow_run_id}/subtitles.ass"
+        ass_path = f"{work_dir}/subtitles.ass"
         generate_ass_subtitles(
             script_text=script,
             transcripts=contract_payload.get("transcripts"),
@@ -1824,6 +1886,7 @@ def render_video_task(contract_payload: dict) -> dict:
             res_w=res_w,
             res_h=res_h
         )
+        ass_path_escaped = ass_path.replace("\\", "/").replace(":", "\\:")
 
         # -------------------------------------------------------------------
         # Media Background Selection (Storyboard Scenes vs Custom Source Video vs Pexels API)
@@ -1835,7 +1898,7 @@ def render_video_task(contract_payload: dict) -> dict:
 
         scenes = contract_payload.get("scenes") or []
         custom_bg_downloaded = False
-        bg_file_path = f"/tmp/{workflow_run_id}/custom_bg.mp4"
+        bg_file_path = f"{work_dir}/custom_bg.mp4"
         bg_url = (
             contract_payload.get("source_video_url")
             or contract_payload.get("video_url")
@@ -1973,7 +2036,7 @@ def render_video_task(contract_payload: dict) -> dict:
                             str(sc.get("transition", "")).lower() in TRANSITION_MAP for sc in scenes
                         ) or contract_payload.get("enable_transitions", True)
                         
-                        concat_path = f"/tmp/{workflow_run_id}/concat_scenes.mp4"
+                        concat_path = f"{work_dir}/concat_scenes.mp4"
                         
                         if has_transitions and len(scene_files) > 1:
                             filter_parts = []
@@ -2044,7 +2107,7 @@ def render_video_task(contract_payload: dict) -> dict:
                             print(f"[Modal] ⚡ Applied 30+ Cinematic XFade Transitions across {len(scene_files)} scenes with auto SFX sync!", flush=True)
                         else:
                             # Direct stream concat fast path
-                            concat_list_path = f"/tmp/{workflow_run_id}/concat_list.txt"
+                            concat_list_path = f"{work_dir}/concat_list.txt"
                             with open(concat_list_path, "w", encoding="utf-8") as f_list:
                                 for sf in scene_files:
                                     f_list.write(f"file '{sf}'\n")
@@ -2123,7 +2186,7 @@ def render_video_task(contract_payload: dict) -> dict:
         # -------------------------------------------------------------------
         # Build FFmpeg Filter Chain with Pixel-Perfect PNG Overlays & Subtitles
         # -------------------------------------------------------------------
-        video_output = f"/tmp/{workflow_run_id}/final_output.mp4"
+        video_output = f"{work_dir}/final_output.mp4"
         ass_path_escaped = ass_path.replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
 
         v_prep = (
@@ -2169,7 +2232,7 @@ def render_video_task(contract_payload: dict) -> dict:
         )
         
         target_bgm_url = bgm_meta.get("url", "")
-        bgm_file_path = f"/tmp/{workflow_run_id}/bgm.mp3"
+        bgm_file_path = f"{work_dir}/bgm.mp3"
         has_bgm = False
         
         user_bgm_vol = contract_payload.get("bgm_volume") or contract_payload.get("bgmVolume")
@@ -2226,7 +2289,7 @@ def render_video_task(contract_payload: dict) -> dict:
             s_url = sfx_item["url"]
             s_st = sfx_item["start_time"]
             s_vol = sfx_item["volume"]
-            s_path = f"/tmp/{workflow_run_id}/sfx_{sfx_idx}_{s_type}.mp3"
+            s_path = f"{work_dir}/sfx_{sfx_idx}_{s_type}.mp3"
             try:
                 import requests
                 r_s = requests.get(s_url, timeout=10)
@@ -2344,7 +2407,7 @@ def render_video_task(contract_payload: dict) -> dict:
                 # -------------------------------------------------------------------
         # AI Golden Frame 3D Cover Thumbnail Extraction at 1.5s
         # -------------------------------------------------------------------
-        cover_path = f"/tmp/{workflow_run_id}/cover.jpg"
+        cover_path = f"{work_dir}/cover.jpg"
         cover_url = ""
         try:
             extract_cover_cmd = [
