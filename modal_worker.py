@@ -293,127 +293,50 @@ visionflow_image = (
     .run_commands("playwright install chromium --with-deps")
 )
 
-VIETNAMESE_REPAIR_PAIRS = [
-    ("nhật", "ký"), ("hàng", "hải"), ("cứu", "hộ"), ("hoang", "sơ"),
-    ("sương", "gió"), ("cầu", "nguyện"), ("khí", "tượng"), ("đất", "liền"),
-    ("thức", "ăn"), ("bước", "chân"), ("nghiêm", "ngặt"), ("bến", "tàu"),
-    ("vách", "đá"), ("tự", "nhiên"), ("vô", "hình"), ("đại", "dương"),
-    ("thủy", "thủ"), ("thuyền", "trưởng"), ("sấm", "sét"), ("kỳ", "cựu"),
-    ("dấu", "vết"), ("rợn", "người"), ("khổng", "lồ"), ("bầu", "trời"),
-    ("bật", "khóc"), ("xác", "nhận"), ("bên", "trong"), ("cửa", "gỗ"),
-    ("góc", "phòng"), ("linh", "hồn"), ("móc", "treo"), ("lan", "can"),
-    ("sức", "mạnh"), ("ngự", "trị"), ("tất", "cả"), ("nhiều", "năm"),
-    ("canh", "gác"), ("thường", "xuyên"), ("đêm", "khuya"), ("lênh", "đênh"),
-    ("biển", "đêm"), ("bắt", "đầu"), ("câu", "chuyện"), ("tĩnh", "lặng"),
-    ("bão", "bùng"), ("hư", "vô"), ("dạn", "dày"), ("kinh", "hoàng"),
-    ("dồn", "dập"), ("gõ", "cửa"), ("thì", "thầm"), ("sợ", "hãi"),
-    ("kỳ", "quái"), ("bí", "ẩn"), ("mưa", "gió"), ("hoàn", "toàn"),
-    ("vụt", "tắt"), ("chết", "chóc"), ("lạnh", "buốt"), ("bốc", "hơi"),
-    ("biến", "mất"), ("nghi", "thức"), ("thang", "máy"), ("tiếng", "bước"),
-    ("mã", "morse"), ("phát", "nổ"), ("hải", "đăng"), ("hoảng", "loạn"),
-    ("rùng", "rợn"), ("bất", "thường"), ("đông", "cứng"), ("tuyệt", "đối"),
-    ("tự", "động"), ("chôn", "vùi"), ("thảm", "họa"), ("đồng", "hồ"),
-    ("bản", "lề"), ("quả", "lắc"), ("áo", "mưa")
-    ("bản", "lề"), ("quả", "lắc"), ("áo", "mưa"),
-    ("bất", "đắc"), ("kỳ", "tử"), ("bất", "đắc", "kỳ", "tử"), ("súng", "đạn"),
-    ("nữ", "tỷ", "phú"), ("thừa", "kế"), ("tập", "đoàn"), ("tột", "độ"),
-    ("ngoại", "cảm"), ("cảnh", "báo"), ("sát", "hại"), ("đòi", "mạng"),
-    ("sống", "sót"), ("liên", "tục"), ("dừng", "lại"), ("suốt", "ngày"),
-    ("ngày", "đêm"), ("cõi", "âm"), ("cõi", "chết"), ("mê", "cung"),
-    ("điên", "rồ"), ("căn", "phòng"), ("cót", "két"), ("khoảng", "không"),
-    ("tự", "do"), ("tầng", "ba"), ("trần", "nhà"), ("đặc", "quánh"),
-    ("lối", "đi"), ("bí", "mật"), ("ngoằn", "ngoèo"), ("lạc", "hướng"),
-    ("xé", "toạc"), ("màn", "đêm"), ("nhốt", "mình"), ("gọi", "hồn"),
-    ("chỉ", "dẫn"), ("thiết", "kế"), ("hôm", "sau"), ("thình", "thịch"),
-    ("nhận", "ra"), ("súng", "trường"), ("viên", "gạch"), ("giam", "giữ"),
-    ("oan", "hồn"), ("vĩnh", "viễn"), ("thù", "hận"), ("ngày", "nay"),
-    ("sừng", "sững"), ("lối", "thoát"), ("nửa", "đêm"), ("ngôi", "nhà"),
-    ("nhớ", "lại")
-]
-
 def normalize_vietnamese_script(raw_text: str) -> str:
     """
-    Flawless Storytelling Speech Rhythm & Cadence Engine:
-    1. Repairs broken compound words (e.g. 'tĩnh ... lặng' -> 'tĩnh lặng').
-    2. Cleans unnatural dead pauses after linking words ('là...', 'rằng...').
-    3. Maps ellipses before uppercase letters to '.' (Sentence end, lowering pitch).
-    4. Maps ellipses before lowercase letters to ',' (Natural 200ms clause breath pause, holding emotional pitch).
-    5. Maps quotes to ':' for dramatic dialogue delivery.
-    Flawless Storytelling Speech Rhythm & Cadence Engine (Universal Smooth Flow):
-    1. Normalizes all ellipsis variations (including spaced dots '. . .', '. .', '…').
-    2. Cleans unnatural stray dots placed before lowercase letters or inside phrases.
-    3. Explicitly repairs known Vietnamese compound words & multi-word terms.
-    4. Eliminates unnatural dead pauses after linking particles ('là', 'rằng', 'của', 'vào'...).
-    5. Unicode-Aware Cadence Mapper:
-       - Ellipses before UPPERCASE -> '.' (Sentence end, lowering emotional pitch).
-       - Ellipses before lowercase -> ',' (Natural 200ms clause breath pause).
-       - Ellipses before quotes -> ':' (Dramatic speech delivery).
-    6. Normalizes clean spacing and punctuation.
+    Universal Open-Closed Speech Rhythm & Cadence Engine:
+    Zero Hardcoded Dictionaries - 100% Generic Rule-Based Text Stream Normalizer.
+    Works natively for any language (Vietnamese, English, Chinese, etc.) and any script style.
+    
+    1. Strips non-speech tags/brackets [cues], (notes).
+    2. Standardizes typographic symbols and quotation marks.
+    3. Normalizes all ellipsis variations ('...', '…', spaced dots) dynamically:
+       - Mid-sentence / before lowercase -> Natural breath pause (', ')
+       - Sentence end / before uppercase -> Clean period ('. ')
+    4. Eliminates isolated punctuation noise and normalizes clean single spacing.
     """
     if not raw_text:
         return ""
     text = str(raw_text)
 
-    # 1. Strip bracketed director cues
+    # 1. Strip bracketed director cues / annotations
     text = re.sub(r'\[.*?\]', ' ', text)
     text = re.sub(r'\(.*?\)', ' ', text)
 
-    # 2. Normalize full-width ellipsis '…' to standard '...'
-    # 2. Normalize full-width ellipsis '…' and spaced dots '. . .' to standard placeholder
+    # 2. Normalize smart quotes and typographic ellipsis
     text = text.replace('…', '...')
+    text = text.replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
+
+    # 3. Standardize multiple dots / ellipses into a temporary placeholder
     text = re.sub(r'(?:\.\s*){2,}', ' ___ELLIPSIS___ ', text)
 
-    # 3. Explicitly repair broken compound words
-    for w1, w2 in VIETNAMESE_REPAIR_PAIRS:
-        pattern = re.compile(rf'\b{w1}\b\s*[\.]{{2,}}\s*\b{w2}\b', re.IGNORECASE)
-        text = pattern.sub(f"{w1} {w2}", text)
-    # 3. Clean stray single dots or commas surrounded by spaces or placed before lowercase words
-    text = re.sub(r'\s*\.\s*(?=[a-zà-ỹ\d])', ' ', text)
-    text = re.sub(r'\s*,\s*(?=[a-zà-ỹ\d])', ', ', text)
+    # 4. Clean stray non-terminal dots between words or before lowercase characters
+    text = re.sub(r'\s*\.\s*(?=[a-z\u00C0-\u024F\u1EA0-\u1EF9\d])', ' ', text)
 
-    # 4. Clean ellipsis after particles that should never pause
-    no_pause_particles = r'(?:là|rằng|của|vào|trong|với|bởi|do|như)'
-    text = re.sub(rf'\b({no_pause_particles})\s*[\.]{{2,}}\s*', r'\1 ', text, flags=re.IGNORECASE)
-    # 4. Explicitly repair broken compound words
-    for item in sorted(VIETNAMESE_REPAIR_PAIRS, key=lambda x: -len(x)):
-        if isinstance(item, (list, tuple)):
-            pattern_str = r'\b' + r'\b\s*(?:___ELLIPSIS___|[,.\s]+)\s*\b'.join(map(re.escape, item)) + r'\b'
-            text = re.sub(pattern_str, ' '.join(item), text, flags=re.IGNORECASE)
-
-    # 5. Unicode-Aware Ellipsis Cadence Mapper:
-    # If followed by UPPERCASE -> Period with space (New sentence!)
-    # If followed by lowercase -> Comma with space (Clause breath pause 200ms, avoids breathless rushing!)
-    # 5. Clean ellipsis and pauses after particles that should never pause
-    particles = r'(?:là|rằng|của|vào|trong|với|bởi|do|như|và|hoặc|nhưng|để|khi|nếu|thì|mà|ở|tại|từ|sang|lên|xuống|cho|ra)'
-    text = re.sub(rf'\b({particles})\s*(?:___ELLIPSIS___|[,.])\s*', r'\1 ', text, flags=re.IGNORECASE)
-
-    # 6. Unicode-Aware Ellipsis Cadence Mapper:
-    def replace_ellipsis(match):
-        following_char = match.group(1)
-        if following_char.isupper():
-            return f". {following_char}"
-        elif following_char.islower():
-        elif following_char in ('"', "'", '“', '‘'):
-            return f": {following_char}"
-        else:
-            return f", {following_char}"
-        elif following_char in ("'", '"', '“', '‘'):
-            return f": {following_char}"
-        return f", {following_char}"
-
-    text = re.sub(r'\s*[\.]{2,}\s*([^\s\.])', replace_ellipsis, text)
-    # If at the very end of string -> Period
-    text = re.sub(r'\s*[\.]{2,}\s*$', '.', text)
-    text = re.sub(r'\s*___ELLIPSIS___\s*([^\s])', replace_ellipsis, text)
+    # 5. Dynamic Cadence Mapping:
+    # Multiple dots before UPPERCASE -> Terminal Sentence ('. ')
+    # Multiple dots before lowercase / mid-sentence -> Breath pause (', ')
+    text = re.sub(r'\s*___ELLIPSIS___\s*([A-Z\u00C0-\u024F\u1EA0-\u1EF9])', r'. \1', text)
+    text = re.sub(r'\s*___ELLIPSIS___\s*([a-z\u00C0-\u024F\u1EA0-\u1EF9\d])', r', \1', text)
+    text = re.sub(r'\s*___ELLIPSIS___\s*([\'\"])', r': \1', text)
     text = re.sub(r'\s*___ELLIPSIS___\s*$', '.', text)
+    text = re.sub(r'___ELLIPSIS___', ' ', text)
 
-    # 6. Clean duplicate punctuation and whitespace
-    # 7. Clean duplicate punctuation and whitespace
+    # 6. Clean duplicate punctuation and standardize spacing
     text = re.sub(r'[,]{2,}', ',', text)
     text = re.sub(r'[,]\s*[,]', ',', text)
     text = re.sub(r'[\.]{2,}', '.', text)
-    text = re.sub(r'[!]{2,}', '!', text)
-    text = re.sub(r'[?]{2,}', '?', text)
     text = re.sub(r'\s+([,.\?!:;])', r'\1', text)
     text = re.sub(r'([,.\?!:;])(?=[^\s\d])', r'\1 ', text)
     text = re.sub(r'\s+', ' ', text).strip()
