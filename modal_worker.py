@@ -2402,12 +2402,12 @@ def render_video_task(contract_payload: dict) -> dict:
                     INSERT INTO media_assets (id, organization_id, workflow_run_id, byte_size, metadata_json, created_at, updated_at, object_key, media_kind, content_type, checksum_sha256)
                     VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s::jsonb, NOW(), NOW(), %s, 'final_export', 'video/mp4', 'sha256_modal')
                     """,
-                    (media_id, org_uuid, wf_uuid, byte_size, meta, presigned_url)
+                    (media_id, org_uuid, wf_uuid, byte_size, meta, object_key)
                 )
             else:
                 cur.execute(
-                    "UPDATE media_assets SET object_key = %s, byte_size = %s, updated_at = NOW() WHERE workflow_run_id = %s::uuid",
-                    (presigned_url, byte_size, wf_uuid)
+                    "UPDATE media_assets SET object_key = %s, byte_size = %s, metadata_json = %s::jsonb, updated_at = NOW() WHERE workflow_run_id = %s::uuid",
+                    (object_key, byte_size, meta, wf_uuid)
                 )
 
             # Update Workflow Run State to APPROVAL_PENDING
