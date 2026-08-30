@@ -132,6 +132,19 @@ def list_video_vault_assets(
 
     rows = session.execute(query).all()
 
+    # Batch fetch latest PublicationAttempts to eliminate N+1 queries
+    wf_ids = [wf_run.id for _, wf_run, _ in rows if wf_run]
+    pub_attempts_map: dict[uuid.UUID, PublicationAttempt] = {}
+    if wf_ids:
+        pub_rows = session.scalars(
+            select(PublicationAttempt)
+            .where(PublicationAttempt.workflow_run_id.in_(wf_ids))
+            .order_by(PublicationAttempt.attempt_number.desc())
+        ).all()
+        for p in pub_rows:
+            if p.workflow_run_id not in pub_attempts_map:
+                pub_attempts_map[p.workflow_run_id] = p
+
     # Thống kê
     total_byte_size = 0
     published_count = 0
@@ -155,14 +168,8 @@ def list_video_vault_assets(
         elif wf_state in ("RENDERED", "APPROVAL_PENDING", "APPROVED", "PUBLISHING", "PUBLISHED"):
             rendered_count += 1
 
-        # Lấy thông tin bài đăng
-        pub_attempt = None
-        if wf_run:
-            pub_attempt = session.scalar(
-                select(PublicationAttempt)
-                .where(PublicationAttempt.workflow_run_id == wf_run.id)
-                .order_by(PublicationAttempt.attempt_number.desc())
-            )
+        # Lấy thông tin bài đăng từ batch map (Zero-Latency lookup)
+        pub_attempt = pub_attempts_map.get(wf_run.id) if wf_run else None
 
         pub_state = "not_published"
         ext_url = None
