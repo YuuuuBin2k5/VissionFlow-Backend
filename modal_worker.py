@@ -226,8 +226,11 @@ def is_safe_url(url: str | None) -> bool:
 # Voice Mapping Presets for Edge TTS
 VOICE_PRESET_MAP = {
     "edge-nam-minh": "vi-VN-NamMinhNeural",
+    "edge-vi-nam-minh": "vi-VN-NamMinhNeural",
     "edge-nu-hoai-my": "vi-VN-HoaiMyNeural",
+    "edge-vi-hoai-my": "vi-VN-HoaiMyNeural",
     "edge-nu-hoai-an": "vi-VN-HoaiMyNeural",
+    "eleven-adam": "vi-VN-NamMinhNeural",
     "edge-vi-andrew": "en-US-AndrewMultilingualNeural",
     "edge-vi-ava": "en-US-AvaMultilingualNeural",
     "edge-en-andrew": "en-US-AndrewNeural",
@@ -1277,6 +1280,59 @@ def create_logo_pill_overlay(
     img.save(output_path, "PNG")
     return output_path
 
+def create_follow_cta_overlay(
+    logo_handle: str = "@GocChiemNghiem",
+    canvas_w: int = 1080,
+    canvas_h: int = 1920,
+    output_path: str = "/tmp/follow_cta_overlay.png"
+) -> str:
+    """Generates a sleek, animated glassmorphic Follow CTA card for the end of the video."""
+    img = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    clean_handle = str(logo_handle or "@GocChiemNghiem").split("||")[0].strip()
+    if not clean_handle.startswith("@"):
+        clean_handle = f"@{clean_handle}"
+    
+    font_title = None
+    font_handle = None
+    for font_name in [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "C:/Windows/Fonts/arialbd.ttf",
+        "C:/Windows/Fonts/tahoma.ttf"
+    ]:
+        if os.path.exists(font_name):
+            try:
+                font_title = ImageFont.truetype(font_name, 36)
+                font_handle = ImageFont.truetype(font_name, 28)
+                break
+            except Exception:
+                pass
+    if not font_title:
+        font_title = ImageFont.load_default()
+        font_handle = ImageFont.load_default()
+
+    card_w = 660
+    card_h = 130
+    center_x = canvas_w // 2
+    center_y = int(canvas_h * 0.82)
+    x0, y0 = center_x - card_w // 2, center_y - card_h // 2
+    x1, y1 = center_x + card_w // 2, center_y + card_h // 2
+
+    # Glow halo
+    glow_img = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+    glow_draw = ImageDraw.Draw(glow_img)
+    glow_draw.rounded_rectangle((x0 - 15, y0 - 15, x1 + 15, y1 + 15), radius=35, fill=(56, 189, 248, 120))
+    glow_img = glow_img.filter(ImageFilter.GaussianBlur(15))
+    img = Image.alpha_composite(img, glow_img)
+
+    # Card
+    draw = ImageDraw.Draw(img)
+    draw.rounded_rectangle((x0, y0, x1, y1), radius=26, fill=(15, 23, 42, 235), outline=(56, 189, 248, 200), width=3)
+    draw.text((center_x, center_y - 20), "👉 NHẤN FOLLOW ĐỂ XEM TIẾP", font=font_title, fill=(255, 255, 255, 255), anchor="mm")
+    draw.text((center_x, center_y + 24), clean_handle, font=font_handle, fill=(56, 189, 248, 255), anchor="mm")
+    img.save(output_path, "PNG")
+    return output_path
+
 
 def generate_ass_subtitles(
     script_text: str,
@@ -1603,10 +1659,13 @@ def render_video_task(contract_payload: dict) -> dict:
 
     try:
         video_output = f"/tmp/{workflow_run_id}/final_output.mp4"
-        raw_script = contract_payload.get("captionText") or contract_payload.get("script") or ""
-        
-        # If script is missing or short from payload, fetch full script from PostgreSQL DB!
-        if len(raw_script.strip()) < 40 and workflow_run_id and workflow_run_id != "modal_run_demo":
+        work_dir = os.path.abspath(f"/tmp/{workflow_run_id}").replace("\\", "/")
+        os.makedirs(work_dir, exist_ok=True)
+
+        # -------------------------------------------------------------------
+        # 0. Comprehensive Metadata Backfill from PostgreSQL Neon DB
+        # -------------------------------------------------------------------
+        if workflow_run_id and workflow_run_id != "modal_run_demo":
             db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_mHw3FfgN7DQO@ep-morning-dawn-azmmaco1-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
             try:
                 import psycopg2
@@ -1618,42 +1677,71 @@ def render_video_task(contract_payload: dict) -> dict:
                     except Exception:
                         return str(uuid.uuid5(uuid.NAMESPACE_DNS, str(val)))
                 wf_u = safe_uuid(workflow_run_id)
-                cur_s.execute("SELECT prompt_manifest, input_payload FROM workflow_runs WHERE id = %s::uuid", (wf_u,))
+
+                # 1. Backfill from workflow_runs (input_payload & prompt_manifest)
+                cur_s.execute("SELECT input_payload, prompt_manifest FROM workflow_runs WHERE id = %s::uuid", (wf_u,))
                 row_s = cur_s.fetchone()
                 if row_s:
-                    pm = row_s[0] or {}
-                    inp = row_s[1] or {}
-                    db_script = pm.get("script") or inp.get("script") or pm.get("captionText") or inp.get("captionText")
-                    if not db_script:
-                        # Try creative_document_versions
-                        cur_s.execute(
-                            """
-                            SELECT content_json FROM creative_document_versions cdv
-                            JOIN creative_sessions cs ON cs.id = cdv.session_id
-                            WHERE cs.id = %s::uuid OR cdv.id = %s::uuid
-                            ORDER BY cdv.version_number DESC LIMIT 1
-                            """,
-                            (wf_u, wf_u)
-                        )
-                        doc_row = cur_s.fetchone()
-                        if doc_row and doc_row[0]:
-                            doc_data = doc_row[0]
-                            db_script = doc_data.get("script") or doc_data.get("narration")
-                    if db_script and len(str(db_script)) > len(raw_script):
-                        raw_script = str(db_script)
-                        print(f"[Modal] 📜 Auto-resolved full script from PostgreSQL DB ({len(raw_script)} chars)!", flush=True)
+                    inp = row_s[0] if isinstance(row_s[0], dict) else (json.loads(row_s[0]) if isinstance(row_s[0], str) else {})
+                    pm = row_s[1] if isinstance(row_s[1], dict) else (json.loads(row_s[1]) if isinstance(row_s[1], str) else {})
+                    for k, v in inp.items():
+                        if k not in contract_payload or contract_payload[k] is None or contract_payload[k] == "":
+                            contract_payload[k] = v
+                    for k, v in pm.items():
+                        if k not in contract_payload or contract_payload[k] is None or contract_payload[k] == "":
+                            contract_payload[k] = v
+
+                # 2. Backfill from creative_sessions (creation_spec)
+                cur_s.execute("SELECT creation_spec FROM creative_sessions WHERE workflow_run_id = %s::uuid OR id = %s::uuid ORDER BY updated_at DESC LIMIT 1", (wf_u, wf_u))
+                cs_row = cur_s.fetchone()
+                if cs_row and cs_row[0]:
+                    cs_spec = cs_row[0] if isinstance(cs_row[0], dict) else (json.loads(cs_row[0]) if isinstance(cs_row[0], str) else {})
+                    for k, v in cs_spec.items():
+                        if k not in contract_payload or contract_payload[k] is None or contract_payload[k] == "":
+                            contract_payload[k] = v
+
+                # 3. Backfill full script & structured scenes from creative_documents & creative_scenes
+                cur_s.execute(
+                    """
+                    SELECT cdv.script, json_agg(json_build_object(
+                        'position', csc.position,
+                        'narration', csc.narration,
+                        'visual_prompt', csc.visual_prompt,
+                        'duration_seconds', csc.duration_seconds,
+                        'transition', csc.transition,
+                        'caption', csc.caption
+                    ) ORDER BY csc.position ASC) as scenes
+                    FROM creative_documents cd
+                    JOIN creative_document_versions cdv ON cdv.creative_document_id = cd.id
+                    LEFT JOIN creative_scenes csc ON csc.creative_document_version_id = cdv.id
+                    WHERE cd.workflow_run_id = %s::uuid
+                    GROUP BY cdv.id, cdv.script, cdv.version
+                    ORDER BY cdv.version DESC LIMIT 1;
+                    """,
+                    (wf_u,)
+                )
+                doc_row = cur_s.fetchone()
+                if doc_row:
+                    if doc_row[0] and (not contract_payload.get("script") or len(str(contract_payload.get("script", ""))) < len(str(doc_row[0]))):
+                        contract_payload["script"] = doc_row[0]
+                        print(f"[Modal] 📜 Auto-resolved full script from PostgreSQL DB ({len(doc_row[0])} chars)!", flush=True)
+                    if doc_row[1] and isinstance(doc_row[1], list) and len(doc_row[1]) > 0 and (not contract_payload.get("scenes") or len(contract_payload.get("scenes", [])) == 0):
+                        contract_payload["scenes"] = [sc for sc in doc_row[1] if sc.get("narration") or sc.get("visual_prompt")]
+                        print(f"[Modal] 🎞️ Auto-resolved {len(contract_payload['scenes'])} visual scenes from PostgreSQL DB!", flush=True)
+
                 cur_s.close()
                 conn_s.close()
             except Exception as s_err:
-                print(f"[Modal] Notice: DB script resolution fallback: {s_err}", flush=True)
+                print(f"[Modal] Notice: DB metadata resolution: {s_err}", flush=True)
 
-        if not raw_script:
-            raw_script = contract_payload.get("title") or "VisionFlow Serverless Video Render Test"
-
+        raw_script = contract_payload.get("script") or contract_payload.get("captionText") or contract_payload.get("narration") or contract_payload.get("text") or contract_payload.get("title") or "VisionFlow Video"
         script = normalize_vietnamese_script(raw_script)
         print(f"[Modal] 📜 Normalized Vietnamese script ({len(script)} chars): '{script[:60]}...'", flush=True)
 
-        raw_voice_code = contract_payload.get("voice_code") or contract_payload.get("voice") or "vi-VN-NamMinhNeural"
+        # -------------------------------------------------------------------
+        # Voice & Speech Synthesis Parameters
+        # -------------------------------------------------------------------
+        raw_voice_code = contract_payload.get("voice_code") or contract_payload.get("voiceCode") or contract_payload.get("voice") or "vi-VN-NamMinhNeural"
         voice_code = resolve_voice(raw_voice_code)
         raw_voice_rate = contract_payload.get("voice_rate") or contract_payload.get("voiceRate") or 1.12
         try:
@@ -1662,7 +1750,6 @@ def render_video_task(contract_payload: dict) -> dict:
             voice_rate = 1.12
         voice_rate_str = format_rate(voice_rate)
 
-        # Custom AI Voice Clone & Pitch / Timbre Fine-tuning
         custom_voice_url = contract_payload.get("custom_voice_url") or contract_payload.get("customVoiceUrl")
         voice_pitch = int(contract_payload.get("voicePitch") or contract_payload.get("voice_pitch") or 0)
         pitch_arg = f"+{voice_pitch}Hz" if voice_pitch > 0 else (f"{voice_pitch}Hz" if voice_pitch < 0 else "+0Hz")
@@ -1671,12 +1758,9 @@ def render_video_task(contract_payload: dict) -> dict:
             print(f"[Modal] 🎙️ AI Zero-Shot Voice Clone Mode active! Reference Voice Sample: {custom_voice_url[:50]}...", flush=True)
             
         print(f"[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice={voice_code}, rate={voice_rate_str}, pitch={pitch_arg})...", flush=True)
-        work_dir = os.path.abspath(f"/tmp/{workflow_run_id}").replace("\\", "/")
-        os.makedirs(work_dir, exist_ok=True)
         audio_output = f"{work_dir}/tts_voice.mp3"
         vtt_output = f"{work_dir}/tts_words.vtt"
         
-        # Check if scenes have emotion tags for dynamic modulation
         scenes_list = contract_payload.get("scenes") or []
         raw_emo = (scenes_list[0].get("emotion") if scenes_list and isinstance(scenes_list[0], dict) else "") or ""
         first_emotion = str(raw_emo).lower().replace("-", "_").strip()
@@ -1699,11 +1783,9 @@ def render_video_task(contract_payload: dict) -> dict:
         ]
         subprocess.run(tts_cmd, check=True)
 
-        # Parse exact word timestamps from WebVTT
         vtt_cues = parse_webvtt_cues(vtt_output)
         print(f"[Modal] 🎯 Extracted {len(vtt_cues)} word-level timestamps from Edge TTS for Karaoke sync!", flush=True)
 
-        # Probe exact audio duration
         duration_cmd = [
             "ffprobe", "-v", "error", "-show_entries", "format=duration",
             "-of", "default=noprint_wrappers=1:nokey=1", audio_output
@@ -1726,21 +1808,27 @@ def render_video_task(contract_payload: dict) -> dict:
         target_fps = int(contract_payload.get("fps") or 60)
         print(f"[Modal] 📐 Canvas Format: Aspect={raw_aspect} -> Resolution={res_w}x{res_h} @ {target_fps} FPS (CRF 18 Broadcast Profile)", flush=True)
 
-        # Parse Frontend Subtitle & Branding Configuration
-        caption_color = contract_payload.get("captionColor") or contract_payload.get("caption_color") or "#FFE600"
+        # -------------------------------------------------------------------
+        # Frontend UI & Branding Controls (Pixel-Perfect WYSIWYG)
+        # -------------------------------------------------------------------
+        caption_color = str(contract_payload.get("captionColor") or contract_payload.get("caption_color") or "#FFE600").strip()
         caption_font_size = int(contract_payload.get("captionFontSize") or contract_payload.get("caption_font_size") or contract_payload.get("fontSize") or contract_payload.get("font_size") or 76)
-        font_family = contract_payload.get("captionFontFamily") or contract_payload.get("fontFamily") or contract_payload.get("caption_font_family") or "Montserrat"
-        show_title_banner = contract_payload.get("showTitleBanner", contract_payload.get("show_title_banner", True))
-        title_banner_style = contract_payload.get("titleBannerStyle") or contract_payload.get("title_banner_style") or "neon"
+        font_family = str(contract_payload.get("captionFontFamily") or contract_payload.get("fontFamily") or contract_payload.get("caption_font_family") or "Montserrat").strip()
+        
+        cap_pos = str(contract_payload.get("captionPosition") or contract_payload.get("caption_position") or "bottom").lower()
+        default_cap_y = 22 if cap_pos == "top" else (50 if cap_pos == "center" else 78)
         caption_x_percent = int(contract_payload.get("captionXPercent") or contract_payload.get("caption_x_percent") or 50)
-        caption_y_percent = int(contract_payload.get("captionYPercent") or contract_payload.get("caption_y_percent") or 78)
-        title_banner_y_percent = int(contract_payload.get("titleBannerYPercent") or contract_payload.get("title_banner_y_percent") or 15)
-        enable_progress_bar = contract_payload.get("enableProgressBar", contract_payload.get("enable_progress_bar", True))
-        enable_vignette = contract_payload.get("enableVignette", contract_payload.get("enable_vignette", True))
-        color_grading = contract_payload.get("colorGrading") or contract_payload.get("color_grading") or "none"
-        enable_karaoke = contract_payload.get("enableKaraoke", contract_payload.get("enable_karaoke", True))
-        enable_auto_emoji = contract_payload.get("enableAutoEmoji", contract_payload.get("enable_auto_emoji", True))
-        caption_preset = contract_payload.get("captionPreset") or contract_payload.get("caption_preset") or contract_payload.get("subtitle_preset") or "hormozi" 
+        caption_y_percent = int(contract_payload.get("captionYPercent") or contract_payload.get("caption_y_percent") or default_cap_y)
+        
+        caption_preset = str(contract_payload.get("captionPreset") or contract_payload.get("caption_preset") or contract_payload.get("subtitle_preset") or "hormozi").lower()
+        enable_karaoke = bool(contract_payload.get("enableKaraoke", contract_payload.get("enable_karaoke", True)))
+        enable_auto_emoji = bool(contract_payload.get("enableAutoEmoji", contract_payload.get("enable_auto_emoji", True)))
+
+        show_title_banner = bool(contract_payload.get("showTitleBanner", contract_payload.get("show_title_banner", True)))
+        title_banner_style = str(contract_payload.get("titleBannerStyle") or contract_payload.get("title_banner_style") or "neon").lower()
+        title_banner_y_percent = float(contract_payload.get("titleBannerYPercent") or contract_payload.get("title_banner_y_percent") or 14.0)
+        title_banner_text = str(contract_payload.get("titleBannerText") or contract_payload.get("title") or "").strip()
+
         watermark_text = (
             contract_payload.get("logoHandle")
             or contract_payload.get("logo_handle")
@@ -1754,39 +1842,34 @@ def render_video_task(contract_payload: dict) -> dict:
             or contract_payload.get("brandText")
             or "@GocChiemNghiem"
         )
-        watermark_x_percent = int(
-            contract_payload.get("logoXPercent")
-            or contract_payload.get("logo_x_percent")
-            or (18 if (contract_payload.get("logoPosition") or contract_payload.get("logo_position")) == "top_left" else 82)
-        )
-        watermark_y_percent = int(
-            contract_payload.get("logoYPercent")
-            or contract_payload.get("logo_y_percent")
-            or 6
-        )
-        watermark_position = contract_payload.get("logoPosition") or contract_payload.get("logo_position") or "top_left" 
-        enable_progress_bar = contract_payload.get("enableProgressBar", False)
-        color_grading = contract_payload.get("colorGrading", "none")
-        enable_karaoke = contract_payload.get("enableKaraoke", True)
-        enable_auto_emoji = contract_payload.get("enableAutoEmoji", True)
-        caption_preset = contract_payload.get("captionPreset", "hormozi")
+        logo_pos = str(contract_payload.get("logoPosition") or contract_payload.get("logo_position") or "top_left").lower()
+        default_logo_x = 18 if "left" in logo_pos else 82
+        default_logo_y = 92 if "bottom" in logo_pos else 6
+        watermark_x_percent = float(contract_payload.get("logoXPercent") or contract_payload.get("logo_x_percent") or default_logo_x)
+        watermark_y_percent = float(contract_payload.get("logoYPercent") or contract_payload.get("logo_y_percent") or default_logo_y)
 
-        # 1. Generate Pixel-Perfect PIL PNG Overlays (Matching Studio Preview 100%)
+        color_grading = str(contract_payload.get("colorGrading") or contract_payload.get("color_grading") or "cyber_teal").lower()
+        enable_vignette = bool(contract_payload.get("enableVignette", contract_payload.get("enable_vignette", True)))
+        enable_progress_bar = bool(contract_payload.get("enableProgressBar", contract_payload.get("enable_progress_bar", True)))
+        enable_follow_cta = bool(contract_payload.get("enableFollowCTA", contract_payload.get("enable_follow_cta", True)))
+        enable_sfx = bool(contract_payload.get("enableSFX", contract_payload.get("enable_sfx", True)))
+
+        # 1. Generate Pixel-Perfect PIL PNG Overlays (Title Banner & Logo Pill & Follow CTA)
         banner_png_path = f"{work_dir}/banner_overlay.png"
         has_banner = False
-        if show_title_banner and (contract_payload.get("titleBannerText") or contract_payload.get("title")):
+        if show_title_banner and title_banner_text:
             try:
                 create_title_banner_overlay(
-                    title_text=contract_payload.get("titleBannerText") or contract_payload.get("title"),
+                    title_text=title_banner_text,
                     canvas_w=res_w,
                     canvas_h=res_h,
                     style=title_banner_style,
-                    y_percent=float(title_banner_y_percent),
+                    y_percent=title_banner_y_percent,
                     output_path=banner_png_path
                 )
                 has_banner = os.path.exists(banner_png_path) and os.path.getsize(banner_png_path) > 1000
                 if has_banner:
-                    print(f"[Modal] 🟨 Created Pixel-Perfect Title Banner Card with Yellow Glow Halo!", flush=True)
+                    print(f"[Modal] 🟨 Created Pixel-Perfect Title Banner Card ({title_banner_style.upper()})!", flush=True)
             except Exception as b_err:
                 print(f"[Modal] Notice: Title Banner generation fallback: {b_err}", flush=True)
 
@@ -1798,15 +1881,31 @@ def render_video_task(contract_payload: dict) -> dict:
                     logo_handle=watermark_text,
                     canvas_w=res_w,
                     canvas_h=res_h,
-                    x_percent=float(watermark_x_percent),
-                    y_percent=float(watermark_y_percent),
+                    x_percent=watermark_x_percent,
+                    y_percent=watermark_y_percent,
                     output_path=logo_png_path
                 )
                 has_logo = os.path.exists(logo_png_path) and os.path.getsize(logo_png_path) > 1000
                 if has_logo:
-                    print(f"[Modal] 🟢 Created Pixel-Perfect Glassmorphic Logo Pill!", flush=True)
+                    print(f"[Modal] 🟢 Created Pixel-Perfect Logo Pill ({watermark_text}) at pos={logo_pos} ({watermark_x_percent}%, {watermark_y_percent}%)!", flush=True)
             except Exception as l_err:
                 print(f"[Modal] Notice: Logo Pill generation fallback: {l_err}", flush=True)
+
+        cta_png_path = f"{work_dir}/follow_cta_overlay.png"
+        has_cta = False
+        if enable_follow_cta and watermark_text:
+            try:
+                create_follow_cta_overlay(
+                    logo_handle=watermark_text,
+                    canvas_w=res_w,
+                    canvas_h=res_h,
+                    output_path=cta_png_path
+                )
+                has_cta = os.path.exists(cta_png_path) and os.path.getsize(cta_png_path) > 1000
+                if has_cta:
+                    print(f"[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!", flush=True)
+            except Exception as cta_err:
+                print(f"[Modal] Notice: Follow CTA generation fallback: {cta_err}", flush=True)
 
         # 2. Generate ASS Subtitles with Kinetic Karaoke highlight
         ass_path = f"{work_dir}/subtitles.ass"
@@ -2147,6 +2246,9 @@ def render_video_task(contract_payload: dict) -> dict:
         elif color_grading == "clean_tech":
             v_prep += ",eq=contrast=1.10:saturation=1.08:brightness=0.01"
 
+        if enable_vignette:
+            v_prep += ",vignette=PI/5"
+
         if enable_progress_bar:
             pbar_y = res_h - 10
             v_prep += f",drawbox=y={pbar_y}:color=0x38BDF8@0.9:t=fill:w='iw*t/{video_duration}'"
@@ -2161,7 +2263,7 @@ def render_video_task(contract_payload: dict) -> dict:
             or contract_payload.get("background_music_url")
             or contract_payload.get("bgm_custom_url")
         )
-        bgm_mood = contract_payload.get("bgm_mood") or contract_payload.get("bgm_preset") or ""
+        bgm_mood = contract_payload.get("bgm_mood") or contract_payload.get("bgm_preset") or contract_payload.get("bgmPreset") or ""
         
         detected_genre = detect_video_genre_modal(
             title=contract_payload.get("title", ""),
@@ -2179,7 +2281,7 @@ def render_video_task(contract_payload: dict) -> dict:
         bgm_file_path = f"{work_dir}/bgm.mp3"
         has_bgm = False
         
-        user_bgm_vol = contract_payload.get("bgm_volume") or contract_payload.get("bgmVolume")
+        user_bgm_vol = contract_payload.get("bgm_volume") or contract_payload.get("bgmVolume") or contract_payload.get("music_volume")
         try:
             bgm_volume_gain = float(user_bgm_vol) if user_bgm_vol is not None else float(bgm_meta.get("volume_gain", 0.12))
         except Exception:
@@ -2203,7 +2305,7 @@ def render_video_task(contract_payload: dict) -> dict:
         # -------------------------------------------------------------------
         # Smart SFX Sound Design Track Extraction & Mixing
         # -------------------------------------------------------------------
-        sfx_events = extract_sfx_cues(script, scenes_list, vtt_cues)
+        sfx_events = extract_sfx_cues(script, scenes_list, vtt_cues) if enable_sfx else []
         sfx_extra_inputs = []
         sfx_audio_labels = []
 
@@ -2223,6 +2325,13 @@ def render_video_task(contract_payload: dict) -> dict:
             extra_inputs.extend(["-loop", "1", "-i", logo_png_path])
             filter_steps.append(f"{curr_v}[{next_input_idx}:v]overlay=0:0[vlogo]")
             curr_v = "[vlogo]"
+            next_input_idx += 1
+
+        if has_cta:
+            extra_inputs.extend(["-loop", "1", "-i", cta_png_path])
+            cta_start = max(0.5, video_duration - 3.5)
+            filter_steps.append(f"{curr_v}[{next_input_idx}:v]overlay=0:0:enable='between(t,{cta_start:.2f},{video_duration:.2f})'[vcta]")
+            curr_v = "[vcta]"
             next_input_idx += 1
 
         filter_steps.append(f"{curr_v}subtitles=filename='{ass_path_escaped}'[vout]")
@@ -2304,12 +2413,13 @@ def render_video_task(contract_payload: dict) -> dict:
         print(f"[Modal Quality Gate] Evaluation Result: {q_res}", flush=True)
 
         # -------------------------------------------------------------------
-        # Upload Rendered Video to Cloudflare R2 Object Storage
+        # Upload Rendered Video & 3D Cover Thumbnail to Cloudflare R2
         # -------------------------------------------------------------------
         r2_endpoint = os.environ.get("VISIONFLOW_OBJECT_STORE_ENDPOINT", "https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com")
         r2_bucket = os.environ.get("VISIONFLOW_OBJECT_STORE_BUCKET", "vision-flow")
         r2_access_key = os.environ.get("VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID", "fd28f47a855e5f2097d5f8c24c50da70")
         r2_secret_key = os.environ.get("VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY", "c329293210d831c0bdba01f2434d86dab3eb23ab0a73f9b67819b7c3069cc9c6")
+        r2_public = os.environ.get("VISIONFLOW_OBJECT_STORE_PUBLIC_BASE", "https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev")
         
         object_key = f"visionflow/{workflow_run_id}/exports/final.mp4"
         print(f"[Modal] ☁️ Uploading rendered video to R2 ({r2_bucket}/{object_key})...", flush=True)
@@ -2336,21 +2446,7 @@ def render_video_task(contract_payload: dict) -> dict:
         
         print(f"[Modal] ✅ R2 Upload complete: {r2_bucket}/{object_key}", flush=True)
 
-        # Generate presigned GET URL for 7 days
-        presigned_url = s3.generate_presigned_url(
-            "get_object",
-            Params={"Bucket": r2_bucket, "Key": object_key},
-            ExpiresIn=604800,
-            HttpMethod="GET"
-        )
-
-        # -------------------------------------------------------------------
-        # Update PostgreSQL Database via Control Plane API or Direct SQL
-        # -------------------------------------------------------------------
-        db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_mHw3FfgN7DQO@ep-morning-dawn-azmmaco1-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
-                # -------------------------------------------------------------------
         # AI Golden Frame 3D Cover Thumbnail Extraction at 1.5s
-        # -------------------------------------------------------------------
         cover_path = f"{work_dir}/cover.jpg"
         cover_url = ""
         try:
@@ -2366,12 +2462,23 @@ def render_video_task(contract_payload: dict) -> dict:
             if s3 and os.path.exists(cover_path):
                 cover_key = f"workflows/{workflow_run_id}/cover.jpg"
                 s3.upload_file(cover_path, r2_bucket, cover_key, ExtraArgs={"ContentType": "image/jpeg"})
-                r2_public = os.environ.get("VISIONFLOW_OBJECT_STORE_PUBLIC_BASE", "https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev")
                 cover_url = f"{r2_public}/{cover_key}"
                 print(f"[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 ({cover_url})!", flush=True)
         except Exception as cov_err:
             print(f"[Modal] ⚠️ Notice: Cover thumbnail extraction: {cov_err}", flush=True)
 
+        # Generate presigned GET URL for 7 days
+        presigned_url = s3.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": r2_bucket, "Key": object_key},
+            ExpiresIn=604800,
+            HttpMethod="GET"
+        )
+
+        # -------------------------------------------------------------------
+        # Update PostgreSQL Database (media_assets & workflow_runs)
+        # -------------------------------------------------------------------
+        db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_mHw3FfgN7DQO@ep-morning-dawn-azmmaco1-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
         try:
             import psycopg2
             conn = psycopg2.connect(db_url)
@@ -2458,30 +2565,6 @@ def render_video_task(contract_payload: dict) -> dict:
 
         # Update Workflow Run State to FAILED in PostgreSQL so failure is accurately reported
         db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_mHw3FfgN7DQO@ep-morning-dawn-azmmaco1-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
-                # -------------------------------------------------------------------
-        # AI Golden Frame 3D Cover Thumbnail Extraction at 1.5s
-        # -------------------------------------------------------------------
-        cover_path = f"/tmp/{workflow_run_id}/cover.jpg"
-        cover_url = ""
-        try:
-            extract_cover_cmd = [
-                "ffmpeg", "-y",
-                "-ss", "00:00:01.500",
-                "-i", video_output,
-                "-vframes", "1",
-                "-q:v", "2",
-                cover_path
-            ]
-            subprocess.run(extract_cover_cmd, check=True)
-            if s3 and os.path.exists(cover_path):
-                cover_key = f"workflows/{workflow_run_id}/cover.jpg"
-                s3.upload_file(cover_path, r2_bucket, cover_key, ExtraArgs={"ContentType": "image/jpeg"})
-                r2_public = os.environ.get("VISIONFLOW_OBJECT_STORE_PUBLIC_BASE", "https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev")
-                cover_url = f"{r2_public}/{cover_key}"
-                print(f"[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 ({cover_url})!", flush=True)
-        except Exception as cov_err:
-            print(f"[Modal] ⚠️ Notice: Cover thumbnail extraction: {cov_err}", flush=True)
-
         try:
             import psycopg2
             conn = psycopg2.connect(db_url)
@@ -2492,15 +2575,16 @@ def render_video_task(contract_payload: dict) -> dict:
                 except Exception:
                     return str(uuid.uuid5(uuid.NAMESPACE_DNS, str(val)))
             wf_uuid = safe_uuid(workflow_run_id)
-            err_msg = str(exc)[:240]
+            err_code = str(exc)[:90]
+            err_detail = str(exc)[:500]
             cur.execute(
                 "UPDATE workflow_runs SET state = 'FAILED', failure_code = %s, updated_at = NOW() WHERE id = %s::uuid",
-                (err_msg, wf_uuid)
+                (err_code, wf_uuid)
             )
             conn.commit()
             cur.close()
             conn.close()
-            print(f"[Modal] ⚠️ Recorded FAILED state in DB for workflow {workflow_run_id}: {err_msg}", flush=True)
+            print(f"[Modal] ⚠️ Recorded FAILED state in DB for workflow {workflow_run_id}: {err_code}", flush=True)
         except Exception as db_f_err:
             print(f"[Modal] ⚠️ Could not write FAILED state to DB: {db_f_err}", flush=True)
 

@@ -76,13 +76,25 @@ def poll_and_render_one_job():
         conn.close()
         conn = None
 
-        # Build payload
-        payload = job['input_payload'] or job['prompt_manifest'] or {}
-        if isinstance(payload, str):
+        # Build payload by merging input_payload & prompt_manifest
+        inp = job.get('input_payload') or {}
+        pm = job.get('prompt_manifest') or {}
+        if isinstance(inp, str):
             try:
-                payload = json.loads(payload)
+                inp = json.loads(inp)
             except Exception:
-                payload = {}
+                inp = {}
+        if isinstance(pm, str):
+            try:
+                pm = json.loads(pm)
+            except Exception:
+                pm = {}
+
+        payload = {}
+        if isinstance(pm, dict):
+            payload.update(pm)
+        if isinstance(inp, dict):
+            payload.update(inp)
 
         payload['workflow_run_id'] = wf_id
         payload['organization_id'] = org_id
