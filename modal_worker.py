@@ -1700,6 +1700,28 @@ def render_video_task(contract_payload: dict) -> dict:
                         if k not in contract_payload or contract_payload[k] is None or contract_payload[k] == "":
                             contract_payload[k] = v
 
+                # 2.1 Backfill proposal scenes from creative_proposals (contains exact video_url & media_url for each scene!)
+                cur_s.execute(
+                    """
+                    SELECT cp.script, cp.scenes
+                    FROM creative_proposals cp
+                    JOIN creative_sessions cs ON cs.id = cp.session_id
+                    WHERE cs.workflow_run_id = %s::uuid OR cs.id = %s::uuid
+                    ORDER BY cp.version DESC LIMIT 1
+                    """,
+                    (wf_u, wf_u)
+                )
+                prop_row = cur_s.fetchone()
+                if prop_row:
+                    if prop_row[0] and (not contract_payload.get("script") or len(str(contract_payload.get("script", ""))) < len(str(prop_row[0]))):
+                        contract_payload["script"] = prop_row[0]
+                    if prop_row[1] and isinstance(prop_row[1], list) and len(prop_row[1]) > 0:
+                        current_scenes = contract_payload.get("scenes") or []
+                        has_video_urls = any(sc.get("video_url") or sc.get("media_url") for sc in current_scenes if isinstance(sc, dict))
+                        if not has_video_urls or len(current_scenes) == 0:
+                            contract_payload["scenes"] = prop_row[1]
+                            print(f"[Modal] 🎞️ Auto-resolved {len(prop_row[1])} proposal scenes with media URLs from creative_proposals DB!", flush=True)
+
                 # 3. Backfill full script & structured scenes from creative_documents & creative_scenes
                 cur_s.execute(
                     """
@@ -1971,29 +1993,31 @@ def render_video_task(contract_payload: dict) -> dict:
                 conn_sc = psycopg2.connect(db_url)
                 cur_sc = conn_sc.cursor()
                 wf_u = safe_uuid(workflow_run_id)
-                cur_sc.execute("SELECT prompt_manifest, input_payload FROM workflow_runs WHERE id = %s::uuid", (wf_u,))
-                row_sc = cur_sc.fetchone()
-                if row_sc:
-                    pm = row_sc[0] or {}
-                    inp = row_sc[1] or {}
-                    db_scenes = pm.get("scenes") or inp.get("scenes")
-                    if not db_scenes:
-                        cur_sc.execute(
-                            """
-                            SELECT content_json FROM creative_document_versions cdv
-                            JOIN creative_sessions cs ON cs.id = cdv.session_id
-                            WHERE cs.id = %s::uuid OR cdv.id = %s::uuid
-                            ORDER BY cdv.version_number DESC LIMIT 1
-                            """,
-                            (wf_u, wf_u)
-                        )
-                        doc_row = cur_sc.fetchone()
-                        if doc_row and doc_row[0]:
-                            doc_data = doc_row[0]
-                            db_scenes = doc_data.get("scenes")
-                    if db_scenes and isinstance(db_scenes, list) and len(db_scenes) > 0:
-                        scenes = db_scenes
-                        print(f"[Modal] 🎞️ Auto-resolved {len(scenes)} visual scenes from PostgreSQL DB!", flush=True)
+                cur_sc.execute(
+                    """
+                    SELECT cp.scenes
+                    FROM creative_proposals cp
+                    JOIN creative_sessions cs ON cs.id = cp.session_id
+                    WHERE cs.workflow_run_id = %s::uuid OR cs.id = %s::uuid
+                    ORDER BY cp.version DESC LIMIT 1
+                    """,
+                    (wf_u, wf_u)
+                )
+                prop_row = cur_sc.fetchone()
+                if prop_row and prop_row[0] and isinstance(prop_row[0], list) and len(prop_row[0]) > 0:
+                    scenes = prop_row[0]
+                    print(f"[Modal] 🎞️ Auto-resolved {len(scenes)} visual scenes with media URLs from creative_proposals DB!", flush=True)
+
+                if not scenes or len(scenes) == 0:
+                    cur_sc.execute("SELECT prompt_manifest, input_payload FROM workflow_runs WHERE id = %s::uuid", (wf_u,))
+                    row_sc = cur_sc.fetchone()
+                    if row_sc:
+                        pm = row_sc[0] or {}
+                        inp = row_sc[1] or {}
+                        db_scenes = pm.get("scenes") or inp.get("scenes")
+                        if db_scenes and isinstance(db_scenes, list) and len(db_scenes) > 0:
+                            scenes = db_scenes
+                            print(f"[Modal] 🎞️ Auto-resolved {len(scenes)} visual scenes from PostgreSQL DB workflow_runs!", flush=True)
                 cur_sc.close()
                 conn_sc.close()
             except Exception as db_sc_err:
