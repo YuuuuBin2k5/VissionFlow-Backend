@@ -19,15 +19,37 @@ import subprocess
 import sys
 
 # Modern FFmpeg v7.1 Setup for local Windows execution
-try:
-    import imageio_ffmpeg
+def get_ffmpeg_binary() -> str:
+    try:
+        import imageio_ffmpeg
+        exe = imageio_ffmpeg.get_ffmpeg_exe()
+        if exe and os.path.exists(exe):
+            return exe
+    except Exception:
+        pass
     import shutil
-    _ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-    _ffmpeg_dir = os.path.dirname(_ffmpeg_exe)
-    _dest_ffmpeg = os.path.join(_ffmpeg_dir, "ffmpeg.exe")
-    if not os.path.exists(_dest_ffmpeg):
-        shutil.copyfile(_ffmpeg_exe, _dest_ffmpeg)
-    os.environ["PATH"] = _ffmpeg_dir + os.path.pathsep + os.environ.get("PATH", "")
+    return shutil.which("ffmpeg") or "ffmpeg"
+
+def get_ffprobe_binary() -> str:
+    try:
+        import imageio_ffmpeg
+        ffmpeg_dir = os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
+        ffprobe_cand = os.path.join(ffmpeg_dir, "ffprobe.exe")
+        if os.path.exists(ffprobe_cand):
+            return ffprobe_cand
+    except Exception:
+        pass
+    import shutil
+    return shutil.which("ffprobe") or "ffprobe"
+
+FFMPEG_BIN = get_ffmpeg_binary()
+FFPROBE_BIN = get_ffprobe_binary()
+
+# Prepend the directory containing modern FFmpeg 7.1 to PATH so any implicit subprocess calls use it
+try:
+    _ff_dir = os.path.dirname(FFMPEG_BIN)
+    if _ff_dir and os.path.exists(_ff_dir):
+        os.environ["PATH"] = _ff_dir + os.pathsep + os.environ.get("PATH", "")
 except Exception:
     pass
 
@@ -705,7 +727,7 @@ def evaluate_video_quality(video_path: str, expected_duration: float, expected_r
 
     try:
         cmd = [
-            "ffprobe", "-v", "error", "-show_entries", "format=duration:stream=width,height,r_frame_rate",
+            FFPROBE_BIN, "-v", "error", "-show_entries", "format=duration:stream=width,height,r_frame_rate",
             "-of", "json", video_path
         ]
         res = subprocess.run(cmd, capture_output=True, text=True, check=True)
@@ -727,6 +749,32 @@ def evaluate_video_quality(video_path: str, expected_duration: float, expected_r
         }
     except Exception as q_err:
         return {"passed": False, "score": 40, "reason": f"FFprobe evaluation error: {q_err}"}
+
+def preprocess_script_for_tts(text: str) -> str:
+    """
+    Intelligently converts ellipses ('...', '…', '..') into natural sentence-boundary pauses
+    for Neural TTS (Edge TTS / ElevenLabs / Azure Speech).
+    Ensures proper capitalization of subsequent words so the Neural Language Model inserts
+    a natural acoustic breath pause (300-500ms) rather than reading in one continuous breath.
+    """
+    if not text:
+        return text
+    # 1. Normalize all ellipsis variations
+    normalized = re.sub(r"[.…]{2,}", "...", text)
+    # 2. Split into segments
+    parts = normalized.split("...")
+    cleaned_segments = []
+    for p in parts:
+        p = p.strip()
+        if not p:
+            continue
+        # Capitalize first letter of clause for Sentence Boundary Disambiguation
+        p_cap = p[0].upper() + p[1:] if len(p) > 1 else p.upper()
+        # Ensure punctuation at end
+        if not p_cap.endswith((".", "!", "?", ":", ";")):
+            p_cap += "."
+        cleaned_segments.append(p_cap)
+    return " ".join(cleaned_segments)
 
 def format_ass_time(seconds: float) -> str:
     hrs = int(seconds // 3600)
@@ -1566,7 +1614,7 @@ def render_scene_chunk(scene_payload: dict) -> dict:
             # Check if source media is a static image or a video
             is_image = False
             try:
-                probe_cmd = ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_type", "-of", "default=noprint_wrappers=1:nokey=1", raw_media_path]
+                probe_cmd = [FFPROBE_BIN, "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_type", "-of", "default=noprint_wrappers=1:nokey=1", raw_media_path]
                 probe_out = subprocess.run(probe_cmd, capture_output=True, text=True).stdout.strip().lower()
                 if "image" in probe_out or raw_media_path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
                     is_image = True
@@ -1578,7 +1626,7 @@ def render_scene_chunk(scene_payload: dict) -> dict:
                 total_frames = max(1, int(round(scene_dur * target_fps)))
                 ken_burns_filter = f"zoompan=z='min(zoom+0.0015,1.25)':d={total_frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={res_w}x{res_h}:fps={target_fps},format=yuv420p"
                 norm_cmd = [
-                    "ffmpeg", "-y",
+                    FFMPEG_BIN, "-y",
                     "-loop", "1",
                     "-i", raw_media_path,
                     "-t", str(scene_dur),
@@ -1591,7 +1639,7 @@ def render_scene_chunk(scene_payload: dict) -> dict:
                 # Video normalization: -stream_loop MUST be before -i, and -t MUST be AFTER -i to loop seamlessly!
                 norm_filter = f"fps={target_fps},format=yuv420p,scale={res_w}:{res_h}:force_original_aspect_ratio=increase,crop={res_w}:{res_h},setsar=1"
                 norm_cmd = [
-                    "ffmpeg", "-y",
+                    FFMPEG_BIN, "-y",
                     "-stream_loop", "-1",
                     "-i", raw_media_path,
                     "-ss", "00:00:00.000",
@@ -1614,7 +1662,7 @@ def render_scene_chunk(scene_payload: dict) -> dict:
         else:
             # Fallback canvas color with slow cinematic camera drift so scene never freezes
             color_cmd = [
-                "ffmpeg", "-y",
+                FFMPEG_BIN, "-y",
                 "-f", "lavfi",
                 "-i", f"color=c=0x0b132b:s={res_w}x{res_h}:d={scene_dur}:r={target_fps}",
                 "-vf", "format=yuv420p",
@@ -1794,9 +1842,12 @@ def render_video_task(contract_payload: dict) -> dict:
             pitch_arg = f"+{calc_pitch}Hz" if calc_pitch >= 0 else f"{calc_pitch}Hz"
             print(f"[Modal] 🎭 Emotion-Dynamic Voice Modulation active! [Emotion: {first_emotion}] -> Rate: {voice_rate_str}, Pitch: {pitch_arg}", flush=True)
 
+        tts_script = preprocess_script_for_tts(script)
+        print(f"[Modal] 📝 Script preprocessed for Neural TTS breath pauses ({len(script)} chars -> {len(tts_script)} chars)", flush=True)
+
         tts_cmd = [
             sys.executable, "-m", "edge_tts",
-            "--text", script,
+            "--text", tts_script,
             "--voice", voice_code,
             f"--rate={voice_rate_str}",
             f"--pitch={pitch_arg}",
@@ -1809,7 +1860,7 @@ def render_video_task(contract_payload: dict) -> dict:
         print(f"[Modal] 🎯 Extracted {len(vtt_cues)} word-level timestamps from Edge TTS for Karaoke sync!", flush=True)
 
         duration_cmd = [
-            "ffprobe", "-v", "error", "-show_entries", "format=duration",
+            FFPROBE_BIN, "-v", "error", "-show_entries", "format=duration",
             "-of", "default=noprint_wrappers=1:nokey=1", audio_output
         ]
         dur_res = subprocess.run(duration_cmd, capture_output=True, text=True, check=True)
@@ -2088,7 +2139,7 @@ def render_video_task(contract_payload: dict) -> dict:
                 
             from concurrent.futures import ThreadPoolExecutor
             worker_fn = render_scene_chunk.local if hasattr(render_scene_chunk, "local") else render_scene_chunk
-            with ThreadPoolExecutor(max_workers=min(8, len(scene_payloads))) as executor:
+            with ThreadPoolExecutor(max_workers=min(4, len(scene_payloads))) as executor:
                 rendered_chunks = list(executor.map(worker_fn, scene_payloads))
                 
             scene_files = [rc["chunk_path"] for rc in sorted(rendered_chunks, key=lambda x: x["scene_index"]) if os.path.exists(rc.get("chunk_path", ""))]
@@ -2163,7 +2214,7 @@ def render_video_task(contract_payload: dict) -> dict:
                                 
                             filter_graph = ";".join(filter_parts)
                             xfade_cmd = [
-                                "ffmpeg", "-y",
+                                FFMPEG_BIN, "-y",
                                 *cmd_inputs,
                                 "-filter_complex", filter_graph,
                                 "-map", "[vout]",
@@ -2179,7 +2230,7 @@ def render_video_task(contract_payload: dict) -> dict:
                                 for sf in scene_files:
                                     f_list.write(f"file '{sf}'\n")
                             concat_cmd = [
-                                "ffmpeg", "-y",
+                                FFMPEG_BIN, "-y",
                                 "-f", "concat",
                                 "-safe", "0",
                                 "-i", concat_list_path,
@@ -2412,7 +2463,7 @@ def render_video_task(contract_payload: dict) -> dict:
 
         bgm_inputs = ["-stream_loop", "-1", "-i", bgm_file_path] if has_bgm else []
         ffmpeg_cmd = [
-            "ffmpeg", "-y",
+            FFMPEG_BIN, "-y",
             "-f", "lavfi", "-i", f"color=c=0x0a0c16:s={res_w}x{res_h}:d={video_duration}:r={target_fps}",
             "-ss", "00:00:00.000", "-stream_loop", "-1", "-an", "-i", bg_file_path if custom_bg_downloaded else f"color=c=0x0a0c16:s={res_w}x{res_h}:d={video_duration}",
             "-i", audio_output,
@@ -2475,7 +2526,7 @@ def render_video_task(contract_payload: dict) -> dict:
         cover_url = ""
         try:
             extract_cover_cmd = [
-                "ffmpeg", "-y",
+                FFMPEG_BIN, "-y",
                 "-ss", "00:00:01.500",
                 "-i", video_output,
                 "-vframes", "1",
