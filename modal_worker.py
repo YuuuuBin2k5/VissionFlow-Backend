@@ -2010,6 +2010,7 @@ def render_video_task(contract_payload: dict) -> dict:
         enable_mask_logo = contract_payload.get("enable_mask_logo", False)
 
         scenes = contract_payload.get("scenes") or []
+        sfx_events: list = []
         custom_bg_downloaded = False
         bg_file_path = f"{work_dir}/custom_bg.mp4"
         bg_url = (
@@ -2244,7 +2245,25 @@ def render_video_task(contract_payload: dict) -> dict:
                         custom_bg_downloaded = True
                     except Exception as cat_err:
                         print(f"[Modal] ⚠️ Notice: Transition concat fallback ({cat_err})", flush=True)
-                        bg_file_path = scene_files[0]
+                        try:
+                            concat_list_path = f"{work_dir}/concat_fallback_list.txt"
+                            with open(concat_list_path, "w", encoding="utf-8") as f_list:
+                                for sf in scene_files:
+                                    f_list.write(f"file '{sf}'\n")
+                            concat_cmd = [
+                                FFMPEG_BIN, "-y",
+                                "-f", "concat",
+                                "-safe", "0",
+                                "-i", concat_list_path,
+                                "-c", "copy",
+                                concat_path
+                            ]
+                            subprocess.run(concat_cmd, check=True)
+                            bg_file_path = concat_path
+                            print(f"[Modal] ⚡ Fallback Direct Stream Concat: Joined {len(scene_files)} scenes without re-encoding!", flush=True)
+                        except Exception as direct_err:
+                            print(f"[Modal] ❌ Direct stream concat fallback failed ({direct_err}), using first scene only", flush=True)
+                            bg_file_path = scene_files[0]
                         custom_bg_downloaded = True
 
         # 2. Try Single Background URL
@@ -2380,7 +2399,10 @@ def render_video_task(contract_payload: dict) -> dict:
         # -------------------------------------------------------------------
         # Smart SFX Sound Design Track Extraction & Mixing
         # -------------------------------------------------------------------
-        sfx_events = extract_sfx_cues(script, scenes_list, vtt_cues) if enable_sfx else []
+        auto_sfx_events = extract_sfx_cues(script, scenes_list, vtt_cues) if enable_sfx else []
+        for cue in auto_sfx_events:
+            if not any(abs(f.get("start_time", 0) - cue.get("start_time", 0)) < 0.5 for f in sfx_events):
+                sfx_events.append(cue)
         sfx_extra_inputs = []
         sfx_audio_labels = []
 
