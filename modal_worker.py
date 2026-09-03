@@ -1714,7 +1714,7 @@ def render_video_task(contract_payload: dict) -> dict:
         # 0. Comprehensive Metadata Backfill from PostgreSQL Neon DB
         # -------------------------------------------------------------------
         if workflow_run_id and workflow_run_id != "modal_run_demo":
-            db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_mHw3FfgN7DQO@ep-morning-dawn-azmmaco1-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
+            db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_EwgAC4iWTSj0@ep-calm-queen-az3o70qo-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
             try:
                 import psycopg2
                 conn_s = psycopg2.connect(db_url)
@@ -2575,7 +2575,7 @@ def render_video_task(contract_payload: dict) -> dict:
         # -------------------------------------------------------------------
         # Update PostgreSQL Database (media_assets & workflow_runs)
         # -------------------------------------------------------------------
-        db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_mHw3FfgN7DQO@ep-morning-dawn-azmmaco1-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
+        db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_EwgAC4iWTSj0@ep-calm-queen-az3o70qo-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
         try:
             import psycopg2
             conn = psycopg2.connect(db_url)
@@ -2661,7 +2661,7 @@ def render_video_task(contract_payload: dict) -> dict:
         traceback.print_exc()
 
         # Update Workflow Run State to FAILED in PostgreSQL so failure is accurately reported
-        db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_mHw3FfgN7DQO@ep-morning-dawn-azmmaco1-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
+        db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_EwgAC4iWTSj0@ep-calm-queen-az3o70qo-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
         try:
             import psycopg2
             conn = psycopg2.connect(db_url)

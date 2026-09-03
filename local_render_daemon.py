@@ -30,7 +30,7 @@ from modal_worker import render_video_task
 
 DB_URL = os.environ.get(
     "DATABASE_URL",
-    "postgresql://neondb_owner:npg_mHw3FfgN7DQO@ep-morning-dawn-azmmaco1-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+    "postgresql://neondb_owner:npg_EwgAC4iWTSj0@ep-calm-queen-az3o70qo-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 )
 
 def get_db_connection():
