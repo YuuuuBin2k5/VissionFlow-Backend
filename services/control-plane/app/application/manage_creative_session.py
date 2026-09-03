@@ -14,7 +14,10 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.application.create_short_form import CreateShortFormCommand
 from app.application.ports.creative_planning_provider import CreativePlanningProvider
 from app.core.credential_cipher import ProviderCredentialCipher
-from app.infrastructure.creative_document_repository import SqlAlchemyCreativeDocumentRepository
+from app.infrastructure.creative_document_repository import (
+    SqlAlchemyCreativeDocumentRepository,
+    _normalize_transition,
+)
 from app.infrastructure.creative_session_repository import SqlAlchemyCreativeSessionRepository
 from app.infrastructure.models import (
     CreativeCommandReceipt,
@@ -981,7 +984,7 @@ class ManageCreativeSession:
                     "narration": sc.get("narration", ""),
                     "visual_prompt": sc.get("visual_prompt", ""),
                     "duration_seconds": sc.get("duration_seconds", 5),
-                    "transition": sc.get("transition", "cut"),
+                    "transition": _normalize_transition(sc.get("transition", "cut")),
                     "caption": sc.get("caption"),
                     "asset_source": scene_asset_source,
                     "visual_search_keywords": sc.get("visual_search_keywords") or sc.get("visual_prompt", ""),

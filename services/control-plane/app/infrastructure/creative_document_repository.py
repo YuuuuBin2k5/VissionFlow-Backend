@@ -16,6 +16,23 @@ from app.infrastructure.models import (
 )
 
 
+def _normalize_transition(val: object) -> str:
+    if not val:
+        return "cut"
+    if isinstance(val, dict):
+        return str(val.get("type") or val.get("id") or val.get("name") or "cut")
+    s = str(val).strip()
+    if s.startswith("{") and ("'type'" in s or '"type"' in s or "'id'" in s or '"id"' in s):
+        try:
+            import json, ast
+            d = ast.literal_eval(s) if "'" in s else json.loads(s)
+            if isinstance(d, dict):
+                return str(d.get("type") or d.get("id") or d.get("name") or s)
+        except Exception:
+            pass
+    return s
+
+
 @dataclass(frozen=True)
 class CreativeDocumentSnapshot:
     document_id: uuid.UUID
@@ -88,7 +105,7 @@ class SqlAlchemyCreativeDocumentRepository:
                 narration=str(scene["narration"]),
                 visual_prompt=str(scene["visual_prompt"]),
                 duration_seconds=int(scene["duration_seconds"]),
-                transition=str(scene.get("transition") or "cut"),
+                transition=_normalize_transition(scene.get("transition")),
                 caption=str(scene["caption"]) if scene.get("caption") else None,
             ))
         document.revision = version.version

@@ -285,7 +285,7 @@ class CreativeScene(Timestamped, Base):
     narration: Mapped[str] = mapped_column(Text, nullable=False)
     visual_prompt: Mapped[str] = mapped_column(Text, nullable=False)
     duration_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
-    transition: Mapped[str] = mapped_column(String(48), nullable=False, default="cut")
+    transition: Mapped[str] = mapped_column(Text, nullable=False, default="cut")
     caption: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 

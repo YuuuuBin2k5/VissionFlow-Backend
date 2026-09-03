@@ -109,8 +109,8 @@ def _validate(command: RecordNarrationGeneratedCommand) -> None:
             raise ValueError(f"scene {index}: duration_seconds must be between 1 and 90")
         if not scene.transition.strip():
             raise ValueError(f"scene {index}: transition must not be blank")
-        if len(scene.transition.strip()) > 48:
-            raise ValueError(f"scene {index}: transition must be 48 characters or fewer")
+        if len(scene.transition.strip()) > 500:
+            raise ValueError(f"scene {index}: transition must be 500 characters or fewer")
         if scene.caption is not None and len(scene.caption) > 2000:
             raise ValueError(f"scene {index}: caption must be 2,000 characters or fewer")
 
