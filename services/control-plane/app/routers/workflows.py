@@ -215,7 +215,7 @@ class RecordNarrationSceneRequest(BaseModel):
     narration: str = Field(min_length=1, max_length=5_000)
     visual_prompt: str = Field(min_length=1, max_length=5_000)
     duration_seconds: int = Field(ge=1, le=90)
-    transition: str = Field(default="cut", min_length=1, max_length=48)
+    transition: str = Field(default="cut", min_length=1, max_length=500)
     caption: str | None = Field(default=None, max_length=2_000)
 
 
@@ -332,7 +332,7 @@ class CreativeDocumentSceneRequest(BaseModel):
     narration: str = Field(min_length=1, max_length=5_000)
     visual_prompt: str = Field(min_length=1, max_length=5_000)
     duration_seconds: int = Field(ge=1, le=90)
-    transition: str = Field(default="cut", min_length=1, max_length=48)
+    transition: str = Field(default="cut", min_length=1, max_length=500)
     caption: str | None = Field(default=None, max_length=2_000)
 
 

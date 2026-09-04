@@ -16,6 +16,103 @@ import re
 import json
 import uuid
 import subprocess
+import sys
+
+# Modern FFmpeg v7.1 Setup for local Windows execution
+def get_ffmpeg_binary() -> str:
+    try:
+        import imageio_ffmpeg
+        exe = imageio_ffmpeg.get_ffmpeg_exe()
+        if exe and os.path.exists(exe):
+            return exe
+    except Exception:
+        pass
+    import shutil
+    return shutil.which("ffmpeg") or "ffmpeg"
+
+def get_ffprobe_binary() -> str:
+    try:
+        import imageio_ffmpeg
+        ffmpeg_dir = os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
+        ffprobe_cand = os.path.join(ffmpeg_dir, "ffprobe.exe")
+        if os.path.exists(ffprobe_cand):
+            return ffprobe_cand
+    except Exception:
+        pass
+    import shutil
+    return shutil.which("ffprobe") or "ffprobe"
+
+FFMPEG_BIN = get_ffmpeg_binary()
+FFPROBE_BIN = get_ffprobe_binary()
+
+def get_audio_duration_seconds(audio_path: str, fallback_duration: float = 30.0) -> float:
+    """
+    [Phase 4] Measures exact audio duration in seconds from media file using ffprobe.
+    Returns float seconds, or logs and returns fallback_duration on failure.
+    Does not crash render job on probing errors.
+    """
+    if not audio_path or not os.path.exists(audio_path):
+        print(f"[Modal Audio Probe Warning] Audio file does not exist: {audio_path}. Using fallback: {fallback_duration}s", flush=True)
+        return float(fallback_duration)
+    try:
+        cmd = [
+            FFPROBE_BIN, "-v", "error", "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1", audio_path
+        ]
+        res = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        dur_str = res.stdout.strip()
+        if dur_str:
+            measured = float(dur_str)
+            if measured > 0.05:
+                print(f"[Modal Audio Probe] 🎯 Measured real audio duration from ffprobe: {measured:.3f}s for {os.path.basename(audio_path)}", flush=True)
+                return round(measured, 3)
+    except Exception as probe_err:
+        print(f"[Modal Audio Probe Error] ffprobe measurement failed for {audio_path}: {probe_err}. Using fallback: {fallback_duration}s", flush=True)
+    return float(fallback_duration)
+
+def normalize_shot_durations_py(shots: list, scene_duration: float) -> list:
+    """
+    [Phase 6] Normalizes shot duration_ratio and duration_seconds to match scene_duration exactly.
+    The last shot is clamped to (scene_duration - sum(prev_shots)) to prevent floating-point gaps.
+    """
+    if not shots:
+        return []
+    total_scene_dur = max(0.5, round(float(scene_duration), 3))
+    ratios = []
+    for s in shots:
+        r = s.get("duration_ratio")
+        try:
+            ratios.append(float(r) if r is not None and float(r) > 0 else 0.0)
+        except Exception:
+            ratios.append(0.0)
+    sum_ratio = sum(ratios)
+    if sum_ratio <= 0:
+        ratios = [1.0 / len(shots)] * len(shots)
+        sum_ratio = 1.0
+
+    raw_durations = [(r / sum_ratio) * total_scene_dur for r in ratios]
+    result = []
+    cum_time = 0.0
+    for i, s in enumerate(shots):
+        is_last = (i == len(shots) - 1)
+        if is_last:
+            dur = max(0.1, round(total_scene_dur - cum_time, 3))
+        else:
+            dur = max(0.1, round(raw_durations[i], 3))
+        cum_time += dur
+        shot_copy = dict(s)
+        shot_copy["duration"] = dur
+        shot_copy["duration_seconds"] = dur
+        result.append(shot_copy)
+    return result
+
+# Prepend the directory containing modern FFmpeg 7.1 to PATH so any implicit subprocess calls use it
+try:
+    _ff_dir = os.path.dirname(FFMPEG_BIN)
+    if _ff_dir and os.path.exists(_ff_dir):
+        os.environ["PATH"] = _ff_dir + os.pathsep + os.environ.get("PATH", "")
+except Exception:
+    pass
 
 EMOTION_PROSODY_MATRIX = {
     "suspenseful_warning": {"rate_offset": -6, "pitch_offset": -10},
@@ -212,8 +309,11 @@ def is_safe_url(url: str | None) -> bool:
 # Voice Mapping Presets for Edge TTS
 VOICE_PRESET_MAP = {
     "edge-nam-minh": "vi-VN-NamMinhNeural",
+    "edge-vi-nam-minh": "vi-VN-NamMinhNeural",
     "edge-nu-hoai-my": "vi-VN-HoaiMyNeural",
+    "edge-vi-hoai-my": "vi-VN-HoaiMyNeural",
     "edge-nu-hoai-an": "vi-VN-HoaiMyNeural",
+    "eleven-adam": "vi-VN-NamMinhNeural",
     "edge-vi-andrew": "en-US-AndrewMultilingualNeural",
     "edge-vi-ava": "en-US-AvaMultilingualNeural",
     "edge-en-andrew": "en-US-AndrewNeural",
@@ -279,82 +379,52 @@ visionflow_image = (
     .run_commands("playwright install chromium --with-deps")
 )
 
-VIETNAMESE_REPAIR_PAIRS = [
-    ("nhật", "ký"), ("hàng", "hải"), ("cứu", "hộ"), ("hoang", "sơ"),
-    ("sương", "gió"), ("cầu", "nguyện"), ("khí", "tượng"), ("đất", "liền"),
-    ("thức", "ăn"), ("bước", "chân"), ("nghiêm", "ngặt"), ("bến", "tàu"),
-    ("vách", "đá"), ("tự", "nhiên"), ("vô", "hình"), ("đại", "dương"),
-    ("thủy", "thủ"), ("thuyền", "trưởng"), ("sấm", "sét"), ("kỳ", "cựu"),
-    ("dấu", "vết"), ("rợn", "người"), ("khổng", "lồ"), ("bầu", "trời"),
-    ("bật", "khóc"), ("xác", "nhận"), ("bên", "trong"), ("cửa", "gỗ"),
-    ("góc", "phòng"), ("linh", "hồn"), ("móc", "treo"), ("lan", "can"),
-    ("sức", "mạnh"), ("ngự", "trị"), ("tất", "cả"), ("nhiều", "năm"),
-    ("canh", "gác"), ("thường", "xuyên"), ("đêm", "khuya"), ("lênh", "đênh"),
-    ("biển", "đêm"), ("bắt", "đầu"), ("câu", "chuyện"), ("tĩnh", "lặng"),
-    ("bão", "bùng"), ("hư", "vô"), ("dạn", "dày"), ("kinh", "hoàng"),
-    ("dồn", "dập"), ("gõ", "cửa"), ("thì", "thầm"), ("sợ", "hãi"),
-    ("kỳ", "quái"), ("bí", "ẩn"), ("mưa", "gió"), ("hoàn", "toàn"),
-    ("vụt", "tắt"), ("chết", "chóc"), ("lạnh", "buốt"), ("bốc", "hơi"),
-    ("biến", "mất"), ("nghi", "thức"), ("thang", "máy"), ("tiếng", "bước"),
-    ("mã", "morse"), ("phát", "nổ"), ("hải", "đăng"), ("hoảng", "loạn"),
-    ("rùng", "rợn"), ("bất", "thường"), ("đông", "cứng"), ("tuyệt", "đối"),
-    ("tự", "động"), ("chôn", "vùi"), ("thảm", "họa"), ("đồng", "hồ"),
-    ("bản", "lề"), ("quả", "lắc"), ("áo", "mưa")
-]
-
 def normalize_vietnamese_script(raw_text: str) -> str:
     """
-    Flawless Storytelling Speech Rhythm & Cadence Engine:
-    1. Repairs broken compound words (e.g. 'tĩnh ... lặng' -> 'tĩnh lặng').
-    2. Cleans unnatural dead pauses after linking words ('là...', 'rằng...').
-    3. Maps ellipses before uppercase letters to '.' (Sentence end, lowering pitch).
-    4. Maps ellipses before lowercase letters to ',' (Natural 200ms clause breath pause, holding emotional pitch).
-    5. Maps quotes to ':' for dramatic dialogue delivery.
+    Universal Open-Closed Speech Rhythm & Cadence Engine:
+    Zero Hardcoded Dictionaries - 100% Generic Rule-Based Text Stream Normalizer.
+    Works natively for any language (Vietnamese, English, Chinese, etc.) and any script style.
+    
+    1. Strips non-speech tags/brackets [cues], (notes).
+    2. Standardizes typographic symbols and quotation marks.
+    3. Normalizes all ellipsis variations ('...', '…', spaced dots) dynamically:
+       - Mid-sentence / before lowercase -> Natural breath pause (', ')
+       - Sentence end / before uppercase -> Clean period ('. ')
+    4. Eliminates isolated punctuation noise and normalizes clean single spacing.
     """
     if not raw_text:
         return ""
     text = str(raw_text)
 
-    # 1. Strip bracketed director cues
+    # 1. Strip bracketed director cues / annotations
     text = re.sub(r'\[.*?\]', ' ', text)
     text = re.sub(r'\(.*?\)', ' ', text)
 
-    # 2. Normalize full-width ellipsis '…' to standard '...'
+    # 2. Normalize smart quotes and typographic ellipsis
     text = text.replace('…', '...')
+    text = text.replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
 
-    # 3. Explicitly repair broken compound words
-    for w1, w2 in VIETNAMESE_REPAIR_PAIRS:
-        pattern = re.compile(rf'\b{w1}\b\s*[\.]{{2,}}\s*\b{w2}\b', re.IGNORECASE)
-        text = pattern.sub(f"{w1} {w2}", text)
+    # 3. Standardize multiple dots / ellipses into a temporary placeholder
+    text = re.sub(r'(?:\.\s*){2,}', ' ___ELLIPSIS___ ', text)
 
-    # 4. Clean ellipsis after particles that should never pause
-    no_pause_particles = r'(?:là|rằng|của|vào|trong|với|bởi|do|như)'
-    text = re.sub(rf'\b({no_pause_particles})\s*[\.]{{2,}}\s*', r'\1 ', text, flags=re.IGNORECASE)
+    # 4. Clean stray non-terminal dots between words or before lowercase characters
+    text = re.sub(r'\s*\.\s*(?=[a-z\u00C0-\u024F\u1EA0-\u1EF9\d])', ' ', text)
 
-    # 5. Unicode-Aware Ellipsis Cadence Mapper:
-    # If followed by UPPERCASE -> Period with space (New sentence!)
-    # If followed by lowercase -> Comma with space (Clause breath pause 200ms, avoids breathless rushing!)
-    def replace_ellipsis(match):
-        following_char = match.group(1)
-        if following_char.isupper():
-            return f". {following_char}"
-        elif following_char.islower():
-            return f", {following_char}"
-        elif following_char in ("'", '"', '“', '‘'):
-            return f": {following_char}"
-        return f", {following_char}"
+    # 5. Dynamic Cadence Mapping:
+    # Multiple dots before UPPERCASE -> Terminal Sentence ('. ')
+    # Multiple dots before lowercase / mid-sentence -> Breath pause (', ')
+    text = re.sub(r'\s*___ELLIPSIS___\s*([A-Z\u00C0-\u024F\u1EA0-\u1EF9])', r'. \1', text)
+    text = re.sub(r'\s*___ELLIPSIS___\s*([a-z\u00C0-\u024F\u1EA0-\u1EF9\d])', r', \1', text)
+    text = re.sub(r'\s*___ELLIPSIS___\s*([\'\"])', r': \1', text)
+    text = re.sub(r'\s*___ELLIPSIS___\s*$', '.', text)
+    text = re.sub(r'___ELLIPSIS___', ' ', text)
 
-    text = re.sub(r'\s*[\.]{2,}\s*([^\s\.])', replace_ellipsis, text)
-    # If at the very end of string -> Period
-    text = re.sub(r'\s*[\.]{2,}\s*$', '.', text)
-
-    # 6. Clean duplicate punctuation and whitespace
+    # 6. Clean duplicate punctuation and standardize spacing
     text = re.sub(r'[,]{2,}', ',', text)
     text = re.sub(r'[,]\s*[,]', ',', text)
     text = re.sub(r'[\.]{2,}', '.', text)
-    text = re.sub(r'[!]{2,}', '!', text)
-    text = re.sub(r'[?]{2,}', '?', text)
     text = re.sub(r'\s+([,.\?!:;])', r'\1', text)
+    text = re.sub(r'([,.\?!:;])(?=[^\s\d])', r'\1 ', text)
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
@@ -539,88 +609,83 @@ NOISE_WORDS = {
     "4k", "8k", "hd", "wallpaper", "masterpiece", "concept", "art", "illustration", "tôi", "là", "bạn"
 }
 
-TOPIC_STOCK_MAP = {
-    "ship": ["burning ship ocean", "ancient sailing ship", "sea galleon twilight"],
-    "fire": ["campfire night beach", "dramatic bonfire flames", "cozy fire light"],
-    "forest": ["misty pine forest aerial", "deep woods sunlight", "foggy forest trees"],
-    "ocean": ["dramatic ocean waves", "stormy sea sunset", "dark beach twilight"],
-    "city": ["city night lights aerial", "rainy city street night", "tokyo neon lights"],
-    "crowd": ["crowd walking city street", "blurred people walking", "busy urban sidewalk"],
-    "money": ["money counting cash", "gold coins glowing", "financial growth chart"],
-    "space": ["starry night sky milkyway", "deep space nebula", "glowing stars galaxy"],
-    "rain": ["rain drops window night", "rainy street reflections", "stormy rain forest"],
-    "mountain": ["majestic mountain peaks", "foggy mountain sunrise", "snowy mountain aerial"],
+THEMATIC_HD_LIBRARY = {
+    "mystery_horror": [
+        "https://videos.pexels.com/video-files/6707366/6707366-hd_1080_1920_30fps.mp4",
+        "https://videos.pexels.com/video-files/14517238/14517238-sd_360_640_30fps.mp4",
+        "https://videos.pexels.com/video-files/34016972/14428869_360_640_30fps.mp4",
+        "https://videos.pexels.com/video-files/36443293/15453406_360_640_60fps.mp4",
+        "https://videos.pexels.com/video-files/26791723/12007066_360_640_60fps.mp4",
+        "https://videos.pexels.com/video-files/37398776/15839357_360_640_30fps.mp4",
+        "https://videos.pexels.com/video-files/9467038/9467038-sd_540_960_25fps.mp4",
+        "https://videos.pexels.com/video-files/5856435/5856435-hd_1080_1920_24fps.mp4",
+        "https://videos.pexels.com/video-files/19997487/19997487-hd_1080_1920_30fps.mp4"
+    ],
+    "tech_ai": [
+        "https://videos.pexels.com/video-files/34672414/14696003_360_640_24fps.mp4",
+        "https://videos.pexels.com/video-files/34908311/14788190_360_640_30fps.mp4",
+        "https://videos.pexels.com/video-files/3129671/3129671-hd_1080_1920_30fps.mp4"
+    ],
+    "finance_motivation": [
+        "https://videos.pexels.com/video-files/34504957/14619602_360_640_24fps.mp4",
+        "https://videos.pexels.com/video-files/3196285/3196285-hd_1080_1920_25fps.mp4"
+    ],
+    "nature_cinematic": [
+        "https://videos.pexels.com/video-files/30474696/13058529_360_640_60fps.mp4",
+        "https://videos.pexels.com/video-files/5391986/5391986-hd_720_1280_30fps.mp4"
+    ]
 }
 
-def extract_visual_keywords(prompt: str, gemini_api_key: str | None = None) -> list[str]:
-    """Uses LLM Gemini or NLP Visual Metaphors to extract clean 2-3 word English stock queries for Pexels Video API."""
+SEMANTIC_THEMES = [
+    # Horror / Mystery / Mansion / Storm / Gun
+    (r'(mưa|bão|gió|sấm|sét|rain|storm|thunder|lightning)', ['dark thunderstorm rain', 'lightning storm night', 'dark rain clouds']),
+    (r'(súng|đạn|súng trường|rifle|gun|bullet|shot|winchester)', ['vintage rifle smoke', 'antique gun bullets', 'firing old weapon']),
+    (r'(hồn|linh hồn|oan hồn|ma|quỷ|tâm linh|spirit|ghost|demon|séance|ngoại cảm)', ['spooky ghost shadow', 'séance candle dark', 'mysterious mist shadow']),
+    (r'(cầu thang|trần nhà|mê cung|lạc|staircase|stairs|ceiling|maze|labyrinth)', ['wooden staircase ceiling', 'creepy mystery maze hallway', 'winding dark stairs']),
+    (r'(cửa|cánh cửa|gõ cửa|khóa|door|doorway|corridor|hallway|khoảng không)', ['door open empty dark', 'creepy door knock night', 'dark eerie hallway doors']),
+    (r'(búa|đóng đinh|xây|thợ|hammer|nail|construction|building)', ['vintage hammer wood', 'construction antique tools', 'striking hammer sparks']),
+    (r'(dinh thự|lâu đài|nhà ma|phòng|mansion|castle|haunted|house)', ['mysterious haunted house', 'dark victorian mansion', 'creepy old house night']),
+    (r'(chết|tang|góa phụ|nữ tỷ phú|widow|death|parlor|funeral)', ['victorian mansion parlor', 'sad woman silhouette dark', 'vintage mourning portrait']),
+    (r'(đồng hồ|2 giờ sáng|nửa đêm|clock|midnight|tick)', ['antique clock ticking night', 'pocket watch pendulum', 'dark vintage clock']),
+    (r'(nến|đèn|lửa|candle|lantern|flame|fire)', ['flickering candle dark', 'antique lantern night', 'candle flame close up']),
+    
+    # Tech / AI / Matrix
+    (r'(ai|tech|robot|công nghệ|dữ liệu|matrix|cyber|code)', ['cyberpunk neon tunnel', 'digital matrix data code', 'futuristic tech interface']),
+    
+    # Finance / Success / Money
+    (r'(tiền|tài chính|giàu|thành công|doanh nhân|money|finance|gold)', ['money counting cash', 'gold coins glowing', 'city traffic night aerial']),
+    
+    # Ocean / Sea / Ship
+    (r'(biển|đại dương|thuyền|tàu|sóng|ocean|sea|ship|waves)', ['dramatic stormy ocean waves', 'ancient sailing ship sea', 'dark sea twilight']),
+    
+    # Nature / Mountain / Space
+    (r'(rừng|núi|vũ trụ|sao|forest|mountain|space|galaxy)', ['foggy mountain sunrise', 'misty pine forest dusk', 'starry night milkyway'])
+]
+
+def extract_visual_keywords(prompt: str, gemini_api_key: str | None = None, scene_idx: int = 0) -> list[str]:
+    """Uses Smart NLP Semantic Concept Engine to extract rich 2-3 word English stock queries for Pexels Video API."""
     prompt_clean = str(prompt or "").strip()
     if not prompt_clean:
-        return ["cinematic mountain peak", "city night lights", "cozy library room"]
+        return ["dark atmospheric cinematic", "mysterious night vertical", "cinematic lighting vertical"]
 
-    # 1. Direct Visual Concept & Metaphor Mappings for Vietnamese & English terms
-    prompt_lower = prompt_clean.lower()
-    mapped_queries = []
-    
-    # Psychological / Philosophical / Mindset concepts
-    if any(k in prompt_lower for k in ["dunning", "kruger", "nghiên cứu", "tâm lý", "psychology", "khoa học", "chấn động"]):
-        mapped_queries.append("science laboratory research")
-        mapped_queries.append("brain psychology medical")
-    if any(k in prompt_lower for k in ["tự tin", "ngông cuồng", "ít năng lực", "arrogant", "confident", "thách thức"]):
-        mapped_queries.append("confident businessman walking")
-        mapped_queries.append("man standing edge mountain")
-    if any(k in prompt_lower for k in ["khiêm tốn", "cúi đầu", "cao thủ", "humble", "master", "thiền", "trưởng thành"]):
-        mapped_queries.append("meditation mountain silhouette")
-        mapped_queries.append("wise old master")
-    if any(k in prompt_lower for k in ["núi ngu ngốc", "đỉnh núi", "peak", "mountain", "climbing", "vực thẳm"]):
-        mapped_queries.append("foggy mountain peak sunrise")
-        mapped_queries.append("mountain climber summit")
-    if any(k in prompt_lower for k in ["tri thức", "sách", "học hỏi", "library", "knowledge", "reading", "ancient"]):
-        mapped_queries.append("ancient library book")
-        mapped_queries.append("turning book pages")
-    if any(k in prompt_lower for k in ["tiền", "tài chính", "giàu", "money", "finance", "wealth", "gold"]):
-        mapped_queries.append("money counting cash")
-        mapped_queries.append("gold coins glowing")
-    if any(k in prompt_lower for k in ["vũ trụ", "ngôi sao", "galaxy", "space", "stars", "nebula"]):
-        mapped_queries.append("starry night sky milkyway")
-        mapped_queries.append("deep space nebula")
-    if any(k in prompt_lower for k in ["biển", "sóng", "đại dương", "ocean", "sea", "waves"]):
-        mapped_queries.append("dramatic ocean waves sunset")
+    # 1. Strip UI prefixes like 'Cảnh 1:', 'Scene 1:'
+    clean_text = re.sub(r'^(cảnh|scene)\s*\d+[\s\:\-]+', '', prompt_clean, flags=re.IGNORECASE).strip().lower()
 
-    if mapped_queries:
-        return mapped_queries[:3]
+    # 2. Fast Rule-Based & Semantic Concept Matching
+    matched = []
+    for pattern, queries in SEMANTIC_THEMES:
+        if re.search(pattern, clean_text):
+            matched.extend(queries)
 
-    # 2. Call Gemini 1.5 Flash AI to translate Vietnamese script into cinematic English stock queries
-    if gemini_api_key:
-        try:
-            import google.generativeai as genai
-            genai.configure(api_key=gemini_api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
-            resp = model.generate_content(
-                f"You are an expert cinematic director and stock video researcher. Given this Vietnamese or English scene text: '{prompt_clean[:300]}', "
-                "analyze the visual theme, emotional metaphor, and context, and return ONLY a valid JSON list of 3 distinct, high-quality 2-3 word English search queries for Pexels 4K vertical footage. "
-                "Examples: [\"arrogant confident man\", \"science laboratory graph\", \"foggy mountain peak silhouette\"]"
-            )
-            if resp and resp.text:
-                txt = resp.text.strip()
-                match = re.search(r'\[.*\]', txt, re.DOTALL)
-                if match:
-                    data = json.loads(match.group(0))
-                    if isinstance(data, list) and len(data) > 0:
-                        return [str(q).strip() for q in data if q][:3]
-        except Exception as err:
-            print(f"[Modal] ⚠️ Gemini keyword extraction notice: {err}", flush=True)
+    if matched:
+        # Deduplicate while preserving order
+        unique_q = list(dict.fromkeys(matched))
+        # Rotate candidate queries based on scene_idx so identical categories get different visuals
+        rot_idx = scene_idx % len(unique_q)
+        rotated = unique_q[rot_idx:] + unique_q[:rot_idx]
+        return rotated[:3]
 
-    words = re.findall(r'\b[a-zA-Z]{3,}\b', prompt_clean.lower())
-    meaningful = [w for w in words if w not in NOISE_WORDS]
-    if len(meaningful) >= 2:
-        return [
-            f"{meaningful[0]} {meaningful[1]}",
-            f"{meaningful[0]} cinematic",
-            "dramatic nature vertical"
-        ]
-
-    return ["cinematic nature vertical", "dramatic lighting vertical", "atmospheric background vertical"]
+    return ["dark atmospheric cinematic", "mysterious vertical footage", "dramatic lighting vertical"]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -723,7 +788,7 @@ def evaluate_video_quality(video_path: str, expected_duration: float, expected_r
 
     try:
         cmd = [
-            "ffprobe", "-v", "error", "-show_entries", "format=duration:stream=width,height,r_frame_rate",
+            FFPROBE_BIN, "-v", "error", "-show_entries", "format=duration:stream=width,height,r_frame_rate",
             "-of", "json", video_path
         ]
         res = subprocess.run(cmd, capture_output=True, text=True, check=True)
@@ -745,6 +810,32 @@ def evaluate_video_quality(video_path: str, expected_duration: float, expected_r
         }
     except Exception as q_err:
         return {"passed": False, "score": 40, "reason": f"FFprobe evaluation error: {q_err}"}
+
+def preprocess_script_for_tts(text: str) -> str:
+    """
+    Intelligently converts ellipses ('...', '…', '..') into natural sentence-boundary pauses
+    for Neural TTS (Edge TTS / ElevenLabs / Azure Speech).
+    Ensures proper capitalization of subsequent words so the Neural Language Model inserts
+    a natural acoustic breath pause (300-500ms) rather than reading in one continuous breath.
+    """
+    if not text:
+        return text
+    # 1. Normalize all ellipsis variations
+    normalized = re.sub(r"[.…]{2,}", "...", text)
+    # 2. Split into segments
+    parts = normalized.split("...")
+    cleaned_segments = []
+    for p in parts:
+        p = p.strip()
+        if not p:
+            continue
+        # Capitalize first letter of clause for Sentence Boundary Disambiguation
+        p_cap = p[0].upper() + p[1:] if len(p) > 1 else p.upper()
+        # Ensure punctuation at end
+        if not p_cap.endswith((".", "!", "?", ":", ";")):
+            p_cap += "."
+        cleaned_segments.append(p_cap)
+    return " ".join(cleaned_segments)
 
 def format_ass_time(seconds: float) -> str:
     hrs = int(seconds // 3600)
@@ -793,33 +884,54 @@ def chunk_script_to_kinetic_phrases(script_text: str, total_duration: float, max
 
     return phrases_with_timing
 
-def fetch_pexels_video_for_keyword(query: str, pexels_key: str) -> str | None:
-    """Searches Pexels HD Stock API for a vertical portrait video matching query keyword."""
+def fetch_pexels_video_for_keyword(query: str, pexels_key: str, scene_idx: int = 0) -> str | None:
+    """Searches Pexels HD Stock API for a vertical portrait video matching query keyword with scene rotation."""
     if not query:
         return None
     try:
         import requests
+        # Clean query: strip AI render tags and limit to top 4-5 concise words
+        clean_q = re.sub(r"(?i)\b(photorealistic|hyperrealistic|ultra realistic|cinematic lighting|8k|4k|octane render|unreal engine|masterpiece|trending on artstation|depth of field|bokeh|detailed textures?|vray|sharp focus)\b", "", query)
+        clean_q = re.sub(r"[^\w\s-]", " ", clean_q).strip()
+        words = clean_q.split()
+        if len(words) > 5:
+            clean_q = " ".join(words[:4])
+        search_query = clean_q if clean_q else (query if len(query.split()) <= 4 else "cinematic atmospheric")
+
         headers = {"Authorization": pexels_key}
         pex_res = requests.get(
             "https://api.pexels.com/videos/search",
             headers=headers,
-            params={"query": query, "orientation": "portrait", "per_page": 5},
-            timeout=10
+            params={"query": search_query, "orientation": "portrait", "per_page": 8},
+            timeout=12
         )
         if pex_res.status_code == 200:
             data = pex_res.json()
             videos = data.get("videos", [])
             if videos:
-                for v in videos:
-                    video_files = v.get("video_files", [])
-                    for vf in video_files:
-                        if vf.get("height", 0) >= 1280:
-                            return vf.get("link")
-                    if video_files:
-                        return video_files[0].get("link")
+                # Pick distinct candidate using scene_idx
+                selected_v = videos[scene_idx % len(videos)]
+                video_files = selected_v.get("video_files", [])
+                for vf in video_files:
+                    if vf.get("height", 0) >= 1280:
+                        return vf.get("link")
+                if video_files:
+                    return video_files[0].get("link")
     except Exception as e:
         print(f"[Modal] ⚠️ Notice: Pexels scene search ({query}): {e}", flush=True)
-    return None
+
+    # 2. Fallback to Curated THEMATIC_HD_LIBRARY
+    q_lower = query.lower()
+    cat = "mystery_horror"
+    if any(k in q_lower for k in ["tech", "ai", "matrix", "cyber", "data"]):
+        cat = "tech_ai"
+    elif any(k in q_lower for k in ["money", "finance", "gold", "cash", "traffic"]):
+        cat = "finance_motivation"
+    elif any(k in q_lower for k in ["nature", "ocean", "sea", "forest", "mountain", "waves"]):
+        cat = "nature_cinematic"
+
+    fallback_list = THEMATIC_HD_LIBRARY.get(cat, THEMATIC_HD_LIBRARY["mystery_horror"])
+    return fallback_list[scene_idx % len(fallback_list)]
 
 def parse_webvtt_cues(vtt_path: str) -> list[dict]:
     """Parses Edge TTS generated WebVTT file to extract exact word timings."""
@@ -1285,6 +1397,59 @@ def create_logo_pill_overlay(
     img.save(output_path, "PNG")
     return output_path
 
+def create_follow_cta_overlay(
+    logo_handle: str = "@GocChiemNghiem",
+    canvas_w: int = 1080,
+    canvas_h: int = 1920,
+    output_path: str = "/tmp/follow_cta_overlay.png"
+) -> str:
+    """Generates a sleek, animated glassmorphic Follow CTA card for the end of the video."""
+    img = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    clean_handle = str(logo_handle or "@GocChiemNghiem").split("||")[0].strip()
+    if not clean_handle.startswith("@"):
+        clean_handle = f"@{clean_handle}"
+    
+    font_title = None
+    font_handle = None
+    for font_name in [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "C:/Windows/Fonts/arialbd.ttf",
+        "C:/Windows/Fonts/tahoma.ttf"
+    ]:
+        if os.path.exists(font_name):
+            try:
+                font_title = ImageFont.truetype(font_name, 36)
+                font_handle = ImageFont.truetype(font_name, 28)
+                break
+            except Exception:
+                pass
+    if not font_title:
+        font_title = ImageFont.load_default()
+        font_handle = ImageFont.load_default()
+
+    card_w = 660
+    card_h = 130
+    center_x = canvas_w // 2
+    center_y = int(canvas_h * 0.82)
+    x0, y0 = center_x - card_w // 2, center_y - card_h // 2
+    x1, y1 = center_x + card_w // 2, center_y + card_h // 2
+
+    # Glow halo
+    glow_img = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+    glow_draw = ImageDraw.Draw(glow_img)
+    glow_draw.rounded_rectangle((x0 - 15, y0 - 15, x1 + 15, y1 + 15), radius=35, fill=(56, 189, 248, 120))
+    glow_img = glow_img.filter(ImageFilter.GaussianBlur(15))
+    img = Image.alpha_composite(img, glow_img)
+
+    # Card
+    draw = ImageDraw.Draw(img)
+    draw.rounded_rectangle((x0, y0, x1, y1), radius=26, fill=(15, 23, 42, 235), outline=(56, 189, 248, 200), width=3)
+    draw.text((center_x, center_y - 20), "👉 NHẤN FOLLOW ĐỂ XEM TIẾP", font=font_title, fill=(255, 255, 255, 255), anchor="mm")
+    draw.text((center_x, center_y + 24), clean_handle, font=font_handle, fill=(56, 189, 248, 255), anchor="mm")
+    img.save(output_path, "PNG")
+    return output_path
+
 
 def generate_ass_subtitles(
     script_text: str,
@@ -1430,13 +1595,24 @@ def render_scene_chunk(scene_payload: dict) -> dict:
     workflow_run_id = scene_payload.get("workflow_run_id", "wf_temp")
     scene_idx = scene_payload.get("scene_index", 0)
     keyword = str(scene_payload.get("keyword") or "cinematic nature").strip()
+    raw_kw = str(scene_payload.get("keyword") or "").strip()
+    stock_queries = scene_payload.get("stock_queries") or []
+    if not raw_kw and stock_queries and isinstance(stock_queries, list) and len(stock_queries) > 0:
+        raw_kw = str(stock_queries[0]).strip()
+    shots = scene_payload.get("shots") or []
+    if not raw_kw and shots and isinstance(shots, list) and len(shots) > 0:
+        first_shot = shots[0]
+        if isinstance(first_shot, dict):
+            raw_kw = str(first_shot.get("keyword") or (first_shot.get("stock_queries") or [""])[0] or "").strip()
+    keyword = raw_kw or "cinematic nature"
     media_url = scene_payload.get("media_url") or ""
     scene_dur = float(scene_payload.get("duration") or 5.0)
+    scene_dur = float(scene_payload.get("actual_duration_seconds") or scene_payload.get("duration") or scene_payload.get("duration_seconds") or 5.0)
     res_w = int(scene_payload.get("res_w") or 1080)
     res_h = int(scene_payload.get("res_h") or 1920)
     target_fps = int(scene_payload.get("fps") or 60)
     
-    out_dir = f"/tmp/{workflow_run_id}"
+    out_dir = os.path.abspath(f"/tmp/{workflow_run_id}").replace("\\", "/")
     os.makedirs(out_dir, exist_ok=True)
     chunk_output = f"{out_dir}/scene_chunk_{scene_idx}.mp4"
     raw_media_path = f"{out_dir}/scene_raw_{scene_idx}.mp4"
@@ -1477,20 +1653,30 @@ def render_scene_chunk(scene_payload: dict) -> dict:
             
     if not cache_hit:
         downloaded = False
-        if media_url and is_safe_url(media_url):
-            try:
-                r_m = requests.get(media_url, timeout=20, stream=True)
-                if r_m.status_code == 200:
-                    with open(raw_media_path, "wb") as f_raw:
-                        for chunk in r_m.iter_content(chunk_size=8192):
-                            f_raw.write(chunk)
+        if media_url:
+            if os.path.exists(media_url) and os.path.getsize(media_url) > 1000:
+                import shutil
+                try:
+                    shutil.copyfile(media_url, raw_media_path)
                     downloaded = True
-            except Exception:
-                pass
+                    print(f"[MicroWorker {scene_idx}] 📁 Copied local media file: {media_url}", flush=True)
+                except Exception as cp_err:
+                    print(f"[MicroWorker {scene_idx}] Notice: Local media copy error: {cp_err}", flush=True)
+            elif is_safe_url(media_url):
+                try:
+                    r_m = requests.get(media_url, timeout=25, stream=True)
+                    if r_m.status_code == 200:
+                        with open(raw_media_path, "wb") as f_raw:
+                            for chunk in r_m.iter_content(chunk_size=8192):
+                                f_raw.write(chunk)
+                        downloaded = True
+                        print(f"[MicroWorker {scene_idx}] 🌐 Downloaded scene media from URL: {media_url[:60]}...", flush=True)
+                except Exception as dl_err:
+                    print(f"[MicroWorker {scene_idx}] Notice: Media URL download error: {dl_err}", flush=True)
                 
         if not downloaded:
             pexels_key = os.environ.get("PEXELS_API_KEY", "j3CIlOLR1RdRejkZPi56CCmJALu9axEyFjik0U77W3semlJtXFpMqgVp")
-            pex_url = fetch_pexels_video_for_keyword(keyword, pexels_key)
+            pex_url = fetch_pexels_video_for_keyword(keyword, pexels_key, scene_idx=scene_idx)
             if pex_url and is_safe_url(pex_url):
                 try:
                     r_pex = requests.get(pex_url, timeout=25, stream=True)
@@ -1499,16 +1685,16 @@ def render_scene_chunk(scene_payload: dict) -> dict:
                             for chunk in r_pex.iter_content(chunk_size=8192):
                                 f_raw.write(chunk)
                         downloaded = True
-                        print(f"[MicroWorker {scene_idx}] 🎯 Downloaded Pexels video for query: '{keyword}'", flush=True)
-                except Exception:
-                    pass
+                        print(f"[MicroWorker {scene_idx}] 🎯 Downloaded Stock HD video for query: '{keyword}' ({pex_url[:60]}...)", flush=True)
+                except Exception as pex_err:
+                    print(f"[MicroWorker {scene_idx}] Notice: Stock video download error: {pex_err}", flush=True)
                     
         # Normalize and trim to exact duration, resolution, 60fps CRF 18
         if downloaded and os.path.exists(raw_media_path) and os.path.getsize(raw_media_path) > 10000:
             # Check if source media is a static image or a video
             is_image = False
             try:
-                probe_cmd = ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_type", "-of", "default=noprint_wrappers=1:nokey=1", raw_media_path]
+                probe_cmd = [FFPROBE_BIN, "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_type", "-of", "default=noprint_wrappers=1:nokey=1", raw_media_path]
                 probe_out = subprocess.run(probe_cmd, capture_output=True, text=True).stdout.strip().lower()
                 if "image" in probe_out or raw_media_path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
                     is_image = True
@@ -1520,7 +1706,7 @@ def render_scene_chunk(scene_payload: dict) -> dict:
                 total_frames = max(1, int(round(scene_dur * target_fps)))
                 ken_burns_filter = f"zoompan=z='min(zoom+0.0015,1.25)':d={total_frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={res_w}x{res_h}:fps={target_fps},format=yuv420p"
                 norm_cmd = [
-                    "ffmpeg", "-y",
+                    FFMPEG_BIN, "-y",
                     "-loop", "1",
                     "-i", raw_media_path,
                     "-t", str(scene_dur),
@@ -1533,7 +1719,7 @@ def render_scene_chunk(scene_payload: dict) -> dict:
                 # Video normalization: -stream_loop MUST be before -i, and -t MUST be AFTER -i to loop seamlessly!
                 norm_filter = f"fps={target_fps},format=yuv420p,scale={res_w}:{res_h}:force_original_aspect_ratio=increase,crop={res_w}:{res_h},setsar=1"
                 norm_cmd = [
-                    "ffmpeg", "-y",
+                    FFMPEG_BIN, "-y",
                     "-stream_loop", "-1",
                     "-i", raw_media_path,
                     "-ss", "00:00:00.000",
@@ -1556,7 +1742,7 @@ def render_scene_chunk(scene_payload: dict) -> dict:
         else:
             # Fallback canvas color with slow cinematic camera drift so scene never freezes
             color_cmd = [
-                "ffmpeg", "-y",
+                FFMPEG_BIN, "-y",
                 "-f", "lavfi",
                 "-i", f"color=c=0x0b132b:s={res_w}x{res_h}:d={scene_dur}:r={target_fps}",
                 "-vf", "format=yuv420p",
@@ -1601,11 +1787,14 @@ def render_video_task(contract_payload: dict) -> dict:
 
     try:
         video_output = f"/tmp/{workflow_run_id}/final_output.mp4"
-        raw_script = contract_payload.get("captionText") or contract_payload.get("script") or ""
-        
-        # If script is missing or short from payload, fetch full script from PostgreSQL DB!
-        if len(raw_script.strip()) < 40 and workflow_run_id and workflow_run_id != "modal_run_demo":
-            db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_mHw3FfgN7DQO@ep-morning-dawn-azmmaco1-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
+        work_dir = os.path.abspath(f"/tmp/{workflow_run_id}").replace("\\", "/")
+        os.makedirs(work_dir, exist_ok=True)
+
+        # -------------------------------------------------------------------
+        # 0. Comprehensive Metadata Backfill from PostgreSQL Neon DB
+        # -------------------------------------------------------------------
+        if workflow_run_id and workflow_run_id != "modal_run_demo":
+            db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_EwgAC4iWTSj0@ep-calm-queen-az3o70qo-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
             try:
                 import psycopg2
                 conn_s = psycopg2.connect(db_url)
@@ -1616,42 +1805,93 @@ def render_video_task(contract_payload: dict) -> dict:
                     except Exception:
                         return str(uuid.uuid5(uuid.NAMESPACE_DNS, str(val)))
                 wf_u = safe_uuid(workflow_run_id)
-                cur_s.execute("SELECT prompt_manifest, input_payload FROM workflow_runs WHERE id = %s::uuid", (wf_u,))
+
+                # 1. Backfill from workflow_runs (input_payload & prompt_manifest)
+                cur_s.execute("SELECT input_payload, prompt_manifest FROM workflow_runs WHERE id = %s::uuid", (wf_u,))
                 row_s = cur_s.fetchone()
                 if row_s:
-                    pm = row_s[0] or {}
-                    inp = row_s[1] or {}
-                    db_script = pm.get("script") or inp.get("script") or pm.get("captionText") or inp.get("captionText")
-                    if not db_script:
-                        # Try creative_document_versions
-                        cur_s.execute(
-                            """
-                            SELECT content_json FROM creative_document_versions cdv
-                            JOIN creative_sessions cs ON cs.id = cdv.session_id
-                            WHERE cs.id = %s::uuid OR cdv.id = %s::uuid
-                            ORDER BY cdv.version_number DESC LIMIT 1
-                            """,
-                            (wf_u, wf_u)
-                        )
-                        doc_row = cur_s.fetchone()
-                        if doc_row and doc_row[0]:
-                            doc_data = doc_row[0]
-                            db_script = doc_data.get("script") or doc_data.get("narration")
-                    if db_script and len(str(db_script)) > len(raw_script):
-                        raw_script = str(db_script)
-                        print(f"[Modal] 📜 Auto-resolved full script from PostgreSQL DB ({len(raw_script)} chars)!", flush=True)
+                    inp = row_s[0] if isinstance(row_s[0], dict) else (json.loads(row_s[0]) if isinstance(row_s[0], str) else {})
+                    pm = row_s[1] if isinstance(row_s[1], dict) else (json.loads(row_s[1]) if isinstance(row_s[1], str) else {})
+                    for k, v in inp.items():
+                        if k not in contract_payload or contract_payload[k] is None or contract_payload[k] == "":
+                            contract_payload[k] = v
+                    for k, v in pm.items():
+                        if k not in contract_payload or contract_payload[k] is None or contract_payload[k] == "":
+                            contract_payload[k] = v
+
+                # 2. Backfill from creative_sessions (creation_spec)
+                cur_s.execute("SELECT creation_spec FROM creative_sessions WHERE workflow_run_id = %s::uuid OR id = %s::uuid ORDER BY updated_at DESC LIMIT 1", (wf_u, wf_u))
+                cs_row = cur_s.fetchone()
+                if cs_row and cs_row[0]:
+                    cs_spec = cs_row[0] if isinstance(cs_row[0], dict) else (json.loads(cs_row[0]) if isinstance(cs_row[0], str) else {})
+                    for k, v in cs_spec.items():
+                        if k not in contract_payload or contract_payload[k] is None or contract_payload[k] == "":
+                            contract_payload[k] = v
+
+                # 2.1 Backfill proposal scenes from creative_proposals (contains exact video_url & media_url for each scene!)
+                cur_s.execute(
+                    """
+                    SELECT cp.script, cp.scenes
+                    FROM creative_proposals cp
+                    JOIN creative_sessions cs ON cs.id = cp.session_id
+                    WHERE cs.workflow_run_id = %s::uuid OR cs.id = %s::uuid
+                    ORDER BY cp.version DESC LIMIT 1
+                    """,
+                    (wf_u, wf_u)
+                )
+                prop_row = cur_s.fetchone()
+                if prop_row:
+                    if prop_row[0] and (not contract_payload.get("script") or len(str(contract_payload.get("script", ""))) < len(str(prop_row[0]))):
+                        contract_payload["script"] = prop_row[0]
+                    if prop_row[1] and isinstance(prop_row[1], list) and len(prop_row[1]) > 0:
+                        current_scenes = contract_payload.get("scenes") or []
+                        has_video_urls = any(sc.get("video_url") or sc.get("media_url") for sc in current_scenes if isinstance(sc, dict))
+                        if not has_video_urls or len(current_scenes) == 0:
+                            contract_payload["scenes"] = prop_row[1]
+                            print(f"[Modal] 🎞️ Auto-resolved {len(prop_row[1])} proposal scenes with media URLs from creative_proposals DB!", flush=True)
+
+                # 3. Backfill full script & structured scenes from creative_documents & creative_scenes
+                cur_s.execute(
+                    """
+                    SELECT cdv.script, json_agg(json_build_object(
+                        'position', csc.position,
+                        'narration', csc.narration,
+                        'visual_prompt', csc.visual_prompt,
+                        'duration_seconds', csc.duration_seconds,
+                        'transition', csc.transition,
+                        'caption', csc.caption
+                    ) ORDER BY csc.position ASC) as scenes
+                    FROM creative_documents cd
+                    JOIN creative_document_versions cdv ON cdv.creative_document_id = cd.id
+                    LEFT JOIN creative_scenes csc ON csc.creative_document_version_id = cdv.id
+                    WHERE cd.workflow_run_id = %s::uuid
+                    GROUP BY cdv.id, cdv.script, cdv.version
+                    ORDER BY cdv.version DESC LIMIT 1;
+                    """,
+                    (wf_u,)
+                )
+                doc_row = cur_s.fetchone()
+                if doc_row:
+                    if doc_row[0] and (not contract_payload.get("script") or len(str(contract_payload.get("script", ""))) < len(str(doc_row[0]))):
+                        contract_payload["script"] = doc_row[0]
+                        print(f"[Modal] 📜 Auto-resolved full script from PostgreSQL DB ({len(doc_row[0])} chars)!", flush=True)
+                    if doc_row[1] and isinstance(doc_row[1], list) and len(doc_row[1]) > 0 and (not contract_payload.get("scenes") or len(contract_payload.get("scenes", [])) == 0):
+                        contract_payload["scenes"] = [sc for sc in doc_row[1] if sc.get("narration") or sc.get("visual_prompt")]
+                        print(f"[Modal] 🎞️ Auto-resolved {len(contract_payload['scenes'])} visual scenes from PostgreSQL DB!", flush=True)
+
                 cur_s.close()
                 conn_s.close()
             except Exception as s_err:
-                print(f"[Modal] Notice: DB script resolution fallback: {s_err}", flush=True)
+                print(f"[Modal] Notice: DB metadata resolution: {s_err}", flush=True)
 
-        if not raw_script:
-            raw_script = contract_payload.get("title") or "VisionFlow Serverless Video Render Test"
-
+        raw_script = contract_payload.get("script") or contract_payload.get("captionText") or contract_payload.get("narration") or contract_payload.get("text") or contract_payload.get("title") or "VisionFlow Video"
         script = normalize_vietnamese_script(raw_script)
         print(f"[Modal] 📜 Normalized Vietnamese script ({len(script)} chars): '{script[:60]}...'", flush=True)
 
-        raw_voice_code = contract_payload.get("voice_code") or contract_payload.get("voice") or "vi-VN-NamMinhNeural"
+        # -------------------------------------------------------------------
+        # Voice & Speech Synthesis Parameters
+        # -------------------------------------------------------------------
+        raw_voice_code = contract_payload.get("voice_code") or contract_payload.get("voiceCode") or contract_payload.get("voice") or "vi-VN-NamMinhNeural"
         voice_code = resolve_voice(raw_voice_code)
         raw_voice_rate = contract_payload.get("voice_rate") or contract_payload.get("voiceRate") or 1.12
         try:
@@ -1660,7 +1900,6 @@ def render_video_task(contract_payload: dict) -> dict:
             voice_rate = 1.12
         voice_rate_str = format_rate(voice_rate)
 
-        # Custom AI Voice Clone & Pitch / Timbre Fine-tuning
         custom_voice_url = contract_payload.get("custom_voice_url") or contract_payload.get("customVoiceUrl")
         voice_pitch = int(contract_payload.get("voicePitch") or contract_payload.get("voice_pitch") or 0)
         pitch_arg = f"+{voice_pitch}Hz" if voice_pitch > 0 else (f"{voice_pitch}Hz" if voice_pitch < 0 else "+0Hz")
@@ -1669,11 +1908,9 @@ def render_video_task(contract_payload: dict) -> dict:
             print(f"[Modal] 🎙️ AI Zero-Shot Voice Clone Mode active! Reference Voice Sample: {custom_voice_url[:50]}...", flush=True)
             
         print(f"[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice={voice_code}, rate={voice_rate_str}, pitch={pitch_arg})...", flush=True)
-        os.makedirs(f"/tmp/{workflow_run_id}", exist_ok=True)
-        audio_output = f"/tmp/{workflow_run_id}/tts_voice.mp3"
-        vtt_output = f"/tmp/{workflow_run_id}/tts_words.vtt"
+        audio_output = f"{work_dir}/tts_voice.mp3"
+        vtt_output = f"{work_dir}/tts_words.vtt"
         
-        # Check if scenes have emotion tags for dynamic modulation
         scenes_list = contract_payload.get("scenes") or []
         raw_emo = (scenes_list[0].get("emotion") if scenes_list and isinstance(scenes_list[0], dict) else "") or ""
         first_emotion = str(raw_emo).lower().replace("-", "_").strip()
@@ -1685,9 +1922,12 @@ def render_video_task(contract_payload: dict) -> dict:
             pitch_arg = f"+{calc_pitch}Hz" if calc_pitch >= 0 else f"{calc_pitch}Hz"
             print(f"[Modal] 🎭 Emotion-Dynamic Voice Modulation active! [Emotion: {first_emotion}] -> Rate: {voice_rate_str}, Pitch: {pitch_arg}", flush=True)
 
+        tts_script = preprocess_script_for_tts(script)
+        print(f"[Modal] 📝 Script preprocessed for Neural TTS breath pauses ({len(script)} chars -> {len(tts_script)} chars)", flush=True)
+
         tts_cmd = [
-            "edge-tts",
-            "--text", script,
+            sys.executable, "-m", "edge_tts",
+            "--text", tts_script,
             "--voice", voice_code,
             f"--rate={voice_rate_str}",
             f"--pitch={pitch_arg}",
@@ -1696,17 +1936,10 @@ def render_video_task(contract_payload: dict) -> dict:
         ]
         subprocess.run(tts_cmd, check=True)
 
-        # Parse exact word timestamps from WebVTT
         vtt_cues = parse_webvtt_cues(vtt_output)
         print(f"[Modal] 🎯 Extracted {len(vtt_cues)} word-level timestamps from Edge TTS for Karaoke sync!", flush=True)
 
-        # Probe exact audio duration
-        duration_cmd = [
-            "ffprobe", "-v", "error", "-show_entries", "format=duration",
-            "-of", "default=noprint_wrappers=1:nokey=1", audio_output
-        ]
-        dur_res = subprocess.run(duration_cmd, capture_output=True, text=True, check=True)
-        audio_duration = float(dur_res.stdout.strip())
+        audio_duration = get_audio_duration_seconds(audio_output, fallback_duration=30.0)
         video_duration = max(3.0, round(audio_duration + 0.5, 2))
 
         # -------------------------------------------------------------------
@@ -1723,21 +1956,27 @@ def render_video_task(contract_payload: dict) -> dict:
         target_fps = int(contract_payload.get("fps") or 60)
         print(f"[Modal] 📐 Canvas Format: Aspect={raw_aspect} -> Resolution={res_w}x{res_h} @ {target_fps} FPS (CRF 18 Broadcast Profile)", flush=True)
 
-        # Parse Frontend Subtitle & Branding Configuration
-        caption_color = contract_payload.get("captionColor") or contract_payload.get("caption_color") or "#FFE600"
+        # -------------------------------------------------------------------
+        # Frontend UI & Branding Controls (Pixel-Perfect WYSIWYG)
+        # -------------------------------------------------------------------
+        caption_color = str(contract_payload.get("captionColor") or contract_payload.get("caption_color") or "#FFE600").strip()
         caption_font_size = int(contract_payload.get("captionFontSize") or contract_payload.get("caption_font_size") or contract_payload.get("fontSize") or contract_payload.get("font_size") or 76)
-        font_family = contract_payload.get("captionFontFamily") or contract_payload.get("fontFamily") or contract_payload.get("caption_font_family") or "Montserrat"
-        show_title_banner = contract_payload.get("showTitleBanner", contract_payload.get("show_title_banner", True))
-        title_banner_style = contract_payload.get("titleBannerStyle") or contract_payload.get("title_banner_style") or "neon"
+        font_family = str(contract_payload.get("captionFontFamily") or contract_payload.get("fontFamily") or contract_payload.get("caption_font_family") or "Montserrat").strip()
+        
+        cap_pos = str(contract_payload.get("captionPosition") or contract_payload.get("caption_position") or "bottom").lower()
+        default_cap_y = 22 if cap_pos == "top" else (50 if cap_pos == "center" else 78)
         caption_x_percent = int(contract_payload.get("captionXPercent") or contract_payload.get("caption_x_percent") or 50)
-        caption_y_percent = int(contract_payload.get("captionYPercent") or contract_payload.get("caption_y_percent") or 78)
-        title_banner_y_percent = int(contract_payload.get("titleBannerYPercent") or contract_payload.get("title_banner_y_percent") or 15)
-        enable_progress_bar = contract_payload.get("enableProgressBar", contract_payload.get("enable_progress_bar", True))
-        enable_vignette = contract_payload.get("enableVignette", contract_payload.get("enable_vignette", True))
-        color_grading = contract_payload.get("colorGrading") or contract_payload.get("color_grading") or "none"
-        enable_karaoke = contract_payload.get("enableKaraoke", contract_payload.get("enable_karaoke", True))
-        enable_auto_emoji = contract_payload.get("enableAutoEmoji", contract_payload.get("enable_auto_emoji", True))
-        caption_preset = contract_payload.get("captionPreset") or contract_payload.get("caption_preset") or contract_payload.get("subtitle_preset") or "hormozi" 
+        caption_y_percent = int(contract_payload.get("captionYPercent") or contract_payload.get("caption_y_percent") or default_cap_y)
+        
+        caption_preset = str(contract_payload.get("captionPreset") or contract_payload.get("caption_preset") or contract_payload.get("subtitle_preset") or "hormozi").lower()
+        enable_karaoke = bool(contract_payload.get("enableKaraoke", contract_payload.get("enable_karaoke", True)))
+        enable_auto_emoji = bool(contract_payload.get("enableAutoEmoji", contract_payload.get("enable_auto_emoji", True)))
+
+        show_title_banner = bool(contract_payload.get("showTitleBanner", contract_payload.get("show_title_banner", True)))
+        title_banner_style = str(contract_payload.get("titleBannerStyle") or contract_payload.get("title_banner_style") or "neon").lower()
+        title_banner_y_percent = float(contract_payload.get("titleBannerYPercent") or contract_payload.get("title_banner_y_percent") or 14.0)
+        title_banner_text = str(contract_payload.get("titleBannerText") or contract_payload.get("title") or "").strip()
+
         watermark_text = (
             contract_payload.get("logoHandle")
             or contract_payload.get("logo_handle")
@@ -1751,43 +1990,38 @@ def render_video_task(contract_payload: dict) -> dict:
             or contract_payload.get("brandText")
             or "@GocChiemNghiem"
         )
-        watermark_x_percent = int(
-            contract_payload.get("logoXPercent")
-            or contract_payload.get("logo_x_percent")
-            or (18 if (contract_payload.get("logoPosition") or contract_payload.get("logo_position")) == "top_left" else 82)
-        )
-        watermark_y_percent = int(
-            contract_payload.get("logoYPercent")
-            or contract_payload.get("logo_y_percent")
-            or 6
-        )
-        watermark_position = contract_payload.get("logoPosition") or contract_payload.get("logo_position") or "top_left" 
-        enable_progress_bar = contract_payload.get("enableProgressBar", False)
-        color_grading = contract_payload.get("colorGrading", "none")
-        enable_karaoke = contract_payload.get("enableKaraoke", True)
-        enable_auto_emoji = contract_payload.get("enableAutoEmoji", True)
-        caption_preset = contract_payload.get("captionPreset", "hormozi")
+        logo_pos = str(contract_payload.get("logoPosition") or contract_payload.get("logo_position") or "top_left").lower()
+        default_logo_x = 18 if "left" in logo_pos else 82
+        default_logo_y = 92 if "bottom" in logo_pos else 6
+        watermark_x_percent = float(contract_payload.get("logoXPercent") or contract_payload.get("logo_x_percent") or default_logo_x)
+        watermark_y_percent = float(contract_payload.get("logoYPercent") or contract_payload.get("logo_y_percent") or default_logo_y)
 
-        # 1. Generate Pixel-Perfect PIL PNG Overlays (Matching Studio Preview 100%)
-        banner_png_path = f"/tmp/{workflow_run_id}/banner_overlay.png"
+        color_grading = str(contract_payload.get("colorGrading") or contract_payload.get("color_grading") or "cyber_teal").lower()
+        enable_vignette = bool(contract_payload.get("enableVignette", contract_payload.get("enable_vignette", True)))
+        enable_progress_bar = bool(contract_payload.get("enableProgressBar", contract_payload.get("enable_progress_bar", True)))
+        enable_follow_cta = bool(contract_payload.get("enableFollowCTA", contract_payload.get("enable_follow_cta", True)))
+        enable_sfx = bool(contract_payload.get("enableSFX", contract_payload.get("enable_sfx", True)))
+
+        # 1. Generate Pixel-Perfect PIL PNG Overlays (Title Banner & Logo Pill & Follow CTA)
+        banner_png_path = f"{work_dir}/banner_overlay.png"
         has_banner = False
-        if show_title_banner and (contract_payload.get("titleBannerText") or contract_payload.get("title")):
+        if show_title_banner and title_banner_text:
             try:
                 create_title_banner_overlay(
-                    title_text=contract_payload.get("titleBannerText") or contract_payload.get("title"),
+                    title_text=title_banner_text,
                     canvas_w=res_w,
                     canvas_h=res_h,
                     style=title_banner_style,
-                    y_percent=float(title_banner_y_percent),
+                    y_percent=title_banner_y_percent,
                     output_path=banner_png_path
                 )
                 has_banner = os.path.exists(banner_png_path) and os.path.getsize(banner_png_path) > 1000
                 if has_banner:
-                    print(f"[Modal] 🟨 Created Pixel-Perfect Title Banner Card with Yellow Glow Halo!", flush=True)
+                    print(f"[Modal] 🟨 Created Pixel-Perfect Title Banner Card ({title_banner_style.upper()})!", flush=True)
             except Exception as b_err:
                 print(f"[Modal] Notice: Title Banner generation fallback: {b_err}", flush=True)
 
-        logo_png_path = f"/tmp/{workflow_run_id}/logo_overlay.png"
+        logo_png_path = f"{work_dir}/logo_overlay.png"
         has_logo = False
         if watermark_text:
             try:
@@ -1795,18 +2029,34 @@ def render_video_task(contract_payload: dict) -> dict:
                     logo_handle=watermark_text,
                     canvas_w=res_w,
                     canvas_h=res_h,
-                    x_percent=float(watermark_x_percent),
-                    y_percent=float(watermark_y_percent),
+                    x_percent=watermark_x_percent,
+                    y_percent=watermark_y_percent,
                     output_path=logo_png_path
                 )
                 has_logo = os.path.exists(logo_png_path) and os.path.getsize(logo_png_path) > 1000
                 if has_logo:
-                    print(f"[Modal] 🟢 Created Pixel-Perfect Glassmorphic Logo Pill!", flush=True)
+                    print(f"[Modal] 🟢 Created Pixel-Perfect Logo Pill ({watermark_text}) at pos={logo_pos} ({watermark_x_percent}%, {watermark_y_percent}%)!", flush=True)
             except Exception as l_err:
                 print(f"[Modal] Notice: Logo Pill generation fallback: {l_err}", flush=True)
 
+        cta_png_path = f"{work_dir}/follow_cta_overlay.png"
+        has_cta = False
+        if enable_follow_cta and watermark_text:
+            try:
+                create_follow_cta_overlay(
+                    logo_handle=watermark_text,
+                    canvas_w=res_w,
+                    canvas_h=res_h,
+                    output_path=cta_png_path
+                )
+                has_cta = os.path.exists(cta_png_path) and os.path.getsize(cta_png_path) > 1000
+                if has_cta:
+                    print(f"[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!", flush=True)
+            except Exception as cta_err:
+                print(f"[Modal] Notice: Follow CTA generation fallback: {cta_err}", flush=True)
+
         # 2. Generate ASS Subtitles with Kinetic Karaoke highlight
-        ass_path = f"/tmp/{workflow_run_id}/subtitles.ass"
+        ass_path = f"{work_dir}/subtitles.ass"
         generate_ass_subtitles(
             script_text=script,
             transcripts=contract_payload.get("transcripts"),
@@ -1824,6 +2074,7 @@ def render_video_task(contract_payload: dict) -> dict:
             res_w=res_w,
             res_h=res_h
         )
+        ass_path_escaped = ass_path.replace("\\", "/").replace(":", "\\:")
 
         # -------------------------------------------------------------------
         # Media Background Selection (Storyboard Scenes vs Custom Source Video vs Pexels API)
@@ -1834,8 +2085,9 @@ def render_video_task(contract_payload: dict) -> dict:
         enable_mask_logo = contract_payload.get("enable_mask_logo", False)
 
         scenes = contract_payload.get("scenes") or []
+        sfx_events: list = []
         custom_bg_downloaded = False
-        bg_file_path = f"/tmp/{workflow_run_id}/custom_bg.mp4"
+        bg_file_path = f"{work_dir}/custom_bg.mp4"
         bg_url = (
             contract_payload.get("source_video_url")
             or contract_payload.get("video_url")
@@ -1868,29 +2120,31 @@ def render_video_task(contract_payload: dict) -> dict:
                 conn_sc = psycopg2.connect(db_url)
                 cur_sc = conn_sc.cursor()
                 wf_u = safe_uuid(workflow_run_id)
-                cur_sc.execute("SELECT prompt_manifest, input_payload FROM workflow_runs WHERE id = %s::uuid", (wf_u,))
-                row_sc = cur_sc.fetchone()
-                if row_sc:
-                    pm = row_sc[0] or {}
-                    inp = row_sc[1] or {}
-                    db_scenes = pm.get("scenes") or inp.get("scenes")
-                    if not db_scenes:
-                        cur_sc.execute(
-                            """
-                            SELECT content_json FROM creative_document_versions cdv
-                            JOIN creative_sessions cs ON cs.id = cdv.session_id
-                            WHERE cs.id = %s::uuid OR cdv.id = %s::uuid
-                            ORDER BY cdv.version_number DESC LIMIT 1
-                            """,
-                            (wf_u, wf_u)
-                        )
-                        doc_row = cur_sc.fetchone()
-                        if doc_row and doc_row[0]:
-                            doc_data = doc_row[0]
-                            db_scenes = doc_data.get("scenes")
-                    if db_scenes and isinstance(db_scenes, list) and len(db_scenes) > 0:
-                        scenes = db_scenes
-                        print(f"[Modal] 🎞️ Auto-resolved {len(scenes)} visual scenes from PostgreSQL DB!", flush=True)
+                cur_sc.execute(
+                    """
+                    SELECT cp.scenes
+                    FROM creative_proposals cp
+                    JOIN creative_sessions cs ON cs.id = cp.session_id
+                    WHERE cs.workflow_run_id = %s::uuid OR cs.id = %s::uuid
+                    ORDER BY cp.version DESC LIMIT 1
+                    """,
+                    (wf_u, wf_u)
+                )
+                prop_row = cur_sc.fetchone()
+                if prop_row and prop_row[0] and isinstance(prop_row[0], list) and len(prop_row[0]) > 0:
+                    scenes = prop_row[0]
+                    print(f"[Modal] 🎞️ Auto-resolved {len(scenes)} visual scenes with media URLs from creative_proposals DB!", flush=True)
+
+                if not scenes or len(scenes) == 0:
+                    cur_sc.execute("SELECT prompt_manifest, input_payload FROM workflow_runs WHERE id = %s::uuid", (wf_u,))
+                    row_sc = cur_sc.fetchone()
+                    if row_sc:
+                        pm = row_sc[0] or {}
+                        inp = row_sc[1] or {}
+                        db_scenes = pm.get("scenes") or inp.get("scenes")
+                        if db_scenes and isinstance(db_scenes, list) and len(db_scenes) > 0:
+                            scenes = db_scenes
+                            print(f"[Modal] 🎞️ Auto-resolved {len(scenes)} visual scenes from PostgreSQL DB workflow_runs!", flush=True)
                 cur_sc.close()
                 conn_sc.close()
             except Exception as db_sc_err:
@@ -1928,29 +2182,42 @@ def render_video_task(contract_payload: dict) -> dict:
                 
             total_words = sum(word_counts)
             synced_scene_durations = []
-            for cnt in word_counts:
-                prop_dur = (cnt / total_words) * audio_duration
-                synced_scene_durations.append(round(max(2.5, prop_dur), 2))
+            cum_scene_time = 0.0
+            for idx, cnt in enumerate(word_counts):
+                is_last_scene = (idx == len(word_counts) - 1)
+                if is_last_scene:
+                    prop_dur = max(2.5, round(audio_duration - cum_scene_time, 2))
+                else:
+                    prop_dur = round(max(2.5, (cnt / total_words) * audio_duration), 2)
+                cum_scene_time += prop_dur
+                synced_scene_durations.append(prop_dur)
+                # Overwrite any untrusted external actual_duration_seconds with authoritative backend measurement
+                scenes[idx]["actual_duration_seconds"] = prop_dur
                 
             print(f"[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: {audio_duration:.1f}s): {synced_scene_durations}", flush=True)
 
             scene_payloads = []
             gemini_key = os.environ.get("GEMINI_API_KEY", "AIzaSyCNu2LQSzyBW6ACixl1D6SLy07_vdeu0ho")
             for idx, sc in enumerate(scenes):
-                sc_text = sc.get("keyword") or sc.get("prompt") or sc.get("text") or sc.get("narration") or f"cinematic scene {idx+1}"
-                queries = extract_visual_keywords(sc_text, gemini_api_key=gemini_key)
+                # Build rich scene text combining prompt, narration, keywords
+                sc_text = f"{sc.get('visual_prompt') or ''} {sc.get('prompt') or ''} {sc.get('narration') or ''} {sc.get('keyword') or ''} {sc.get('text') or ''}".strip()
+                if not sc_text:
+                    sc_text = f"cinematic scene {idx+1}"
+                queries = extract_visual_keywords(sc_text, gemini_api_key=gemini_key, scene_idx=idx)
                 best_kw = queries[0] if queries else sc_text
                 
                 # Pass precise voice-synced scene duration with +1.5s transition headroom
                 exact_dur = synced_scene_durations[idx]
                 sc_chunk_dur = max(3.0, exact_dur + 1.5)
                 
+                norm_shots = normalize_shot_durations_py(sc.get("shots") or [], exact_dur)
                 scene_payloads.append({
                     "workflow_run_id": workflow_run_id,
                     "scene_index": idx,
                     "keyword": best_kw,
-                    "media_url": sc.get("video_url") or sc.get("image_url") or sc.get("media_url") or "",
+                    "media_url": sc.get("video_url") or sc.get("image_url") or sc.get("media_url") or sc.get("source_url") or "",
                     "duration": sc_chunk_dur,
+                    "shots": norm_shots,
                     "res_w": res_w,
                     "res_h": res_h,
                     "fps": target_fps
@@ -1958,7 +2225,7 @@ def render_video_task(contract_payload: dict) -> dict:
                 
             from concurrent.futures import ThreadPoolExecutor
             worker_fn = render_scene_chunk.local if hasattr(render_scene_chunk, "local") else render_scene_chunk
-            with ThreadPoolExecutor(max_workers=min(8, len(scene_payloads))) as executor:
+            with ThreadPoolExecutor(max_workers=min(4, len(scene_payloads))) as executor:
                 rendered_chunks = list(executor.map(worker_fn, scene_payloads))
                 
             scene_files = [rc["chunk_path"] for rc in sorted(rendered_chunks, key=lambda x: x["scene_index"]) if os.path.exists(rc.get("chunk_path", ""))]
@@ -1973,7 +2240,7 @@ def render_video_task(contract_payload: dict) -> dict:
                             str(sc.get("transition", "")).lower() in TRANSITION_MAP for sc in scenes
                         ) or contract_payload.get("enable_transitions", True)
                         
-                        concat_path = f"/tmp/{workflow_run_id}/concat_scenes.mp4"
+                        concat_path = f"{work_dir}/concat_scenes.mp4"
                         
                         if has_transitions and len(scene_files) > 1:
                             filter_parts = []
@@ -2033,7 +2300,7 @@ def render_video_task(contract_payload: dict) -> dict:
                                 
                             filter_graph = ";".join(filter_parts)
                             xfade_cmd = [
-                                "ffmpeg", "-y",
+                                FFMPEG_BIN, "-y",
                                 *cmd_inputs,
                                 "-filter_complex", filter_graph,
                                 "-map", "[vout]",
@@ -2044,12 +2311,12 @@ def render_video_task(contract_payload: dict) -> dict:
                             print(f"[Modal] ⚡ Applied 30+ Cinematic XFade Transitions across {len(scene_files)} scenes with auto SFX sync!", flush=True)
                         else:
                             # Direct stream concat fast path
-                            concat_list_path = f"/tmp/{workflow_run_id}/concat_list.txt"
+                            concat_list_path = f"{work_dir}/concat_list.txt"
                             with open(concat_list_path, "w", encoding="utf-8") as f_list:
                                 for sf in scene_files:
                                     f_list.write(f"file '{sf}'\n")
                             concat_cmd = [
-                                "ffmpeg", "-y",
+                                FFMPEG_BIN, "-y",
                                 "-f", "concat",
                                 "-safe", "0",
                                 "-i", concat_list_path,
@@ -2063,7 +2330,25 @@ def render_video_task(contract_payload: dict) -> dict:
                         custom_bg_downloaded = True
                     except Exception as cat_err:
                         print(f"[Modal] ⚠️ Notice: Transition concat fallback ({cat_err})", flush=True)
-                        bg_file_path = scene_files[0]
+                        try:
+                            concat_list_path = f"{work_dir}/concat_fallback_list.txt"
+                            with open(concat_list_path, "w", encoding="utf-8") as f_list:
+                                for sf in scene_files:
+                                    f_list.write(f"file '{sf}'\n")
+                            concat_cmd = [
+                                FFMPEG_BIN, "-y",
+                                "-f", "concat",
+                                "-safe", "0",
+                                "-i", concat_list_path,
+                                "-c", "copy",
+                                concat_path
+                            ]
+                            subprocess.run(concat_cmd, check=True)
+                            bg_file_path = concat_path
+                            print(f"[Modal] ⚡ Fallback Direct Stream Concat: Joined {len(scene_files)} scenes without re-encoding!", flush=True)
+                        except Exception as direct_err:
+                            print(f"[Modal] ❌ Direct stream concat fallback failed ({direct_err}), using first scene only", flush=True)
+                            bg_file_path = scene_files[0]
                         custom_bg_downloaded = True
 
         # 2. Try Single Background URL
@@ -2123,7 +2408,7 @@ def render_video_task(contract_payload: dict) -> dict:
         # -------------------------------------------------------------------
         # Build FFmpeg Filter Chain with Pixel-Perfect PNG Overlays & Subtitles
         # -------------------------------------------------------------------
-        video_output = f"/tmp/{workflow_run_id}/final_output.mp4"
+        video_output = f"{work_dir}/final_output.mp4"
         ass_path_escaped = ass_path.replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
 
         v_prep = (
@@ -2140,6 +2425,9 @@ def render_video_task(contract_payload: dict) -> dict:
         elif color_grading == "clean_tech":
             v_prep += ",eq=contrast=1.10:saturation=1.08:brightness=0.01"
 
+        if enable_vignette:
+            v_prep += ",vignette=PI/5"
+
         if enable_progress_bar:
             pbar_y = res_h - 10
             v_prep += f",drawbox=y={pbar_y}:color=0x38BDF8@0.9:t=fill:w='iw*t/{video_duration}'"
@@ -2154,7 +2442,7 @@ def render_video_task(contract_payload: dict) -> dict:
             or contract_payload.get("background_music_url")
             or contract_payload.get("bgm_custom_url")
         )
-        bgm_mood = contract_payload.get("bgm_mood") or contract_payload.get("bgm_preset") or ""
+        bgm_mood = contract_payload.get("bgm_mood") or contract_payload.get("bgm_preset") or contract_payload.get("bgmPreset") or ""
         
         detected_genre = detect_video_genre_modal(
             title=contract_payload.get("title", ""),
@@ -2169,10 +2457,10 @@ def render_video_task(contract_payload: dict) -> dict:
         )
         
         target_bgm_url = bgm_meta.get("url", "")
-        bgm_file_path = f"/tmp/{workflow_run_id}/bgm.mp3"
+        bgm_file_path = f"{work_dir}/bgm.mp3"
         has_bgm = False
         
-        user_bgm_vol = contract_payload.get("bgm_volume") or contract_payload.get("bgmVolume")
+        user_bgm_vol = contract_payload.get("bgm_volume") or contract_payload.get("bgmVolume") or contract_payload.get("music_volume")
         try:
             bgm_volume_gain = float(user_bgm_vol) if user_bgm_vol is not None else float(bgm_meta.get("volume_gain", 0.12))
         except Exception:
@@ -2196,7 +2484,10 @@ def render_video_task(contract_payload: dict) -> dict:
         # -------------------------------------------------------------------
         # Smart SFX Sound Design Track Extraction & Mixing
         # -------------------------------------------------------------------
-        sfx_events = extract_sfx_cues(script, scenes_list, vtt_cues)
+        auto_sfx_events = extract_sfx_cues(script, scenes_list, vtt_cues) if enable_sfx else []
+        for cue in auto_sfx_events:
+            if not any(abs(f.get("start_time", 0) - cue.get("start_time", 0)) < 0.5 for f in sfx_events):
+                sfx_events.append(cue)
         sfx_extra_inputs = []
         sfx_audio_labels = []
 
@@ -2218,6 +2509,13 @@ def render_video_task(contract_payload: dict) -> dict:
             curr_v = "[vlogo]"
             next_input_idx += 1
 
+        if has_cta:
+            extra_inputs.extend(["-loop", "1", "-i", cta_png_path])
+            cta_start = max(0.5, video_duration - 3.5)
+            filter_steps.append(f"{curr_v}[{next_input_idx}:v]overlay=0:0:enable='between(t,{cta_start:.2f},{video_duration:.2f})'[vcta]")
+            curr_v = "[vcta]"
+            next_input_idx += 1
+
         filter_steps.append(f"{curr_v}subtitles=filename='{ass_path_escaped}'[vout]")
 
         # Download and inject SFX sound effects
@@ -2226,7 +2524,7 @@ def render_video_task(contract_payload: dict) -> dict:
             s_url = sfx_item["url"]
             s_st = sfx_item["start_time"]
             s_vol = sfx_item["volume"]
-            s_path = f"/tmp/{workflow_run_id}/sfx_{sfx_idx}_{s_type}.mp3"
+            s_path = f"{work_dir}/sfx_{sfx_idx}_{s_type}.mp3"
             try:
                 import requests
                 r_s = requests.get(s_url, timeout=10)
@@ -2272,7 +2570,7 @@ def render_video_task(contract_payload: dict) -> dict:
 
         bgm_inputs = ["-stream_loop", "-1", "-i", bgm_file_path] if has_bgm else []
         ffmpeg_cmd = [
-            "ffmpeg", "-y",
+            FFMPEG_BIN, "-y",
             "-f", "lavfi", "-i", f"color=c=0x0a0c16:s={res_w}x{res_h}:d={video_duration}:r={target_fps}",
             "-ss", "00:00:00.000", "-stream_loop", "-1", "-an", "-i", bg_file_path if custom_bg_downloaded else f"color=c=0x0a0c16:s={res_w}x{res_h}:d={video_duration}",
             "-i", audio_output,
@@ -2297,12 +2595,13 @@ def render_video_task(contract_payload: dict) -> dict:
         print(f"[Modal Quality Gate] Evaluation Result: {q_res}", flush=True)
 
         # -------------------------------------------------------------------
-        # Upload Rendered Video to Cloudflare R2 Object Storage
+        # Upload Rendered Video & 3D Cover Thumbnail to Cloudflare R2
         # -------------------------------------------------------------------
         r2_endpoint = os.environ.get("VISIONFLOW_OBJECT_STORE_ENDPOINT", "https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com")
         r2_bucket = os.environ.get("VISIONFLOW_OBJECT_STORE_BUCKET", "vision-flow")
         r2_access_key = os.environ.get("VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID", "fd28f47a855e5f2097d5f8c24c50da70")
         r2_secret_key = os.environ.get("VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY", "c329293210d831c0bdba01f2434d86dab3eb23ab0a73f9b67819b7c3069cc9c6")
+        r2_public = os.environ.get("VISIONFLOW_OBJECT_STORE_PUBLIC_BASE", "https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev")
         
         object_key = f"visionflow/{workflow_run_id}/exports/final.mp4"
         print(f"[Modal] ☁️ Uploading rendered video to R2 ({r2_bucket}/{object_key})...", flush=True)
@@ -2329,26 +2628,12 @@ def render_video_task(contract_payload: dict) -> dict:
         
         print(f"[Modal] ✅ R2 Upload complete: {r2_bucket}/{object_key}", flush=True)
 
-        # Generate presigned GET URL for 7 days
-        presigned_url = s3.generate_presigned_url(
-            "get_object",
-            Params={"Bucket": r2_bucket, "Key": object_key},
-            ExpiresIn=604800,
-            HttpMethod="GET"
-        )
-
-        # -------------------------------------------------------------------
-        # Update PostgreSQL Database via Control Plane API or Direct SQL
-        # -------------------------------------------------------------------
-        db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_mHw3FfgN7DQO@ep-morning-dawn-azmmaco1-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
-                # -------------------------------------------------------------------
         # AI Golden Frame 3D Cover Thumbnail Extraction at 1.5s
-        # -------------------------------------------------------------------
-        cover_path = f"/tmp/{workflow_run_id}/cover.jpg"
+        cover_path = f"{work_dir}/cover.jpg"
         cover_url = ""
         try:
             extract_cover_cmd = [
-                "ffmpeg", "-y",
+                FFMPEG_BIN, "-y",
                 "-ss", "00:00:01.500",
                 "-i", video_output,
                 "-vframes", "1",
@@ -2359,12 +2644,23 @@ def render_video_task(contract_payload: dict) -> dict:
             if s3 and os.path.exists(cover_path):
                 cover_key = f"workflows/{workflow_run_id}/cover.jpg"
                 s3.upload_file(cover_path, r2_bucket, cover_key, ExtraArgs={"ContentType": "image/jpeg"})
-                r2_public = os.environ.get("VISIONFLOW_OBJECT_STORE_PUBLIC_BASE", "https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev")
                 cover_url = f"{r2_public}/{cover_key}"
                 print(f"[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 ({cover_url})!", flush=True)
         except Exception as cov_err:
             print(f"[Modal] ⚠️ Notice: Cover thumbnail extraction: {cov_err}", flush=True)
 
+        # Generate presigned GET URL for 7 days
+        presigned_url = s3.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": r2_bucket, "Key": object_key},
+            ExpiresIn=604800,
+            HttpMethod="GET"
+        )
+
+        # -------------------------------------------------------------------
+        # Update PostgreSQL Database (media_assets & workflow_runs)
+        # -------------------------------------------------------------------
+        db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_EwgAC4iWTSj0@ep-calm-queen-az3o70qo-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
         try:
             import psycopg2
             conn = psycopg2.connect(db_url)
@@ -2416,12 +2712,12 @@ def render_video_task(contract_payload: dict) -> dict:
                     INSERT INTO media_assets (id, organization_id, workflow_run_id, byte_size, metadata_json, created_at, updated_at, object_key, media_kind, content_type, checksum_sha256)
                     VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s::jsonb, NOW(), NOW(), %s, 'final_export', 'video/mp4', 'sha256_modal')
                     """,
-                    (media_id, org_uuid, wf_uuid, byte_size, meta, presigned_url)
+                    (media_id, org_uuid, wf_uuid, byte_size, meta, object_key)
                 )
             else:
                 cur.execute(
-                    "UPDATE media_assets SET object_key = %s, byte_size = %s, updated_at = NOW() WHERE workflow_run_id = %s::uuid",
-                    (presigned_url, byte_size, wf_uuid)
+                    "UPDATE media_assets SET object_key = %s, byte_size = %s, metadata_json = %s::jsonb, updated_at = NOW() WHERE workflow_run_id = %s::uuid",
+                    (object_key, byte_size, meta, wf_uuid)
                 )
 
             # Update Workflow Run State to APPROVAL_PENDING
@@ -2450,31 +2746,7 @@ def render_video_task(contract_payload: dict) -> dict:
         traceback.print_exc()
 
         # Update Workflow Run State to FAILED in PostgreSQL so failure is accurately reported
-        db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_mHw3FfgN7DQO@ep-morning-dawn-azmmaco1-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
-                # -------------------------------------------------------------------
-        # AI Golden Frame 3D Cover Thumbnail Extraction at 1.5s
-        # -------------------------------------------------------------------
-        cover_path = f"/tmp/{workflow_run_id}/cover.jpg"
-        cover_url = ""
-        try:
-            extract_cover_cmd = [
-                "ffmpeg", "-y",
-                "-ss", "00:00:01.500",
-                "-i", video_output,
-                "-vframes", "1",
-                "-q:v", "2",
-                cover_path
-            ]
-            subprocess.run(extract_cover_cmd, check=True)
-            if s3 and os.path.exists(cover_path):
-                cover_key = f"workflows/{workflow_run_id}/cover.jpg"
-                s3.upload_file(cover_path, r2_bucket, cover_key, ExtraArgs={"ContentType": "image/jpeg"})
-                r2_public = os.environ.get("VISIONFLOW_OBJECT_STORE_PUBLIC_BASE", "https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev")
-                cover_url = f"{r2_public}/{cover_key}"
-                print(f"[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 ({cover_url})!", flush=True)
-        except Exception as cov_err:
-            print(f"[Modal] ⚠️ Notice: Cover thumbnail extraction: {cov_err}", flush=True)
-
+        db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_EwgAC4iWTSj0@ep-calm-queen-az3o70qo-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
         try:
             import psycopg2
             conn = psycopg2.connect(db_url)
@@ -2485,15 +2757,16 @@ def render_video_task(contract_payload: dict) -> dict:
                 except Exception:
                     return str(uuid.uuid5(uuid.NAMESPACE_DNS, str(val)))
             wf_uuid = safe_uuid(workflow_run_id)
-            err_msg = str(exc)[:240]
+            err_code = str(exc)[:90]
+            err_detail = str(exc)[:500]
             cur.execute(
                 "UPDATE workflow_runs SET state = 'FAILED', failure_code = %s, updated_at = NOW() WHERE id = %s::uuid",
-                (err_msg, wf_uuid)
+                (err_code, wf_uuid)
             )
             conn.commit()
             cur.close()
             conn.close()
-            print(f"[Modal] ⚠️ Recorded FAILED state in DB for workflow {workflow_run_id}: {err_msg}", flush=True)
+            print(f"[Modal] ⚠️ Recorded FAILED state in DB for workflow {workflow_run_id}: {err_code}", flush=True)
         except Exception as db_f_err:
             print(f"[Modal] ⚠️ Could not write FAILED state to DB: {db_f_err}", flush=True)
 

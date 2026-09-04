@@ -14,7 +14,10 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.application.create_short_form import CreateShortFormCommand
 from app.application.ports.creative_planning_provider import CreativePlanningProvider
 from app.core.credential_cipher import ProviderCredentialCipher
-from app.infrastructure.creative_document_repository import SqlAlchemyCreativeDocumentRepository
+from app.infrastructure.creative_document_repository import (
+    SqlAlchemyCreativeDocumentRepository,
+    _normalize_transition,
+)
 from app.infrastructure.creative_session_repository import SqlAlchemyCreativeSessionRepository
 from app.infrastructure.models import (
     CreativeCommandReceipt,
@@ -905,21 +908,29 @@ class ManageCreativeSession:
             # Map input payload
             input_payload = {
                 "format_profile": creation_spec.get("format_profile", "short_vertical"),
-                "aspect_ratio": "9:16",
+                "aspect_ratio": creation_spec.get("aspect_ratio", "9:16"),
                 "target_language": creation_spec.get("language", "vi"),
                 "duration_seconds": actual_duration,
                 "voice_code": creation_spec.get("voice_code") or creation_spec.get("voice", "edge-nam-minh"),
                 "voice_rate": creation_spec.get("voice_rate", 1.12),
                 "enable_sfx": creation_spec.get("enable_sfx", True),
                 "logo_url": creation_spec.get("logo_url", ""),
-                "logo_handle": creation_spec.get("logo_handle", "@GocChiemNghiemYuuBin"),
+                "logo_handle": creation_spec.get("logo_handle", "@GocChiemNghiem"),
                 "logo_position": creation_spec.get("logo_position", "top_left"),
                 "logo_opacity": creation_spec.get("logo_opacity", 0.85),
+                "logo_x_percent": creation_spec.get("logo_x_percent", 18),
+                "logo_y_percent": creation_spec.get("logo_y_percent", 6),
                 "show_title_banner": creation_spec.get("show_title_banner", True),
                 "title_banner_style": creation_spec.get("title_banner_style", "neon"),
+                "title_banner_text": creation_spec.get("title_banner_text", proposal.title or creation_spec.get("title", "")),
+                "title_banner_y_percent": creation_spec.get("title_banner_y_percent", 14),
                 "caption_preset": creation_spec.get("caption_preset", "hormozi"),
                 "subtitle_preset": creation_spec.get("caption_preset", "hormozi"),
+                "caption_font_family": creation_spec.get("caption_font_family", "Montserrat"),
+                "caption_font_size": creation_spec.get("caption_font_size", 76),
                 "caption_position": creation_spec.get("caption_position", "bottom"),
+                "caption_x_percent": creation_spec.get("caption_x_percent", 50),
+                "caption_y_percent": creation_spec.get("caption_y_percent", 78),
                 "caption_color": creation_spec.get("caption_color", "#FFFF00"),
                 "enable_karaoke": creation_spec.get("enable_karaoke", True),
                 "enable_auto_emoji": creation_spec.get("enable_auto_emoji", True),
@@ -931,6 +942,9 @@ class ManageCreativeSession:
                 "enable_progress_bar": creation_spec.get("enable_progress_bar", True),
                 "enable_follow_cta": creation_spec.get("enable_follow_cta", True),
                 "enable_outro_card": creation_spec.get("enable_outro_card", True),
+                "bgm_preset": creation_spec.get("bgm_preset", ""),
+                "bgm_custom_url": creation_spec.get("bgm_custom_url", ""),
+                "bgm_volume": creation_spec.get("bgm_volume", 0.12),
                 "title": proposal.title or creation_spec.get("title") or creation_spec.get("brief") or "Untitled",
                 "brief": proposal.brief or creation_spec.get("brief") or "",
                 "script": proposal.script or creation_spec.get("script") or "",
@@ -970,13 +984,16 @@ class ManageCreativeSession:
                     "narration": sc.get("narration", ""),
                     "visual_prompt": sc.get("visual_prompt", ""),
                     "duration_seconds": sc.get("duration_seconds", 5),
-                    "transition": sc.get("transition", "cut"),
+                    "transition": _normalize_transition(sc.get("transition", "cut")),
                     "caption": sc.get("caption"),
                     "asset_source": scene_asset_source,
                     "visual_search_keywords": sc.get("visual_search_keywords") or sc.get("visual_prompt", ""),
                     "mascot_profile": sc.get("mascot_profile"),
                     "style_preset": sc.get("style_preset", creation_spec.get("visual_preset", "cozy_anime_3d")),
                     "emotion": sc.get("emotion", ""),
+                    "video_url": sc.get("video_url") or sc.get("media_url") or sc.get("source_url") or "",
+                    "media_url": sc.get("media_url") or sc.get("video_url") or sc.get("source_url") or "",
+                    "source_url": sc.get("source_url") or sc.get("video_url") or sc.get("media_url") or "",
                 }
                 transformed_scenes.append(item)
 
