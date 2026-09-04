@@ -58,12 +58,23 @@ def build_dubbing_workflow_package(
         "translation": {
             "mode": "faithful",
             "timeline": [],
+            "adapted_timeline": [],
             "source_language": legacy.get("source_language") or "auto",
             "target_language": legacy.get("target_language") or "vi",
         },
+        "dubbing": {
+            "voice_code": legacy.get("voice_code") or "edge-nam-minh",
+            "voice_gender": legacy.get("voice_gender") or "female",
+            "target_language": legacy.get("target_language") or "auto",
+            "timing_qc": {"status": "PENDING", "segments": []},
+        },
+        "quality": {"state": "PENDING", "notes": []},
+        "enable_narration_cta": bool(legacy.get("enable_narration_cta", False)),
+        "enable_seamless_loop_adaptation": bool(legacy.get("enable_seamless_loop_adaptation", False)),
         "legacy_job_metadata": legacy,
     }
-    publish_metadata = legacy_seo_to_publish_metadata(legacy.get("seo_tags_metadata"))
+    publish_metadata = legacy_seo_to_publish_metadata(legacy.get("seo") or legacy.get("seo_tags_metadata"))
     if publish_metadata:
         package["publish_metadata"] = publish_metadata
     return package
+
