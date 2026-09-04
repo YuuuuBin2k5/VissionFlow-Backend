@@ -70,7 +70,7 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 if "DATABASE_URL" not in os.environ:
-    os.environ["DATABASE_URL"] = "postgresql://neondb_owner:npg_EwgAC4iWTSj0@ep-calm-queen-az3o70qo-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+    os.environ["DATABASE_URL"] = "postgresql://neondb_owner:npg_TD8BYOyg6AVC@ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 os.environ.setdefault("ENVIRONMENT", "development")
 os.environ.setdefault("VISIONFLOW_CONTROL_PLANE_URL", "https://visionflow-control-plane.onrender.com")
 os.environ.setdefault("VISIONFLOW_TOKEN_URL", "https://visionflow-control-plane.onrender.com/api/v1/auth/token")

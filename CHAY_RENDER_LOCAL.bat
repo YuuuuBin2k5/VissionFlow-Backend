@@ -18,7 +18,7 @@ cd /d "%~dp0"
 
 set PYTHONIOENCODING=utf-8
 set PYTHONUTF8=1
-set "DATABASE_URL=postgresql://neondb_owner:npg_EwgAC4iWTSj0@ep-calm-queen-az3o70qo-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+set "DATABASE_URL=postgresql://neondb_owner:npg_TD8BYOyg6AVC@ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 where python >nul 2>nul
 if %ERRORLEVEL% NEQ 0 (
