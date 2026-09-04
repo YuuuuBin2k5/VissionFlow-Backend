@@ -1935,6 +1935,31 @@ def render_video_task(contract_payload: dict) -> dict:
             "--write-subtitles", vtt_output
         ]
         subprocess.run(tts_cmd, check=True)
+        try:
+            subprocess.run(tts_cmd, check=True)
+        except Exception as tts_err:
+            print(f"[Modal TTS Warning] TTS with rate={voice_rate_str}, pitch={pitch_arg} failed: {tts_err}. Trying with pitch=+0Hz...", flush=True)
+            fallback_tts_cmd = [
+                sys.executable, "-m", "edge_tts",
+                "--text", tts_script,
+                "--voice", voice_code,
+                f"--rate={voice_rate_str}",
+                "--pitch=+0Hz",
+                "--write-media", audio_output,
+                "--write-subtitles", vtt_output
+            ]
+            try:
+                subprocess.run(fallback_tts_cmd, check=True)
+            except Exception as tts_fb_err:
+                print(f"[Modal TTS Warning] Fallback with pitch=+0Hz failed: {tts_fb_err}. Trying default TTS...", flush=True)
+                standard_tts_cmd = [
+                    sys.executable, "-m", "edge_tts",
+                    "--text", tts_script,
+                    "--voice", voice_code,
+                    "--write-media", audio_output,
+                    "--write-subtitles", vtt_output
+                ]
+                subprocess.run(standard_tts_cmd, check=True)
 
         vtt_cues = parse_webvtt_cues(vtt_output)
         print(f"[Modal] 🎯 Extracted {len(vtt_cues)} word-level timestamps from Edge TTS for Karaoke sync!", flush=True)
