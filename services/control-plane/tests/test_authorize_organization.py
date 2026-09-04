@@ -18,6 +18,9 @@ class FakeMembershipRepository:
     def find_role(self, identity_subject: str, organization_id: uuid.UUID) -> OrganizationRole | None:
         return self.role
 
+    def find_role_for_verified_email(self, email: str, organization_id: uuid.UUID) -> OrganizationRole | None:
+        return self.role
+
 
 class AuthorizeOrganizationTests(unittest.TestCase):
     def test_administrator_can_manage_prompts(self) -> None:
@@ -38,3 +41,14 @@ class AuthorizeOrganizationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(PermissionError, "workflow:create"):
             authorization.require("oidc|viewer", uuid.uuid4(), Permission.WORKFLOW_CREATE)
+
+    def test_verified_email_can_link_an_unambiguous_oidc_subject_migration(self) -> None:
+        class EmailOnlyRepository(FakeMembershipRepository):
+            def find_role(self, identity_subject: str, organization_id: uuid.UUID) -> OrganizationRole | None:
+                return None
+
+        authorization = AuthorizeOrganization(EmailOnlyRepository(OrganizationRole.PRODUCER))
+
+        role = authorization.require("oidc|rotated-subject", uuid.uuid4(), Permission.WORKFLOW_VIEW, "admin@example.com")
+
+        self.assertEqual(OrganizationRole.PRODUCER, role)

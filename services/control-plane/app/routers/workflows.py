@@ -486,7 +486,7 @@ def list_workflows(
 
     try:
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
-            identity.subject, organization_id, Permission.WORKFLOW_VIEW
+            identity.subject, organization_id, Permission.WORKFLOW_VIEW, identity.email
         )
         query = (
             select(
@@ -771,6 +771,7 @@ def get_composition_render_plan(
             identity.subject,
             organization_id,
             Permission.WORKFLOW_VIEW,
+            identity.email,
         )
         composition = SqlAlchemyCompositionRepository(session).read(organization_id, workflow_run_id)
         if composition is None:

@@ -92,7 +92,7 @@ def _authorize_source_write(identity: VerifiedIdentity, organization_id: uuid.UU
     if identity.subject == "local|anonymous":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authenticated organization membership is required")
     try:
-        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.WORKFLOW_CREATE)
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.WORKFLOW_CREATE, identity.email)
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You cannot add source media for this organization") from exc
 
@@ -174,7 +174,7 @@ def dispatch_dubbing_job(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authenticated organization membership is required")
     try:
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
-            identity.subject, payload.organization_id, Permission.WORKFLOW_CREATE
+            identity.subject, payload.organization_id, Permission.WORKFLOW_CREATE, identity.email
         )
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You cannot create a dubbing workflow for this organization") from exc
@@ -314,7 +314,7 @@ def get_dubbing_job_status(
     if not project or project.organization_id != organization_id:
         raise HTTPException(status_code=404, detail="Không tìm thấy công việc lồng tiếng này.")
     try:
-        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.WORKFLOW_VIEW)
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.WORKFLOW_VIEW, identity.email)
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You cannot view this dubbing workflow") from exc
 
