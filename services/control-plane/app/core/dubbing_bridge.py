@@ -163,7 +163,7 @@ def sync_dubbing_job_to_control_plane(
         # the run started through the new asset intake or a legacy adapter.
         for step_key, output in (
             ("translation", {"mode": "faithful", "timeline": (metadata.get("dubbing_workflow") or {}).get("translation", {}).get("timeline", [])}),
-            ("dubbing_qc", ((metadata.get("dubbing_workflow") or {}).get("dubbing", {}).get("timing_qc", {"status": "NOT_AVAILABLE"})),
+            ("dubbing_qc", (metadata.get("dubbing_workflow") or {}).get("dubbing", {}).get("timing_qc", {"status": "NOT_AVAILABLE"})),
             ("publish_metadata", metadata.get("publish_metadata") or {}),
         ):
             step = session.scalars(
