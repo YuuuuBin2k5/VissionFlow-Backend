@@ -45,6 +45,67 @@ def get_ffprobe_binary() -> str:
 FFMPEG_BIN = get_ffmpeg_binary()
 FFPROBE_BIN = get_ffprobe_binary()
 
+def get_audio_duration_seconds(audio_path: str, fallback_duration: float = 30.0) -> float:
+    """
+    [Phase 4] Measures exact audio duration in seconds from media file using ffprobe.
+    Returns float seconds, or logs and returns fallback_duration on failure.
+    Does not crash render job on probing errors.
+    """
+    if not audio_path or not os.path.exists(audio_path):
+        print(f"[Modal Audio Probe Warning] Audio file does not exist: {audio_path}. Using fallback: {fallback_duration}s", flush=True)
+        return float(fallback_duration)
+    try:
+        cmd = [
+            FFPROBE_BIN, "-v", "error", "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1", audio_path
+        ]
+        res = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        dur_str = res.stdout.strip()
+        if dur_str:
+            measured = float(dur_str)
+            if measured > 0.05:
+                print(f"[Modal Audio Probe] 🎯 Measured real audio duration from ffprobe: {measured:.3f}s for {os.path.basename(audio_path)}", flush=True)
+                return round(measured, 3)
+    except Exception as probe_err:
+        print(f"[Modal Audio Probe Error] ffprobe measurement failed for {audio_path}: {probe_err}. Using fallback: {fallback_duration}s", flush=True)
+    return float(fallback_duration)
+
+def normalize_shot_durations_py(shots: list, scene_duration: float) -> list:
+    """
+    [Phase 6] Normalizes shot duration_ratio and duration_seconds to match scene_duration exactly.
+    The last shot is clamped to (scene_duration - sum(prev_shots)) to prevent floating-point gaps.
+    """
+    if not shots:
+        return []
+    total_scene_dur = max(0.5, round(float(scene_duration), 3))
+    ratios = []
+    for s in shots:
+        r = s.get("duration_ratio")
+        try:
+            ratios.append(float(r) if r is not None and float(r) > 0 else 0.0)
+        except Exception:
+            ratios.append(0.0)
+    sum_ratio = sum(ratios)
+    if sum_ratio <= 0:
+        ratios = [1.0 / len(shots)] * len(shots)
+        sum_ratio = 1.0
+
+    raw_durations = [(r / sum_ratio) * total_scene_dur for r in ratios]
+    result = []
+    cum_time = 0.0
+    for i, s in enumerate(shots):
+        is_last = (i == len(shots) - 1)
+        if is_last:
+            dur = max(0.1, round(total_scene_dur - cum_time, 3))
+        else:
+            dur = max(0.1, round(raw_durations[i], 3))
+        cum_time += dur
+        shot_copy = dict(s)
+        shot_copy["duration"] = dur
+        shot_copy["duration_seconds"] = dur
+        result.append(shot_copy)
+    return result
+
 # Prepend the directory containing modern FFmpeg 7.1 to PATH so any implicit subprocess calls use it
 try:
     _ff_dir = os.path.dirname(FFMPEG_BIN)
@@ -829,11 +890,19 @@ def fetch_pexels_video_for_keyword(query: str, pexels_key: str, scene_idx: int =
         return None
     try:
         import requests
+        # Clean query: strip AI render tags and limit to top 4-5 concise words
+        clean_q = re.sub(r"(?i)\b(photorealistic|hyperrealistic|ultra realistic|cinematic lighting|8k|4k|octane render|unreal engine|masterpiece|trending on artstation|depth of field|bokeh|detailed textures?|vray|sharp focus)\b", "", query)
+        clean_q = re.sub(r"[^\w\s-]", " ", clean_q).strip()
+        words = clean_q.split()
+        if len(words) > 5:
+            clean_q = " ".join(words[:4])
+        search_query = clean_q if clean_q else (query if len(query.split()) <= 4 else "cinematic atmospheric")
+
         headers = {"Authorization": pexels_key}
         pex_res = requests.get(
             "https://api.pexels.com/videos/search",
             headers=headers,
-            params={"query": query, "orientation": "portrait", "per_page": 8},
+            params={"query": search_query, "orientation": "portrait", "per_page": 8},
             timeout=12
         )
         if pex_res.status_code == 200:
@@ -1526,8 +1595,19 @@ def render_scene_chunk(scene_payload: dict) -> dict:
     workflow_run_id = scene_payload.get("workflow_run_id", "wf_temp")
     scene_idx = scene_payload.get("scene_index", 0)
     keyword = str(scene_payload.get("keyword") or "cinematic nature").strip()
+    raw_kw = str(scene_payload.get("keyword") or "").strip()
+    stock_queries = scene_payload.get("stock_queries") or []
+    if not raw_kw and stock_queries and isinstance(stock_queries, list) and len(stock_queries) > 0:
+        raw_kw = str(stock_queries[0]).strip()
+    shots = scene_payload.get("shots") or []
+    if not raw_kw and shots and isinstance(shots, list) and len(shots) > 0:
+        first_shot = shots[0]
+        if isinstance(first_shot, dict):
+            raw_kw = str(first_shot.get("keyword") or (first_shot.get("stock_queries") or [""])[0] or "").strip()
+    keyword = raw_kw or "cinematic nature"
     media_url = scene_payload.get("media_url") or ""
     scene_dur = float(scene_payload.get("duration") or 5.0)
+    scene_dur = float(scene_payload.get("actual_duration_seconds") or scene_payload.get("duration") or scene_payload.get("duration_seconds") or 5.0)
     res_w = int(scene_payload.get("res_w") or 1080)
     res_h = int(scene_payload.get("res_h") or 1920)
     target_fps = int(scene_payload.get("fps") or 60)
@@ -1859,12 +1939,7 @@ def render_video_task(contract_payload: dict) -> dict:
         vtt_cues = parse_webvtt_cues(vtt_output)
         print(f"[Modal] 🎯 Extracted {len(vtt_cues)} word-level timestamps from Edge TTS for Karaoke sync!", flush=True)
 
-        duration_cmd = [
-            FFPROBE_BIN, "-v", "error", "-show_entries", "format=duration",
-            "-of", "default=noprint_wrappers=1:nokey=1", audio_output
-        ]
-        dur_res = subprocess.run(duration_cmd, capture_output=True, text=True, check=True)
-        audio_duration = float(dur_res.stdout.strip())
+        audio_duration = get_audio_duration_seconds(audio_output, fallback_duration=30.0)
         video_duration = max(3.0, round(audio_duration + 0.5, 2))
 
         # -------------------------------------------------------------------
@@ -2107,9 +2182,17 @@ def render_video_task(contract_payload: dict) -> dict:
                 
             total_words = sum(word_counts)
             synced_scene_durations = []
-            for cnt in word_counts:
-                prop_dur = (cnt / total_words) * audio_duration
-                synced_scene_durations.append(round(max(2.5, prop_dur), 2))
+            cum_scene_time = 0.0
+            for idx, cnt in enumerate(word_counts):
+                is_last_scene = (idx == len(word_counts) - 1)
+                if is_last_scene:
+                    prop_dur = max(2.5, round(audio_duration - cum_scene_time, 2))
+                else:
+                    prop_dur = round(max(2.5, (cnt / total_words) * audio_duration), 2)
+                cum_scene_time += prop_dur
+                synced_scene_durations.append(prop_dur)
+                # Overwrite any untrusted external actual_duration_seconds with authoritative backend measurement
+                scenes[idx]["actual_duration_seconds"] = prop_dur
                 
             print(f"[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: {audio_duration:.1f}s): {synced_scene_durations}", flush=True)
 
@@ -2127,12 +2210,14 @@ def render_video_task(contract_payload: dict) -> dict:
                 exact_dur = synced_scene_durations[idx]
                 sc_chunk_dur = max(3.0, exact_dur + 1.5)
                 
+                norm_shots = normalize_shot_durations_py(sc.get("shots") or [], exact_dur)
                 scene_payloads.append({
                     "workflow_run_id": workflow_run_id,
                     "scene_index": idx,
                     "keyword": best_kw,
                     "media_url": sc.get("video_url") or sc.get("image_url") or sc.get("media_url") or sc.get("source_url") or "",
                     "duration": sc_chunk_dur,
+                    "shots": norm_shots,
                     "res_w": res_w,
                     "res_h": res_h,
                     "fps": target_fps
