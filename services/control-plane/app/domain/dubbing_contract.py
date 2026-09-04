@@ -56,7 +56,7 @@ def build_dubbing_workflow_package(
             "status": "READY" if source_asset_id else "LEGACY_PENDING_IMPORT",
         },
         "translation": {
-            "mode": "faithful",
+            "mode": legacy.get("translation_mode") if legacy.get("translation_mode") in {"faithful", "localized_adaptation"} else "faithful",
             "timeline": [],
             "adapted_timeline": [],
             "source_language": legacy.get("source_language") or "auto",

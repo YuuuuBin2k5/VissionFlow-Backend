@@ -56,7 +56,7 @@ def build_dubbing_workflow_package(
             "status": "READY" if source_asset_id else "LEGACY_PENDING_IMPORT",
         },
         "translation": {
-            "mode": "faithful",
+            "mode": legacy.get("translation_mode") if legacy.get("translation_mode") in {"faithful", "localized_adaptation"} else "faithful",
             "timeline": [],
             "adapted_timeline": [],
         },
@@ -76,19 +76,33 @@ def build_dubbing_workflow_package(
 
 
 def record_timing_qc(timeline: object) -> dict[str, Any]:
-    """Persist measurable timing evidence while tolerating old timeline rows."""
+    """Persist measured audio timing evidence; this function never estimates."""
     rows = timeline if isinstance(timeline, list) else []
     results: list[dict[str, Any]] = []
-    total_delta = 0.0
+    drifts: list[int] = []
+    tolerance_ms = 250
     for index, row in enumerate(rows):
         row = row if isinstance(row, dict) else {}
-        source_duration = float(row.get("source_duration") or row.get("duration") or 0)
-        dubbed_duration = float(row.get("dubbed_duration") or row.get("tts_duration") or source_duration)
-        delta = round(dubbed_duration - source_duration, 3)
-        total_delta += abs(delta)
-        results.append({"index": index, "source_duration": source_duration, "dubbed_duration": dubbed_duration, "delta_seconds": delta})
+        target_ms = row.get("target_duration_ms")
+        rendered_ms = row.get("rendered_audio_duration_ms")
+        if not isinstance(target_ms, (int, float)) or not isinstance(rendered_ms, (int, float)):
+            continue
+        drift_ms = int(round(rendered_ms - target_ms))
+        drifts.append(abs(drift_ms))
+        results.append({"index": index, "target_duration_ms": int(round(target_ms)), "rendered_audio_duration_ms": int(round(rendered_ms)), "timing_drift_ms": drift_ms})
     return {
-        "status": "PASSED" if rows else "NOT_AVAILABLE",
+        "status": "PASSED" if results else "NOT_AVAILABLE",
         "segments": results,
-        "total_absolute_delta_seconds": round(total_delta, 3),
+        "max_timing_drift_ms": max(drifts, default=0),
+        "average_timing_drift_ms": round(sum(drifts) / len(drifts), 1) if drifts else 0,
+        "segments_over_tolerance": sum(1 for value in drifts if value > tolerance_ms),
+        "tolerance_ms": tolerance_ms,
     }
+
+
+def select_render_text(segment: object, translation_mode: str = "faithful") -> str:
+    """Faithful text remains authoritative; adaptation is an opt-in overlay."""
+    row = segment if isinstance(segment, dict) else {}
+    faithful = _text(row.get("translated_text")) or ""
+    adapted = _text(row.get("adapted_text"))
+    return adapted if translation_mode == "localized_adaptation" and adapted else faithful

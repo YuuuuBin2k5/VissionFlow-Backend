@@ -5,6 +5,7 @@ from worker.domain.dubbing_contract import (
     build_dubbing_workflow_package,
     legacy_seo_to_publish_metadata,
     record_timing_qc,
+    select_render_text,
 )
 
 
@@ -24,6 +25,17 @@ class DubbingContractTests(unittest.TestCase):
         self.assertNotIn("pinned_comment", metadata["youtube"])
 
     def test_timing_qc_is_explicit(self):
-        qc = record_timing_qc([{"duration": 1.0, "tts_duration": 1.2}])
+        qc = record_timing_qc([{"target_duration_ms": 1000, "rendered_audio_duration_ms": 1200}])
         self.assertEqual("PASSED", qc["status"])
-        self.assertEqual(0.2, qc["total_absolute_delta_seconds"])
+        self.assertEqual(200, qc["max_timing_drift_ms"])
+        self.assertEqual(0, qc["segments_over_tolerance"])
+
+    def test_adaptation_never_overwrites_faithful_translation(self):
+        segment = {"source_text": "Hello world.", "translated_text": "Xin chào thế giới.", "adapted_text": "Chào cả nhà!"}
+        self.assertEqual("Xin chào thế giới.", select_render_text(segment, "faithful"))
+        self.assertEqual("Chào cả nhà!", select_render_text(segment, "localized_adaptation"))
+        self.assertEqual("Xin chào thế giới.", segment["translated_text"])
+
+    def test_adaptation_falls_back_to_faithful_text(self):
+        segment = {"source_text": "Hello world.", "translated_text": "Xin chào thế giới."}
+        self.assertEqual("Xin chào thế giới.", select_render_text(segment, "localized_adaptation"))

@@ -15,13 +15,15 @@ Luồng:
 """
 from __future__ import annotations
 
+import os
 import uuid
 from pathlib import PurePosixPath
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Header, status
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.application.authorize_organization import AuthorizeOrganization
@@ -45,6 +47,7 @@ class DubbingDispatchRequest(BaseModel):
     source_asset_id: Optional[uuid.UUID] = None
     source_url: Optional[str] = None
     file_path: Optional[str] = None
+    translation_mode: Literal["faithful", "localized_adaptation"] = "faithful"
     voice_code: str = "edge-nam-minh"
     target_language: str = "auto"
     voice_gender: str = "female"
@@ -71,6 +74,8 @@ class DubbingDispatchRequest(BaseModel):
     smart_dynamic_blur: bool = True
     vocal_removal_mode: Optional[str] = "ffmpeg_phase_cancel"
     blur_original_logo: bool = True
+    enable_narration_cta: bool = False
+    enable_seamless_loop_adaptation: bool = False
 
 
 class SourceUploadIntentRequest(BaseModel):
@@ -105,8 +110,9 @@ def create_source_upload_intent(
 ):
     """Issue a scoped direct-upload URL; the browser never sends video bytes to the API."""
     _authorize_source_write(identity, payload.organization_id, session)
-    if not payload.content_type.startswith("video/") or not 0 < payload.byte_size <= 2 * 1024 * 1024 * 1024:
-        raise HTTPException(status_code=422, detail="Only video uploads up to 2 GiB are accepted")
+    max_bytes = int(os.getenv("VISIONFLOW_DUBBING_MAX_SINGLE_UPLOAD_BYTES", str(100 * 1024 * 1024)))
+    if not payload.content_type.startswith("video/") or not 0 < payload.byte_size <= max_bytes:
+        raise HTTPException(status_code=422, detail="File too large for current direct upload or not a video")
     if len(payload.checksum_sha256) != 64 or any(ch not in "0123456789abcdefABCDEF" for ch in payload.checksum_sha256):
         raise HTTPException(status_code=422, detail="checksum_sha256 must be a SHA-256 hex digest")
     suffix = PurePosixPath(payload.filename).suffix.lower() or ".mp4"
@@ -120,12 +126,18 @@ def create_source_upload_intent(
     session.add(asset)
     try:
         from worker.services.visionflow_object_storage import S3CompatibleObjectStorage, VisionFlowObjectStorageSettings
-        upload_url = S3CompatibleObjectStorage(VisionFlowObjectStorageSettings.from_env()).issue_upload_url(key, content_type=payload.content_type)
+        upload_url = S3CompatibleObjectStorage(VisionFlowObjectStorageSettings.from_env()).issue_upload_url(
+            key, content_type=payload.content_type, checksum_sha256=payload.checksum_sha256.lower()
+        )
     except Exception as exc:
         session.rollback()
         raise HTTPException(status_code=503, detail="Object storage upload is not configured") from exc
     session.commit()
-    return {"source_asset_id": str(asset_id), "object_key": key, "upload_url": upload_url, "upload_mode": "single_put", "multipart_threshold_bytes": 100 * 1024 * 1024}
+    return {
+        "source_asset_id": str(asset_id), "object_key": key, "upload_url": upload_url,
+        "upload_mode": "single_put", "max_single_upload_bytes": max_bytes,
+        "required_headers": {"Content-Type": payload.content_type, "x-amz-meta-sha256": payload.checksum_sha256.lower()},
+    }
 
 
 @router.post("/dubbing/source-assets/{asset_id}/complete")
@@ -146,6 +158,12 @@ def complete_source_upload(
         raise HTTPException(status_code=409, detail="Uploaded source video cannot be verified yet") from exc
     if int(head.get("ContentLength") or 0) != asset.byte_size:
         raise HTTPException(status_code=409, detail="Uploaded source video size does not match the upload intent")
+    head_content_type = str(head.get("ContentType") or "").lower()
+    if not head_content_type.startswith("video/"):
+        raise HTTPException(status_code=409, detail="Uploaded source object is not a video")
+    uploaded_checksum = str((head.get("Metadata") or {}).get("sha256") or "").lower()
+    if uploaded_checksum != asset.checksum_sha256.lower():
+        raise HTTPException(status_code=409, detail="Uploaded source checksum does not match the upload intent")
     asset.metadata_json = {**(asset.metadata_json or {}), "status": "READY", "storage_etag": str(head.get("ETag") or "").strip('"')}
     from sqlalchemy.orm.attributes import flag_modified
     flag_modified(asset, "metadata_json")
@@ -180,6 +198,8 @@ def dispatch_dubbing_job(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You cannot create a dubbing workflow for this organization") from exc
 
     if payload.source_url:
+        if os.getenv("ENABLE_DUBBING_URL_IMPORT", "false").strip().lower() != "true":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="URL dubbing is disabled until secure URL import is enabled")
         try:
             payload.source_url = validate_external_video_url(payload.source_url)
         except UnsafeSourceUrl as exc:
@@ -234,6 +254,9 @@ def dispatch_dubbing_job(
         "vocal_removal_mode": payload.vocal_removal_mode,
         "blur_original_logo": payload.blur_original_logo,
         "render_mode": "TRANSLATE_DUB",
+        "translation_mode": payload.translation_mode,
+        "enable_narration_cta": payload.enable_narration_cta,
+        "enable_seamless_loop_adaptation": payload.enable_seamless_loop_adaptation,
     }
     metadata["source_asset_id"] = str(payload.source_asset_id) if payload.source_asset_id else None
     metadata["dubbing_workflow"] = build_dubbing_workflow_package(metadata, source_asset_id=metadata["source_asset_id"])
@@ -278,8 +301,23 @@ def dispatch_dubbing_job(
             input_payload=metadata,
     )
     session.add(wf)
-    session.flush()
-    session.commit()
+    try:
+        session.flush()
+        session.commit()
+    except IntegrityError:
+        # The DB unique key closes the race between the initial replay lookup
+        # and two simultaneous browser/Telegram retries.
+        session.rollback()
+        if request_key:
+            existing = session.scalars(
+                select(WorkflowRun).join(VideoProject).where(
+                    VideoProject.organization_id == payload.organization_id,
+                    WorkflowRun.idempotency_key == f"dub:{payload.organization_id}:{request_key}",
+                )
+            ).first()
+            if existing:
+                return {"job_id": str(existing.id), "workflow_run_id": str(existing.id), "status": existing.state.lower(), "message": "Existing dubbing workflow returned (idempotent replay)."}
+        raise
 
     return {
         "job_id": str(workflow_run_id),
@@ -383,5 +421,10 @@ def get_dubbing_job_status(
         "download_url": download_url,
         "error": wf.failure_detail,
         "logs": logs,
+        "review": {
+            "translation": (manifest.get("dubbing_workflow") or {}).get("translation", {}),
+            "dubbing": (manifest.get("dubbing_workflow") or {}).get("dubbing", {}),
+            "publish_metadata": manifest.get("publish_metadata") or {},
+        },
     }
 

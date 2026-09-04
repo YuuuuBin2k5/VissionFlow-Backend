@@ -161,6 +161,7 @@ class DubbingStrategy(RenderStrategy):
             smart_dynamic_blur=smart_dynamic_blur,
             vocal_removal_mode=vocal_removal_mode,
             blur_original_logo=blur_original_logo,
+            translation_mode=(metadata.get("dubbing_workflow") or {}).get("translation", {}).get("mode") or metadata.get("translation_mode") or "faithful",
         )
 
         if not success or not os.path.exists(output_path):
@@ -191,7 +192,7 @@ class DubbingStrategy(RenderStrategy):
             package = dict(metadata.get("dubbing_workflow") or {})
             package["translation"] = {
                 **dict(package.get("translation") or {}),
-                "mode": "faithful",
+                "mode": (metadata.get("dubbing_workflow") or {}).get("translation", {}).get("mode") or metadata.get("translation_mode") or "faithful",
                 "timeline": timeline,
             }
             package["dubbing"] = {**dict(package.get("dubbing") or {}), "timing_qc": record_timing_qc(timeline)}

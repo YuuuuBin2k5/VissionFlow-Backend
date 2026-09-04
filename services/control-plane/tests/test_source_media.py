@@ -18,3 +18,9 @@ class SourceMediaPolicyTests(unittest.TestCase):
         def resolver(*args, **kwargs):
             return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))]
         self.assertEqual("https://example.com/video.mp4", validate_external_video_url("https://example.com/video.mp4", resolver=resolver))
+
+    def test_rejects_non_http_and_embedded_credentials(self):
+        with self.assertRaises(UnsafeSourceUrl):
+            validate_external_video_url("file:///etc/passwd")
+        with self.assertRaises(UnsafeSourceUrl):
+            validate_external_video_url("https://user:secret@example.com/video.mp4")

@@ -75,10 +75,10 @@ class S3CompatibleObjectStorage:
         self._client.download_file(self._settings.bucket, actual_key, str(destination))
         return str(destination)
 
-    def issue_upload_url(self, object_key: str, *, content_type: str, expires_in_seconds: int = 900) -> str:
+    def issue_upload_url(self, object_key: str, *, content_type: str, checksum_sha256: str, expires_in_seconds: int = 900) -> str:
         return self._client.generate_presigned_url(
             "put_object",
-            Params={"Bucket": self._settings.bucket, "Key": object_key, "ContentType": content_type},
+            Params={"Bucket": self._settings.bucket, "Key": object_key, "ContentType": content_type, "Metadata": {"sha256": checksum_sha256}},
             ExpiresIn=expires_in_seconds,
             HttpMethod="PUT",
         )
@@ -106,6 +106,11 @@ class S3CompatibleObjectStorage:
             )
         except Exception:
             return f"{self._settings.endpoint.rstrip('/')}/{self._settings.bucket}/{object_key.lstrip('/')}"
+
+    def generate_presigned_download_url(self, object_key: str, *, expires_in_seconds: int = 3600) -> str:
+        return self._client.generate_presigned_url(
+            "get_object", Params={"Bucket": self._settings.bucket, "Key": object_key}, ExpiresIn=expires_in_seconds
+        )
 
 
 class CloudAssetUploader:

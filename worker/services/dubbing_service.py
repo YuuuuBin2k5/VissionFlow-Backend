@@ -761,6 +761,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         smart_dynamic_blur: bool = True,
         vocal_removal_mode: str = "ffmpeg_phase_cancel",
         blur_original_logo: bool = True,
+        translation_mode: str = "faithful",
     ) -> tuple:
         """Thực hiện toàn bộ 8 bước của pipeline lồng tiếng tự động miễn phí 100%"""
         temp_dir = Path(os.path.dirname(output_path)) / f"dub_temp_{os.path.basename(video_path).split('.')[0]}"
@@ -842,7 +843,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 accumulated_shift_ms = 0.0
 
                 for idx, segment in enumerate(timeline):
-                    txt = segment["translated_text"]
+                    from worker.domain.dubbing_contract import select_render_text
+                    txt = select_render_text(segment, translation_mode)
                     # Chuẩn hóa dấu câu để giọng đọc AI ngắt nghỉ tự nhiên, chuẩn nhịp thở con người
                     txt = re.sub(r'([,.:;!?])([^\s])', r'\1 \2', txt)
                     txt = re.sub(r'\s+', ' ', txt).strip()
@@ -898,12 +900,14 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                                 "-t", f"{original_duration:.3f}", "-acodec", "pcm_s16le", aligned_clip_path
                             ]
                             subprocess.run(cmd_silence, capture_output=True, check=True)
-                            actual_duration = original_duration
+                            actual_duration = self.get_media_duration(aligned_clip_path)
+                            if actual_duration <= 0:
+                                raise RuntimeError("Unable to measure generated silence audio duration")
                         else:
                             # Kiểm tra độ dài âm thanh tiếng Việt thực tế
                             actual_duration = self.get_media_duration(raw_clip_path)
                             if actual_duration <= 0:
-                                actual_duration = original_duration
+                                raise RuntimeError("Unable to measure generated TTS audio duration")
 
                             # 2. TÍNH TOÁN TEMPO VÀ OVERFLOW THÔNG MINH (Cho phép co dãn linh hoạt 0.85x - 1.45x để khớp 100% nhịp hình ảnh)
                             tempo = actual_duration / original_duration
@@ -971,6 +975,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     realized_segment = dict(segment)
                     realized_segment["start"] = real_start_sec
                     realized_segment["end"] = real_end_sec
+                    realized_segment["target_duration_ms"] = int(round(original_duration_ms))
+                    realized_segment["rendered_audio_duration_ms"] = int(round(compressed_duration_ms))
+                    realized_segment["timing_drift_ms"] = int(round(compressed_duration_ms - original_duration_ms))
                     realized_timeline.append(realized_segment)
 
                     # LOGGING GIÁM SÁT DÒNG THỜI GIAN (Timeline Drift Logger)
