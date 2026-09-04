@@ -3169,6 +3169,10 @@ bot.on('callback_query', async (ctx) => {
 
         const user = await getOrCreateBotUser(ctx);
         const isFile = session.tempSourceType === 'file';
+        if (!isFile && process.env.ENABLE_DUBBING_URL_IMPORT !== 'true') {
+          await ctx.answerCbQuery('Nhập URL đang tạm tắt để bảo vệ nguồn video. Hãy gửi tệp video.', { show_alert: true });
+          return;
+        }
         const scenesLayout = {
           render_mode: 'translate_dub',
           dub_source_type: session.tempSourceType,
