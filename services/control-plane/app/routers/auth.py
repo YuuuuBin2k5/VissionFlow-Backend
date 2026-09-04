@@ -35,7 +35,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 class RegisterRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     email: str = Field(max_length=320)
-    password: str = Field(min_length=8, max_length=1024)
+    password: str = Field(min_length=12, max_length=1024)
     display_name: str | None = Field(default=None, max_length=160)
 
 
