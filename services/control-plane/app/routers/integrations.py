@@ -48,7 +48,7 @@ router = APIRouter(prefix="/integrations", tags=["integrations"])
 
 class OAuthStartResponse(BaseModel): authorization_url: str
 class PublisherConnectionResponse(BaseModel): id: uuid.UUID; provider: str; provider_account_id: str; display_name: str; status: str
-class YouTubePublishManifest(BaseModel): workflow_run_id: uuid.UUID; publisher_connection_id: uuid.UUID; title: str; description: str; artifact_download_url: str; artifact_expires_in_seconds: int; artifact_byte_size: int; artifact_checksum_sha256: str; access_token: str; access_token_expires_in_seconds: int; scheduled_at_iso: str | None = None; publish_at_iso: str | None = None
+class YouTubePublishManifest(BaseModel): workflow_run_id: uuid.UUID; publisher_connection_id: uuid.UUID; title: str; description: str; tags: list[str] = []; hashtags: list[str] = []; pinned_comment: str | None = None; metadata_sources: dict[str, str] = {}; artifact_download_url: str; artifact_expires_in_seconds: int; artifact_byte_size: int; artifact_checksum_sha256: str; access_token: str; access_token_expires_in_seconds: int; scheduled_at_iso: str | None = None; publish_at_iso: str | None = None
 class CompleteYouTubePublishRequest(BaseModel): organization_id: uuid.UUID; publisher_connection_id: uuid.UUID; video_id: str; video_url: str
 class FailYouTubePublishRequest(BaseModel): organization_id: uuid.UUID; publisher_connection_id: uuid.UUID; failure_code: str
 class ClaimPublicationAttemptRequest(BaseModel): organization_id: uuid.UUID
@@ -436,7 +436,7 @@ def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organizatio
     project = session.get(VideoProject, workflow.project_id)
     if connection is None or project is None:
         raise LookupError()
-    # Build professional YouTube description from AI script/narration or project brief
+    # Resolve canonical metadata before invoking any legacy fallback generator.
     script_narration = ""
     intel_step = session.scalar(
         select(WorkflowStep).where(
@@ -452,7 +452,8 @@ def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organizatio
             lines = [str(s.get("narration", "")).strip() for s in payload["scenes"] if isinstance(s, dict) and s.get("narration")]
             script_narration = "\n".join([line for line in lines if line]).strip()
 
-    from worker.domain.caption_policy import build_high_converting_description
+    from worker.domain.caption_policy import build_high_converting_description, build_topic_hashtags
+    from worker.domain.publish_metadata import append_required_attribution, resolve_publish_metadata
     prompt_manifest = workflow.prompt_manifest or {} if workflow else {}
     seo_data = prompt_manifest.get("seo_tags_metadata") or {}
     if not isinstance(seo_data, dict):
@@ -464,12 +465,32 @@ def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organizatio
     vi_chars = "àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
     lang = "en" if not any(c in script.lower() for c in vi_chars) else "vi"
 
-    rich_description = build_high_converting_description(
-        title=project.title,
-        script=script,
-        seo_data=seo_data,
-        language=lang
+    content_metadata = workflow.input_payload.get("publish_metadata") if isinstance(workflow.input_payload, dict) else None
+    if not isinstance(content_metadata, dict):
+        content_metadata = prompt_manifest.get("publish_metadata")
+    user_metadata = prompt_manifest.get("publish_metadata_user")
+    resolved = resolve_publish_metadata(
+        content_metadata=content_metadata,
+        user_metadata=user_metadata,
+        fallback={"youtube": {"title": project.title}},
     )
+    if resolved.description is None:
+        fallback_description = build_high_converting_description(
+            title=project.title, script=script, seo_data=seo_data, language=lang
+        )
+        resolved = resolve_publish_metadata(
+            content_metadata=content_metadata,
+            user_metadata=user_metadata,
+            fallback={"youtube": {
+                "title": project.title,
+                "description": fallback_description,
+                "hashtags": build_topic_hashtags(project.title, script, seo_data, lang),
+            }},
+        )
+    music = prompt_manifest.get("music_attribution") or seo_data.get("music_attribution") or seo_data.get("bgm_info") or seo_data.get("selected_music")
+    rich_description, attribution_issues = append_required_attribution(resolved.description.value if resolved.description else "", music)
+    for issue in [*resolved.issues, *attribution_issues]:
+        _bg_logger.warning("publish metadata %s (%s): %s", issue.code, issue.field, issue.message)
 
     # Check if a scheduled publish timestamp was recorded in the publish step payload
     publish_step = session.scalar(
@@ -487,8 +508,17 @@ def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organizatio
     return YouTubePublishManifest(
         workflow_run_id=workflow.id,
         publisher_connection_id=connection.id,
-        title=project.title[:100],
+        title=(resolved.title.value if resolved.title else project.title)[:100],
         description=rich_description[:5000],
+        tags=resolved.tags.value if resolved.tags else [],
+        hashtags=resolved.hashtags.value if resolved.hashtags else [],
+        pinned_comment=resolved.pinned_comment.value if resolved.pinned_comment else None,
+        metadata_sources={
+            "title": resolved.title.source if resolved.title else "channel_default",
+            "description": resolved.description.source if resolved.description else "channel_default",
+            "hashtags": resolved.hashtags.source if resolved.hashtags else "channel_default",
+            "tags": resolved.tags.source if resolved.tags else "channel_default",
+        },
         artifact_download_url=preview.download_url,
         artifact_expires_in_seconds=preview.expires_in_seconds,
         artifact_byte_size=artifact.byte_size,

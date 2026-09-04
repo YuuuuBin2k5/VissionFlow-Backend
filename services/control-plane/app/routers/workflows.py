@@ -461,6 +461,7 @@ class BeginManualPublishRequest(BaseModel):
     publisher_connection_id: uuid.UUID
     note: str | None = Field(default=None, max_length=2_000)
     scheduled_at_iso: str | None = Field(default=None, max_length=64)
+    publish_metadata: dict[str, object] | None = None
 
 
 class WorkflowExecutionContextResponse(BaseModel):
@@ -1724,37 +1725,16 @@ def _process_publication_attempt_in_background(
                 workflow_run_id,
             )
 
-            # ---- 6. Load project metadata for title/description -------------
+            # ---- 6. Resolve the same canonical metadata used by publisher worker
             wf_for_project = session.scalar(
                 select(WorkflowRun).where(WorkflowRun.id == workflow_run_id)
             )
-            project = None
-            if wf_for_project:
-                project = session.get(VideoProject, wf_for_project.project_id)
-            title = (project.title if project else str(workflow_run_id))[:100]
-            if "#Shorts" not in title and "#shorts" not in title:
-                title = (title[:95] + " #Shorts") if len(title) > 95 else (title + " #Shorts")
-            
-            try:
-                from app.core.caption_policy import build_high_converting_description
-            except ImportError:
-                from worker.domain.caption_policy import build_high_converting_description
-            prompt_manifest = wf_for_project.prompt_manifest or {} if wf_for_project else {}
-            seo_data = prompt_manifest.get("seo_tags_metadata") or {}
-            if not isinstance(seo_data, dict):
-                seo_data = {}
-            if prompt_manifest.get("description") and isinstance(prompt_manifest.get("description"), str) and len(prompt_manifest["description"].strip()) > 20:
-                seo_data["description"] = prompt_manifest["description"].strip()
-            script = prompt_manifest.get("script") or (project.brief if project else "")
-            vi_chars = "àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
-            lang = "en" if not any(c in script.lower() for c in vi_chars) else "vi"
-
-            description = build_high_converting_description(
-                title=project.title if project else title,
-                script=script,
-                seo_data=seo_data,
-                language=lang
-            )[:5000]
+            if wf_for_project is None:
+                raise RuntimeError(f"Workflow {workflow_run_id} no longer exists")
+            from app.routers.integrations import _issue_youtube_manifest
+            publish_manifest = _issue_youtube_manifest(session, wf_for_project, organization_id, publisher_connection_id)
+            title = publish_manifest.title
+            description = publish_manifest.description
 
             # ---- 7. Upload to YouTube via Resumable API (Always UNLISTED) ----
             _publish_at_iso: str | None = None
@@ -1766,7 +1746,7 @@ def _process_publication_attempt_in_background(
                 metadata=YouTubeUploadMetadata(
                     title=title,
                     description=description,
-                    tags=("Shorts", "AI", "VisionFlow", "KhoaHoc"),
+                    tags=tuple(publish_manifest.tags),
                     privacy_status=_privacy_status,
                     category_id="28",
                     default_language="vi",
@@ -1910,6 +1890,21 @@ def begin_manual_publish(
         wf = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
         if wf is None:
             raise LookupError("Workflow run not found")
+
+        # A publish-panel edit is an approved final override. Persist it next
+        # to, not over, the content package so provenance remains inspectable.
+        if request.publish_metadata:
+            existing_manifest = dict(wf.prompt_manifest) if isinstance(wf.prompt_manifest, dict) else {}
+            existing_user = existing_manifest.get("publish_metadata_user")
+            merged_user = dict(existing_user) if isinstance(existing_user, dict) else {}
+            for platform, values in request.publish_metadata.items():
+                if isinstance(values, dict):
+                    prior = merged_user.get(platform)
+                    merged_user[platform] = {**(prior if isinstance(prior, dict) else {}), **values}
+            if merged_user:
+                existing_manifest["publish_metadata_user"] = merged_user
+                wf.prompt_manifest = existing_manifest
+                session.flush()
 
         if wf.state == WorkflowState.PUBLISHED:
             return WorkflowTransitionResponse(

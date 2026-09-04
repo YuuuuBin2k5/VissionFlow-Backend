@@ -29,7 +29,9 @@ def _normalize_hashtags(hashtags: list) -> list:
 
 def detect_video_genre(title: str, script: str = "", explicit_genre: str = "") -> str:
     """Tự động phân loại thể loại video dựa trên nội dung kịch bản & tiêu đề."""
-    combined = f"{explicit_genre} {title} {script}".lower()
+    if isinstance(explicit_genre, str) and explicit_genre.strip():
+        return explicit_genre.strip()
+    combined = f"{title} {script}".lower()
     
     # 1. Bí ẩn / Lịch sử / Rùng rợn / Vụ án
     mystery_keywords = [

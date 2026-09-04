@@ -16,7 +16,8 @@ from __future__ import annotations
 import json
 import os
 
-from worker.domain.caption_policy import extract_publish_music_metadata, build_publish_caption_and_hashtags
+from worker.domain.caption_policy import extract_publish_music_metadata, build_high_converting_description, build_publish_caption_and_hashtags, build_topic_hashtags
+from worker.domain.publish_metadata import append_required_attribution, resolve_publish_metadata
 from worker.domain.job_metadata import parse_job_metadata
 from worker.infrastructure.database import log_realtime_progress
 from worker.infrastructure.repositories import VideoJobRepository, PublishTargetRepository
@@ -79,24 +80,53 @@ def handle_publish(
             seo_data = {}
 
     music_metadata = extract_publish_music_metadata(job)
-    title, hashtags = build_publish_caption_and_hashtags(job, metadata, seo_data, music_metadata)
+    legacy_title, legacy_hashtags = build_publish_caption_and_hashtags(job, metadata, seo_data, music_metadata)
 
-    # Lấy title/description/tags override từ publish_target (nếu có)
-    target_title = title
-    target_description = job.get("video_title_idea") or "Video #Shorts"
-    target_tags: list[str] = []
+    # publish_targets are operator-edited final values, therefore they are
+    # canonical user metadata rather than another generator input.
+    user_metadata: dict = {}
 
     if publish_target_id:
         detail = target_repo.find_detail_by_id(publish_target_id)
         if detail:
-            target_title = detail.get("title") or title
-            target_description = detail.get("description") or target_description
+            user_platform = {"title": detail.get("title"), "description": detail.get("description")}
             tags_raw = detail.get("tags")
             if tags_raw:
                 try:
-                    target_tags = json.loads(tags_raw) if isinstance(tags_raw, str) else tags_raw
+                    user_platform["tags"] = json.loads(tags_raw) if isinstance(tags_raw, str) else tags_raw
                 except Exception:
-                    target_tags = []
+                    user_platform["tags"] = []
+            user_metadata = {platform: user_platform}
+
+    content_metadata = metadata.get("publish_metadata") or seo_data.get("publish_metadata")
+    fallback_title = job.get("video_title_idea") or legacy_title or "Video mới"
+    fallback = {platform: {"title": fallback_title, "hashtags": legacy_hashtags}}
+    resolved = resolve_publish_metadata(
+        content_metadata=content_metadata,
+        user_metadata=user_metadata,
+        fallback=fallback,
+        platform=platform,
+    )
+    description_or_caption = resolved.description if platform == "youtube" else resolved.caption
+    if description_or_caption is None:
+        fallback_text = build_high_converting_description(
+            title=fallback_title,
+            script=job.get("script") or job.get("full_voice_script") or "",
+            seo_data=seo_data,
+            language="en" if str(job.get("video_language") or "vi").lower().startswith("en") else "vi",
+        ) if platform == "youtube" else legacy_title
+        resolved = resolve_publish_metadata(
+            content_metadata=content_metadata,
+            user_metadata=user_metadata,
+            fallback={platform: {"title": fallback_title, "description" if platform == "youtube" else "caption": fallback_text, "hashtags": build_topic_hashtags(fallback_title, "", seo_data)}},
+            platform=platform,
+        )
+        description_or_caption = resolved.description if platform == "youtube" else resolved.caption
+    target_title = resolved.title.value if resolved.title else fallback_title
+    target_description = description_or_caption.value if description_or_caption else ""
+    target_description, _ = append_required_attribution(target_description, seo_data.get("music_attribution") or seo_data.get("bgm_info") or seo_data.get("selected_music"))
+    hashtags = resolved.hashtags.value if resolved.hashtags else []
+    target_tags = resolved.tags.value if resolved.tags else []
 
     # Sinh bình luận ghim nếu thiếu (TikTok)
     comment_text = _resolve_comment_text(job, seo_data, metadata, job_id)

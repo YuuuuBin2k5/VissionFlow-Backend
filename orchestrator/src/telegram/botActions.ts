@@ -328,7 +328,9 @@ function pickTitle(titleOptions: any[], fallback: string) {
 function ensureShortsTitle(titleBase: string, shouldMarkShorts: boolean) {
   let title = cleanText(titleBase);
 
-  if (shouldMarkShorts && !title.toLowerCase().includes('#shorts')) {
+  // Shorts is a format, not title copy. Preserve legacy behavior only when it
+  // is deliberately enabled by deployment configuration.
+  if (shouldMarkShorts && process.env.AUTO_APPEND_SHORTS_HASHTAG === 'true' && !title.toLowerCase().includes('#shorts')) {
     const withShorts = `${title} #Shorts`;
     title = withShorts.length <= 100 ? withShorts : title;
   }

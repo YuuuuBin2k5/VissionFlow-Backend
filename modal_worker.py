@@ -569,7 +569,9 @@ SOUNDBANK_REGISTRY = {
 }
 
 def detect_video_genre_modal(title: str, script: str = "", explicit_genre: str = "") -> str:
-    combined = f"{explicit_genre} {title} {script}".lower()
+    if isinstance(explicit_genre, str) and explicit_genre.strip():
+        return explicit_genre.strip()
+    combined = f"{title} {script}".lower()
     if any(k in combined for k in ["mary celeste", "flannan", "bí ẩn", "mất tích", "hải đăng", "tàu ma", "bốc hơi", "rùng rợn", "hồ sơ", "vụ án", "đại dương", "paranormal", "mystery", "unsolved", "ghost ship", "horror"]):
         return "MYSTERY_PARANORMAL_HISTORY"
     if any(k in combined for k in ["làm giàu", "tài chính", "tiền bạc", "đầu tư", "kinh doanh", "tư duy triệu phú", "thành công", "wealth", "finance", "money"]):

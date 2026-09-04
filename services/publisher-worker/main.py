@@ -33,9 +33,10 @@ def _upload_manifest(session: requests.Session, manifest: dict[str, object]) -> 
         artifact_path = Path(directory) / "final.mp4"
         _download_verified_artifact(session, manifest, artifact_path)
 
-        # Professional SEO Hashtags & Title formatting
+        # The control-plane manifest is canonical.  This adapter may trim and
+        # upload it, but must not rewrite titles/descriptions or add #Shorts.
         raw_title = str(manifest.get("title", "VisionFlow Short")).strip()
-        title = f"{raw_title} #Shorts" if "#Shorts" not in raw_title else raw_title
+        title = raw_title
 
         raw_desc = str(manifest.get("description") or "").strip()
         if not raw_desc:
@@ -54,7 +55,7 @@ def _upload_manifest(session: requests.Session, manifest: dict[str, object]) -> 
             metadata=YouTubeUploadMetadata(
                 title=title[:100],
                 description=description[:5000],
-                tags=("Shorts", "AI", "VisionFlow", "Short", "Trending"),
+                tags=tuple(str(tag) for tag in manifest.get("tags", []) if isinstance(tag, str)),
                 privacy_status="unlisted",
                 publish_at_iso=None,
                 self_declared_made_for_kids=False,
