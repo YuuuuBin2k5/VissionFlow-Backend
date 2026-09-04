@@ -16,20 +16,33 @@ Luồng:
 from __future__ import annotations
 
 import uuid
+from pathlib import PurePosixPath
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Header, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.application.authorize_organization import AuthorizeOrganization
+from app.core.oidc import VerifiedIdentity
+from app.core.source_media import UnsafeSourceUrl, validate_external_video_url
+from app.domain.authorization import Permission
 from app.infrastructure.database import get_session
-from app.infrastructure.models import MediaAsset, Organization, VideoProject, WorkflowRun, WorkflowStep
+from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
+from app.infrastructure.models import MediaAsset, VideoProject, WorkflowRun, WorkflowStep
+from app.routers.auth import require_identity
+try:
+    from app.domain.dubbing_contract import build_dubbing_workflow_package
+    from app.domain.publish_metadata import resolve_publish_metadata
+except ImportError:
+    from worker.domain.dubbing_contract import build_dubbing_workflow_package
+    from worker.domain.publish_metadata import resolve_publish_metadata
 
 router = APIRouter(tags=["Dubbing"])
 
-
 class DubbingDispatchRequest(BaseModel):
+    source_asset_id: Optional[uuid.UUID] = None
     source_url: Optional[str] = None
     file_path: Optional[str] = None
     voice_code: str = "edge-nam-minh"
@@ -46,7 +59,7 @@ class DubbingDispatchRequest(BaseModel):
     auto_publish_channel: str = "goc_chiem_nghiem"
     auto_publish_mode: str = "immediate"
     scheduled_at_iso: Optional[str] = None
-    organization_id: Optional[str] = None   # optional — mặc định dùng org đầu tiên
+    organization_id: uuid.UUID
     storytelling_framework: Optional[str] = "mid_action_open"
     enable_word_karaoke: bool = True
     bgm_preset: Optional[str] = "relaxing_chill"
@@ -60,40 +73,137 @@ class DubbingDispatchRequest(BaseModel):
     blur_original_logo: bool = True
 
 
+class SourceUploadIntentRequest(BaseModel):
+    organization_id: uuid.UUID
+    filename: str
+    content_type: str = "video/mp4"
+    byte_size: int
+    checksum_sha256: str
+
+
+class SourceUploadCompleteRequest(BaseModel):
+    organization_id: uuid.UUID
+
+
 DubbingDispatchRequest.model_rebuild()
+
+
+def _authorize_source_write(identity: VerifiedIdentity, organization_id: uuid.UUID, session: Session) -> None:
+    if identity.subject == "local|anonymous":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authenticated organization membership is required")
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.WORKFLOW_CREATE)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You cannot add source media for this organization") from exc
+
+
+@router.post("/dubbing/source-assets/upload-intents", status_code=status.HTTP_201_CREATED)
+def create_source_upload_intent(
+    payload: SourceUploadIntentRequest,
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+):
+    """Issue a scoped direct-upload URL; the browser never sends video bytes to the API."""
+    _authorize_source_write(identity, payload.organization_id, session)
+    if not payload.content_type.startswith("video/") or not 0 < payload.byte_size <= 2 * 1024 * 1024 * 1024:
+        raise HTTPException(status_code=422, detail="Only video uploads up to 2 GiB are accepted")
+    if len(payload.checksum_sha256) != 64 or any(ch not in "0123456789abcdefABCDEF" for ch in payload.checksum_sha256):
+        raise HTTPException(status_code=422, detail="checksum_sha256 must be a SHA-256 hex digest")
+    suffix = PurePosixPath(payload.filename).suffix.lower() or ".mp4"
+    asset_id = uuid.uuid4()
+    key = f"visionflow/{payload.organization_id}/source/{asset_id}{suffix}"
+    asset = MediaAsset(
+        id=asset_id, organization_id=payload.organization_id, object_key=key, media_kind="source_video",
+        content_type=payload.content_type, byte_size=payload.byte_size, checksum_sha256=payload.checksum_sha256.lower(),
+        metadata_json={"status": "UPLOADING", "origin": "browser_upload", "filename": PurePosixPath(payload.filename).name},
+    )
+    session.add(asset)
+    try:
+        from worker.services.visionflow_object_storage import S3CompatibleObjectStorage, VisionFlowObjectStorageSettings
+        upload_url = S3CompatibleObjectStorage(VisionFlowObjectStorageSettings.from_env()).issue_upload_url(key, content_type=payload.content_type)
+    except Exception as exc:
+        session.rollback()
+        raise HTTPException(status_code=503, detail="Object storage upload is not configured") from exc
+    session.commit()
+    return {"source_asset_id": str(asset_id), "object_key": key, "upload_url": upload_url, "upload_mode": "single_put", "multipart_threshold_bytes": 100 * 1024 * 1024}
+
+
+@router.post("/dubbing/source-assets/{asset_id}/complete")
+def complete_source_upload(
+    asset_id: uuid.UUID,
+    payload: SourceUploadCompleteRequest,
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+):
+    _authorize_source_write(identity, payload.organization_id, session)
+    asset = session.get(MediaAsset, asset_id)
+    if not asset or asset.organization_id != payload.organization_id or asset.media_kind != "source_video":
+        raise HTTPException(status_code=404, detail="Source video asset was not found")
+    try:
+        from worker.services.visionflow_object_storage import S3CompatibleObjectStorage, VisionFlowObjectStorageSettings
+        head = S3CompatibleObjectStorage(VisionFlowObjectStorageSettings.from_env()).head_object(asset.object_key)
+    except Exception as exc:
+        raise HTTPException(status_code=409, detail="Uploaded source video cannot be verified yet") from exc
+    if int(head.get("ContentLength") or 0) != asset.byte_size:
+        raise HTTPException(status_code=409, detail="Uploaded source video size does not match the upload intent")
+    asset.metadata_json = {**(asset.metadata_json or {}), "status": "READY", "storage_etag": str(head.get("ETag") or "").strip('"')}
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(asset, "metadata_json")
+    session.commit()
+    return {"source_asset_id": str(asset.id), "status": "READY"}
 
 
 @router.post("/dubbing/dispatch", status_code=status.HTTP_201_CREATED)
 def dispatch_dubbing_job(
     payload: DubbingDispatchRequest,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    identity: VerifiedIdentity = Depends(require_identity),
     session: Session = Depends(get_session),
 ):
     """
     Đăng ký công việc Lồng Tiếng & Vietsub Tự Động (AI Dubbing Job).
     Lưu toàn bộ vào PostgreSQL. Không cần MySQL.
     """
-    if not payload.source_url and not payload.file_path:
+    if not payload.source_asset_id and not payload.source_url and not payload.file_path:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Vui lòng cung cấp đường dẫn link video (source_url) hoặc đường dẫn tệp tải lên (file_path).",
         )
 
-    # Handshake session parameter
-    if not hasattr(session, "scalars"):
+    if identity.subject == "local|anonymous":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authenticated organization membership is required")
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject, payload.organization_id, Permission.WORKFLOW_CREATE
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You cannot create a dubbing workflow for this organization") from exc
+
+    if payload.source_url:
         try:
-            from app.infrastructure.database import get_engine
-            session = Session(get_engine())
-        except Exception:
-            session = None
+            payload.source_url = validate_external_video_url(payload.source_url)
+        except UnsafeSourceUrl as exc:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
-    org = None
-    if session and hasattr(session, "scalars"):
-        if payload.organization_id:
-            org = session.get(Organization, uuid.UUID(payload.organization_id))
-        else:
-            org = session.scalars(select(Organization)).first()
+    source_asset = None
+    if payload.source_asset_id:
+        source_asset = session.get(MediaAsset, payload.source_asset_id)
+        if not source_asset or source_asset.organization_id != payload.organization_id or source_asset.media_kind != "source_video":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source video asset was not found in this organization")
+        if (source_asset.metadata_json or {}).get("status") != "READY":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Source video is not ready for dubbing")
 
-    org_id = org.id if org else uuid.uuid4()
+    # Replays return exactly the original workflow for a caller-owned key.
+    request_key = (idempotency_key or "").strip()
+    if request_key:
+        existing = session.scalars(
+            select(WorkflowRun).join(VideoProject).where(
+                VideoProject.organization_id == payload.organization_id,
+                WorkflowRun.idempotency_key == f"dub:{payload.organization_id}:{request_key}",
+            )
+        ).first()
+        if existing:
+            return {"job_id": str(existing.id), "workflow_run_id": str(existing.id), "status": existing.state.lower(), "message": "Existing dubbing workflow returned (idempotent replay)."}
 
     metadata = {
         "dub_source_url": payload.source_url,
@@ -125,6 +235,8 @@ def dispatch_dubbing_job(
         "blur_original_logo": payload.blur_original_logo,
         "render_mode": "TRANSLATE_DUB",
     }
+    metadata["source_asset_id"] = str(payload.source_asset_id) if payload.source_asset_id else None
+    metadata["dubbing_workflow"] = build_dubbing_workflow_package(metadata, source_asset_id=metadata["source_asset_id"])
 
     lang_tag = (payload.target_language or "vi").upper()
     if lang_tag == "AUTO":
@@ -146,29 +258,28 @@ def dispatch_dubbing_job(
     metadata["workflow_run_id"] = str(workflow_run_id)
 
     # Tạo VideoProject + WorkflowRun trong PostgreSQL
-    if session and hasattr(session, "add"):
-        proj = VideoProject(
-            organization_id=org_id,
+    proj = VideoProject(
+            organization_id=payload.organization_id,
             title=clean_title,
             brief=payload.source_url or payload.file_path or "AI Dubbing Video",
             format_profile="short_vertical",
             timezone="Asia/Bangkok",
-        )
-        session.add(proj)
-        session.flush()
+    )
+    session.add(proj)
+    session.flush()
 
-        wf = WorkflowRun(
+    wf = WorkflowRun(
             id=workflow_run_id,
             project_id=proj.id,
             state="QUEUED",   # process_queued_jobs.py sẽ pick up và chạy DubbingStrategy
-            idempotency_key=f"dub-{uuid.uuid4().hex}",
+            idempotency_key=f"dub:{payload.organization_id}:{request_key}" if request_key else f"dub-{uuid.uuid4().hex}",
             legacy_job_id=f"dub-{workflow_run_id}",
             prompt_manifest=metadata,
             input_payload=metadata,
-        )
-        session.add(wf)
-        session.flush()
-        session.commit()
+    )
+    session.add(wf)
+    session.flush()
+    session.commit()
 
     return {
         "job_id": str(workflow_run_id),
@@ -182,6 +293,8 @@ def dispatch_dubbing_job(
 @router.get("/dubbing/status/{job_id}")
 def get_dubbing_job_status(
     job_id: str,
+    organization_id: uuid.UUID,
+    identity: VerifiedIdentity = Depends(require_identity),
     session: Session = Depends(get_session),
 ):
     """
@@ -197,6 +310,13 @@ def get_dubbing_job_status(
     wf = session.get(WorkflowRun, wf_uuid)
     if not wf:
         raise HTTPException(status_code=404, detail="Không tìm thấy công việc lồng tiếng này.")
+    project = session.get(VideoProject, wf.project_id) if wf.project_id else None
+    if not project or project.organization_id != organization_id:
+        raise HTTPException(status_code=404, detail="Không tìm thấy công việc lồng tiếng này.")
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.WORKFLOW_VIEW)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You cannot view this dubbing workflow") from exc
 
     # Đọc WorkflowStep logs (các bước render)
     steps = session.scalars(
@@ -231,7 +351,7 @@ def get_dubbing_job_status(
 
     manifest = wf.prompt_manifest or {}
     seo_metadata = manifest.get("seo") or {}
-    proj = session.get(VideoProject, wf.project_id) if wf.project_id else getattr(wf, "project", None)
+    proj = project
     
     raw_proj_title = proj.title if proj else None
     ai_generated_title = seo_metadata.get("title")
@@ -243,12 +363,14 @@ def get_dubbing_job_status(
     else:
         video_title = raw_proj_title or "Video Lồng Tiếng AI Mới"
 
-    channel_key = manifest.get("auto_publish_channel") or "goc_chiem_nghiem"
-    raw_summary = seo_metadata.get("caption_seo") or (proj.brief if proj else "")
-    video_hashtags = seo_metadata.get("hashtags") or ["#VisionFlow", "#AIDubbing", "#YuuBin"]
-
-    from worker.services.video_metadata_strategy import format_channel_description
-    video_description = format_channel_description(raw_summary, channel_key=channel_key, hashtags=video_hashtags)
+    resolved = resolve_publish_metadata(
+        content_metadata=manifest.get("publish_metadata"),
+        user_metadata=manifest.get("publish_metadata_user"),
+        fallback={"youtube": {"title": raw_proj_title, "description": proj.brief if proj else ""}},
+    )
+    video_title = resolved.title.value if resolved.title else video_title
+    video_description = resolved.description.value if resolved.description else (proj.brief if proj else "")
+    video_hashtags = resolved.hashtags.value if resolved.hashtags else []
 
     return {
         "job_id": str(wf.id),

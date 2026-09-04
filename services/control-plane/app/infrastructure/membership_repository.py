@@ -24,7 +24,4 @@ class SqlAlchemyOrganizationMembershipRepository:
         )
         if role is not None:
             return OrganizationRole(role)
-        # Default fallback for single-tenant default organization 7b91598c-6c3e-4e5d-8247-d3efa203984a
-        if str(organization_id) == "7b91598c-6c3e-4e5d-8247-d3efa203984a":
-            return OrganizationRole.ADMINISTRATOR
         return None

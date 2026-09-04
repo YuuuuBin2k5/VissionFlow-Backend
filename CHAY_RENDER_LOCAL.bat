@@ -20,15 +20,21 @@ set PYTHONIOENCODING=utf-8
 set PYTHONUTF8=1
 set "DATABASE_URL=postgresql://neondb_owner:npg_TD8BYOyg6AVC@ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
-where python >nul 2>nul
-if %ERRORLEVEL% NEQ 0 (
-    echo [LOI] Khong tim thay Python trong PATH tren may tinh cua ban!
-    echo Vui long kiem tra lai cai dat Python.
-    pause
-    exit /b 1
+if exist ".\venv\Scripts\python.exe" (
+    set "PY_EXE=.\venv\Scripts\python.exe"
+) else (
+    where python >nul 2>nul
+    if %ERRORLEVEL% NEQ 0 (
+        echo [LOI] Khong tim thay Python trong PATH hoac virtualenv tren may tinh cua ban!
+        echo Vui long kiem tra lai cai dat Python.
+        pause
+        exit /b 1
+    )
+    set "PY_EXE=python"
 )
 
-python local_render_daemon.py
+echo   [*] Su dung Python: %PY_EXE%
+%PY_EXE% local_render_daemon.py
 
 if %ERRORLEVEL% NEQ 0 (
     echo.

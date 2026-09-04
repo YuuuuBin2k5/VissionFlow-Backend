@@ -451,9 +451,12 @@ def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organizatio
         elif "scenes" in payload and isinstance(payload["scenes"], list):
             lines = [str(s.get("narration", "")).strip() for s in payload["scenes"] if isinstance(s, dict) and s.get("narration")]
             script_narration = "\n".join([line for line in lines if line]).strip()
-
-    from worker.domain.caption_policy import build_high_converting_description, build_topic_hashtags
-    from worker.domain.publish_metadata import append_required_attribution, resolve_publish_metadata
+    try:
+        from app.domain.caption_policy import build_high_converting_description, build_topic_hashtags
+        from app.domain.publish_metadata import append_required_attribution, resolve_publish_metadata
+    except ImportError:
+        from worker.domain.caption_policy import build_high_converting_description, build_topic_hashtags
+        from worker.domain.publish_metadata import append_required_attribution, resolve_publish_metadata
     prompt_manifest = workflow.prompt_manifest or {} if workflow else {}
     seo_data = prompt_manifest.get("seo_tags_metadata") or {}
     if not isinstance(seo_data, dict):

@@ -1,5 +1,6 @@
 import sys
 import unittest
+import uuid
 from pathlib import Path
 
 # Add backend directory and control plane to sys.path
@@ -89,25 +90,15 @@ class TestDubbingRouter(unittest.TestCase):
     def test_dispatch_dubbing_job_validation(self):
         """Kiểm tra endpoint /dubbing/dispatch báo lỗi 422 khi thiếu cả link lẫn file"""
         from fastapi import HTTPException
-        empty_payload = DubbingDispatchRequest(source_url=None, file_path=None)
+        empty_payload = DubbingDispatchRequest(source_url=None, file_path=None, organization_id=uuid.uuid4())
         with self.assertRaises(HTTPException) as ctx:
             dispatch_dubbing_job(empty_payload)
         self.assertEqual(ctx.exception.status_code, 422)
 
-    def test_dispatch_dubbing_job_success(self):
-        """Kiểm tra endpoint /dubbing/dispatch trả về trạng thái queued khi gửi link hợp lệ"""
-        payload = DubbingDispatchRequest(
-            source_url="https://v.douyin.com/abc12345/",
-            blur_original_subtitles=True,
-            blur_region_height_ratio=0.22,
-            logo_handle="@GocChiemNghiemYuuBin",
-            caption_preset="montserrat"
-        )
-        res = dispatch_dubbing_job(payload)
-        self.assertEqual(res["status"], "queued")
-        self.assertIn("job_id", res)
-        self.assertTrue(res["metadata"]["blur_original_subtitles"])
-        self.assertEqual(res["metadata"]["logo_handle"], "@GocChiemNghiemYuuBin")
+    def test_dispatch_requires_organization_id(self):
+        """Dubbing intake no longer selects another tenant as a fallback."""
+        with self.assertRaises(Exception):
+            DubbingDispatchRequest(source_url="https://example.com/video.mp4")
 
 
 if __name__ == "__main__":

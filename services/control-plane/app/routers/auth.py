@@ -290,7 +290,11 @@ def require_identity(
     credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),
 ) -> VerifiedIdentity:
     if credentials is None or not credentials.credentials or credentials.scheme.lower() != "bearer":
-        return VerifiedIdentity(subject="local|anonymous", email="anonymous@visionflow.ai", display_name="Anonymous", scopes=["*"])
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Bearer authentication is required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     try:
         claims = InternalAccessTokenVerifier(InternalAuthSettings.from_env()).verify(credentials.credentials)
@@ -310,13 +314,8 @@ def require_identity(
     except Exception:
         pass
 
-    try:
-        unverified = jwt.decode(credentials.credentials, options={"verify_signature": False})
-        return VerifiedIdentity(
-            subject=unverified.get("sub", "local|anonymous"),
-            email=unverified.get("email") if isinstance(unverified.get("email"), str) else None,
-            display_name=None,
-            scopes=["*"],
-        )
-    except Exception:
-        return VerifiedIdentity(subject="local|anonymous", email="anonymous@visionflow.ai", display_name="Anonymous", scopes=["*"])
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Bearer token is invalid",
+        headers={"WWW-Authenticate": "Bearer"},
+    )

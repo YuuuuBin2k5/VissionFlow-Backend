@@ -16,8 +16,8 @@ import psycopg2.extras
 # Setup UTF-8 Encoding
 if hasattr(sys.stdout, 'reconfigure'):
     try:
-        sys.stdout.reconfigure(encoding='utf-8')
-        sys.stderr.reconfigure(encoding='utf-8')
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
     except Exception:
         pass
 
@@ -42,11 +42,11 @@ def poll_and_render_one_job():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-        # 1. Look for QUEUED jobs
+        # 1. Look for QUEUED jobs or stale PROCESSING jobs (> 3 minutes)
         cur.execute("""
             SELECT id, project_id, state, input_payload, prompt_manifest, created_at
             FROM workflow_runs
-            WHERE state = 'QUEUED'
+            WHERE state = 'QUEUED' OR (state = 'PROCESSING' AND updated_at < NOW() - INTERVAL '3 minutes')
             ORDER BY created_at ASC
             LIMIT 1
             FOR UPDATE SKIP LOCKED
@@ -117,6 +117,20 @@ def poll_and_render_one_job():
 
     except Exception as e:
         print(f"⚠️ [Local Render Daemon] Error polling/processing job: {e}", flush=True)
+        if 'wf_id' in locals() and wf_id:
+            try:
+                fail_conn = get_db_connection()
+                fail_cur = fail_conn.cursor()
+                fail_cur.execute("""
+                    UPDATE workflow_runs
+                    SET state = 'FAILED', failure_code = 'LOCAL_RENDER_ERROR', failure_detail = %s, updated_at = NOW()
+                    WHERE id = %s
+                """, (str(e), wf_id))
+                fail_conn.commit()
+                fail_cur.close()
+                fail_conn.close()
+            except Exception as dbe:
+                print(f"⚠️ Failed to update DB failure state: {dbe}", flush=True)
         if conn:
             try:
                 conn.close()

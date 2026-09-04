@@ -19,7 +19,8 @@ from typing import Optional
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
-from app.infrastructure.models import MediaAsset, Organization, VideoProject, WorkflowRun
+from app.infrastructure.models import MediaAsset, Organization, VideoProject, WorkflowRun, WorkflowStep
+from worker.domain.dubbing_contract import build_dubbing_workflow_package, legacy_seo_to_publish_metadata
 
 _log = logging.getLogger(__name__)
 
@@ -115,7 +116,15 @@ def sync_dubbing_job_to_control_plane(
 
             # Cập nhật prompt_manifest và đánh dấu flag_modified cho SQLAlchemy JSON
             from sqlalchemy.orm.attributes import flag_modified
-            wf.prompt_manifest = dict({**(wf.prompt_manifest or {}), **metadata})
+            canonical_metadata = legacy_seo_to_publish_metadata(metadata.get("seo"))
+            if canonical_metadata and not metadata.get("publish_metadata"):
+                metadata = {**metadata, "publish_metadata": canonical_metadata}
+            merged = {**(wf.prompt_manifest or {}), **metadata}
+            merged["dubbing_workflow"] = build_dubbing_workflow_package(
+                merged,
+                source_asset_id=str(merged["source_asset_id"]) if merged.get("source_asset_id") else None,
+            )
+            wf.prompt_manifest = dict(merged)
             flag_modified(wf, "prompt_manifest")
 
         # 2. Ghi MediaAsset nếu có R2 key
@@ -149,6 +158,21 @@ def sync_dubbing_job_to_control_plane(
                 asset.object_key = r2_object_key
                 if byte_size:
                     asset.byte_size = byte_size
+
+        # Review can inspect the same bounded artifacts regardless of whether
+        # the run started through the new asset intake or a legacy adapter.
+        for step_key, output in (
+            ("translation", {"mode": "faithful", "timeline": (metadata.get("dubbing_workflow") or {}).get("translation", {}).get("timeline", [])}),
+            ("dubbing_qc", ((metadata.get("dubbing_workflow") or {}).get("dubbing", {}).get("timing_qc", {"status": "NOT_AVAILABLE"})),
+            ("publish_metadata", metadata.get("publish_metadata") or {}),
+        ):
+            step = session.scalars(
+                select(WorkflowStep).where(WorkflowStep.workflow_run_id == wf.id, WorkflowStep.step_key == step_key)
+            ).first()
+            if step is None:
+                session.add(WorkflowStep(workflow_run_id=wf.id, step_key=step_key, state="COMPLETED", attempt_count=1, input_payload={}, output_payload=output))
+            else:
+                step.state, step.output_payload = "COMPLETED", output
 
         session.commit()
         _log.info("[dubbing_bridge] Synced job_id=%s → workflow_run_id=%s state=%s", job_id, wf.id, state)

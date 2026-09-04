@@ -18,6 +18,14 @@ import uuid
 import subprocess
 import sys
 
+# Configure UTF-8 for console output on Windows to prevent UnicodeEncodeError
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 # Modern FFmpeg v7.1 Setup for local Windows execution
 def get_ffmpeg_binary() -> str:
     try:
@@ -1936,7 +1944,6 @@ def render_video_task(contract_payload: dict) -> dict:
             "--write-media", audio_output,
             "--write-subtitles", vtt_output
         ]
-        subprocess.run(tts_cmd, check=True)
         try:
             subprocess.run(tts_cmd, check=True)
         except Exception as tts_err:

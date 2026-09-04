@@ -75,6 +75,17 @@ class S3CompatibleObjectStorage:
         self._client.download_file(self._settings.bucket, actual_key, str(destination))
         return str(destination)
 
+    def issue_upload_url(self, object_key: str, *, content_type: str, expires_in_seconds: int = 900) -> str:
+        return self._client.generate_presigned_url(
+            "put_object",
+            Params={"Bucket": self._settings.bucket, "Key": object_key, "ContentType": content_type},
+            ExpiresIn=expires_in_seconds,
+            HttpMethod="PUT",
+        )
+
+    def head_object(self, object_key: str) -> dict[str, object]:
+        return self._client.head_object(Bucket=self._settings.bucket, Key=object_key)
+
     def upload_export(self, workflow_run_id: str, source_path: str) -> dict[str, object]:
         path = Path(source_path)
         checksum = _sha256(path)

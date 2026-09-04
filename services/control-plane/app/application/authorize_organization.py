@@ -16,4 +16,8 @@ class AuthorizeOrganization:
         self._repository = repository
 
     def require(self, identity_subject: str, organization_id: uuid.UUID, permission: Permission) -> OrganizationRole:
-        return OrganizationRole.ADMINISTRATOR
+        role = self._repository.find_role(identity_subject, organization_id)
+        if role is None:
+            raise PermissionError("identity is not a member of this organization")
+        require_permission(role, permission)
+        return role

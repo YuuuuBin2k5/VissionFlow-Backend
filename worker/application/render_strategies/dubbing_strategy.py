@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from pathlib import Path
 
 from worker.application.render_strategies.base import RenderStrategy
 from worker.domain.render_contract import RenderContract, RenderMode
@@ -26,6 +27,31 @@ class DubbingStrategy(RenderStrategy):
 
     def can_handle(self, contract: RenderContract) -> bool:
         return contract.is_translate_dub
+
+    @staticmethod
+    def _download_ready_source_asset(asset_id: str, job_id: str) -> str:
+        """Resolve the canonical source asset at the worker boundary.
+
+        Local paths and URLs below remain only for legacy adapters.  New jobs
+        must enter here with a tenant-scoped READY ``MediaAsset``.
+        """
+        import sys
+        from sqlalchemy.orm import Session
+
+        root = Path(__file__).resolve().parents[3]
+        cp_dir = root / "services" / "control-plane"
+        if str(cp_dir) not in sys.path:
+            sys.path.insert(0, str(cp_dir))
+        from app.infrastructure.database import get_engine
+        from app.infrastructure.models import MediaAsset
+        from worker.services.visionflow_object_storage import S3CompatibleObjectStorage, VisionFlowObjectStorageSettings
+
+        with Session(get_engine()) as session:
+            asset = session.get(MediaAsset, asset_id)
+            if not asset or asset.media_kind != "source_video" or (asset.metadata_json or {}).get("status") != "READY":
+                raise FileNotFoundError("source_asset_id does not reference a READY source video")
+            destination = Path(OUTPUT_DIR) / f"source_{job_id}{Path(asset.object_key).suffix or '.mp4'}"
+            return S3CompatibleObjectStorage(VisionFlowObjectStorageSettings.from_env()).download_to(asset.object_key, str(destination))
 
     async def execute(self, job: dict, contract: RenderContract) -> str:
         from worker.services.dubbing_service import DubbingService
@@ -46,6 +72,11 @@ class DubbingStrategy(RenderStrategy):
         os.makedirs(OUTPUT_DIR, exist_ok=True)
         output_filename = f"dubbed_{job_id}_{int(asyncio.get_event_loop().time())}.mp4"
         output_path = os.path.join(OUTPUT_DIR, output_filename)
+
+        source_asset_id = metadata.get("source_asset_id")
+        if source_asset_id:
+            log_realtime_progress(job_id, "SOURCE_MEDIA", "INFO", "Đang tải source video đã xác thực từ Object Storage...")
+            source_path = self._download_ready_source_asset(str(source_asset_id), str(job_id))
 
         # Tải video nếu người dùng gửi link
         if source_url and not source_path:
@@ -135,7 +166,7 @@ class DubbingStrategy(RenderStrategy):
         if not success or not os.path.exists(output_path):
             raise RuntimeError("Lỗi trong quá trình chạy lồng tiếng tự động.")
 
-        # Tối ưu SEO từ transcript lồng tiếng
+        # Canonical metadata is a separate concern from the faithful transcript.
         log_realtime_progress(job_id, "DUBBING_PIPELINE", "INFO",
                               "Đang phân tích lời thoại để tối ưu SEO...")
         seo_tags: dict = {}
@@ -146,6 +177,7 @@ class DubbingStrategy(RenderStrategy):
                 seg.get("translated_text", "") for seg in timeline if seg.get("translated_text")
             )
             from worker.services.unified_metadata_service import UnifiedVideoMetadataService
+            from worker.domain.dubbing_contract import legacy_seo_to_publish_metadata, record_timing_qc
             meta_service = UnifiedVideoMetadataService(target_language=target_language, voice_code=voice_code)
             storytelling_framework = metadata.get("storytelling_framework") or "mid_action_open"
             seo_tags = meta_service.generate_seo_metadata(vietnamese_transcript, original_video_title, storytelling_framework=storytelling_framework).to_dict()
@@ -155,6 +187,15 @@ class DubbingStrategy(RenderStrategy):
                 or title_idea
             )
             hook_text = seo_tags.get("hook_text_3s") or seo_tags.get("hook") or ""
+            metadata["publish_metadata"] = legacy_seo_to_publish_metadata(seo_tags)
+            package = dict(metadata.get("dubbing_workflow") or {})
+            package["translation"] = {
+                **dict(package.get("translation") or {}),
+                "mode": "faithful",
+                "timeline": timeline,
+            }
+            package["dubbing"] = {**dict(package.get("dubbing") or {}), "timing_qc": record_timing_qc(timeline)}
+            metadata["dubbing_workflow"] = package
             log_realtime_progress(job_id, "DUBBING_PIPELINE", "SUCCESS",
                                   f"Đã sinh SEO tags thành công! Tiêu đề mới: {title_idea}")
         except Exception as seo_err:

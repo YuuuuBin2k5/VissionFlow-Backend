@@ -34,13 +34,14 @@ def process_postgresql_jobs() -> int:
         return 0
 
     try:
-        from sqlalchemy import create_engine, select
+        from sqlalchemy import create_engine
         from sqlalchemy.orm import Session
         # Import models từ control-plane
         cp_path = WORKSPACE_ROOT / "services" / "control-plane"
         if str(cp_path) not in sys.path:
             sys.path.insert(0, str(cp_path))
-        from app.infrastructure.models import VideoProject, WorkflowRun
+        from app.core.dubbing_claim import claim_next_dubbing_workflow
+        from app.infrastructure.models import VideoProject
     except Exception as err:
         print(f"[ProcessQueuedJobs] SQLAlchemy/Models import error: {err}")
         return 0
@@ -58,40 +59,22 @@ def process_postgresql_jobs() -> int:
     try:
         engine = create_engine(db_url)
         with Session(engine) as session:
-            rows = session.execute(
-                select(WorkflowRun, VideoProject)
-                .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
-                .where(WorkflowRun.state.in_(["QUEUED", "STORYBOARDED", "RENDERING"]))
-            ).all()
-
-            dubbing_runs = []
-            for wf, proj in rows:
-                manifest = wf.prompt_manifest or {}
-                payload = wf.input_payload or {}
-                render_mode = manifest.get("render_mode") or payload.get("render_mode")
-                title = proj.title or ""
-                if render_mode == "TRANSLATE_DUB" or title.startswith("[DUB]") or "dub" in title.lower():
-                    source_url = manifest.get("dub_source_url") or payload.get("dub_source_url") or ""
-                    source_path = manifest.get("dub_source_path") or payload.get("dub_source_path") or ""
-                    # Bỏ qua các link test rác
-                    if source_url in FAKE_URLS or source_path in FAKE_URLS or "xyz" in source_url or "abc123" in source_url:
-                        continue
-                    dubbing_runs.append((wf, proj))
-
-            if not dubbing_runs:
-                return 0
-
-            print(f"[ProcessQueuedJobs] Found {len(dubbing_runs)} pending Dubbing workflow(s) in PostgreSQL:")
-            for wf, proj in dubbing_runs:
-                print(f"  - WorkflowRun #{wf.id}: {proj.title} (State: {wf.state})")
-
             from worker.application.render_strategies.dubbing_strategy import DubbingStrategy
             from worker.domain.render_contract import RenderContract, RenderMode, RenderStopStage
 
-            strategy = DubbingStrategy()
-            processed_count = 0
-
-            for wf, proj in dubbing_runs:
+            strategy, processed_count = DubbingStrategy(), 0
+            worker_id = os.getenv("VISIONFLOW_WORKER_ID") or f"pid-{os.getpid()}"
+            # A worker claims one row at a time.  PostgreSQL SKIP LOCKED makes
+            # concurrent invocations safe; expired leases are recovered.
+            for _ in range(10):
+                wf = claim_next_dubbing_workflow(session, worker_id=worker_id)
+                if not wf:
+                    break
+                proj = session.get(VideoProject, wf.project_id)
+                if not proj:
+                    wf.state = "FAILED"
+                    session.commit()
+                    continue
                 wf_id_str = str(wf.id)
                 print(f"\n[ProcessQueuedJobs] === STARTING DUBBING RENDER FOR WORKFLOW #{wf_id_str} ===")
                 manifest = wf.prompt_manifest or {}
@@ -112,14 +95,6 @@ def process_postgresql_jobs() -> int:
                     voice_code=dub_meta.get("voice_code") or "edge-nam-minh",
                     metadata=dub_meta,
                 )
-
-                # Đánh dấu RENDERING trước khi bắt đầu — tránh reset_stuck_rendering.py
-                # không nhận ra và push nhầm vào Redis stream
-                try:
-                    wf.state = "RENDERING"
-                    session.commit()
-                except Exception:
-                    session.rollback()
 
                 try:
                     output_path = asyncio.run(strategy.execute(job_dict, contract))
