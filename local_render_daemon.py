@@ -26,7 +26,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from modal_worker import render_video_task
+from modal_worker import render_video_task, render_video_task_local
 
 DB_URL = os.environ.get(
     "DATABASE_URL",
@@ -101,10 +101,7 @@ def poll_and_render_one_job():
 
         # 2. Execute local render task
         print(f"🎬 [Local Render Daemon] Starting FFmpeg 7.1 Composition for {wf_id}...", flush=True)
-        if hasattr(render_video_task, 'local'):
-            result = render_video_task.local(payload)
-        else:
-            result = render_video_task(payload)
+        result = render_video_task_local(payload)
 
         status = result.get("status", "ERROR")
         if status == "SUCCESS":

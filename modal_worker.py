@@ -291,6 +291,10 @@ TRANSITION_SFX_MAP = {
 
 from urllib.parse import urlparse
 import ipaddress
+try:
+    import modal
+except Exception:
+    modal = None
 
 def is_safe_url(url: str | None) -> bool:
     """Security Guardrail: Prevents SSRF attacks to localhost or private subnet IPs."""
@@ -355,41 +359,43 @@ def format_rate(rate: float | str | None) -> str:
 
 # 1. Define Debian Linux Image with FFmpeg, OpenCV, Google Fonts, Playwright & Python Libraries (Optional for Cloud Modal deployment)
 try:
-    import modal
-    visionflow_image = (
-        modal.Image.debian_slim(python_version="3.11")
-        .apt_install(
-            "ffmpeg", "git", "curl", "wget", "fonts-dejavu-core", "fonts-liberation",
-            "fonts-roboto", "fonts-noto-color-emoji", "fontconfig", "libgl1", "libglib2.0-0"
+    if modal is not None and hasattr(modal, "Image"):
+        visionflow_image = (
+            modal.Image.debian_slim(python_version="3.11")
+            .apt_install(
+                "ffmpeg", "git", "curl", "wget", "fonts-dejavu-core", "fonts-liberation",
+                "fonts-roboto", "fonts-noto-color-emoji", "fontconfig", "libgl1", "libglib2.0-0"
+            )
+            .run_commands(
+                "mkdir -p /usr/share/fonts/truetype/googlefonts",
+                "wget -q -O /usr/share/fonts/truetype/googlefonts/Outfit-Bold.ttf https://github.com/google/fonts/raw/main/ofl/outfit/Outfit%5Bwght%5D.ttf || true",
+                "wget -q -O /usr/share/fonts/truetype/googlefonts/Montserrat-Bold.ttf https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Bold.ttf || true",
+                "wget -q -O /usr/share/fonts/truetype/googlefonts/BebasNeue-Regular.ttf https://github.com/google/fonts/raw/main/ofl/bebasneue/BebasNeue-Regular.ttf || true",
+                "wget -q -O /usr/share/fonts/truetype/googlefonts/Anton-Regular.ttf https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf || true",
+                "fc-cache -fv"
+            )
+            .pip_install(
+                "fastapi[standard]",
+                "moviepy>=1.0.3",
+                "edge-tts>=6.1.9",
+                "google-generativeai>=0.8.0",
+                "opencv-python-headless>=4.8.0",
+                "pillow>=10.0.0",
+                "numpy>=1.24.0",
+                "requests>=2.31.0",
+                "playwright>=1.40.0",
+                "pydantic>=2.0.0",
+                "boto3>=1.34.0",
+                "sqlalchemy>=2.0.0",
+                "psycopg2-binary>=2.9.0"
+            )
+            .run_commands("playwright install chromium --with-deps")
         )
-        .run_commands(
-            "mkdir -p /usr/share/fonts/truetype/googlefonts",
-            "wget -q -O /usr/share/fonts/truetype/googlefonts/Outfit-Bold.ttf https://github.com/google/fonts/raw/main/ofl/outfit/Outfit%5Bwght%5D.ttf || true",
-            "wget -q -O /usr/share/fonts/truetype/googlefonts/Montserrat-Bold.ttf https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Bold.ttf || true",
-            "wget -q -O /usr/share/fonts/truetype/googlefonts/BebasNeue-Regular.ttf https://github.com/google/fonts/raw/main/ofl/bebasneue/BebasNeue-Regular.ttf || true",
-            "wget -q -O /usr/share/fonts/truetype/googlefonts/Anton-Regular.ttf https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf || true",
-            "fc-cache -fv"
-        )
-        .pip_install(
-            "fastapi[standard]",
-            "moviepy>=1.0.3",
-            "edge-tts>=6.1.9",
-            "google-generativeai>=0.8.0",
-            "opencv-python-headless>=4.8.0",
-            "pillow>=10.0.0",
-            "numpy>=1.24.0",
-            "requests>=2.31.0",
-            "playwright>=1.40.0",
-            "pydantic>=2.0.0",
-            "boto3>=1.34.0",
-            "sqlalchemy>=2.0.0",
-            "psycopg2-binary>=2.9.0"
-        )
-        .run_commands("playwright install chromium --with-deps")
-    )
+    else:
+        visionflow_image = None
 except Exception:
-    modal = None
     visionflow_image = None
+
 
 def normalize_vietnamese_script(raw_text: str) -> str:
     """
@@ -1582,21 +1588,35 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
 
 # 2. Initialize Modal App
-app = modal.App("visionflow-render-engine")
+try:
+    if modal is not None and hasattr(modal, "App"):
+        app = modal.App("visionflow-render-engine")
+    else:
+        app = None
+except Exception:
+    app = None
 
-@app.function(
-    image=visionflow_image,
-    timeout=120,
-    cpu=1.5,
-    memory=2048,
-    secrets=[modal.Secret.from_dict({
-        "VISIONFLOW_OBJECT_STORE_ENDPOINT": "https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com",
-        "VISIONFLOW_OBJECT_STORE_BUCKET": "vision-flow",
-        "VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID": "fd28f47a855e5f2097d5f8c24c50da70",
-        "VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY": "c329293210d831c0bdba01f2434d86dab3eb23ab0a73f9b67819b7c3069cc9c6",
-    })]
-)
-def render_scene_chunk(scene_payload: dict) -> dict:
+def modal_function(**kwargs):
+    def decorator(fn):
+        if app is not None and hasattr(app, "function"):
+            try:
+                return app.function(**kwargs)(fn)
+            except Exception:
+                return fn
+        return fn
+    return decorator
+
+def modal_fastapi_endpoint(**kwargs):
+    def decorator(fn):
+        if modal is not None and hasattr(modal, "fastapi_endpoint"):
+            try:
+                return modal.fastapi_endpoint(**kwargs)(fn)
+            except Exception:
+                return fn
+        return fn
+    return decorator
+
+def _render_scene_chunk_impl(scene_payload: dict) -> dict:
     """
     Distributed Micro-Worker for Parallel Scene Rendering with R2 Pre-Normalized Proxy Cache.
     Normalizes video clips to exact resolution, 60 FPS, CRF 18 H.264 profile for 0.2s direct stream concatenation.
@@ -1771,19 +1791,25 @@ def render_scene_chunk(scene_payload: dict) -> dict:
         "duration": scene_dur
     }
 
-@app.function(
+def render_scene_chunk_local(scene_payload: dict) -> dict:
+    return _render_scene_chunk_impl(scene_payload)
+
+@modal_function(
     image=visionflow_image,
-    timeout=600,
-    cpu=2.0,
-    memory=4096,
+    timeout=120,
+    cpu=1.5,
+    memory=2048,
     secrets=[modal.Secret.from_dict({
         "VISIONFLOW_OBJECT_STORE_ENDPOINT": "https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com",
         "VISIONFLOW_OBJECT_STORE_BUCKET": "vision-flow",
         "VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID": "fd28f47a855e5f2097d5f8c24c50da70",
         "VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY": "c329293210d831c0bdba01f2434d86dab3eb23ab0a73f9b67819b7c3069cc9c6",
-    })]
+    })] if (modal is not None and hasattr(modal, "Secret")) else []
 )
-def render_video_task(contract_payload: dict) -> dict:
+def render_scene_chunk(scene_payload: dict) -> dict:
+    return _render_scene_chunk_impl(scene_payload)
+
+def _render_video_task_impl(contract_payload: dict) -> dict:
     """
     1-Pass Serverless Execution Pipeline on Modal.com
     Receives CreationSpec / Contract Payload from Frontend or Webhook,
@@ -2814,11 +2840,32 @@ def render_video_task(contract_payload: dict) -> dict:
             "error": str(exc)
         }
 
-@app.function(image=visionflow_image)
-@modal.fastapi_endpoint(method="POST")
+def render_video_task_local(contract_payload: dict) -> dict:
+    return _render_video_task_impl(contract_payload)
+
+@modal_function(
+    image=visionflow_image,
+    timeout=600,
+    cpu=2.0,
+    memory=4096,
+    secrets=[modal.Secret.from_dict({
+        "VISIONFLOW_OBJECT_STORE_ENDPOINT": "https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com",
+        "VISIONFLOW_OBJECT_STORE_BUCKET": "vision-flow",
+        "VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID": "fd28f47a855e5f2097d5f8c24c50da70",
+        "VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY": "c329293210d831c0bdba01f2434d86dab3eb23ab0a73f9b67819b7c3069cc9c6",
+    })] if (modal is not None and hasattr(modal, "Secret")) else []
+)
+def render_video_task(contract_payload: dict) -> dict:
+    return _render_video_task_impl(contract_payload)
+
+@modal_function(image=visionflow_image)
+@modal_fastapi_endpoint(method="POST")
 def webhook_job(request_body: dict):
     """Public HTTPS Endpoint triggered by Control Plane API or Frontend."""
-    render_video_task.spawn(request_body)
+    if hasattr(render_video_task, "spawn"):
+        render_video_task.spawn(request_body)
+    else:
+        render_video_task_local(request_body)
     return {
         "status": "QUEUED",
         "message": "VisionFlow Video Render Job triggered on Modal Cloud 24/7!"

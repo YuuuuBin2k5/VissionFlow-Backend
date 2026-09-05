@@ -37,6 +37,13 @@ if exist ".\venv\Scripts\python.exe" (
 echo   [*] Su dung Python: %PY_EXE%
 %PY_EXE% start_render_worker.py
 
+if %ERRORLEVEL% NEQ 0 (
+    echo.
+    echo ==============================================================================
+    echo [CANH BAO] Tien trinh Render Daemon da dung lai (Exit code: %ERRORLEVEL%).
+    echo ==============================================================================
+    pause
+)
 echo.
 echo ==============================================================================
 echo [THONG BAO] Tien trinh Render Daemon da ket thuc.

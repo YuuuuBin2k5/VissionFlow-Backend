@@ -134,291 +134,71 @@ def process_workflow_official(wf_id: str) -> bool:
     print(f"[WORKER] PROCESSING VIDEO: '{title}' (ID: {wf_id})")
     print(f"=======================================================")
 
-    # 1. Step 1: Advance PLANNING workflows to SCRIPTED -> STORYBOARDED using AI Engine
-    print("[1/5] Running AI Intelligence Engine (Kich ban & Phan canh chuan)...")
-    try:
-        import subprocess
-        env = os.environ.copy()
-        res = subprocess.run(
-            [sys.executable, "services/control-plane/scripts/advance_stuck_workflow.py", "--workflow-run-id", str(wf_id)],
-            capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=120
-        )
-        print(f"  [AI Engine] Output: {res.stdout.strip()}")
-    except Exception as adv_err:
-        print(f"  [AI Engine] Notice: {adv_err}")
-
-    # 2. Step 2: Initialize Official Worker Services
-    print("[2/5] Initializing Official GitHub Actions Worker Contracts...")
-    control_plane_settings = VisionFlowWorkerSettings.from_env()
-    control_plane = VisionFlowControlPlaneClient(control_plane_settings)
-
+    # 1. Clean up stale local exports so old test files are never reused
     workspace_temp = Path("worker/workspace_temp")
-    workspace_temp.mkdir(parents=True, exist_ok=True)
-
-    storage = None
-    if S3CompatibleObjectStorage and VisionFlowObjectStorageSettings:
+    stale_dir = workspace_temp / "visionflow" / str(wf_id)
+    if stale_dir.exists():
+        import shutil
         try:
-            storage = S3CompatibleObjectStorage(VisionFlowObjectStorageSettings.from_env())
-            print(f"  [Storage] ✅ Connected to Cloud Storage R2 Bucket: {storage._settings.bucket}")
-        except Exception as st_err:
-            print(f"  [Storage Notice] R2 Settings notice: {st_err}")
-            storage = None
+            shutil.rmtree(stale_dir, ignore_errors=True)
+        except Exception:
+            pass
 
-    class LocalAssetPreparerAdapter:
-        def prepare(self, contract):
-            asset_svc = AssetService()
-            bg_paths = []
-            for i, sc in enumerate(contract.scenes, 1):
-                kw = sc.get("visual_search_keywords") or sc.get("narration") or contract.title
-                try:
-                    bg_file = asset_svc.get_scene_asset(
-                        keywords=kw,
-                        scene_id=i,
-                        prefer_ai=True,
-                        style_preset="cozy_anime_3d"
-                    )
-                    if bg_file and os.path.exists(bg_file):
-                        bg_paths.append(bg_file)
-                except Exception as err:
-                    print(f"  [AssetPreparer Warning] Scene #{i} asset fetch notice: {err}")
+    # 2. Build full Contract Payload directly from input_payload & prompt_manifest
+    # This guarantees 100% synchronization with the Studio!
+    contract_payload = {
+        "workflow_run_id": str(wf_id),
+        "organization_id": str(proj.organization_id if proj else "7b91598c-6c3e-4e5d-8247-d3efa203984a"),
+        "title": payload.get("title") or title,
+        "brief": payload.get("brief") or (proj.brief if proj else ""),
+    }
+    # Merge manifest first, then payload overrides so user's explicit Studio choices ALWAYS win!
+    for k, v in manifest.items():
+        contract_payload[k] = v
+    for k, v in payload.items():
+        if v is not None and v != "":
+            contract_payload[k] = v
 
-            if not bg_paths:
-                print("  [AssetPreparer] 🎬 Generating Emergency Ken Burns motion video fallback...")
-                try:
-                    fallback_path = os.path.join("worker", "temp_assets", "emergency_fallback.mp4")
-                    os.makedirs(os.path.dirname(fallback_path), exist_ok=True)
-                    fallback_video = asset_svc._convert_photo_to_ken_burns_video(
-                        photo_path_or_url="https://images.pexels.com/photos/1624496/pexels-photo-1624496.jpeg",
-                        output_path=fallback_path,
-                        duration=15.0
-                    )
-                    if fallback_video and os.path.exists(fallback_video):
-                        bg_paths.append(fallback_video)
-                except Exception as kb_err:
-                    print(f"  [AssetPreparer Notice] Fallback generation notice: {kb_err}")
+    print(f"  [Studio Sync] Voice: {contract_payload.get('voice_code') or contract_payload.get('voice')}")
+    print(f"  [Studio Sync] Logo Handle: {contract_payload.get('logo_handle')} (Pos: {contract_payload.get('logo_position')})")
+    print(f"  [Studio Sync] Captions Preset: {contract_payload.get('caption_preset')} (Font: {contract_payload.get('caption_font_family')}, Color: {contract_payload.get('caption_color')})")
+    print(f"  [Studio Sync] Title Banner: {contract_payload.get('title_banner_text')} (Style: {contract_payload.get('title_banner_style')})")
+    print(f"  [Studio Sync] Scene Count: {len(contract_payload.get('scenes') or [])}")
 
-            return type("PreparedAssets", (), {"asset_keys": tuple(bg_paths)})()
+    # 3. Execute Unified FFmpeg 7.1 Video Composition Engine
+    from modal_worker import render_video_task_local
+    result = render_video_task_local(contract_payload)
 
-    class LocalMaterializerAdapter:
-        def download(self, assets, workspace):
-            return list(assets.asset_keys)
+    status = result.get("status", "ERROR")
+    if status == "SUCCESS":
+        print(f"\n[SUCCESS] OFFICIAL RENDER COMPLETE FOR {wf_id}!")
+        print(f"  Output Object Key: {result.get('object_key')}")
+        print(f"  Public Video URL: {result.get('video_url')}")
 
-    class LocalStorageAdapter:
-        def upload_export(self, workflow_run_id, output_path):
-            file_size = os.path.getsize(output_path) if os.path.exists(output_path) else 0
-            return {
-                "object_key": output_path,
-                "content_type": "video/mp4",
-                "byte_size": file_size,
-                "checksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            }
-        def get_media_metadata(self, key):
-            return {"width": 1080, "height": 1920, "duration": 15.0, "format_name": "mov,mp4,m4a,3gp,3g2,mj2", "bit_rate": 2500000}
+        # Check auto-publish
+        prompt_manifest = manifest
+        auto_publish_enabled = bool(prompt_manifest.get("auto_publish_enabled", False))
+        if auto_publish_enabled:
+            with Session(get_engine()) as fresh_db:
+                wf_t = fresh_db.get(WorkflowRun, wf_id)
+                if wf_t:
+                    wf_t.state = "PUBLISHED"
+                    fresh_db.commit()
+            print(f"[DB Auto-Publish] ⚡ Auto-Publish ON: Workflow {wf_id} -> PUBLISHED!")
+            try:
+                from worker.application.publish_use_case import handle_publish
+                job_id = int(wf.metadata_json.get("job_id", 0)) if wf.metadata_json else 0
+                if job_id:
+                    handle_publish(job_id=job_id)
+            except Exception as pub_err:
+                print(f"[DB Auto-Publish Notice] Immediate publish execution: {pub_err}")
+        else:
+            print(f"[DB] Auto-Publish OFF: Workflow {wf_id} -> APPROVAL_PENDING (Ready for Studio review)!\n")
 
-    local_storage = storage or LocalStorageAdapter()
-    materializer = LocalMaterializerAdapter()
-    asset_preparer = LocalAssetPreparerAdapter()
-    tts = VisionFlowTts()
-    media_service = MediaService()
-
-    video_renderer = VisionFlowVideoRenderer(
-        storage=local_storage,
-        materializer=materializer,
-        tts=tts,
-        media_service=media_service,
-        workspace_root=str(workspace_temp),
-    )
-
-    render_workflow = VisionFlowRenderWorkflow(
-        gateway=control_plane,
-        asset_preparer=asset_preparer,
-        renderer=video_renderer,
-    )
-
-    qa = VisionFlowQualityAssurance(control_plane, FfprobeMediaInspector(local_storage))
-    dispatcher = VisionFlowRenderDispatcher(control_plane, render_workflow, quality_assurance=qa)
-
-    # 3. Step 3: Dispatch Render via Official Pipeline
-    print("[3/5] Executing Official Render Pipeline (Video + Overlays + Karaoke Subtitles)...")
-    trace_id = uuid.uuid4().hex
-    output_video_path = None
-    artifact = None
-    real_video_url = None
-
-    existing_local_export = os.path.join(workspace_temp, "visionflow", str(wf_id), "export.mp4")
-    if os.path.exists(existing_local_export) and os.path.getsize(existing_local_export) > 1024 * 1024:
-        print(f"  [Fast Track] Found pre-rendered export video ({os.path.getsize(existing_local_export):,} bytes) at {existing_local_export}")
-        print(f"  [Storage] ☁️ Uploading pre-rendered export to Cloud R2 storage...")
-        uploaded = local_storage.upload_export(str(wf_id), existing_local_export)
-        artifact = RenderedArtifact(
-            object_key=str(uploaded["object_key"]),
-            content_type=str(uploaded["content_type"]),
-            byte_size=int(uploaded["byte_size"]),
-            checksum_sha256=str(uploaded["checksum_sha256"]),
-        )
-        output_video_path = artifact.object_key
-        real_video_url = uploaded.get("public_url")
-        print(f"  [Storage] ✅ Uploaded successfully: {artifact.object_key}")
+        return True
     else:
-        try:
-            artifact = dispatcher.dispatch(str(wf_id), trace_id=trace_id)
-            output_video_path = artifact.object_key if artifact else None
-        except Exception as dispatch_err:
-            print(f"  [Dispatch] Falling back to direct contract execution: {dispatch_err}")
-            with Session(engine) as session_db:
-                wf_ref = session_db.get(WorkflowRun, wf_id)
-                prompt_manifest = wf_ref.prompt_manifest or {}
-                script = prompt_manifest.get("script") or ""
-                scenes = prompt_manifest.get("scenes") or []
-
-                # Direct DB fallback to creative_documents -> creative_scenes
-                if not scenes or len(scenes) <= 2:
-                    try:
-                        from app.infrastructure.models import CreativeDocument, CreativeDocumentVersion, CreativeScene
-                        doc = session_db.query(CreativeDocument).filter(CreativeDocument.workflow_run_id == wf_ref.id).first()
-                        if doc and doc.active_version_id:
-                            ver = session_db.get(CreativeDocumentVersion, doc.active_version_id)
-                            if ver and ver.script:
-                                script = ver.script
-                            db_scenes = session_db.query(CreativeScene).filter(CreativeScene.creative_document_version_id == doc.active_version_id).order_by(CreativeScene.position.asc()).all()
-                            if db_scenes:
-                                scenes = []
-                                for sc in db_scenes:
-                                    scenes.append({
-                                        "scene_id": f"scene-{sc.position}",
-                                        "visual_search_keywords": sc.visual_prompt or f"{title} vertical",
-                                        "duration": int(float(sc.duration_seconds or 5)),
-                                        "narration": sc.narration or "",
-                                        "caption": sc.caption or title[:40],
-                                        "transition": sc.transition or "cut",
-                                    })
-                                print(f"  [DB Fetch] Loaded {len(scenes)} full scenes from creative_scenes table in DB!")
-                    except Exception as fetch_err:
-                        print(f"  [DB Fetch] Notice: {fetch_err}")
-
-                if not script and scenes:
-                    script = " ".join([str(sc.get("narration") or sc.get("caption") or "").strip() for sc in scenes if str(sc.get("narration") or sc.get("caption") or "").strip()])
-                if not script or len(script.strip()) < 3:
-                    script = f"Nội dung truyền cảm hứng và triết lý sống: {title}"
-
-                if not scenes:
-                    scenes = [
-                        {"scene_id": "scene-1", "visual_search_keywords": f"{title} vertical", "duration": 6, "narration": script[:100], "caption": title[:40]},
-                        {"scene_id": "scene-2", "visual_search_keywords": f"{title} aesthetic", "duration": 6, "narration": script[100:200], "caption": "Đăng ký ngay"}
-                    ]
-
-            vi_chars = "àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
-            is_vietnamese = any(c in script.lower() for c in vi_chars)
-            manifest_voice = (
-                prompt_manifest.get("voice_code")
-                or prompt_manifest.get("voice")
-                or prompt_manifest.get("voice_id")
-                or prompt_manifest.get("voice_name")
-            )
-            if manifest_voice:
-                selected_voice = str(manifest_voice)
-            elif not is_vietnamese:
-                selected_voice = "adam" if os.getenv("ELEVENLABS_API_KEY") else "en-US-ChristopherNeural"
-            else:
-                selected_voice = "vi-VN-NamMinhNeural"
-
-            contract = type("Contract", (), {
-                "workflow_run_id": str(wf_id),
-                "trace_id": trace_id,
-                "script": script,
-                "scenes": tuple(scenes),
-                "voice_code": selected_voice,
-                "voice_rate": 1.12,
-                "title": title,
-                "render_plan": type("RenderPlan", (), {"tracks": (), "effect_keys": ()})(),
-                "render_plan_hash": "local_render_hash",
-                "workspace_key": str(wf_id),
-                "caption_preset": "cinematic_quote",
-                "show_title_banner": True,
-                "logo_handle": "@GocChiemNghiemYuuBin",
-                "logo_position": "top_left",
-            })()
-
-            prepared = asset_preparer.prepare(contract)
-            artifact = video_renderer.render(contract, prepared)
-            output_video_path = artifact.object_key
-
-    print(f"\n[SUCCESS] OFFICIAL RENDER COMPLETE!")
-    print(f"  Output Key / Path: {output_video_path}")
-
-    # 4. Step 4: Upload Rendered Video to Cloud Storage / CDN (if local path)
-    from worker.services.visionflow_object_storage import CloudAssetUploader
-    if output_video_path and os.path.exists(output_video_path):
-        print("[4/5] Uploading rendered video to Cloud Storage / CDN...")
-        real_video_url = CloudAssetUploader.upload_export_video(wf_id, output_video_path)
-    elif not real_video_url and output_video_path and storage:
-        real_video_url = storage.get_public_url(output_video_path)
-
-    # 5. Step 5: Update Database State to APPROVAL_PENDING
-    print("[5/5] Updating Database State -> APPROVAL_PENDING (Awaiting Web UI Review)...")
-    with Session(get_engine()) as fresh_db:
-        wf_target = fresh_db.get(WorkflowRun, wf_id)
-        if wf_target:
-            proj_target = fresh_db.get(VideoProject, wf_target.project_id)
-            asset_key = output_video_path or real_video_url
-            if proj_target:
-                proj_target.preview_video_url = real_video_url or asset_key
-
-            file_size = (
-                getattr(artifact, "byte_size", None)
-                or (os.path.getsize(output_video_path) if (output_video_path and os.path.exists(output_video_path)) else None)
-                or (os.path.getsize(existing_local_export) if (existing_local_export and os.path.exists(existing_local_export)) else None)
-                or 5505072
-            )
-            checksum_sha256 = (
-                getattr(artifact, "checksum_sha256", None)
-                or "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-            )
-
-            existing_asset = fresh_db.query(MediaAsset).filter(
-                MediaAsset.workflow_run_id == wf_target.id,
-                MediaAsset.media_kind == "final_export"
-            ).first()
-            if not existing_asset:
-                media_asset = MediaAsset(
-                    id=uuid.uuid4(),
-                    organization_id=proj_target.organization_id if proj_target else uuid.UUID("7b91598c-6c3e-4e5d-8247-d3efa203984a"),
-                    workflow_run_id=wf_target.id,
-                    media_kind="final_export",
-                    object_key=asset_key,
-                    content_type="video/mp4",
-                    byte_size=file_size,
-                    checksum_sha256=checksum_sha256,
-                    metadata_json={"rendered_locally_official": True}
-                )
-                fresh_db.add(media_asset)
-            else:
-                existing_asset.object_key = asset_key
-                existing_asset.byte_size = file_size
-                existing_asset.checksum_sha256 = checksum_sha256
-
-            prompt_manifest = wf_target.prompt_manifest or {}
-            auto_publish_enabled = bool(prompt_manifest.get("auto_publish_enabled", False))
-            auto_publish_mode = prompt_manifest.get("auto_publish_mode", "immediate")
-            scheduled_at_iso = prompt_manifest.get("scheduled_at_iso")
-            auto_publish_channel = prompt_manifest.get("auto_publish_channel", "asinmochii_boni")
-
-            if auto_publish_enabled:
-                wf_target.state = "PUBLISHED"
-                print(f"[DB Auto-Publish] ⚡ Auto-Publish ON (Unlisted): Workflow {wf_target.id} -> AUTO-PUBLISHED immediately!\n")
-                try:
-                    from worker.application.publish_use_case import handle_publish
-                    job_id = int(wf_target.metadata_json.get("job_id", 0)) if wf_target.metadata_json else 0
-                    if job_id:
-                        handle_publish(job_id=job_id)
-                except Exception as pub_err:
-                    print(f"[DB Auto-Publish Notice] Immediate publish execution: {pub_err}\n")
-            else:
-                wf_target.state = "APPROVAL_PENDING"
-                print(f"[DB] Auto-Publish OFF: Workflow {wf_target.id} -> APPROVAL_PENDING (Standard flow preserved)!\n")
-
-            fresh_db.commit()
-            return True
+        print(f"\n❌ [FAILED] RENDER FAILED FOR {wf_id}: {result.get('error')}")
+        return False
 
 
 def run_unified_render_pass() -> int:
