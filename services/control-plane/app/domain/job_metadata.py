@@ -84,3 +84,4 @@ def infer_genre_from_metadata(metadata: dict) -> str:
     if metadata.get("theme") in ("tech", "science", "future"):
         return "SCIENCE_TECH_FUTURE"
     return "PHILOSOPHY_LIFE_LESSON"
+

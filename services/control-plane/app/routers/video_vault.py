@@ -87,7 +87,7 @@ class BulkDeleteVideoVaultRequest(BaseModel):
 def _authorize(session: Session, identity: VerifiedIdentity, organization_id: uuid.UUID, permission: str = Permission.WORKFLOW_VIEW) -> None:
     try:
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
-            identity.subject, organization_id, permission
+            identity.subject, organization_id, permission, identity.email
         )
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc

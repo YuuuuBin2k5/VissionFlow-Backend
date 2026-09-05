@@ -1193,6 +1193,7 @@ def list_review_queue(
             identity.subject,
             organization_id,
             Permission.WORKFLOW_VIEW,
+            identity.email,
         )
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
@@ -1240,7 +1241,7 @@ def list_publication_queue(
 ) -> PublicationQueueResponse:
     try:
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
-            identity.subject, organization_id, Permission.WORKFLOW_VIEW
+            identity.subject, organization_id, Permission.WORKFLOW_VIEW, identity.email
         )
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
@@ -1275,7 +1276,7 @@ def list_publication_queue(
 @router.get("/organizations/{organization_id}/publication-history", response_model=PublicationHistoryResponse)
 def list_publication_history(organization_id: uuid.UUID, limit: int = Query(default=50, ge=1, le=100), identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> PublicationHistoryResponse:
     try:
-        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.WORKFLOW_VIEW)
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.WORKFLOW_VIEW, identity.email)
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
     rows = session.execute(select(WorkflowRun, VideoProject, WorkflowStep).join(VideoProject, WorkflowRun.project_id == VideoProject.id).join(WorkflowStep, (WorkflowStep.workflow_run_id == WorkflowRun.id) & (WorkflowStep.step_key == "publish")).where(VideoProject.organization_id == organization_id, WorkflowRun.state == WorkflowState.PUBLISHED.value).order_by(WorkflowRun.created_at.desc()).limit(limit)).all()
@@ -1301,7 +1302,7 @@ def list_publication_history(organization_id: uuid.UUID, limit: int = Query(defa
 @router.get("/organizations/{organization_id}/failed-publications", response_model=FailedPublicationQueueResponse)
 def list_failed_publications(organization_id: uuid.UUID, limit: int = Query(default=50, ge=1, le=100), identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> FailedPublicationQueueResponse:
     try:
-        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.WORKFLOW_VIEW)
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.WORKFLOW_VIEW, identity.email)
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
     rows = session.execute(
@@ -1324,7 +1325,7 @@ def list_failed_publications(organization_id: uuid.UUID, limit: int = Query(defa
 @router.get("/organizations/{organization_id}/publication-attempts", response_model=PublicationAttemptHistoryResponse)
 def list_publication_attempts(organization_id: uuid.UUID, limit: int = Query(default=100, ge=1, le=200), identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> PublicationAttemptHistoryResponse:
     try:
-        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.WORKFLOW_VIEW)
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.WORKFLOW_VIEW, identity.email)
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
     rows = session.execute(
