@@ -454,10 +454,18 @@ def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organizatio
 
     try:
         from app.domain.caption_policy import build_high_converting_description, build_topic_hashtags
-        from app.domain.publish_metadata import append_required_attribution, resolve_publish_metadata
+        from app.domain.publish_metadata import (
+            append_required_attribution,
+            legacy_seo_to_publish_metadata,
+            resolve_publish_metadata,
+        )
     except ImportError:
         from worker.domain.caption_policy import build_high_converting_description, build_topic_hashtags
-        from worker.domain.publish_metadata import append_required_attribution, resolve_publish_metadata
+        from worker.domain.publish_metadata import (
+            append_required_attribution,
+            legacy_seo_to_publish_metadata,
+            resolve_publish_metadata,
+        )
     prompt_manifest = workflow.prompt_manifest or {} if workflow else {}
     seo_data = prompt_manifest.get("seo_tags_metadata") or {}
     if not isinstance(seo_data, dict):
@@ -471,8 +479,14 @@ def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organizatio
 
     content_metadata = workflow.input_payload.get("publish_metadata") if isinstance(workflow.input_payload, dict) else None
     if not isinstance(content_metadata, dict):
-        content_metadata = prompt_manifest.get("publish_metadata")
-    user_metadata = prompt_manifest.get("publish_metadata_user")
+        content_metadata = prompt_manifest.get("publish_metadata") if isinstance(prompt_manifest, dict) else None
+    if not isinstance(content_metadata, dict) and seo_data:
+        content_metadata = legacy_seo_to_publish_metadata(seo_data)
+
+    user_metadata = (
+        (prompt_manifest.get("publish_metadata_user") if isinstance(prompt_manifest, dict) else None)
+        or (workflow.input_payload.get("publish_metadata_user") if isinstance(workflow.input_payload, dict) else None)
+    )
     resolved = resolve_publish_metadata(
         content_metadata=content_metadata,
         user_metadata=user_metadata,
@@ -491,8 +505,19 @@ def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organizatio
                 "hashtags": build_topic_hashtags(project.title, script, seo_data, lang),
             }},
         )
+
+    base_desc = resolved.description.value if resolved.description else ""
+    if resolved.hashtags and resolved.hashtags.value:
+        tags_to_append = [
+            tag for tag in resolved.hashtags.value
+            if tag.lower() not in base_desc.lower()
+        ]
+        if tags_to_append:
+            tags_suffix = " ".join(tags_to_append)
+            base_desc = f"{base_desc.rstrip()}\n\n{tags_suffix}" if base_desc else tags_suffix
+
     music = prompt_manifest.get("music_attribution") or seo_data.get("music_attribution") or seo_data.get("bgm_info") or seo_data.get("selected_music")
-    rich_description, attribution_issues = append_required_attribution(resolved.description.value if resolved.description else "", music)
+    rich_description, attribution_issues = append_required_attribution(base_desc, music)
     for issue in [*resolved.issues, *attribution_issues]:
         _bg_logger.warning("publish metadata %s (%s): %s", issue.code, issue.field, issue.message)
 

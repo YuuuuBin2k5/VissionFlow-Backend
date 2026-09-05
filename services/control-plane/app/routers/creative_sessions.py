@@ -67,6 +67,7 @@ class CreateProposalRequest(BaseModel):
     brief: str = Field(min_length=1, max_length=50000)
     script: str = Field(min_length=40, max_length=50000)
     scenes: list[dict] = Field(min_length=3, max_length=20)
+    publish_metadata: dict[str, Any] | None = None
 
 
 class AcceptProposalRequest(BaseModel):
@@ -399,6 +400,7 @@ def create_manual_proposal(
             brief=body.brief,
             script=body.script,
             scenes=body.scenes,
+            publish_metadata=body.publish_metadata,
         )
         return {"proposal_id": str(proposal_id)}
     except PermissionError as exc:
@@ -435,6 +437,7 @@ def create_proposal_revision(
             brief=body.brief,
             script=body.script,
             scenes=body.scenes,
+            publish_metadata=body.publish_metadata,
         )
         return {"proposal_id": str(rev_id)}
     except PermissionError as exc:

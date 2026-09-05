@@ -171,3 +171,24 @@ def append_required_attribution(description: str, music_metadata: object) -> tup
     if attribution and attribution not in description:
         return f"{description.rstrip()}\n\n{attribution}", issues
     return description, issues
+
+
+def legacy_seo_to_publish_metadata(seo: object) -> dict[str, Any]:
+    """Map old dubbing/video SEO output into canonical publish_metadata structure."""
+    raw = seo if isinstance(seo, dict) else {}
+    hashtags = raw.get("hashtags") if isinstance(raw.get("hashtags"), list) else []
+    tags = raw.get("tags") if isinstance(raw.get("tags"), list) else []
+    description = _text(raw.get("caption_seo")) or _text(raw.get("description"))
+    youtube = {
+        key: value
+        for key, value in {
+            "title": _text(raw.get("title")),
+            "description": description,
+            "hashtags": normalize_hashtags(hashtags) if hashtags else [],
+            "tags": normalize_tags(tags) if tags else [],
+            "pinned_comment": _text(raw.get("pinned_comment")),
+        }.items()
+        if value not in (None, [])
+    }
+    return {"youtube": youtube} if youtube else {}
+

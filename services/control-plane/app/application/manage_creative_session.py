@@ -85,6 +85,9 @@ class CreationSpecSchema(BaseModel):
     # Duration
     duration_seconds: int = Field(default=30, ge=5, le=300)
 
+    # Publish Metadata
+    publish_metadata: dict[str, Any] | None = Field(default=None)
+
     @model_validator(mode="before")
     @classmethod
     def sanitize_spec(cls, data: Any) -> Any:
@@ -101,6 +104,8 @@ class CreationSpecSchema(BaseModel):
             brief = f"[VisionFlow Studio] {title}"
         d["brief"] = brief[:50000]
 
+        # Duration
+        raw_dur = d.get("duration_seconds")
         # Duration: support both duration_seconds and estimated_duration_seconds
         raw_dur = d.get("duration_seconds") if d.get("duration_seconds") is not None else d.get("estimated_duration_seconds")
         try:
@@ -148,6 +153,10 @@ class CreationSpecSchema(BaseModel):
         # Timezone
         if not d.get("timezone"):
             d["timezone"] = "Asia/Bangkok"
+
+        # Publish metadata
+        if "publish_metadata" in d and isinstance(d["publish_metadata"], dict):
+            d["publish_metadata"] = d["publish_metadata"]
 
         return d
 
@@ -376,6 +385,7 @@ class ManageCreativeSession:
         brief: str,
         script: str,
         scenes: list[dict],
+        publish_metadata: dict[str, Any] | None = None,
     ) -> uuid.UUID:
         if len(script) < 40:
             raise CreativeSessionError("Script must be at least 40 characters long.")
@@ -387,6 +397,7 @@ class ManageCreativeSession:
             "brief": brief,
             "script": script,
             "scenes": scenes,
+            "publish_metadata": publish_metadata,
         }
         fingerprint = hashlib.sha256(json_dump_canonical(fingerprint_payload).encode()).hexdigest()
 
@@ -429,6 +440,7 @@ class ManageCreativeSession:
                 "prompt_templates": {},
                 "schema_version": 1,
                 "trace_id": str(uuid.uuid4()),
+                "publish_metadata": publish_metadata,
             }
             proposal = repo.save_proposal(
                 session_id=session_id,
@@ -472,6 +484,7 @@ class ManageCreativeSession:
         brief: str,
         script: str,
         scenes: list[dict],
+        publish_metadata: dict[str, Any] | None = None,
     ) -> uuid.UUID:
         if len(script) < 40:
             raise CreativeSessionError("Script must be at least 40 characters long.")
@@ -484,6 +497,7 @@ class ManageCreativeSession:
             "brief": brief,
             "script": script,
             "scenes": scenes,
+            "publish_metadata": publish_metadata,
         }
         fingerprint = hashlib.sha256(json_dump_canonical(fingerprint_payload).encode()).hexdigest()
 
@@ -516,6 +530,9 @@ class ManageCreativeSession:
             ) or 0
             next_version = prop_count + 1
 
+            parent_meta = parent.generation_manifest.get("publish_metadata") if (parent.generation_manifest and isinstance(parent.generation_manifest, dict)) else None
+            effective_publish_metadata = publish_metadata if publish_metadata is not None else parent_meta
+
             # Revision inherits the parent's message_id to maintain connection to original turn conversation
             manifest = {
                 "source": "operator_edit",
@@ -525,6 +542,7 @@ class ManageCreativeSession:
                 "prompt_templates": {},
                 "schema_version": 1,
                 "trace_id": parent.trace_id,
+                "publish_metadata": effective_publish_metadata,
             }
             proposal = repo.save_proposal(
                 session_id=session_id,
@@ -851,6 +869,7 @@ class ManageCreativeSession:
                 },
                 "schema_version": 1,
                 "trace_id": str(uuid.uuid4()),
+                "publish_metadata": proposal_dict.get("publish_metadata"),
             }
 
             # Save Proposal
@@ -971,6 +990,10 @@ class ManageCreativeSession:
             proposal_total_duration = sum(int(sc.get("duration_seconds", 5)) for sc in proposal.scenes) if proposal.scenes else 0
             actual_duration = max(15, min(90, proposal_total_duration)) if proposal_total_duration > 0 else int(creation_spec.get("duration_seconds", 45))
 
+            # Extract canonical publish_metadata from proposal generation_manifest or session creation_spec
+            prop_gen_manifest = proposal.generation_manifest if isinstance(proposal.generation_manifest, dict) else {}
+            pub_meta = prop_gen_manifest.get("publish_metadata") or creation_spec.get("publish_metadata")
+
             # Map input payload
             input_payload = {
                 "format_profile": creation_spec.get("format_profile", "short_vertical"),
@@ -1017,7 +1040,12 @@ class ManageCreativeSession:
                 "scenes": proposal.scenes or [],
                 "session_id": str(session_id),
                 "accepted_proposal_id": str(accepted_proposal_id),
+                "publish_metadata": pub_meta,
             }
+
+            final_prompt_manifest = dict(prop_gen_manifest)
+            if pub_meta:
+                final_prompt_manifest["publish_metadata"] = pub_meta
 
             command = CreateShortFormCommand(
                 organization_id=organization_id,
@@ -1026,7 +1054,7 @@ class ManageCreativeSession:
                 idempotency_key=derived_wf_run_key,
                 format_profile=creation_spec["format_profile"],
                 timezone=creation_spec["timezone"],
-                prompt_manifest=proposal.generation_manifest,
+                prompt_manifest=final_prompt_manifest,
                 input_payload=input_payload,
                 trace_id=proposal.trace_id,
             )

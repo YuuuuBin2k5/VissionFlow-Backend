@@ -99,6 +99,19 @@ def handle_publish(
             user_metadata = {platform: user_platform}
 
     content_metadata = metadata.get("publish_metadata") or seo_data.get("publish_metadata")
+    prompt_manifest = job.get("prompt_manifest") if isinstance(job.get("prompt_manifest"), dict) else {}
+    input_payload = job.get("input_payload") if isinstance(job.get("input_payload"), dict) else {}
+    content_metadata = (
+        metadata.get("publish_metadata")
+        or seo_data.get("publish_metadata")
+        or job.get("publish_metadata")
+        or prompt_manifest.get("publish_metadata")
+        or input_payload.get("publish_metadata")
+    )
+    if not isinstance(content_metadata, dict) and seo_data:
+        from worker.domain.publish_metadata import legacy_seo_to_publish_metadata
+        content_metadata = legacy_seo_to_publish_metadata(seo_data)
+
     fallback_title = job.get("video_title_idea") or legacy_title or "Video mới"
     fallback = {platform: {"title": fallback_title, "hashtags": legacy_hashtags}}
     resolved = resolve_publish_metadata(
@@ -124,6 +137,10 @@ def handle_publish(
         description_or_caption = resolved.description if platform == "youtube" else resolved.caption
     target_title = resolved.title.value if resolved.title else fallback_title
     target_description = description_or_caption.value if description_or_caption else ""
+    if platform == "youtube" and resolved.hashtags and resolved.hashtags.value:
+        tags_to_append = [t for t in resolved.hashtags.value if t.lower() not in target_description.lower()]
+        if tags_to_append:
+            target_description = f"{target_description.rstrip()}\n\n{' '.join(tags_to_append)}" if target_description else " ".join(tags_to_append)
     target_description, _ = append_required_attribution(target_description, seo_data.get("music_attribution") or seo_data.get("bgm_info") or seo_data.get("selected_music"))
     hashtags = resolved.hashtags.value if resolved.hashtags else []
     target_tags = resolved.tags.value if resolved.tags else []
