@@ -60,14 +60,14 @@ def sync_dubbing_job_to_control_plane(
         wf = None
         if workflow_run_id:
             try:
-                wf = session.get(WorkflowRun, uuid.UUID(workflow_run_id))
+                wf = session.get(WorkflowRun, uuid.UUID(workflow_run_id), with_for_update=True)
             except (ValueError, Exception):
                 pass
 
         if not wf:
             legacy_key = f"dub-{job_id}"
             wf = session.scalars(
-                select(WorkflowRun).where(WorkflowRun.legacy_job_id == legacy_key)
+                select(WorkflowRun).where(WorkflowRun.legacy_job_id == legacy_key).with_for_update()
             ).first()
 
         if not wf:
@@ -119,11 +119,17 @@ def sync_dubbing_job_to_control_plane(
             canonical_metadata = legacy_seo_to_publish_metadata(metadata.get("seo"))
             if canonical_metadata and not metadata.get("publish_metadata"):
                 metadata = {**metadata, "publish_metadata": canonical_metadata}
-            merged = {**(wf.prompt_manifest or {}), **metadata}
-            merged["dubbing_workflow"] = build_dubbing_workflow_package(
+            existing = wf.prompt_manifest or {}
+            merged = {**existing, **metadata}
+            # A retry may carry an old snapshot of the user's publishing edits.
+            if 'publish_metadata_user' in existing:
+                merged['publish_metadata_user'] = existing['publish_metadata_user']
+            defaults = build_dubbing_workflow_package(
                 merged,
                 source_asset_id=str(merged["source_asset_id"]) if merged.get("source_asset_id") else None,
             )
+            completed_package = merged.get('dubbing_workflow') or {}
+            merged['dubbing_workflow'] = {**defaults, **completed_package}
             wf.prompt_manifest = dict(merged)
             flag_modified(wf, "prompt_manifest")
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import DateTime, and_, cast, func, or_, select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -25,12 +25,20 @@ def claim_next_dubbing_workflow(session: Session, *, worker_id: str, lease_secon
     without waiting on or duplicating the same render.
     """
     now = datetime.now(timezone.utc)
+    lease_expiry = WorkflowRun.input_payload['dubbing_claim']['expires_at'].astext
     rows = session.scalars(
         select(WorkflowRun)
-        .where(WorkflowRun.state.in_(("QUEUED", "RENDERING")))
+        .where(
+            func.coalesce(WorkflowRun.prompt_manifest['render_mode'].astext,
+                          WorkflowRun.input_payload['render_mode'].astext) == 'TRANSLATE_DUB',
+            or_(WorkflowRun.state == 'QUEUED', and_(
+                WorkflowRun.state == 'RENDERING',
+                cast(lease_expiry, DateTime(timezone=True)) <= now,
+            )),
+        )
         .order_by(WorkflowRun.created_at.asc())
         .with_for_update(skip_locked=True)
-        .limit(50)
+        .limit(1)
     ).all()
     for workflow in rows:
         if not _is_dubbing(workflow):
