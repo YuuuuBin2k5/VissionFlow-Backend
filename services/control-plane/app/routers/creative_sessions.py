@@ -3,9 +3,11 @@ from __future__ import annotations
 import logging
 import uuid
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from app.application.authorize_organization import AuthorizeOrganization
 from app.application.manage_creative_session import (
@@ -32,8 +34,15 @@ router = APIRouter(tags=["creative_sessions"])
 # Request models
 class CreateSessionRequest(BaseModel):
     title: str | None = None
-    creation_spec: dict
-    idempotency_key: str = Field(min_length=16, max_length=128)
+    creation_spec: dict = Field(default_factory=dict)
+    idempotency_key: str | None = None
+
+    @field_validator("idempotency_key", mode="before")
+    @classmethod
+    def ensure_idempotency_key(cls, v: Any) -> str:
+        if not v or not isinstance(v, str) or len(v.strip()) < 16:
+            return f"sess-{uuid.uuid4().hex}"
+        return v.strip()
 
 
 class UpdateSpecRequest(BaseModel):
@@ -101,11 +110,7 @@ def _handle_exception(exc: Exception) -> JSONResponse:
             "[503] %s: %s", type(exc).__name__, exc, exc_info=True
         )
     if isinstance(exc, ValidationError):
-        # `creation_spec` is deliberately validated in the application layer so
-        # the same invariant applies to create and update commands.  Convert
-        # that safe, expected validation failure into a client error instead of
-        # letting it escape as an unhandled 500 (which browsers then report as
-        # a misleading CORS failure).
+        logger_router.warning("[422] CreationSpec ValidationError: %s", exc)
         errors = [
             {
                 "field": ".".join(str(part) for part in error["loc"]),
@@ -199,21 +204,29 @@ def create_session(
 ):
     try:
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
-            identity.subject, organization_id, Permission.WORKFLOW_CREATE
+            identity.subject, organization_id, Permission.WORKFLOW_CREATE, identity.email
         )
-        spec = dict(body.creation_spec)
-        if not spec.get("title") and body.title:
-            spec["title"] = body.title.strip()
-        if not spec.get("brief") and spec.get("title"):
-            spec["brief"] = spec["title"]
+        spec = dict(body.creation_spec or {})
+        title = (spec.get("title") or body.title or "").strip()
+        if not title:
+            title = "Creative Video Project"
+        spec["title"] = title
+
+        brief = (spec.get("brief") or "").strip()
+        if not brief:
+            brief = f"[VisionFlow Studio] {title}"
+        spec["brief"] = brief
+
         if not spec.get("timezone"):
             spec["timezone"] = "Asia/Bangkok"
+
+        idem_key = body.idempotency_key or f"sess-{uuid.uuid4().hex}"
 
         manager = _get_manager(session)
         sess_id = manager.create_session(
             organization_id=organization_id,
             creation_spec_dict=spec,
-            idempotency_key=body.idempotency_key,
+            idempotency_key=idem_key,
         )
 
         details = manager.get_session_details(
