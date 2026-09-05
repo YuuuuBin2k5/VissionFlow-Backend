@@ -9,6 +9,7 @@ echo ===========================================================================
 echo.
 echo   [*] Dang khoi dong Local Render Daemon...
 echo   [*] Ket noi Database Neon PostgreSQL de lang nghe job render 24/7.
+echo   [*] Moi video tao tren website se tu dong render tai day!
 echo   [*] Nhan Ctrl+C de dung tien trinh bat ky luc nao.
 echo.
 echo ==============================================================================
@@ -34,12 +35,10 @@ if exist ".\venv\Scripts\python.exe" (
 )
 
 echo   [*] Su dung Python: %PY_EXE%
-%PY_EXE% local_render_daemon.py
+%PY_EXE% start_render_worker.py
 
-if %ERRORLEVEL% NEQ 0 (
-    echo.
-    echo ==============================================================================
-    echo [CANH BAO] Tien trinh Render Daemon da dung lai (Exit code: %ERRORLEVEL%).
-    echo ==============================================================================
-    pause
-)
+echo.
+echo ==============================================================================
+echo [THONG BAO] Tien trinh Render Daemon da ket thuc.
+echo ==============================================================================
+pause

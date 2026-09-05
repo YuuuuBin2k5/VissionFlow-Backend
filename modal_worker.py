@@ -291,7 +291,6 @@ TRANSITION_SFX_MAP = {
 
 from urllib.parse import urlparse
 import ipaddress
-import modal
 
 def is_safe_url(url: str | None) -> bool:
     """Security Guardrail: Prevents SSRF attacks to localhost or private subnet IPs."""
@@ -354,38 +353,43 @@ def format_rate(rate: float | str | None) -> str:
     except Exception:
         return "+0%"
 
-# 1. Define Debian Linux Image with FFmpeg, OpenCV, Google Fonts, Playwright & Python Libraries
-visionflow_image = (
-    modal.Image.debian_slim(python_version="3.11")
-    .apt_install(
-        "ffmpeg", "git", "curl", "wget", "fonts-dejavu-core", "fonts-liberation",
-        "fonts-roboto", "fonts-noto-color-emoji", "fontconfig", "libgl1", "libglib2.0-0"
+# 1. Define Debian Linux Image with FFmpeg, OpenCV, Google Fonts, Playwright & Python Libraries (Optional for Cloud Modal deployment)
+try:
+    import modal
+    visionflow_image = (
+        modal.Image.debian_slim(python_version="3.11")
+        .apt_install(
+            "ffmpeg", "git", "curl", "wget", "fonts-dejavu-core", "fonts-liberation",
+            "fonts-roboto", "fonts-noto-color-emoji", "fontconfig", "libgl1", "libglib2.0-0"
+        )
+        .run_commands(
+            "mkdir -p /usr/share/fonts/truetype/googlefonts",
+            "wget -q -O /usr/share/fonts/truetype/googlefonts/Outfit-Bold.ttf https://github.com/google/fonts/raw/main/ofl/outfit/Outfit%5Bwght%5D.ttf || true",
+            "wget -q -O /usr/share/fonts/truetype/googlefonts/Montserrat-Bold.ttf https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Bold.ttf || true",
+            "wget -q -O /usr/share/fonts/truetype/googlefonts/BebasNeue-Regular.ttf https://github.com/google/fonts/raw/main/ofl/bebasneue/BebasNeue-Regular.ttf || true",
+            "wget -q -O /usr/share/fonts/truetype/googlefonts/Anton-Regular.ttf https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf || true",
+            "fc-cache -fv"
+        )
+        .pip_install(
+            "fastapi[standard]",
+            "moviepy>=1.0.3",
+            "edge-tts>=6.1.9",
+            "google-generativeai>=0.8.0",
+            "opencv-python-headless>=4.8.0",
+            "pillow>=10.0.0",
+            "numpy>=1.24.0",
+            "requests>=2.31.0",
+            "playwright>=1.40.0",
+            "pydantic>=2.0.0",
+            "boto3>=1.34.0",
+            "sqlalchemy>=2.0.0",
+            "psycopg2-binary>=2.9.0"
+        )
+        .run_commands("playwright install chromium --with-deps")
     )
-    .run_commands(
-        "mkdir -p /usr/share/fonts/truetype/googlefonts",
-        "wget -q -O /usr/share/fonts/truetype/googlefonts/Outfit-Bold.ttf https://github.com/google/fonts/raw/main/ofl/outfit/Outfit%5Bwght%5D.ttf || true",
-        "wget -q -O /usr/share/fonts/truetype/googlefonts/Montserrat-Bold.ttf https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Bold.ttf || true",
-        "wget -q -O /usr/share/fonts/truetype/googlefonts/BebasNeue-Regular.ttf https://github.com/google/fonts/raw/main/ofl/bebasneue/BebasNeue-Regular.ttf || true",
-        "wget -q -O /usr/share/fonts/truetype/googlefonts/Anton-Regular.ttf https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf || true",
-        "fc-cache -fv"
-    )
-    .pip_install(
-        "fastapi[standard]",
-        "moviepy>=1.0.3",
-        "edge-tts>=6.1.9",
-        "google-generativeai>=0.8.0",
-        "opencv-python-headless>=4.8.0",
-        "pillow>=10.0.0",
-        "numpy>=1.24.0",
-        "requests>=2.31.0",
-        "playwright>=1.40.0",
-        "pydantic>=2.0.0",
-        "boto3>=1.34.0",
-        "sqlalchemy>=2.0.0",
-        "psycopg2-binary>=2.9.0"
-    )
-    .run_commands("playwright install chromium --with-deps")
-)
+except Exception:
+    modal = None
+    visionflow_image = None
 
 def normalize_vietnamese_script(raw_text: str) -> str:
     """
