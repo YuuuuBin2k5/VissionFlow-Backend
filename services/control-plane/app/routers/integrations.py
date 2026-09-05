@@ -61,7 +61,7 @@ class FailPublicationAttemptTerminalRequest(BaseModel): organization_id: uuid.UU
 @router.get("/publisher-connections", response_model=list[PublisherConnectionResponse])
 def list_publisher_connections(organization_id: uuid.UUID, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> list[PublisherConnectionResponse]:
     try:
-        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.WORKFLOW_VIEW)
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.WORKFLOW_VIEW, identity.email)
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail="Organization permission denied") from exc
     rows = session.scalars(select(PublisherConnection).where(PublisherConnection.organization_id == organization_id).order_by(PublisherConnection.created_at.desc())).all()
@@ -70,7 +70,7 @@ def list_publisher_connections(organization_id: uuid.UUID, identity: VerifiedIde
 @router.post("/youtube/oauth/start", response_model=OAuthStartResponse)
 def start_youtube_oauth(organization_id: uuid.UUID, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> OAuthStartResponse:
     try:
-        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.PUBLISH_EXECUTE)
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.PUBLISH_EXECUTE, identity.email)
         settings = YouTubePublisherSettings.from_env()
         state, digest, expires = issue_state(organization_id, identity.subject)
         PublisherOAuthAttemptRepository(session).create(organization_id=organization_id, provider="youtube", state_digest=digest, requested_by_subject=identity.subject, expires_at=datetime.fromtimestamp(expires, UTC))
@@ -451,7 +451,8 @@ def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organizatio
         elif "scenes" in payload and isinstance(payload["scenes"], list):
             lines = [str(s.get("narration", "")).strip() for s in payload["scenes"] if isinstance(s, dict) and s.get("narration")]
             script_narration = "\n".join([line for line in lines if line]).strip()
-    try:
+
+    try:
         from app.domain.caption_policy import build_high_converting_description, build_topic_hashtags
         from app.domain.publish_metadata import append_required_attribution, resolve_publish_metadata
     except ImportError:

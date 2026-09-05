@@ -262,3 +262,4 @@ def build_publish_caption_and_hashtags(job: dict, metadata: dict, seo_data: dict
     title = seo_data.get("tiktok_microblog_caption") or seo_data.get("title") or metadata.get("seo_title") or fallback_title
     hashtags = build_topic_hashtags(title, job.get("script") or "", seo_data, language)
     return title, hashtags
+

@@ -171,3 +171,4 @@ def append_required_attribution(description: str, music_metadata: object) -> tup
     if attribution and attribution not in description:
         return f"{description.rstrip()}\n\n{attribution}", issues
     return description, issues
+
