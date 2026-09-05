@@ -12,6 +12,13 @@ Runs the full official pipeline:
 
 import os
 import sys
+
+# Auto-detect and re-exec with venv python if running with unactivated python
+_venv_python = os.path.abspath(os.path.join(os.path.dirname(__file__), "venv", "Scripts", "python.exe"))
+if os.path.exists(_venv_python) and os.path.normpath(sys.executable).lower() != os.path.normpath(_venv_python).lower():
+    import subprocess
+    sys.exit(subprocess.call([_venv_python] + sys.argv))
+
 import uuid
 import time
 import json
@@ -72,8 +79,8 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 if "DATABASE_URL" not in os.environ:
     os.environ["DATABASE_URL"] = "postgresql://neondb_owner:npg_TD8BYOyg6AVC@ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 os.environ.setdefault("ENVIRONMENT", "development")
-os.environ.setdefault("VISIONFLOW_CONTROL_PLANE_URL", "https://visionflow-control-plane.onrender.com")
-os.environ.setdefault("VISIONFLOW_TOKEN_URL", "https://visionflow-control-plane.onrender.com/api/v1/auth/token")
+os.environ.setdefault("VISIONFLOW_CONTROL_PLANE_URL", "https://visionflow-control-plane-free.onrender.com")
+os.environ.setdefault("VISIONFLOW_TOKEN_URL", "https://visionflow-control-plane-free.onrender.com/api/v1/auth/token")
 os.environ.setdefault("VISIONFLOW_WORKER_CLIENT_ID", "visionflow-worker-runner")
 os.environ.setdefault("VISIONFLOW_WORKER_CLIENT_SECRET", "sec_worker_prod_99812")
 os.environ.setdefault("VISIONFLOW_ORGANIZATION_ID", "7b91598c-6c3e-4e5d-8247-d3efa203984a")
@@ -96,7 +103,7 @@ from worker.services.visionflow_tts import VisionFlowTts
 from worker.services.visionflow_video_renderer import VisionFlowVideoRenderer
 from worker.services.visionflow_asset_preparer import VisionFlowAssetPreparer
 from worker.services.visionflow_render_assets import VisionFlowRenderAssetMaterializer
-from worker.application.visionflow_render_workflow import VisionFlowRenderWorkflow
+from worker.application.visionflow_render_workflow import VisionFlowRenderWorkflow, RenderedArtifact
 from worker.application.visionflow_render_dispatcher import VisionFlowRenderDispatcher
 from worker.application.visionflow_quality_assurance import VisionFlowQualityAssurance
 from worker.services.visionflow_media_inspector import FfprobeMediaInspector
@@ -235,98 +242,117 @@ def process_workflow_official(wf_id: str) -> bool:
     print("[3/5] Executing Official Render Pipeline (Video + Overlays + Karaoke Subtitles)...")
     trace_id = uuid.uuid4().hex
     output_video_path = None
-    try:
-        artifact = dispatcher.dispatch(str(wf_id), trace_id=trace_id)
-        output_video_path = artifact.object_key if artifact else None
-    except Exception as dispatch_err:
-        print(f"  [Dispatch] Falling back to direct contract execution: {dispatch_err}")
-        with Session(engine) as session_db:
-            wf_ref = session_db.get(WorkflowRun, wf_id)
-            prompt_manifest = wf_ref.prompt_manifest or {}
-            script = prompt_manifest.get("script") or ""
-            scenes = prompt_manifest.get("scenes") or []
+    artifact = None
+    real_video_url = None
 
-            # Direct DB fallback to creative_documents -> creative_scenes
-            if not scenes or len(scenes) <= 2:
-                try:
-                    from app.infrastructure.models import CreativeDocument, CreativeDocumentVersion, CreativeScene
-                    doc = session_db.query(CreativeDocument).filter(CreativeDocument.workflow_run_id == wf_ref.id).first()
-                    if doc and doc.active_version_id:
-                        ver = session_db.query(CreativeDocumentVersion).get(doc.active_version_id)
-                        if ver and ver.script:
-                            script = ver.script
-                        db_scenes = session_db.query(CreativeScene).filter(CreativeScene.creative_document_version_id == doc.active_version_id).order_by(CreativeScene.position.asc()).all()
-                        if db_scenes:
-                            scenes = []
-                            for sc in db_scenes:
-                                scenes.append({
-                                    "scene_id": f"scene-{sc.position}",
-                                    "visual_search_keywords": sc.visual_prompt or f"{title} vertical",
-                                    "duration": int(float(sc.duration_seconds or 5)),
-                                    "narration": sc.narration or "",
-                                    "caption": sc.caption or title[:40],
-                                    "transition": sc.transition or "cut",
-                                })
-                            print(f"  [DB Fetch] Loaded {len(scenes)} full scenes from creative_scenes table in DB!")
-                except Exception as fetch_err:
-                    print(f"  [DB Fetch] Notice: {fetch_err}")
-
-            if not script and scenes:
-                script = " ".join([str(sc.get("narration") or sc.get("caption") or "").strip() for sc in scenes if str(sc.get("narration") or sc.get("caption") or "").strip()])
-            if not script or len(script.strip()) < 3:
-                script = f"Nội dung truyền cảm hứng và triết lý sống: {title}"
-
-            if not scenes:
-                scenes = [
-                    {"scene_id": "scene-1", "visual_search_keywords": f"{title} vertical", "duration": 6, "narration": script[:100], "caption": title[:40]},
-                    {"scene_id": "scene-2", "visual_search_keywords": f"{title} aesthetic", "duration": 6, "narration": script[100:200], "caption": "Đăng ký ngay"}
-                ]
-
-        vi_chars = "àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
-        is_vietnamese = any(c in script.lower() for c in vi_chars)
-        manifest_voice = (
-            prompt_manifest.get("voice_code")
-            or prompt_manifest.get("voice")
-            or prompt_manifest.get("voice_id")
-            or prompt_manifest.get("voice_name")
+    existing_local_export = os.path.join(workspace_temp, "visionflow", str(wf_id), "export.mp4")
+    if os.path.exists(existing_local_export) and os.path.getsize(existing_local_export) > 1024 * 1024:
+        print(f"  [Fast Track] Found pre-rendered export video ({os.path.getsize(existing_local_export):,} bytes) at {existing_local_export}")
+        print(f"  [Storage] ☁️ Uploading pre-rendered export to Cloud R2 storage...")
+        uploaded = local_storage.upload_export(str(wf_id), existing_local_export)
+        artifact = RenderedArtifact(
+            object_key=str(uploaded["object_key"]),
+            content_type=str(uploaded["content_type"]),
+            byte_size=int(uploaded["byte_size"]),
+            checksum_sha256=str(uploaded["checksum_sha256"]),
         )
-        if manifest_voice:
-            selected_voice = str(manifest_voice)
-        elif not is_vietnamese:
-            selected_voice = "adam" if os.getenv("ELEVENLABS_API_KEY") else "en-US-ChristopherNeural"
-        else:
-            selected_voice = "vi-VN-NamMinhNeural"
-
-        contract = type("Contract", (), {
-            "workflow_run_id": str(wf_id),
-            "trace_id": trace_id,
-            "script": script,
-            "scenes": tuple(scenes),
-            "voice_code": selected_voice,
-            "voice_rate": 1.12,
-            "title": title,
-            "render_plan": type("RenderPlan", (), {"tracks": (), "effect_keys": ()})(),
-            "render_plan_hash": "local_render_hash",
-            "workspace_key": str(wf_id),
-            "caption_preset": "cinematic_quote",
-            "show_title_banner": True,
-            "logo_handle": "@GocChiemNghiemYuuBin",
-            "logo_position": "top_left",
-        })()
-
-        prepared = asset_preparer.prepare(contract)
-        artifact = video_renderer.render(contract, prepared)
         output_video_path = artifact.object_key
+        real_video_url = uploaded.get("public_url")
+        print(f"  [Storage] ✅ Uploaded successfully: {artifact.object_key}")
+    else:
+        try:
+            artifact = dispatcher.dispatch(str(wf_id), trace_id=trace_id)
+            output_video_path = artifact.object_key if artifact else None
+        except Exception as dispatch_err:
+            print(f"  [Dispatch] Falling back to direct contract execution: {dispatch_err}")
+            with Session(engine) as session_db:
+                wf_ref = session_db.get(WorkflowRun, wf_id)
+                prompt_manifest = wf_ref.prompt_manifest or {}
+                script = prompt_manifest.get("script") or ""
+                scenes = prompt_manifest.get("scenes") or []
+
+                # Direct DB fallback to creative_documents -> creative_scenes
+                if not scenes or len(scenes) <= 2:
+                    try:
+                        from app.infrastructure.models import CreativeDocument, CreativeDocumentVersion, CreativeScene
+                        doc = session_db.query(CreativeDocument).filter(CreativeDocument.workflow_run_id == wf_ref.id).first()
+                        if doc and doc.active_version_id:
+                            ver = session_db.get(CreativeDocumentVersion, doc.active_version_id)
+                            if ver and ver.script:
+                                script = ver.script
+                            db_scenes = session_db.query(CreativeScene).filter(CreativeScene.creative_document_version_id == doc.active_version_id).order_by(CreativeScene.position.asc()).all()
+                            if db_scenes:
+                                scenes = []
+                                for sc in db_scenes:
+                                    scenes.append({
+                                        "scene_id": f"scene-{sc.position}",
+                                        "visual_search_keywords": sc.visual_prompt or f"{title} vertical",
+                                        "duration": int(float(sc.duration_seconds or 5)),
+                                        "narration": sc.narration or "",
+                                        "caption": sc.caption or title[:40],
+                                        "transition": sc.transition or "cut",
+                                    })
+                                print(f"  [DB Fetch] Loaded {len(scenes)} full scenes from creative_scenes table in DB!")
+                    except Exception as fetch_err:
+                        print(f"  [DB Fetch] Notice: {fetch_err}")
+
+                if not script and scenes:
+                    script = " ".join([str(sc.get("narration") or sc.get("caption") or "").strip() for sc in scenes if str(sc.get("narration") or sc.get("caption") or "").strip()])
+                if not script or len(script.strip()) < 3:
+                    script = f"Nội dung truyền cảm hứng và triết lý sống: {title}"
+
+                if not scenes:
+                    scenes = [
+                        {"scene_id": "scene-1", "visual_search_keywords": f"{title} vertical", "duration": 6, "narration": script[:100], "caption": title[:40]},
+                        {"scene_id": "scene-2", "visual_search_keywords": f"{title} aesthetic", "duration": 6, "narration": script[100:200], "caption": "Đăng ký ngay"}
+                    ]
+
+            vi_chars = "àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
+            is_vietnamese = any(c in script.lower() for c in vi_chars)
+            manifest_voice = (
+                prompt_manifest.get("voice_code")
+                or prompt_manifest.get("voice")
+                or prompt_manifest.get("voice_id")
+                or prompt_manifest.get("voice_name")
+            )
+            if manifest_voice:
+                selected_voice = str(manifest_voice)
+            elif not is_vietnamese:
+                selected_voice = "adam" if os.getenv("ELEVENLABS_API_KEY") else "en-US-ChristopherNeural"
+            else:
+                selected_voice = "vi-VN-NamMinhNeural"
+
+            contract = type("Contract", (), {
+                "workflow_run_id": str(wf_id),
+                "trace_id": trace_id,
+                "script": script,
+                "scenes": tuple(scenes),
+                "voice_code": selected_voice,
+                "voice_rate": 1.12,
+                "title": title,
+                "render_plan": type("RenderPlan", (), {"tracks": (), "effect_keys": ()})(),
+                "render_plan_hash": "local_render_hash",
+                "workspace_key": str(wf_id),
+                "caption_preset": "cinematic_quote",
+                "show_title_banner": True,
+                "logo_handle": "@GocChiemNghiemYuuBin",
+                "logo_position": "top_left",
+            })()
+
+            prepared = asset_preparer.prepare(contract)
+            artifact = video_renderer.render(contract, prepared)
+            output_video_path = artifact.object_key
 
     print(f"\n[SUCCESS] OFFICIAL RENDER COMPLETE!")
-    print(f"  Output Path: {output_video_path}")
+    print(f"  Output Key / Path: {output_video_path}")
 
-    # 4. Step 4: Upload Rendered Video to Cloud Storage / CDN
+    # 4. Step 4: Upload Rendered Video to Cloud Storage / CDN (if local path)
     from worker.services.visionflow_object_storage import CloudAssetUploader
-    real_video_url = None
     if output_video_path and os.path.exists(output_video_path):
         print("[4/5] Uploading rendered video to Cloud Storage / CDN...")
         real_video_url = CloudAssetUploader.upload_export_video(wf_id, output_video_path)
+    elif not real_video_url and output_video_path and storage:
+        real_video_url = storage.get_public_url(output_video_path)
 
     # 5. Step 5: Update Database State to APPROVAL_PENDING
     print("[5/5] Updating Database State -> APPROVAL_PENDING (Awaiting Web UI Review)...")
@@ -334,15 +360,26 @@ def process_workflow_official(wf_id: str) -> bool:
         wf_target = fresh_db.get(WorkflowRun, wf_id)
         if wf_target:
             proj_target = fresh_db.get(VideoProject, wf_target.project_id)
-            asset_key = real_video_url or output_video_path
+            asset_key = output_video_path or real_video_url
             if proj_target:
-                proj_target.preview_video_url = asset_key
+                proj_target.preview_video_url = real_video_url or asset_key
+
+            file_size = (
+                getattr(artifact, "byte_size", None)
+                or (os.path.getsize(output_video_path) if (output_video_path and os.path.exists(output_video_path)) else None)
+                or (os.path.getsize(existing_local_export) if (existing_local_export and os.path.exists(existing_local_export)) else None)
+                or 5505072
+            )
+            checksum_sha256 = (
+                getattr(artifact, "checksum_sha256", None)
+                or "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            )
+
             existing_asset = fresh_db.query(MediaAsset).filter(
                 MediaAsset.workflow_run_id == wf_target.id,
                 MediaAsset.media_kind == "final_export"
             ).first()
             if not existing_asset:
-                file_size = os.path.getsize(output_video_path) if (output_video_path and os.path.exists(output_video_path)) else 5505072
                 media_asset = MediaAsset(
                     id=uuid.uuid4(),
                     organization_id=proj_target.organization_id if proj_target else uuid.UUID("7b91598c-6c3e-4e5d-8247-d3efa203984a"),
@@ -351,12 +388,14 @@ def process_workflow_official(wf_id: str) -> bool:
                     object_key=asset_key,
                     content_type="video/mp4",
                     byte_size=file_size,
-                    checksum_sha256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                    checksum_sha256=checksum_sha256,
                     metadata_json={"rendered_locally_official": True}
                 )
                 fresh_db.add(media_asset)
             else:
                 existing_asset.object_key = asset_key
+                existing_asset.byte_size = file_size
+                existing_asset.checksum_sha256 = checksum_sha256
 
             prompt_manifest = wf_target.prompt_manifest or {}
             auto_publish_enabled = bool(prompt_manifest.get("auto_publish_enabled", False))
