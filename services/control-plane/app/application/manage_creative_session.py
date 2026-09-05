@@ -7,7 +7,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, Tuple
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -39,8 +39,8 @@ class CreationSpecSchema(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     # Core identity
-    title: str = Field(min_length=1, max_length=240)
-    brief: str = Field(min_length=1, max_length=50000)
+    title: str = Field(default="Creative Video Project", min_length=1, max_length=240)
+    brief: str = Field(default="Short-form video project", min_length=1, max_length=50000)
     description: str = Field(default="", max_length=5000)
     format_profile: Literal["short_vertical"] = Field(default="short_vertical")
     timezone: str = Field(default="Asia/Bangkok", min_length=1, max_length=100)
@@ -84,6 +84,51 @@ class CreationSpecSchema(BaseModel):
 
     # Duration
     duration_seconds: int = Field(default=30, ge=5, le=300)
+
+    @model_validator(mode="before")
+    @classmethod
+    def sanitize_spec(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        d = dict(data)
+        title = str(d.get("title") or "").strip()
+        if not title:
+            title = "Creative Video Project"
+        d["title"] = title[:240]
+
+        brief = str(d.get("brief") or "").strip()
+        if not brief:
+            brief = f"[VisionFlow Studio] {title}"
+        d["brief"] = brief[:50000]
+
+        # Duration
+        raw_dur = d.get("duration_seconds")
+        try:
+            dur = int(round(float(raw_dur))) if raw_dur is not None else 30
+            d["duration_seconds"] = max(5, min(300, dur))
+        except (ValueError, TypeError):
+            d["duration_seconds"] = 30
+
+        # Voice rate
+        raw_rate = d.get("voice_rate")
+        try:
+            rate = float(raw_rate) if raw_rate is not None else 1.12
+            d["voice_rate"] = max(0.5, min(2.0, rate))
+        except (ValueError, TypeError):
+            d["voice_rate"] = 1.12
+
+        # Language
+        raw_lang = str(d.get("language") or "vi").lower()
+        d["language"] = "vi" if "vi" in raw_lang else "en"
+
+        # Format profile
+        d["format_profile"] = "short_vertical"
+
+        # Timezone
+        if not d.get("timezone"):
+            d["timezone"] = "Asia/Bangkok"
+
+        return d
 
 
 # Custom Exceptions
