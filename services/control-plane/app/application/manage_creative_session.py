@@ -101,8 +101,8 @@ class CreationSpecSchema(BaseModel):
             brief = f"[VisionFlow Studio] {title}"
         d["brief"] = brief[:50000]
 
-        # Duration
-        raw_dur = d.get("duration_seconds")
+        # Duration: support both duration_seconds and estimated_duration_seconds
+        raw_dur = d.get("duration_seconds") if d.get("duration_seconds") is not None else d.get("estimated_duration_seconds")
         try:
             dur = int(round(float(raw_dur))) if raw_dur is not None else 30
             d["duration_seconds"] = max(5, min(300, dur))
@@ -116,6 +116,27 @@ class CreationSpecSchema(BaseModel):
             d["voice_rate"] = max(0.5, min(2.0, rate))
         except (ValueError, TypeError):
             d["voice_rate"] = 1.12
+
+        # Voice & voice_code (extract if dict or sanitize if string)
+        raw_voice = d.get("voice")
+        if isinstance(raw_voice, dict):
+            voice_str = str(raw_voice.get("voice_code") or raw_voice.get("voice") or "edge-nam-minh").strip()
+            d["voice"] = voice_str or "edge-nam-minh"
+            if "voice_rate" in raw_voice and raw_rate is None:
+                try:
+                    d["voice_rate"] = max(0.5, min(2.0, float(raw_voice["voice_rate"])))
+                except (ValueError, TypeError):
+                    pass
+        elif isinstance(raw_voice, str) and raw_voice.strip():
+            d["voice"] = raw_voice.strip()
+        else:
+            d["voice"] = "edge-nam-minh"
+
+        raw_vc = d.get("voice_code")
+        if isinstance(raw_vc, str) and raw_vc.strip():
+            d["voice_code"] = raw_vc.strip()
+        else:
+            d["voice_code"] = d["voice"]
 
         # Language
         raw_lang = str(d.get("language") or "vi").lower()
