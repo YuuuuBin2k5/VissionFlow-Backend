@@ -43,6 +43,20 @@ except ImportError:
 
 router = APIRouter(tags=["Dubbing"])
 
+
+def _web_dubbing_enabled() -> bool:
+    return os.getenv('ENABLE_WEB_DUBBING', 'false').strip().lower() == 'true'
+
+
+def _require_web_dubbing() -> None:
+    if not _web_dubbing_enabled():
+        raise HTTPException(status_code=503, detail='Browser dubbing is not enabled in this environment')
+
+
+@router.get('/dubbing/capabilities')
+def dubbing_capabilities():
+    return {'web_dubbing_enabled': _web_dubbing_enabled()}
+
 class DubbingDispatchRequest(BaseModel):
     source_asset_id: Optional[uuid.UUID] = None
     source_url: Optional[str] = None
@@ -109,6 +123,7 @@ def create_source_upload_intent(
     session: Session = Depends(get_session),
 ):
     """Issue a scoped direct-upload URL; the browser never sends video bytes to the API."""
+    _require_web_dubbing()
     _authorize_source_write(identity, payload.organization_id, session)
     max_bytes = int(os.getenv("VISIONFLOW_DUBBING_MAX_SINGLE_UPLOAD_BYTES", str(100 * 1024 * 1024)))
     if not payload.content_type.startswith("video/") or not 0 < payload.byte_size <= max_bytes:
@@ -147,6 +162,7 @@ def complete_source_upload(
     identity: VerifiedIdentity = Depends(require_identity),
     session: Session = Depends(get_session),
 ):
+    _require_web_dubbing()
     _authorize_source_write(identity, payload.organization_id, session)
     asset = session.get(MediaAsset, asset_id)
     if not asset or asset.organization_id != payload.organization_id or asset.media_kind != "source_video":
@@ -207,6 +223,7 @@ def dispatch_dubbing_job(
 
     source_asset = None
     if payload.source_asset_id:
+        _require_web_dubbing()
         source_asset = session.get(MediaAsset, payload.source_asset_id)
         if not source_asset or source_asset.organization_id != payload.organization_id or source_asset.media_kind != "source_video":
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source video asset was not found in this organization")
@@ -422,8 +439,17 @@ def get_dubbing_job_status(
         "error": wf.failure_detail,
         "logs": logs,
         "review": {
+            "source": (manifest.get("dubbing_workflow") or {}).get("source", {}),
+            "source_transcript": [
+                {"start": row.get("start"), "end": row.get("end"),
+                 "source_text": row.get("source_text") or row.get("text") or ""}
+                for row in (manifest.get("dubbing_workflow") or {}).get("translation", {}).get("timeline", [])
+            ],
             "translation": (manifest.get("dubbing_workflow") or {}).get("translation", {}),
             "dubbing": (manifest.get("dubbing_workflow") or {}).get("dubbing", {}),
+            "subtitle_settings": {"burn_subtitles": manifest.get("burn_subtitles"), "caption_preset": manifest.get("caption_preset")},
+            "audio_settings": {"mute_original_audio": manifest.get("mute_original_audio")},
+            "render_output": {"asset_id": str(asset.id), "object_key": asset.object_key} if asset else None,
             "publish_metadata": manifest.get("publish_metadata") or {},
         },
     }

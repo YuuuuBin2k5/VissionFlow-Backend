@@ -197,7 +197,7 @@ async def _seed_prompt_baselines() -> None:
                         INSERT INTO prompt_versions
                             (id, prompt_template_id, version, content, config, change_note, created_at)
                         VALUES
-                            (:id, :tmpl_id, 1, :content, :config::jsonb, 'Auto-seeded on startup', now())
+                            (:id, :tmpl_id, 1, :content, CAST(:config AS jsonb), 'Auto-seeded on startup', now())
                         ON CONFLICT (prompt_template_id, version) DO NOTHING
                     """), {
                         "id": str(uuid.uuid4()),

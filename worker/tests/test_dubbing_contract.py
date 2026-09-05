@@ -39,3 +39,12 @@ class DubbingContractTests(unittest.TestCase):
     def test_adaptation_falls_back_to_faithful_text(self):
         segment = {"source_text": "Hello world.", "translated_text": "Xin chào thế giới."}
         self.assertEqual("Xin chào thế giới.", select_render_text(segment, "localized_adaptation"))
+
+    def test_out_of_tolerance_is_not_reported_as_passed(self):
+        qc = record_timing_qc([{'target_duration_ms':1000, 'rendered_audio_duration_ms':500}])
+        self.assertNotEqual('PASSED',qc['status'])
+        self.assertEqual(-500,qc['segments'][0]['timing_drift_ms'])
+
+    def test_missing_segment_measurement_is_not_passed(self):
+        qc = record_timing_qc([{'target_duration_ms':1000,'rendered_audio_duration_ms':1000}, {'target_duration_ms':2000}])
+        self.assertNotEqual('PASSED',qc['status'])

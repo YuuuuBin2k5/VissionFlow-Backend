@@ -90,12 +90,17 @@ def record_timing_qc(timeline: object) -> dict[str, Any]:
         drift_ms = int(round(rendered_ms - target_ms))
         drifts.append(abs(drift_ms))
         results.append({"index": index, "target_duration_ms": int(round(target_ms)), "rendered_audio_duration_ms": int(round(rendered_ms)), "timing_drift_ms": drift_ms})
+    over_tolerance = sum(1 for value in drifts if value > tolerance_ms)
+    qc_status = "NOT_AVAILABLE" if not results else (
+        "INCOMPLETE" if len(results) != len(rows) else
+        "REVIEW_REQUIRED" if over_tolerance else "PASSED"
+    )
     return {
-        "status": "PASSED" if results else "NOT_AVAILABLE",
+        "status": qc_status,
         "segments": results,
         "max_timing_drift_ms": max(drifts, default=0),
         "average_timing_drift_ms": round(sum(drifts) / len(drifts), 1) if drifts else 0,
-        "segments_over_tolerance": sum(1 for value in drifts if value > tolerance_ms),
+        "segments_over_tolerance": over_tolerance,
         "tolerance_ms": tolerance_ms,
     }
 
