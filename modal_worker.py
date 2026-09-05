@@ -330,11 +330,17 @@ VOICE_PRESET_MAP = {
     "edge-en-ryan": "en-GB-RyanNeural",
 }
 
-def resolve_voice(voice_code: str | None) -> str:
+def resolve_voice(voice_code: str | dict | None) -> str:
+    # CreationSpec may carry voice settings as an object. Edge expects only
+    # the provider voice identifier, never the string representation of it.
+    if isinstance(voice_code, dict):
+        voice_code = voice_code.get('voice_code') or voice_code.get('voiceCode')
     if not voice_code:
         return "vi-VN-NamMinhNeural"
-    clean = str(voice_code).strip()
-    if "-" in clean and "Neural" in clean:
+    if not isinstance(voice_code, str):
+        raise ValueError('voice_code must be a voice identifier string')
+    clean = voice_code.strip()
+    if re.fullmatch(r'[a-z]{2,3}-[A-Z]{2}-[A-Za-z0-9]+Neural', clean):
         return clean
     return VOICE_PRESET_MAP.get(clean.lower(), "vi-VN-NamMinhNeural")
 
