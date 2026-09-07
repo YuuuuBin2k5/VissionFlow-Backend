@@ -1,0 +1,1079 @@
+{
+  "EditorPlan": [],
+  "ScenePlan": [],
+  "ShotPlan": [],
+  "opencutBridge": [
+    {
+      "id": 11297,
+      "label": "Function",
+      "name": "resolveThematicVideoUrl",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "start_line": 26,
+      "end_line": 42
+    },
+    {
+      "id": 11298,
+      "label": "Function",
+      "name": "anonymous_131_11",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "start_line": 132,
+      "end_line": 132
+    },
+    {
+      "id": 11299,
+      "label": "Function",
+      "name": "anonymous_132_14",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "start_line": 133,
+      "end_line": 133
+    },
+    {
+      "id": 11300,
+      "label": "Function",
+      "name": "anonymous_135_23",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "start_line": 136,
+      "end_line": 155
+    },
+    {
+      "id": 11301,
+      "label": "Function",
+      "name": "anonymous_160_43",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "start_line": 161,
+      "end_line": 161
+    },
+    {
+      "id": 11302,
+      "label": "Function",
+      "name": "anonymous_163_28",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "start_line": 164,
+      "end_line": 180
+    },
+    {
+      "id": 11303,
+      "label": "Function",
+      "name": "anonymous_198_43",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "start_line": 199,
+      "end_line": 199
+    },
+    {
+      "id": 11304,
+      "label": "Function",
+      "name": "anonymous_210_26",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "start_line": 211,
+      "end_line": 242
+    },
+    {
+      "id": 11305,
+      "label": "Function",
+      "name": "anonymous_292_26",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "start_line": 293,
+      "end_line": 323
+    },
+    {
+      "id": 11306,
+      "label": "Function",
+      "name": "anonymous_301_23",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "start_line": 302,
+      "end_line": 322
+    },
+    {
+      "id": 11307,
+      "label": "Function",
+      "name": "anonymous_326_21",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "start_line": 327,
+      "end_line": 347
+    },
+    {
+      "id": 11308,
+      "label": "Function",
+      "name": "anonymous_398_42",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "start_line": 399,
+      "end_line": 399
+    },
+    {
+      "id": 11309,
+      "label": "Function",
+      "name": "anonymous_399_43",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "start_line": 400,
+      "end_line": 400
+    },
+    {
+      "id": 11310,
+      "label": "Function",
+      "name": "anonymous_400_43",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "start_line": 401,
+      "end_line": 401
+    },
+    {
+      "id": 11311,
+      "label": "Function",
+      "name": "anonymous_403_45",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "start_line": 404,
+      "end_line": 404
+    }
+  ],
+  "timeline": [
+    {
+      "id": 6229,
+      "label": "Folder",
+      "name": "timeline",
+      "path": "VisionFlow_Client/src/modules/opencut/components/timeline",
+      "start_line": null,
+      "end_line": null
+    },
+    {
+      "id": 8738,
+      "label": "Function",
+      "name": "_apply_locked_timeline",
+      "path": "VisionFlow_Bakend/worker/application/visionflow_render_dispatcher.py",
+      "start_line": 98,
+      "end_line": 160
+    },
+    {
+      "id": 9540,
+      "label": "Method",
+      "name": "build_caption_timeline",
+      "path": "VisionFlow_Bakend/worker/services/audio_signal_service.py",
+      "start_line": 318,
+      "end_line": 352
+    },
+    {
+      "id": 9563,
+      "label": "Method",
+      "name": "translate_timeline",
+      "path": "VisionFlow_Bakend/worker/services/dubbing_service.py",
+      "start_line": 78,
+      "end_line": 243
+    },
+    {
+      "id": 9623,
+      "label": "Method",
+      "name": "_normalize_timeline",
+      "path": "VisionFlow_Bakend/worker/services/lyric_transcription_service.py",
+      "start_line": 210,
+      "end_line": 225
+    },
+    {
+      "id": 9729,
+      "label": "Method",
+      "name": "build_scene_timeline",
+      "path": "VisionFlow_Bakend/worker/services/scenic_beat_composer_service.py",
+      "start_line": 66,
+      "end_line": 109
+    },
+    {
+      "id": 11772,
+      "label": "Function",
+      "name": "OpenCutTimelineTrack",
+      "path": "VisionFlow_Client/src/modules/opencut/components/timeline/OpenCutTimelineTrack.tsx",
+      "start_line": 42,
+      "end_line": 419
+    },
+    {
+      "id": 11773,
+      "label": "Function",
+      "name": "handleKeyDown",
+      "path": "VisionFlow_Client/src/modules/opencut/components/timeline/OpenCutTimelineTrack.tsx",
+      "start_line": 70,
+      "end_line": 105
+    },
+    {
+      "id": 11774,
+      "label": "Function",
+      "name": "handleTimelineClick",
+      "path": "VisionFlow_Client/src/modules/opencut/components/timeline/OpenCutTimelineTrack.tsx",
+      "start_line": 111,
+      "end_line": 116
+    },
+    {
+      "id": 11775,
+      "label": "Function",
+      "name": "getTrackIcon",
+      "path": "VisionFlow_Client/src/modules/opencut/components/timeline/OpenCutTimelineTrack.tsx",
+      "start_line": 118,
+      "end_line": 125
+    },
+    {
+      "id": 11776,
+      "label": "Function",
+      "name": "handleMove",
+      "path": "VisionFlow_Client/src/modules/opencut/components/timeline/OpenCutTimelineTrack.tsx",
+      "start_line": 325,
+      "end_line": 332
+    },
+    {
+      "id": 11777,
+      "label": "Function",
+      "name": "handleUp",
+      "path": "VisionFlow_Client/src/modules/opencut/components/timeline/OpenCutTimelineTrack.tsx",
+      "start_line": 333,
+      "end_line": 336
+    },
+    {
+      "id": 11778,
+      "label": "Function",
+      "name": "getClipColor",
+      "path": "VisionFlow_Client/src/modules/opencut/components/timeline/OpenCutTimelineTrack.tsx",
+      "start_line": 369,
+      "end_line": 373
+    },
+    {
+      "id": 11779,
+      "label": "Function",
+      "name": "handleMove",
+      "path": "VisionFlow_Client/src/modules/opencut/components/timeline/OpenCutTimelineTrack.tsx",
+      "start_line": 389,
+      "end_line": 394
+    },
+    {
+      "id": 11780,
+      "label": "Function",
+      "name": "handleUp",
+      "path": "VisionFlow_Client/src/modules/opencut/components/timeline/OpenCutTimelineTrack.tsx",
+      "start_line": 395,
+      "end_line": 398
+    }
+  ],
+  "voice_system": [],
+  "edge_tts": [
+    {
+      "id": 3627,
+      "label": "File",
+      "name": "edge_tts_provider.py",
+      "path": "VisionFlow_Bakend/worker/services/tts_providers/edge_tts_provider.py",
+      "start_line": null,
+      "end_line": null
+    },
+    {
+      "id": 6062,
+      "label": "ExternalModule",
+      "name": "edge_tts",
+      "path": "edge_tts",
+      "start_line": null,
+      "end_line": null
+    },
+    {
+      "id": 9773,
+      "label": "Method",
+      "name": "_create_edge_tts_communicate",
+      "path": "VisionFlow_Bakend/worker/services/tts_engine.py",
+      "start_line": 162,
+      "end_line": 173
+    },
+    {
+      "id": 9948,
+      "label": "File",
+      "name": "edge_tts_provider.py",
+      "path": "VisionFlow_Bakend/worker/services/tts_providers/edge_tts_provider.py",
+      "start_line": null,
+      "end_line": null
+    },
+    {
+      "id": 10018,
+      "label": "Module",
+      "name": "edge_tts_provider.py",
+      "path": "VisionFlow_Bakend/worker/services/tts_providers/edge_tts_provider.py",
+      "start_line": null,
+      "end_line": null
+    },
+    {
+      "id": 10113,
+      "label": "Class",
+      "name": "EdgeTTSProvider",
+      "path": "VisionFlow_Bakend/worker/services/tts_providers/edge_tts_provider.py",
+      "start_line": 18,
+      "end_line": 147
+    },
+    {
+      "id": 10228,
+      "label": "Method",
+      "name": "synthesize",
+      "path": "VisionFlow_Bakend/worker/services/tts_providers/edge_tts_provider.py",
+      "start_line": 31,
+      "end_line": 85
+    },
+    {
+      "id": 10229,
+      "label": "Method",
+      "name": "_build_communicate",
+      "path": "VisionFlow_Bakend/worker/services/tts_providers/edge_tts_provider.py",
+      "start_line": 91,
+      "end_line": 105
+    },
+    {
+      "id": 10230,
+      "label": "Method",
+      "name": "estimate_timestamps_by_char_weight",
+      "path": "VisionFlow_Bakend/worker/services/tts_providers/edge_tts_provider.py",
+      "start_line": 108,
+      "end_line": 147
+    }
+  ],
+  "modal_worker": [
+    {
+      "id": 6266,
+      "label": "File",
+      "name": "modal_worker.py",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "start_line": null,
+      "end_line": null
+    },
+    {
+      "id": 6273,
+      "label": "File",
+      "name": "test_modal_worker_features.py",
+      "path": "VisionFlow_Bakend/test_modal_worker_features.py",
+      "start_line": null,
+      "end_line": null
+    },
+    {
+      "id": 6366,
+      "label": "Module",
+      "name": "modal_worker.py",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "start_line": null,
+      "end_line": null
+    },
+    {
+      "id": 6368,
+      "label": "Module",
+      "name": "test_modal_worker_features.py",
+      "path": "VisionFlow_Bakend/test_modal_worker_features.py",
+      "start_line": null,
+      "end_line": null
+    },
+    {
+      "id": 6400,
+      "label": "Function",
+      "name": "get_ffmpeg_binary",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "start_line": 22,
+      "end_line": 31
+    },
+    {
+      "id": 6401,
+      "label": "Function",
+      "name": "get_ffprobe_binary",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "start_line": 33,
+      "end_line": 43
+    },
+    {
+      "id": 6402,
+      "label": "Function",
+      "name": "is_safe_url",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "start_line": 227,
+      "end_line": 246
+    },
+    {
+      "id": 6403,
+      "label": "Function",
+      "name": "resolve_voice",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "start_line": 264,
+      "end_line": 270
+    },
+    {
+      "id": 6404,
+      "label": "Function",
+      "name": "format_rate",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "start_line": 272,
+      "end_line": 286
+    },
+    {
+      "id": 6405,
+      "label": "Function",
+      "name": "normalize_vietnamese_script",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "start_line": 321,
+      "end_line": 368
+    },
+    {
+      "id": 6406,
+      "label": "Function",
+      "name": "detect_video_genre_modal",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "start_line": 510,
+      "end_line": 522
+    },
+    {
+      "id": 6407,
+      "label": "Function",
+      "name": "resolve_genre_bgm_modal",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "start_line": 524,
+      "end_line": 542
+    },
+    {
+      "id": 6408,
+      "label": "Function",
+      "name": "extract_visual_keywords",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "start_line": 604,
+      "end_line": 627
+    },
+    {
+      "id": 6409,
+      "label": "Function",
+      "name": "detect_smart_text_regions",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "start_line": 634,
+      "end_line": 672
+    },
+    {
+      "id": 6410,
+      "label": "Function",
+      "name": "fetch_ai_image_fallback",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "start_line": 675,
+      "end_line": 693
+    }
+  ],
+  "ffmpeg": [
+    {
+      "id": 3122,
+      "label": "ExternalPackage",
+      "name": "imageio-ffmpeg",
+      "path": "",
+      "start_line": null,
+      "end_line": null
+    },
+    {
+      "id": 5950,
+      "label": "ExternalModule",
+      "name": "imageio_ffmpeg",
+      "path": "imageio_ffmpeg",
+      "start_line": null,
+      "end_line": null
+    },
+    {
+      "id": 6400,
+      "label": "Function",
+      "name": "get_ffmpeg_binary",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "start_line": 22,
+      "end_line": 31
+    },
+    {
+      "id": 8324,
+      "label": "Method",
+      "name": "test_ffmpeg_filter_complex_with_subtitle_blur",
+      "path": "VisionFlow_Bakend/services/control-plane/tests/test_auto_dubbing_studio.py",
+      "start_line": 23,
+      "end_line": 64
+    },
+    {
+      "id": 8746,
+      "label": "Function",
+      "name": "resolve_ffmpeg_exe",
+      "path": "VisionFlow_Bakend/worker/config/render_profile.py",
+      "start_line": 43,
+      "end_line": 60
+    },
+    {
+      "id": 8748,
+      "label": "Function",
+      "name": "build_unified_ffmpeg_args",
+      "path": "VisionFlow_Bakend/worker/config/render_profile.py",
+      "start_line": 81,
+      "end_line": 118
+    },
+    {
+      "id": 9458,
+      "label": "Class",
+      "name": "FfmpegCaptionCompositor",
+      "path": "VisionFlow_Bakend/worker/services/composition_caption_compositor.py",
+      "start_line": 43,
+      "end_line": 59
+    },
+    {
+      "id": 9463,
+      "label": "Class",
+      "name": "FfmpegOverlayCompositor",
+      "path": "VisionFlow_Bakend/worker/services/composition_overlay_compositor.py",
+      "start_line": 58,
+      "end_line": 78
+    },
+    {
+      "id": 9526,
+      "label": "Method",
+      "name": "mix_viral_audio_ffmpeg",
+      "path": "VisionFlow_Bakend/worker/services/audio_mixer.py",
+      "start_line": 62,
+      "end_line": 91
+    },
+    {
+      "id": 9542,
+      "label": "Method",
+      "name": "_ffmpeg_path",
+      "path": "VisionFlow_Bakend/worker/services/browser_render_service.py",
+      "start_line": 14,
+      "end_line": 15
+    },
+    {
+      "id": 9549,
+      "label": "Method",
+      "name": "preprocess_ffmpeg_loop_concat",
+      "path": "VisionFlow_Bakend/worker/services/clip_composer.py",
+      "start_line": 78,
+      "end_line": 142
+    },
+    {
+      "id": 9699,
+      "label": "Method",
+      "name": "_ffmpeg_path",
+      "path": "VisionFlow_Bakend/worker/services/quality_gate_service.py",
+      "start_line": 13,
+      "end_line": 14
+    },
+    {
+      "id": 9727,
+      "label": "Method",
+      "name": "_ffmpeg_path",
+      "path": "VisionFlow_Bakend/worker/services/scenic_beat_composer_service.py",
+      "start_line": 12,
+      "end_line": 13
+    },
+    {
+      "id": 9743,
+      "label": "Method",
+      "name": "_escape_ffmpeg_path",
+      "path": "VisionFlow_Bakend/worker/services/split_screen_renderer.py",
+      "start_line": 25,
+      "end_line": 30
+    },
+    {
+      "id": 9745,
+      "label": "Method",
+      "name": "render_split_screen_video_ffmpeg",
+      "path": "VisionFlow_Bakend/worker/services/split_screen_renderer.py",
+      "start_line": 114,
+      "end_line": 306
+    }
+  ],
+  "ffprobe": [
+    {
+      "id": 6401,
+      "label": "Function",
+      "name": "get_ffprobe_binary",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "start_line": 33,
+      "end_line": 43
+    },
+    {
+      "id": 8747,
+      "label": "Function",
+      "name": "resolve_ffprobe_exe",
+      "path": "VisionFlow_Bakend/worker/config/render_profile.py",
+      "start_line": 62,
+      "end_line": 79
+    },
+    {
+      "id": 9700,
+      "label": "Method",
+      "name": "_ffprobe_path",
+      "path": "VisionFlow_Bakend/worker/services/quality_gate_service.py",
+      "start_line": 16,
+      "end_line": 19
+    },
+    {
+      "id": 9867,
+      "label": "Function",
+      "name": "_get_ffprobe_exe",
+      "path": "VisionFlow_Bakend/worker/services/dubbing_service.py",
+      "start_line": 19,
+      "end_line": 28
+    },
+    {
+      "id": 10096,
+      "label": "Class",
+      "name": "FfprobeMediaInspector",
+      "path": "VisionFlow_Bakend/worker/services/visionflow_media_inspector.py",
+      "start_line": 17,
+      "end_line": 25
+    },
+    {
+      "id": 10353,
+      "label": "Method",
+      "name": "test_parses_real_qa_fields_from_ffprobe_json",
+      "path": "VisionFlow_Bakend/worker/tests/test_visionflow_media_inspector.py",
+      "start_line": 10,
+      "end_line": 14
+    }
+  ],
+  "subtitle": [
+    {
+      "id": 3601,
+      "label": "File",
+      "name": "subtitle_renderer.py",
+      "path": "VisionFlow_Bakend/worker/services/subtitle_renderer.py",
+      "start_line": null,
+      "end_line": null
+    },
+    {
+      "id": 6427,
+      "label": "Function",
+      "name": "generate_ass_subtitles",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "start_line": 1385,
+      "end_line": 1496
+    },
+    {
+      "id": 8324,
+      "label": "Method",
+      "name": "test_ffmpeg_filter_complex_with_subtitle_blur",
+      "path": "VisionFlow_Bakend/services/control-plane/tests/test_auto_dubbing_studio.py",
+      "start_line": 23,
+      "end_line": 64
+    },
+    {
+      "id": 9283,
+      "label": "Method",
+      "name": "subtitles_path",
+      "path": "VisionFlow_Bakend/worker/domain/render_workspace.py",
+      "start_line": 19,
+      "end_line": 19
+    },
+    {
+      "id": 9444,
+      "label": "Module",
+      "name": "subtitle_renderer.py",
+      "path": "VisionFlow_Bakend/worker/services/subtitle_renderer.py",
+      "start_line": null,
+      "end_line": null
+    },
+    {
+      "id": 9488,
+      "label": "Class",
+      "name": "SubtitleRenderer",
+      "path": "VisionFlow_Bakend/worker/services/subtitle_renderer.py",
+      "start_line": 11,
+      "end_line": 894
+    },
+    {
+      "id": 9560,
+      "label": "Method",
+      "name": "check_subtitles_supports_force_style",
+      "path": "VisionFlow_Bakend/worker/services/dubbing_service.py",
+      "start_line": 37,
+      "end_line": 53
+    },
+    {
+      "id": 9746,
+      "label": "Method",
+      "name": "__init__",
+      "path": "VisionFlow_Bakend/worker/services/subtitle_renderer.py",
+      "start_line": 12,
+      "end_line": 13
+    },
+    {
+      "id": 9747,
+      "label": "Method",
+      "name": "_get_best_font",
+      "path": "VisionFlow_Bakend/worker/services/subtitle_renderer.py",
+      "start_line": 15,
+      "end_line": 53
+    },
+    {
+      "id": 9748,
+      "label": "Method",
+      "name": "_is_keyword",
+      "path": "VisionFlow_Bakend/worker/services/subtitle_renderer.py",
+      "start_line": 55,
+      "end_line": 57
+    },
+    {
+      "id": 9749,
+      "label": "Method",
+      "name": "group_words_into_chunks",
+      "path": "VisionFlow_Bakend/worker/services/subtitle_renderer.py",
+      "start_line": 59,
+      "end_line": 155
+    },
+    {
+      "id": 9750,
+      "label": "Method",
+      "name": "wrap_text",
+      "path": "VisionFlow_Bakend/worker/services/subtitle_renderer.py",
+      "start_line": 157,
+      "end_line": 178
+    },
+    {
+      "id": 9751,
+      "label": "Method",
+      "name": "_fit_font",
+      "path": "VisionFlow_Bakend/worker/services/subtitle_renderer.py",
+      "start_line": 180,
+      "end_line": 198
+    },
+    {
+      "id": 9752,
+      "label": "Method",
+      "name": "_subtitle_style",
+      "path": "VisionFlow_Bakend/worker/services/subtitle_renderer.py",
+      "start_line": 200,
+      "end_line": 273
+    },
+    {
+      "id": 9753,
+      "label": "Method",
+      "name": "_apply_default_vietsub_policy",
+      "path": "VisionFlow_Bakend/worker/services/subtitle_renderer.py",
+      "start_line": 275,
+      "end_line": 284
+    }
+  ],
+  "caption": [
+    {
+      "id": 1420,
+      "label": "File",
+      "name": "caption_policy.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/core/caption_policy.py",
+      "start_line": null,
+      "end_line": null
+    },
+    {
+      "id": 2813,
+      "label": "File",
+      "name": "caption_policy.py",
+      "path": "VisionFlow_Bakend/worker/domain/caption_policy.py",
+      "start_line": null,
+      "end_line": null
+    },
+    {
+      "id": 3577,
+      "label": "File",
+      "name": "composition_caption_compositor.py",
+      "path": "VisionFlow_Bakend/worker/services/composition_caption_compositor.py",
+      "start_line": null,
+      "end_line": null
+    },
+    {
+      "id": 3631,
+      "label": "File",
+      "name": "test_composition_caption_compositor.py",
+      "path": "VisionFlow_Bakend/worker/tests/test_composition_caption_compositor.py",
+      "start_line": null,
+      "end_line": null
+    },
+    {
+      "id": 7315,
+      "label": "Module",
+      "name": "caption_policy.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/core/caption_policy.py",
+      "start_line": null,
+      "end_line": null
+    },
+    {
+      "id": 7570,
+      "label": "Function",
+      "name": "clean_system_tags",
+      "path": "VisionFlow_Bakend/services/control-plane/app/core/caption_policy.py",
+      "start_line": 5,
+      "end_line": 12
+    },
+    {
+      "id": 7571,
+      "label": "Function",
+      "name": "_normalize_hashtags",
+      "path": "VisionFlow_Bakend/services/control-plane/app/core/caption_policy.py",
+      "start_line": 14,
+      "end_line": 28
+    },
+    {
+      "id": 7698,
+      "label": "Function",
+      "name": "detect_video_genre",
+      "path": "VisionFlow_Bakend/services/control-plane/app/core/caption_policy.py",
+      "start_line": 30,
+      "end_line": 76
+    },
+    {
+      "id": 7699,
+      "label": "Function",
+      "name": "extract_entity_hashtags",
+      "path": "VisionFlow_Bakend/services/control-plane/app/core/caption_policy.py",
+      "start_line": 78,
+      "end_line": 107
+    },
+    {
+      "id": 7700,
+      "label": "Function",
+      "name": "build_topic_hashtags",
+      "path": "VisionFlow_Bakend/services/control-plane/app/core/caption_policy.py",
+      "start_line": 109,
+      "end_line": 152
+    },
+    {
+      "id": 7701,
+      "label": "Function",
+      "name": "build_high_converting_description",
+      "path": "VisionFlow_Bakend/services/control-plane/app/core/caption_policy.py",
+      "start_line": 154,
+      "end_line": 263
+    },
+    {
+      "id": 8151,
+      "label": "File",
+      "name": "caption_policy.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/core/caption_policy.py",
+      "start_line": null,
+      "end_line": null
+    },
+    {
+      "id": 8325,
+      "label": "Method",
+      "name": "test_caption_preset_style_mapping",
+      "path": "VisionFlow_Bakend/services/control-plane/tests/test_auto_dubbing_studio.py",
+      "start_line": 66,
+      "end_line": 69
+    },
+    {
+      "id": 8749,
+      "label": "Function",
+      "name": "extract_publish_music_metadata",
+      "path": "VisionFlow_Bakend/worker/domain/caption_policy.py",
+      "start_line": 8,
+      "end_line": 46
+    },
+    {
+      "id": 8750,
+      "label": "Function",
+      "name": "clean_system_tags",
+      "path": "VisionFlow_Bakend/worker/domain/caption_policy.py",
+      "start_line": 48,
+      "end_line": 55
+    }
+  ],
+  "ducking": [
+    {
+      "id": 9525,
+      "label": "Method",
+      "name": "apply_ducking_to_music",
+      "path": "VisionFlow_Bakend/worker/services/audio_mixer.py",
+      "start_line": 45,
+      "end_line": 60
+    },
+    {
+      "id": 9566,
+      "label": "Method",
+      "name": "apply_audio_ducking_pure_python",
+      "path": "VisionFlow_Bakend/worker/services/dubbing_service.py",
+      "start_line": 363,
+      "end_line": 439
+    },
+    {
+      "id": 10047,
+      "label": "Function",
+      "name": "_build_sidechain_ducking_filter",
+      "path": "VisionFlow_Bakend/worker/services/viral_audio_master.py",
+      "start_line": 57,
+      "end_line": 67
+    }
+  ],
+  "transition": [
+    {
+      "id": 7318,
+      "label": "Class",
+      "name": "WorkflowTransitionResult",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/advance_workflow.py",
+      "start_line": 25,
+      "end_line": 28
+    },
+    {
+      "id": 7738,
+      "label": "Function",
+      "name": "can_transition",
+      "path": "VisionFlow_Bakend/services/control-plane/app/domain/workflow.py",
+      "start_line": 53,
+      "end_line": 54
+    },
+    {
+      "id": 7739,
+      "label": "Function",
+      "name": "require_transition",
+      "path": "VisionFlow_Bakend/services/control-plane/app/domain/workflow.py",
+      "start_line": 57,
+      "end_line": 59
+    },
+    {
+      "id": 7875,
+      "label": "Class",
+      "name": "InvalidWorkflowTransition",
+      "path": "VisionFlow_Bakend/services/control-plane/app/domain/workflow.py",
+      "start_line": 49,
+      "end_line": 50
+    },
+    {
+      "id": 8293,
+      "label": "Method",
+      "name": "transition",
+      "path": "VisionFlow_Bakend/services/control-plane/scripts/reset_stuck_rendering.py",
+      "start_line": 111,
+      "end_line": 124
+    },
+    {
+      "id": 8332,
+      "label": "Method",
+      "name": "test_starts_manual_publish_through_the_canonical_transition_path",
+      "path": "VisionFlow_Bakend/services/control-plane/tests/test_begin_manual_publish.py",
+      "start_line": 25,
+      "end_line": 52
+    },
+    {
+      "id": 8402,
+      "label": "Method",
+      "name": "test_opens_then_approves_through_canonical_transition_path",
+      "path": "VisionFlow_Bakend/services/control-plane/tests/test_manual_approval.py",
+      "start_line": 29,
+      "end_line": 44
+    },
+    {
+      "id": 8484,
+      "label": "Function",
+      "name": "_transition_initial_attempt_failure",
+      "path": "VisionFlow_Bakend/services/control-plane/app/routers/integrations.py",
+      "start_line": 392,
+      "end_line": 406
+    },
+    {
+      "id": 8628,
+      "label": "Class",
+      "name": "WorkflowTransitionResponse",
+      "path": "VisionFlow_Bakend/services/control-plane/app/routers/workflows.py",
+      "start_line": 304,
+      "end_line": 307
+    },
+    {
+      "id": 10333,
+      "label": "Method",
+      "name": "test_uses_client_credentials_and_organization_scoped_transition",
+      "path": "VisionFlow_Bakend/worker/tests/test_visionflow_control_plane_client.py",
+      "start_line": 73,
+      "end_line": 103
+    },
+    {
+      "id": 11833,
+      "label": "Type",
+      "name": "VisionFlowWorkflowTransition",
+      "path": "VisionFlow_Client/src/lib/visionflowClient.ts",
+      "start_line": 52,
+      "end_line": 56
+    },
+    {
+      "id": 11944,
+      "label": "Interface",
+      "name": "TransitionEffect",
+      "path": "VisionFlow_Client/src/modules/opencut/store/useOpenCutStore.ts",
+      "start_line": 21,
+      "end_line": 26
+    }
+  ],
+  "CreativeProposal": [
+    {
+      "id": 7934,
+      "label": "Class",
+      "name": "CreativeProposal",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/models.py",
+      "start_line": 520,
+      "end_line": 540
+    },
+    {
+      "id": 10895,
+      "label": "Interface",
+      "name": "CreativeProposal",
+      "path": "VisionFlow_Client/src/types.ts",
+      "start_line": 180,
+      "end_line": 196
+    },
+    {
+      "id": 11430,
+      "label": "Function",
+      "name": "toCreativeProposal",
+      "path": "VisionFlow_Client/src/lib/visionflowClient.ts",
+      "start_line": 261,
+      "end_line": 282
+    },
+    {
+      "id": 11433,
+      "label": "Function",
+      "name": "fetchCreativeProposal",
+      "path": "VisionFlow_Client/src/lib/visionflowClient.ts",
+      "start_line": 304,
+      "end_line": 309
+    }
+  ],
+  "render_manifest": [],
+  "manifest": [
+    {
+      "id": 8473,
+      "label": "Function",
+      "name": "get_youtube_publish_manifest",
+      "path": "VisionFlow_Bakend/services/control-plane/app/routers/integrations.py",
+      "start_line": 129,
+      "end_line": 149
+    },
+    {
+      "id": 8485,
+      "label": "Function",
+      "name": "_issue_youtube_manifest",
+      "path": "VisionFlow_Bakend/services/control-plane/app/routers/integrations.py",
+      "start_line": 409,
+      "end_line": 500
+    },
+    {
+      "id": 8582,
+      "label": "Class",
+      "name": "YouTubePublishManifest",
+      "path": "VisionFlow_Bakend/services/control-plane/app/routers/integrations.py",
+      "start_line": 51,
+      "end_line": 51
+    },
+    {
+      "id": 8587,
+      "label": "Class",
+      "name": "YouTubePublicationAttemptManifest",
+      "path": "VisionFlow_Bakend/services/control-plane/app/routers/integrations.py",
+      "start_line": 56,
+      "end_line": 56
+    },
+    {
+      "id": 8714,
+      "label": "Function",
+      "name": "_upload_manifest",
+      "path": "VisionFlow_Bakend/services/publisher-worker/main.py",
+      "start_line": 31,
+      "end_line": 67
+    },
+    {
+      "id": 8834,
+      "label": "Method",
+      "name": "_manifest",
+      "path": "VisionFlow_Bakend/services/control-plane/tests/test_publication_attempt_api.py",
+      "start_line": 122,
+      "end_line": 136
+    },
+    {
+      "id": 8979,
+      "label": "Method",
+      "name": "_manifest",
+      "path": "VisionFlow_Bakend/services/publisher-worker/tests/test_artifact_integrity.py",
+      "start_line": 40,
+      "end_line": 45
+    }
+  ]
+}

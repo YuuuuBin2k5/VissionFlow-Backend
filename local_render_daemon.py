@@ -30,10 +30,12 @@ from modal_worker import render_video_task, render_video_task_local
 
 DB_URL = os.environ.get(
     "DATABASE_URL",
-    "postgresql://neondb_owner:npg_TD8BYOyg6AVC@ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+    ""
 )
 
 def get_db_connection():
+    if not DB_URL:
+        raise RuntimeError("DATABASE_URL must be configured; no database credential is embedded in the worker")
     return psycopg2.connect(DB_URL)
 
 def poll_and_render_one_job():
@@ -46,7 +48,8 @@ def poll_and_render_one_job():
         cur.execute("""
             SELECT id, project_id, state, input_payload, prompt_manifest, created_at
             FROM workflow_runs
-            WHERE state = 'QUEUED' OR (state = 'PROCESSING' AND updated_at < NOW() - INTERVAL '3 minutes')
+            WHERE (state = 'QUEUED' OR (state = 'PROCESSING' AND updated_at < NOW() - INTERVAL '3 minutes'))
+              AND NOT (COALESCE(input_payload, '{}'::jsonb) ? 'voice_context')
             ORDER BY created_at ASC
             LIMIT 1
             FOR UPDATE SKIP LOCKED

@@ -110,9 +110,9 @@ class ElevenLabsProvider(TTSProvider):
             f.write(all_audio_bytes)
 
         print(
-            f"[ElevenLabsProvider] ✅ Hoàn tất. "
+            f"[ElevenLabsProvider] [SUCCESS] Hoan tat. "
             f"Chunks: {len(chunks)}, Words: {len(all_word_timestamps)}, "
-            f"Audio: {len(all_audio_bytes)} bytes → {output_path}"
+            f"Audio: {len(all_audio_bytes)} bytes -> {output_path}"
         )
         return all_word_timestamps
 

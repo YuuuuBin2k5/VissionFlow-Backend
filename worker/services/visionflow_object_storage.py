@@ -49,6 +49,22 @@ class S3CompatibleObjectStorage:
             aws_access_key_id=settings.access_key_id, aws_secret_access_key=settings.secret_access_key,
         )
 
+    def put_file(self, object_key: str, source_path: str, *, content_type: str) -> dict[str, object]:
+        path = Path(source_path)
+        checksum = _sha256(path)
+        self._client.upload_file(str(path), self._settings.bucket, object_key,
+                                 ExtraArgs={"ContentType": content_type, "Metadata": {"sha256": checksum}})
+        return {"object_key": object_key, "content_type": content_type,
+                "byte_size": path.stat().st_size, "checksum_sha256": checksum}
+
+    def upload_voice(self, organization_id: str, sample_id: str, source_path: str) -> dict[str, object]:
+        path = Path(source_path)
+        checksum = _sha256(path)
+        key = f"visionflow/{organization_id}/voice/{sample_id}.mp3"
+        self._client.upload_file(str(path), self._settings.bucket, key,
+                                 ExtraArgs={"ContentType": "audio/mpeg", "Metadata": {"sha256": checksum, "source": "tts"}})
+        return {"object_key": key, "content_type": "audio/mpeg", "byte_size": path.stat().st_size, "checksum_sha256": checksum}
+
     def upload_asset(self, workflow_run_id: str, scene_id: int, source_path: str) -> dict[str, object]:
         path = Path(source_path)
         if not path.is_file():

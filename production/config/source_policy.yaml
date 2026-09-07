@@ -1,0 +1,37 @@
+version: 1
+
+monetization_mode: strict
+
+rights_states:
+  - OWNED
+  - LICENSED_COMMERCIAL
+  - PERMISSION_COMMERCIAL
+  - APPROVED_STOCK
+  - UNKNOWN
+  - RESTRICTED
+  - BLOCKED
+
+allow_in_editor_plan:
+  strict:
+    - OWNED
+    - LICENSED_COMMERCIAL
+    - PERMISSION_COMMERCIAL
+    - APPROVED_STOCK
+
+  review:
+    - OWNED
+    - LICENSED_COMMERCIAL
+    - PERMISSION_COMMERCIAL
+    - APPROVED_STOCK
+    - UNKNOWN
+
+watermark:
+  strict_reject_visible: true
+
+provenance_required: true
+source_manifest_required: true
+
+rules:
+  do_not_treat_credit_as_permission: true
+  do_not_infer_ownership_from_download_success: true
+  unknown_rights_requires_review: true

@@ -11,4 +11,10 @@ boto3>=1.35,<2.0
 # OAuth code exchange, token refresh, and the YouTube Data API adapter.
 requests>=2.32,<3.0
 PyMySQL>=1.1.0
+edge-tts>=6.1.9,<8
+numpy>=1.26,<3
+Pillow>=10,<13
+PyYAML>=6,<7
+python-dotenv>=1,<2
+python-multipart>=0.0.20,<0.1
 

@@ -19,12 +19,67 @@ class Timestamped:
     )
 
 
+class RenderWorker(Timestamped, Base):
+    __tablename__ = "render_workers"
+
+    worker_id: Mapped[str] = mapped_column(String(120), primary_key=True)
+    worker_type: Mapped[str] = mapped_column(String(48), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="OFFLINE")
+    platform: Mapped[str] = mapped_column(String(32), nullable=False)
+    renderer_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    ffmpeg_version: Mapped[str] = mapped_column(String(160), nullable=False)
+    capabilities: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    max_concurrent_jobs: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class RenderJob(Timestamped, Base):
+    __tablename__ = "render_jobs"
+    __table_args__ = (UniqueConstraint("idempotency_key", name="uq_render_jobs_idempotency_key"), Index("ix_render_jobs_claimable", "status", "priority", "created_at"))
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    run_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="QUEUED")
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    render_spec_version: Mapped[str] = mapped_column(String(48), nullable=False)
+    render_spec_json: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    render_input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    claimed_by_worker_id: Mapped[str | None] = mapped_column(ForeignKey("render_workers.worker_id"), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retryable: Mapped[bool] = mapped_column(nullable=False, default=True)
+    output_artifact_ref: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+
+
 class Organization(Timestamped, Base):
     __tablename__ = "organizations"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     slug: Mapped[str] = mapped_column(String(80), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(160), nullable=False)
+
+
+class VoiceSettings(Timestamped, Base):
+    __tablename__ = 'voice_settings'
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('organizations.id', ondelete='CASCADE'), primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    config: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+
+
+class VoiceLabSample(Timestamped, Base):
+    __tablename__ = 'voice_lab_samples'
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('organizations.id', ondelete='CASCADE'), nullable=False, index=True)
+    state: Mapped[str] = mapped_column(String(20), nullable=False, default='QUEUED')
+    request: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    result: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
 
 class User(Timestamped, Base):

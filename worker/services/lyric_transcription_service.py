@@ -172,7 +172,7 @@ class LyricTranscriptionService:
         
         errors = []
         # Xoay vòng các API Key Gemini khi gặp lỗi hạn mức
-        for api_key in GEMINI_API_KEYS:
+        for key_idx, api_key in enumerate(GEMINI_API_KEYS):
             uploaded = None
             try:
                 client = genai.Client(api_key=api_key)
@@ -194,14 +194,14 @@ class LyricTranscriptionService:
                     except Exception as exc:
                         if "429" in str(exc) or "Quota exceeded" in str(exc):
                             raise exc
-                        errors.append(f"{model_name} (Key: {api_key[:6]}...): {exc}")
+                        errors.append(f"{model_name} (Key #{key_idx+1} configured={bool(api_key)}): {exc}")
                 try:
                     if uploaded:
                         client.files.delete(name=uploaded.name)
                 except Exception:
                     pass
             except Exception as key_err:
-                errors.append(f"Key {api_key[:6]}... error: {key_err}")
+                errors.append(f"Key #{key_idx+1} (configured={bool(api_key)}) error: {key_err}")
                 continue
 
         raise RuntimeError("Gemini không tạo được timeline lời hát sau khi thử tất cả các Keys: " + " | ".join(errors))

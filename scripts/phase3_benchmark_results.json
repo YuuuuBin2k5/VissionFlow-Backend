@@ -1,0 +1,101 @@
+{
+  "total_scenarios": 8,
+  "passed_scenarios": 8,
+  "pass_rate_pct": 100.0,
+  "scenarios": [
+    {
+      "scenario": 1,
+      "name": "Process Explainer (Kigumi)",
+      "archetype": "PROCESS_EXPLAINER",
+      "scenes_count": 5,
+      "total_words": 128,
+      "gate_status": "WARN",
+      "gate_score": 0.92,
+      "provenance_mode": "SOURCE_EXTRACTION",
+      "latency_ms": 1.4,
+      "passed": true
+    },
+    {
+      "scenario": 2,
+      "name": "Mystery (Unsolved Riddle)",
+      "archetype": "MYSTERY",
+      "scenes_count": 5,
+      "total_words": 133,
+      "gate_status": "WARN",
+      "gate_score": 0.92,
+      "provenance_mode": "SOURCE_EXTRACTION",
+      "latency_ms": 0.6,
+      "passed": true
+    },
+    {
+      "scenario": 3,
+      "name": "Timeline (Semiconductor History)",
+      "archetype": "TIMELINE",
+      "scenes_count": 5,
+      "total_words": 135,
+      "gate_status": "WARN",
+      "gate_score": 0.92,
+      "provenance_mode": "SOURCE_EXTRACTION",
+      "latency_ms": 0.5,
+      "passed": true
+    },
+    {
+      "scenario": 4,
+      "name": "Factory / Cleanroom Fabrication",
+      "archetype": "PROCESS_EXPLAINER",
+      "scenes_count": 5,
+      "total_words": 128,
+      "gate_status": "WARN",
+      "gate_score": 0.92,
+      "provenance_mode": "SOURCE_EXTRACTION",
+      "latency_ms": 0.5,
+      "passed": true
+    },
+    {
+      "scenario": 5,
+      "name": "Article / Alpine Nature",
+      "archetype": "DISCOVERY",
+      "scenes_count": 5,
+      "total_words": 132,
+      "gate_status": "WARN",
+      "gate_score": 0.92,
+      "provenance_mode": "SOURCE_EXTRACTION",
+      "latency_ms": 0.8,
+      "passed": true
+    },
+    {
+      "scenario": 6,
+      "name": "Contradiction Qualification",
+      "contradictions_found": [
+        "Mâu thuẫn giữa nguồn 1 và nguồn 2 về tính chất: 'an toàn' vs 'nguy hiểm'.",
+        "Mâu thuẫn giữa nguồn 1 và nguồn 2 về tính chất: 'thủ công' vs 'công nghiệp'."
+      ],
+      "gate_status": "WARN",
+      "latency_ms": 1.6,
+      "passed": true
+    },
+    {
+      "scenario": 7,
+      "name": "Unsupported Claim Detection (Negative Guardrail)",
+      "gate_status": "FAIL",
+      "blocker_count": 3,
+      "detected_rule_08_violations": [
+        "Kịch bản chứa khẳng định tuyệt đối chưa được chứng thực trong FactPack: 'số 1 thế giới'.",
+        "Kịch bản chứa khẳng định tuyệt đối chưa được chứng thực trong FactPack: 'cam kết 100%'.",
+        "Kịch bản chứa khẳng định tuyệt đối chưa được chứng thực trong FactPack: 'chữa khỏi hoàn toàn'."
+      ],
+      "latency_ms": 0.8,
+      "passed": true
+    },
+    {
+      "scenario": 8,
+      "name": "SCRIPT Mode (Direct Voiceover Input)",
+      "input_mode": "SCRIPT",
+      "scenes_parsed": 4,
+      "total_words": 91,
+      "gate_status": "WARN",
+      "latency_ms": 0.6,
+      "passed": true
+    }
+  ]
+}

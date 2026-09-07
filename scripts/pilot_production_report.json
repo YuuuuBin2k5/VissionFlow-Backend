@@ -1,0 +1,79 @@
+{
+  "report_id": "pilot_rep_1788744936",
+  "generated_at": "2026-09-07T01:35:36.761499+00:00",
+  "channel_id": "goc_chiem_nghiem_yuubin",
+  "run_environment": "PILOT",
+  "summary": {
+    "total_pilot_runs": 1,
+    "completed_renders": 0,
+    "render_success_rate_pct": 0.0,
+    "first_pass_qc_passes": 0,
+    "first_pass_qc_rate_pct": 0.0,
+    "auto_fixed_runs": 0,
+    "approved_runs": 0,
+    "first_pass_approvals": 0,
+    "approval_rate_pct": 0.0
+  },
+  "cost_accounting": {
+    "total_cost_usd": 0.0,
+    "cost_per_video_usd": 0.0,
+    "cost_per_output_minute_usd": 0.0,
+    "total_output_minutes": 0.75,
+    "total_render_compute_seconds": 0.0,
+    "breakdown": {
+      "llm_usd": 0.0,
+      "tts_usd": 0.0,
+      "stock_api_usd": 0.0
+    },
+    "provider_fallbacks_logged": 0
+  },
+  "latency_metrics": {
+    "avg_pipeline_duration_seconds": 0.0,
+    "bottleneck_stage_distribution": {}
+  },
+  "manual_interventions": {
+    "total_interventions": 0,
+    "average_intervention_rate": 0.0,
+    "by_type": {}
+  },
+  "simulation": {
+    "runs": 1,
+    "simulated_reviews": 1,
+    "simulated_interventions": 1
+  },
+  "real_operator": {
+    "runs_reviewed": 0,
+    "approved": 0,
+    "first_pass_approval_rate": null,
+    "human_rating_average": null,
+    "manual_intervention_rate": null
+  },
+  "scene_feedback_summary": {},
+  "operator_rubric_averages_8_axes": {},
+  "ground_truth_datasets_collected": {
+    "visual_swaps_count": 0,
+    "script_diffs_count": 0
+  },
+  "failure_root_causes": {
+    "RESEARCH": 0,
+    "SCRIPT": 0,
+    "VISUAL_RETRIEVAL": 0,
+    "ASSET_QUALITY": 0,
+    "TTS": 0,
+    "EDITOR": 0,
+    "RENDER": 0,
+    "QC_FALSE_POSITIVE": 0,
+    "RIGHTS": 0,
+    "PUBLISHING": 0,
+    "OTHER": 0
+  },
+  "final_evaluation": {
+    "recommendation": "GO_REAL_HUMAN_PILOT",
+    "justification": "Pipeline/simulation evidence exists, but no REAL_OPERATOR review data is available.",
+    "action_items": [
+      "Review channel profile recommendations in .channel_recommendations/",
+      "Keep auto-publish OFF until 5 consecutive runs achieve zero manual interventions",
+      "Fine-tune visual query prompts using the collected visual swap ground truth dataset"
+    ]
+  }
+}

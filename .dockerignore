@@ -19,3 +19,10 @@ worker/test_*.mp4
 orchestrator
 tmp_pip
 venv
+production/.*_storage
+production/.runs_storage
+production/.sources_storage
+production/.*
+.media_cache
+scratch
+logs

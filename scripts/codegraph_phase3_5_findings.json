@@ -1,0 +1,452 @@
+{
+  "research_service": [],
+  "story_planner": [],
+  "script_service": [],
+  "script_quality_gate": [],
+  "orchestrator": [
+    {
+      "id": 31,
+      "label": "Folder",
+      "name": "orchestrator",
+      "path": "VisionFlow_Bakend/orchestrator"
+    },
+    {
+      "id": 32,
+      "label": "Folder",
+      "name": "prisma",
+      "path": "VisionFlow_Bakend/orchestrator/prisma"
+    },
+    {
+      "id": 33,
+      "label": "Folder",
+      "name": "migrations",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations"
+    },
+    {
+      "id": 34,
+      "label": "Folder",
+      "name": "20260521061540_init",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260521061540_init"
+    },
+    {
+      "id": 35,
+      "label": "Folder",
+      "name": "20260522090000_add_publish_targets",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260522090000_add_publish_targets"
+    },
+    {
+      "id": 36,
+      "label": "Folder",
+      "name": "20260522110000_add_multi_user_connections",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260522110000_add_multi_user_connections"
+    },
+    {
+      "id": 37,
+      "label": "Folder",
+      "name": "20260715090000_add_agent_prompt_registry",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715090000_add_agent_prompt_registry"
+    },
+    {
+      "id": 38,
+      "label": "Folder",
+      "name": "20260715093000_seed_music_visual_prompt",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715093000_seed_music_visual_prompt"
+    },
+    {
+      "id": 39,
+      "label": "Folder",
+      "name": "20260715100000_add_prompt_audit_log",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715100000_add_prompt_audit_log"
+    },
+    {
+      "id": 40,
+      "label": "Folder",
+      "name": "20260715101000_seed_music_song_prompts",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715101000_seed_music_song_prompts"
+    },
+    {
+      "id": 41,
+      "label": "Folder",
+      "name": "20260715102000_seed_short_video_scene_planner",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715102000_seed_short_video_scene_planner"
+    },
+    {
+      "id": 42,
+      "label": "Folder",
+      "name": "20260715103000_seed_short_video_visual_art_director",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715103000_seed_short_video_visual_art_director"
+    },
+    {
+      "id": 43,
+      "label": "Folder",
+      "name": "20260716093000_add_visionflow_legacy_intake",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260716093000_add_visionflow_legacy_intake"
+    },
+    {
+      "id": 44,
+      "label": "Folder",
+      "name": "scratch",
+      "path": "VisionFlow_Bakend/orchestrator/scratch"
+    },
+    {
+      "id": 45,
+      "label": "Folder",
+      "name": "scripts",
+      "path": "VisionFlow_Bakend/orchestrator/scripts"
+    }
+  ],
+  "production_controller": [],
+  "AutoVideoComposer": [],
+  "productionApi": [],
+  "contracts": [
+    {
+      "id": 5779,
+      "label": "File",
+      "name": "longContracts.test.ts",
+      "path": "VisionFlow_Client/src/lib/longContracts.test.ts"
+    },
+    {
+      "id": 5780,
+      "label": "File",
+      "name": "longContracts.ts",
+      "path": "VisionFlow_Client/src/lib/longContracts.ts"
+    },
+    {
+      "id": 5784,
+      "label": "File",
+      "name": "shortContracts.test.ts",
+      "path": "VisionFlow_Client/src/lib/shortContracts.test.ts"
+    },
+    {
+      "id": 5785,
+      "label": "File",
+      "name": "shortContracts.ts",
+      "path": "VisionFlow_Client/src/lib/shortContracts.ts"
+    },
+    {
+      "id": 11272,
+      "label": "Function",
+      "name": "anonymous_5_41",
+      "path": "VisionFlow_Client/src/lib/longContracts.test.ts"
+    },
+    {
+      "id": 11273,
+      "label": "Function",
+      "name": "anonymous_13_67",
+      "path": "VisionFlow_Client/src/lib/longContracts.test.ts"
+    },
+    {
+      "id": 11274,
+      "label": "Function",
+      "name": "anonymous_19_69",
+      "path": "VisionFlow_Client/src/lib/longContracts.test.ts"
+    },
+    {
+      "id": 11275,
+      "label": "Function",
+      "name": "anonymous_41_64",
+      "path": "VisionFlow_Client/src/lib/longContracts.test.ts"
+    },
+    {
+      "id": 11276,
+      "label": "Function",
+      "name": "getLongSceneChapter",
+      "path": "VisionFlow_Client/src/lib/longContracts.ts"
+    },
+    {
+      "id": 11277,
+      "label": "Function",
+      "name": "buildLongRenderContract",
+      "path": "VisionFlow_Client/src/lib/longContracts.ts"
+    },
+    {
+      "id": 11278,
+      "label": "Function",
+      "name": "summarizeLongContract",
+      "path": "VisionFlow_Client/src/lib/longContracts.ts"
+    },
+    {
+      "id": 11279,
+      "label": "Function",
+      "name": "anonymous_34_6",
+      "path": "VisionFlow_Client/src/lib/longContracts.ts"
+    },
+    {
+      "id": 11280,
+      "label": "Function",
+      "name": "anonymous_36_28",
+      "path": "VisionFlow_Client/src/lib/longContracts.ts"
+    },
+    {
+      "id": 11281,
+      "label": "Function",
+      "name": "anonymous_56_29",
+      "path": "VisionFlow_Client/src/lib/longContracts.ts"
+    },
+    {
+      "id": 11282,
+      "label": "Function",
+      "name": "anonymous_78_47",
+      "path": "VisionFlow_Client/src/lib/longContracts.ts"
+    }
+  ],
+  "embedding_service": [],
+  "shortContracts": [
+    {
+      "id": 5784,
+      "label": "File",
+      "name": "shortContracts.test.ts",
+      "path": "VisionFlow_Client/src/lib/shortContracts.test.ts"
+    },
+    {
+      "id": 5785,
+      "label": "File",
+      "name": "shortContracts.ts",
+      "path": "VisionFlow_Client/src/lib/shortContracts.ts"
+    },
+    {
+      "id": 11321,
+      "label": "Function",
+      "name": "anonymous_21_70",
+      "path": "VisionFlow_Client/src/lib/shortContracts.test.ts"
+    },
+    {
+      "id": 11322,
+      "label": "Function",
+      "name": "anonymous_35_81",
+      "path": "VisionFlow_Client/src/lib/shortContracts.test.ts"
+    },
+    {
+      "id": 11323,
+      "label": "Function",
+      "name": "anonymous_50_71",
+      "path": "VisionFlow_Client/src/lib/shortContracts.test.ts"
+    },
+    {
+      "id": 11324,
+      "label": "Function",
+      "name": "anonymous_64_61",
+      "path": "VisionFlow_Client/src/lib/shortContracts.test.ts"
+    },
+    {
+      "id": 11325,
+      "label": "Function",
+      "name": "buildShortRenderContract",
+      "path": "VisionFlow_Client/src/lib/shortContracts.ts"
+    },
+    {
+      "id": 11326,
+      "label": "Function",
+      "name": "getContractTitle",
+      "path": "VisionFlow_Client/src/lib/shortContracts.ts"
+    },
+    {
+      "id": 11376,
+      "label": "File",
+      "name": "shortContracts.test.ts",
+      "path": "VisionFlow_Client/src/lib/shortContracts.test.ts"
+    },
+    {
+      "id": 11377,
+      "label": "File",
+      "name": "shortContracts.ts",
+      "path": "VisionFlow_Client/src/lib/shortContracts.ts"
+    },
+    {
+      "id": 11393,
+      "label": "Type",
+      "name": "ShortWorkflow",
+      "path": "VisionFlow_Client/src/lib/shortContracts.ts"
+    },
+    {
+      "id": 11394,
+      "label": "Type",
+      "name": "CaptionPreset",
+      "path": "VisionFlow_Client/src/lib/shortContracts.ts"
+    },
+    {
+      "id": 11395,
+      "label": "Type",
+      "name": "VisualPreset",
+      "path": "VisionFlow_Client/src/lib/shortContracts.ts"
+    },
+    {
+      "id": 11396,
+      "label": "Type",
+      "name": "StorytellingFramework",
+      "path": "VisionFlow_Client/src/lib/shortContracts.ts"
+    },
+    {
+      "id": 11397,
+      "label": "Type",
+      "name": "ShortContractInput",
+      "path": "VisionFlow_Client/src/lib/shortContracts.ts"
+    }
+  ],
+  "longContracts": [
+    {
+      "id": 5779,
+      "label": "File",
+      "name": "longContracts.test.ts",
+      "path": "VisionFlow_Client/src/lib/longContracts.test.ts"
+    },
+    {
+      "id": 5780,
+      "label": "File",
+      "name": "longContracts.ts",
+      "path": "VisionFlow_Client/src/lib/longContracts.ts"
+    },
+    {
+      "id": 11272,
+      "label": "Function",
+      "name": "anonymous_5_41",
+      "path": "VisionFlow_Client/src/lib/longContracts.test.ts"
+    },
+    {
+      "id": 11273,
+      "label": "Function",
+      "name": "anonymous_13_67",
+      "path": "VisionFlow_Client/src/lib/longContracts.test.ts"
+    },
+    {
+      "id": 11274,
+      "label": "Function",
+      "name": "anonymous_19_69",
+      "path": "VisionFlow_Client/src/lib/longContracts.test.ts"
+    },
+    {
+      "id": 11275,
+      "label": "Function",
+      "name": "anonymous_41_64",
+      "path": "VisionFlow_Client/src/lib/longContracts.test.ts"
+    },
+    {
+      "id": 11276,
+      "label": "Function",
+      "name": "getLongSceneChapter",
+      "path": "VisionFlow_Client/src/lib/longContracts.ts"
+    },
+    {
+      "id": 11277,
+      "label": "Function",
+      "name": "buildLongRenderContract",
+      "path": "VisionFlow_Client/src/lib/longContracts.ts"
+    },
+    {
+      "id": 11278,
+      "label": "Function",
+      "name": "summarizeLongContract",
+      "path": "VisionFlow_Client/src/lib/longContracts.ts"
+    },
+    {
+      "id": 11279,
+      "label": "Function",
+      "name": "anonymous_34_6",
+      "path": "VisionFlow_Client/src/lib/longContracts.ts"
+    },
+    {
+      "id": 11280,
+      "label": "Function",
+      "name": "anonymous_36_28",
+      "path": "VisionFlow_Client/src/lib/longContracts.ts"
+    },
+    {
+      "id": 11281,
+      "label": "Function",
+      "name": "anonymous_56_29",
+      "path": "VisionFlow_Client/src/lib/longContracts.ts"
+    },
+    {
+      "id": 11282,
+      "label": "Function",
+      "name": "anonymous_78_47",
+      "path": "VisionFlow_Client/src/lib/longContracts.ts"
+    },
+    {
+      "id": 11283,
+      "label": "Function",
+      "name": "anonymous_83_40",
+      "path": "VisionFlow_Client/src/lib/longContracts.ts"
+    },
+    {
+      "id": 11371,
+      "label": "File",
+      "name": "longContracts.test.ts",
+      "path": "VisionFlow_Client/src/lib/longContracts.test.ts"
+    }
+  ],
+  "creativeSession": [
+    {
+      "id": 7357,
+      "label": "Class",
+      "name": "CreativeSessionError",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/manage_creative_session.py"
+    },
+    {
+      "id": 7358,
+      "label": "Class",
+      "name": "CreativeSessionConflict",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/manage_creative_session.py"
+    },
+    {
+      "id": 7359,
+      "label": "Class",
+      "name": "CreativeSessionAlreadyBound",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/manage_creative_session.py"
+    },
+    {
+      "id": 7364,
+      "label": "Class",
+      "name": "ManageCreativeSession",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/manage_creative_session.py"
+    },
+    {
+      "id": 7893,
+      "label": "Class",
+      "name": "SqlAlchemyCreativeSessionRepository",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/creative_session_repository.py"
+    },
+    {
+      "id": 7932,
+      "label": "Class",
+      "name": "CreativeSession",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/models.py"
+    },
+    {
+      "id": 8679,
+      "label": "Class",
+      "name": "CreativeSessionsApiTests",
+      "path": "VisionFlow_Bakend/services/control-plane/tests/test_creative_sessions_api.py"
+    },
+    {
+      "id": 10892,
+      "label": "Interface",
+      "name": "CreativeSessionSummary",
+      "path": "VisionFlow_Client/src/types.ts"
+    },
+    {
+      "id": 10896,
+      "label": "Interface",
+      "name": "CreativeSession",
+      "path": "VisionFlow_Client/src/types.ts"
+    },
+    {
+      "id": 11429,
+      "label": "Function",
+      "name": "creativeSessionPath",
+      "path": "VisionFlow_Client/src/lib/visionflowClient.ts"
+    },
+    {
+      "id": 11431,
+      "label": "Function",
+      "name": "toCreativeSession",
+      "path": "VisionFlow_Client/src/lib/visionflowClient.ts"
+    },
+    {
+      "id": 11432,
+      "label": "Function",
+      "name": "fetchCreativeSession",
+      "path": "VisionFlow_Client/src/lib/visionflowClient.ts"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+version: 1
+
+# Logical model aliases and provider bindings
+scene_embedding:
+  primary:
+    provider: gemini
+    model: gemini-embedding-2
+    dimensions: 768
+  text_fallback:
+    provider: gemini
+    model: gemini-embedding-001
+    dimensions: 768
+  offline_fallback:
+    provider: local
+    model: hashed-lexical-v1
+    dimensions: 256
+
+routes:
+  input_normalizer:
+    profile: fast_text
+    fallback: local_text
+
+  research:
+    profile: strong_text
+    fallback: fast_text
+
+  story_planner:
+    profile: strong_text
+    fallback: fast_text
+
+  script:
+    profile: strong_text
+    fallback: fast_text
+
+  scene_vision:
+    profile: local_vision
+    fallback: cheap_cloud_vision
+
+  scene_embedding:
+    profile: local_embedding
+
+  asset_reranker:
+    profile: fast_multimodal
+    fallback: heuristic
+
+  editor_planner:
+    profile: strong_text
+    fallback: fast_text
+
+  final_semantic_qc:
+    profile: fast_multimodal
+    fallback: sampled_heuristic
+
+policies:
+  batch_scene_vision: true
+  max_keyframes_per_scene_default: 3
+  full_video_vision_default: false
+  use_local_embedding_first: true

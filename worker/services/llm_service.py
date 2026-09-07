@@ -203,12 +203,12 @@ class LLMService:
                     )
                     if response and getattr(response, "text", None):
                         self.model = client
-                        print(f"[LLMService] Success using Gemini (Key #{idx+1} {api_key[:6]}..., Model {model_name}) ✅")
+                        print(f"[LLMService] Success using Gemini (Key #{idx+1} configured=True, Model {model_name}) ✅")
                         return response.text
                     print(f"[LLMService Warning] Response text empty from Gemini Key #{idx+1} model {model_name}")
                 except Exception as m_err:
                     m_err_str = str(m_err)
-                    errors.append(f"Gemini (Key #{idx+1} {api_key[:6]}..., Model {model_name}): {m_err_str}")
+                    errors.append(f"Gemini (Key #{idx+1} configured=True, Model {model_name}): {m_err_str}")
                     if "429" in m_err_str or "RESOURCE_EXHAUSTED" in m_err_str:
                         print(f"[LLMService Warning] 429 Rate Limit on Gemini Key #{idx+1} model {model_name}. Xoay vòng sang Key #{idx+2} tiếp theo...")
                         continue

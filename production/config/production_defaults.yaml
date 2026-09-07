@@ -1,0 +1,60 @@
+version: 1
+
+mode: auto
+language: vi
+review_mode: final_only
+auto_publish: false
+
+format_defaults:
+  auto:
+    infer_from_instruction: true
+
+  short:
+    aspect_ratio: "9:16"
+    target_duration_sec: 55
+    min_duration_sec: 30
+    max_duration_sec: 60
+    pacing: fast
+    captions_enabled: true
+    visual_density: high
+    shot_duration_sec:
+      hook: [0.8, 1.8]
+      body: [1.4, 3.2]
+      explanation_hold: [2.0, 4.5]
+
+  long:
+    aspect_ratio: "16:9"
+    target_duration_sec: 480
+    min_duration_sec: 240
+    max_duration_sec: 900
+    pacing: medium
+    captions_enabled: false
+    visual_density: medium
+
+source_priority:
+  - user_provided
+  - approved_scene_library
+  - approved_stock
+  - generated_media
+  - graphic_fallback
+
+automation:
+  auto_research: true
+  auto_story_plan: true
+  auto_script: true
+  auto_visual_plan: true
+  auto_asset_resolve: true
+  auto_editor_plan: true
+  auto_tts: true
+  auto_subtitle: true
+  auto_render: true
+  auto_qc: true
+  max_auto_fix_rounds: 2
+
+cache:
+  source_analysis: true
+  scene_index: true
+  embeddings: true
+  research: true
+  candidate_search: true
+  tts: true

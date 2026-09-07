@@ -77,7 +77,7 @@ class FPTAIProvider(TTSProvider):
 
         # FPT.AI không cung cấp word-level timestamps → dùng char-weight estimate
         timestamps = EdgeTTSProvider.estimate_timestamps_by_char_weight(text, output_path)
-        print(f"[FPTAIProvider] ✅ Success. Saved to {output_path}. Words (estimated): {len(timestamps)}")
+        print(f"[FPTAIProvider] [SUCCESS] Saved to {output_path}. Words (estimated): {len(timestamps)}")
         return timestamps
 
     # ──────────────────────────────────────────────────────────────────────────

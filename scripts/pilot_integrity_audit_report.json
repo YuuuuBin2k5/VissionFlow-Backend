@@ -1,0 +1,33 @@
+{
+  "audit_version": "pilot-integrity-v1",
+  "scope": "Static audit of scripts/run_real_channel_pilot.py; no external publish was performed.",
+  "simulation": {
+    "declared_runs": 10,
+    "simulated_reviews": 10,
+    "simulated_approvals": 10,
+    "simulated_interventions": {
+      "visual_swap": 1,
+      "script_edit": 1,
+      "hook_edit": 1,
+      "voice_regenerated": 1
+    },
+    "simulated_channel_profile_approval": 1,
+    "simulated_publish_attempt": 1
+  },
+  "real_operator": {
+    "runs_reviewed": 0,
+    "approved": 0,
+    "real_human_review_count": 0,
+    "real_human_approval_rate": null,
+    "real_human_rating_average": null,
+    "manual_intervention_rate": null
+  },
+  "publishing": {
+    "provider_mode": "SIMULATION",
+    "external_post_id": null,
+    "external_url": null,
+    "provider_confirmed": false,
+    "finding": "Internal publication IDs are not platform post IDs."
+  },
+  "recommendation": "GO_REAL_HUMAN_PILOT"
+}

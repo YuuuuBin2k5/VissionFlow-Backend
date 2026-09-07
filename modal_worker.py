@@ -396,6 +396,7 @@ try:
                 "psycopg2-binary>=2.9.0"
             )
             .run_commands("playwright install chromium --with-deps")
+            .add_local_dir("worker/voice_system", remote_path="/root/worker/voice_system")
         )
     else:
         visionflow_image = None
@@ -1603,6 +1604,11 @@ except Exception:
     app = None
 
 def modal_function(**kwargs):
+    voice_env_names = ('AZURE_SPEECH_KEY', 'AZURE_SPEECH_REGION', 'ELEVENLABS_API_KEY',
+                       'GOOGLE_TTS_API_KEY', 'VISIONFLOW_VOICE_DISPATCH_SECRET')
+    voice_env = {key: os.environ[key] for key in voice_env_names if os.environ.get(key)}
+    if voice_env and modal is not None:
+        kwargs['secrets'] = [*kwargs.get('secrets', []), modal.Secret.from_dict(voice_env)]
     def decorator(fn):
         if app is not None and hasattr(app, "function"):
             try:
@@ -1816,6 +1822,9 @@ def render_scene_chunk(scene_payload: dict) -> dict:
     return _render_scene_chunk_impl(scene_payload)
 
 def _render_video_task_impl(contract_payload: dict) -> dict:
+    from worker.voice_system.dispatch import verify_dispatch
+    voice_dispatch_verified = verify_dispatch(contract_payload)
+    contract_payload = {key: value for key, value in contract_payload.items() if key not in ('_voice_signature', '_voice_expires_at')}
     """
     1-Pass Serverless Execution Pipeline on Modal.com
     Receives CreationSpec / Contract Payload from Frontend or Webhook,
@@ -1937,6 +1946,9 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
         # -------------------------------------------------------------------
         # Voice & Speech Synthesis Parameters
         # -------------------------------------------------------------------
+        from worker.voice_system.render import is_canonical_voice
+        if is_canonical_voice(contract_payload) and not voice_dispatch_verified:
+            raise ValueError('Canonical voice render requires authenticated Control Plane dispatch')
         raw_voice_code = contract_payload.get("voice_code") or contract_payload.get("voiceCode") or contract_payload.get("voice") or "vi-VN-NamMinhNeural"
         voice_code = resolve_voice(raw_voice_code)
         raw_voice_rate = contract_payload.get("voice_rate") or contract_payload.get("voiceRate") or 1.12
@@ -1971,6 +1983,10 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
         tts_script = preprocess_script_for_tts(script)
         print(f"[Modal] 📝 Script preprocessed for Neural TTS breath pauses ({len(script)} chars -> {len(tts_script)} chars)", flush=True)
 
+        from worker.voice_system.render import is_canonical_voice, render_narration
+        canonical_audio = None
+        if is_canonical_voice(contract_payload):
+            canonical_audio = render_narration(contract_payload, raw_script, audio_output, vtt_output)
         tts_cmd = [
             sys.executable, "-m", "edge_tts",
             "--text", tts_script,
@@ -1981,7 +1997,8 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
             "--write-subtitles", vtt_output
         ]
         try:
-            subprocess.run(tts_cmd, check=True)
+            if canonical_audio is None:
+                subprocess.run(tts_cmd, check=True)
         except Exception as tts_err:
             print(f"[Modal TTS Warning] TTS with rate={voice_rate_str}, pitch={pitch_arg} failed: {tts_err}. Trying with pitch=+0Hz...", flush=True)
             fallback_tts_cmd = [
@@ -2009,7 +2026,8 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
         vtt_cues = parse_webvtt_cues(vtt_output)
         print(f"[Modal] 🎯 Extracted {len(vtt_cues)} word-level timestamps from Edge TTS for Karaoke sync!", flush=True)
 
-        audio_duration = get_audio_duration_seconds(audio_output, fallback_duration=30.0)
+        from worker.voice_system.service import measure_audio
+        audio_duration = measure_audio(audio_output) / 1000.0
         video_duration = max(3.0, round(audio_duration + 0.5, 2))
 
         # -------------------------------------------------------------------
@@ -2255,7 +2273,11 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
             cum_scene_time = 0.0
             for idx, cnt in enumerate(word_counts):
                 is_last_scene = (idx == len(word_counts) - 1)
-                if is_last_scene:
+                if canonical_audio is not None:
+                    if len(canonical_audio['scenes']) != len(scenes):
+                        raise ValueError('Canonical narration and visual scene counts differ')
+                    prop_dur = canonical_audio['scenes'][idx]['measured_duration_ms'] / 1000.0
+                elif is_last_scene:
                     prop_dur = max(2.5, round(audio_duration - cum_scene_time, 2))
                 else:
                     prop_dur = round(max(2.5, (cnt / total_words) * audio_duration), 2)
@@ -2263,6 +2285,7 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
                 synced_scene_durations.append(prop_dur)
                 # Overwrite any untrusted external actual_duration_seconds with authoritative backend measurement
                 scenes[idx]["actual_duration_seconds"] = prop_dur
+                scenes[idx]['timing_source'] = 'ffprobe' if canonical_audio is not None else 'word_weight_estimate'
                 
             print(f"[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: {audio_duration:.1f}s): {synced_scene_durations}", flush=True)
 

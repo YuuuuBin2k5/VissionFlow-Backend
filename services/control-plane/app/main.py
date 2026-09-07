@@ -23,6 +23,7 @@ from app.routers import (
     system,
     video_vault,
     workflows,
+    voices,
 )
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,34 @@ app.include_router(ai_video.router, prefix=settings.api_prefix)
 app.include_router(dubbing.router, prefix=settings.api_prefix)
 app.include_router(video_vault.router, prefix=settings.api_prefix)
 app.include_router(analytics.router, prefix=settings.api_prefix)
+app.include_router(voices.router, prefix=settings.api_prefix)
+
+try:
+    from production.production_controller import router as production_router, auto_production_router
+    app.include_router(production_router, prefix=settings.api_prefix)
+    app.include_router(auto_production_router, prefix=settings.api_prefix)
+except ImportError:
+    import sys
+    from pathlib import Path
+    backend_root = Path(__file__).resolve().parents[3]
+    if str(backend_root) not in sys.path:
+        sys.path.insert(0, str(backend_root))
+    from production.production_controller import router as production_router, auto_production_router
+    app.include_router(production_router, prefix=settings.api_prefix)
+    app.include_router(auto_production_router, prefix=settings.api_prefix)
+
+
+from worker.voice_system.contracts import VoiceError
+from app.routers import render_workers
+from production.remote_worker_auth import worker_scope_middleware
+
+app.include_router(render_workers.router, prefix=settings.api_prefix)
+app.middleware("http")(worker_scope_middleware)
+
+
+@app.exception_handler(VoiceError)
+async def voice_error_handler(request, exc: VoiceError):
+    return JSONResponse(status_code=422, content={'detail': str(exc)})
 
 
 # ---------------------------------------------------------------------------

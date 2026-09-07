@@ -1,0 +1,382 @@
+{
+  "benchmark_name": "VisionFlow Phase 6 Final QC & Render Benchmark",
+  "timestamp": "2026-09-06T20:47:00.390245+00:00",
+  "total_duration_sec": 58.33,
+  "metrics": {
+    "total_archetypes_evaluated": 5,
+    "render_success_rate_pct": 100.0,
+    "target_render_success_pct": 100.0,
+    "average_duration_drift_ms": 24.0,
+    "max_duration_drift_ms": 24.0,
+    "target_max_drift_ms": 100.0,
+    "drift_pass": true,
+    "drift_violations_count": 0,
+    "black_frame_violations_count": 0,
+    "freeze_violations_count": 0,
+    "audio_sync_pass_rate_pct": 100.0,
+    "blocker_leakage_count": 0,
+    "target_blocker_leakage": 0,
+    "average_render_time_sec": 11.66,
+    "average_file_size_kb": 1126.6,
+    "auto_fix_success_rate_pct": 100.0
+  },
+  "auto_fix_stress_test": {
+    "scenario": "AUTO_FIX_REPAIR",
+    "fix_success": true,
+    "attempts_count": 1,
+    "post_fix_chunks_count": 2,
+    "post_fix_drift_ms": 0.0,
+    "repair_records": [
+      {
+        "attempt": 1,
+        "description": "Refactored overflowing subtitle phrases into balanced short chunks. | Re-calibrated final shot bounds to achieve 0.0ms drift.",
+        "affected_stages": [
+          "editor_planning",
+          "timeline_compose"
+        ],
+        "issues_addressed": [
+          "subtitle chunk exceeds readable line length (112 chars)",
+          "timeline duration drift exceeds 100ms",
+          "repeated footage detected"
+        ]
+      }
+    ]
+  },
+  "archetype_results": [
+    {
+      "archetype": "DOCUMENTARY",
+      "topic": "Nghệ thuật đúc đồng Đông Sơn truyền thống",
+      "render_success": true,
+      "render_time_sec": 11.77,
+      "video_metadata": {
+        "width": 1080,
+        "height": 1920,
+        "aspect_ratio": "9:16",
+        "fps": 30,
+        "video_codec": "h264",
+        "audio_codec": "aac",
+        "file_size_bytes": 1143764
+      },
+      "timing": {
+        "planned_duration_sec": 41.875,
+        "actual_duration_seconds": 41.899,
+        "timeline_drift_ms": 24.0,
+        "drift_pass": true
+      },
+      "subtitle_mode": "PROPORTIONAL_FALLBACK",
+      "quality_report": {
+        "overall_status": "WARN",
+        "run_status": "READY",
+        "timeline_conformance_score": 1.0,
+        "blocker_count": 0,
+        "blockers": [],
+        "axes": {
+          "technical": {
+            "status": "PASS",
+            "score": 1.0,
+            "evidence_count": 4,
+            "blocker_count": 0
+          },
+          "visual": {
+            "status": "WARN",
+            "score": 0.76,
+            "evidence_count": 2,
+            "blocker_count": 0
+          },
+          "content": {
+            "status": "PASS",
+            "score": 1.0,
+            "evidence_count": 2,
+            "blocker_count": 0
+          },
+          "edit": {
+            "status": "WARN",
+            "score": 0.95,
+            "evidence_count": 3,
+            "blocker_count": 0
+          },
+          "rights": {
+            "status": "PASS",
+            "score": 1.0,
+            "evidence_count": 1,
+            "blocker_count": 0
+          },
+          "story": {
+            "status": "PASS",
+            "score": 0.95,
+            "evidence_count": 1,
+            "blocker_count": 0
+          }
+        }
+      }
+    },
+    {
+      "archetype": "NEWS_CURATION",
+      "topic": "Công bố kiến trúc chip lượng tử thế hệ mới",
+      "render_success": true,
+      "render_time_sec": 11.86,
+      "video_metadata": {
+        "width": 1080,
+        "height": 1920,
+        "aspect_ratio": "9:16",
+        "fps": 30,
+        "video_codec": "h264",
+        "audio_codec": "aac",
+        "file_size_bytes": 1160347
+      },
+      "timing": {
+        "planned_duration_sec": 42.501,
+        "actual_duration_seconds": 42.525,
+        "timeline_drift_ms": 24.0,
+        "drift_pass": true
+      },
+      "subtitle_mode": "PROPORTIONAL_FALLBACK",
+      "quality_report": {
+        "overall_status": "WARN",
+        "run_status": "READY",
+        "timeline_conformance_score": 1.0,
+        "blocker_count": 0,
+        "blockers": [],
+        "axes": {
+          "technical": {
+            "status": "PASS",
+            "score": 1.0,
+            "evidence_count": 4,
+            "blocker_count": 0
+          },
+          "visual": {
+            "status": "WARN",
+            "score": 0.76,
+            "evidence_count": 2,
+            "blocker_count": 0
+          },
+          "content": {
+            "status": "PASS",
+            "score": 1.0,
+            "evidence_count": 2,
+            "blocker_count": 0
+          },
+          "edit": {
+            "status": "WARN",
+            "score": 0.95,
+            "evidence_count": 3,
+            "blocker_count": 0
+          },
+          "rights": {
+            "status": "PASS",
+            "score": 1.0,
+            "evidence_count": 1,
+            "blocker_count": 0
+          },
+          "story": {
+            "status": "PASS",
+            "score": 0.95,
+            "evidence_count": 1,
+            "blocker_count": 0
+          }
+        }
+      }
+    },
+    {
+      "archetype": "COMMENTARY",
+      "topic": "Sức hút của văn hóa cà phê vỉa hè",
+      "render_success": true,
+      "render_time_sec": 11.41,
+      "video_metadata": {
+        "width": 1080,
+        "height": 1920,
+        "aspect_ratio": "9:16",
+        "fps": 30,
+        "video_codec": "h264",
+        "audio_codec": "aac",
+        "file_size_bytes": 1134674
+      },
+      "timing": {
+        "planned_duration_sec": 41.563,
+        "actual_duration_seconds": 41.587,
+        "timeline_drift_ms": 24.0,
+        "drift_pass": true
+      },
+      "subtitle_mode": "PROPORTIONAL_FALLBACK",
+      "quality_report": {
+        "overall_status": "WARN",
+        "run_status": "READY",
+        "timeline_conformance_score": 1.0,
+        "blocker_count": 0,
+        "blockers": [],
+        "axes": {
+          "technical": {
+            "status": "PASS",
+            "score": 1.0,
+            "evidence_count": 4,
+            "blocker_count": 0
+          },
+          "visual": {
+            "status": "WARN",
+            "score": 0.76,
+            "evidence_count": 2,
+            "blocker_count": 0
+          },
+          "content": {
+            "status": "PASS",
+            "score": 1.0,
+            "evidence_count": 2,
+            "blocker_count": 0
+          },
+          "edit": {
+            "status": "WARN",
+            "score": 0.95,
+            "evidence_count": 3,
+            "blocker_count": 0
+          },
+          "rights": {
+            "status": "PASS",
+            "score": 1.0,
+            "evidence_count": 1,
+            "blocker_count": 0
+          },
+          "story": {
+            "status": "PASS",
+            "score": 0.95,
+            "evidence_count": 1,
+            "blocker_count": 0
+          }
+        }
+      }
+    },
+    {
+      "archetype": "LISTICLE",
+      "topic": "Top 3 kỳ quan thiên nhiên ngoạn mục nhất",
+      "render_success": true,
+      "render_time_sec": 11.51,
+      "video_metadata": {
+        "width": 1080,
+        "height": 1920,
+        "aspect_ratio": "9:16",
+        "fps": 30,
+        "video_codec": "h264",
+        "audio_codec": "aac",
+        "file_size_bytes": 1160347
+      },
+      "timing": {
+        "planned_duration_sec": 42.501,
+        "actual_duration_seconds": 42.525,
+        "timeline_drift_ms": 24.0,
+        "drift_pass": true
+      },
+      "subtitle_mode": "PROPORTIONAL_FALLBACK",
+      "quality_report": {
+        "overall_status": "WARN",
+        "run_status": "READY",
+        "timeline_conformance_score": 1.0,
+        "blocker_count": 0,
+        "blockers": [],
+        "axes": {
+          "technical": {
+            "status": "PASS",
+            "score": 1.0,
+            "evidence_count": 4,
+            "blocker_count": 0
+          },
+          "visual": {
+            "status": "WARN",
+            "score": 0.76,
+            "evidence_count": 2,
+            "blocker_count": 0
+          },
+          "content": {
+            "status": "PASS",
+            "score": 1.0,
+            "evidence_count": 2,
+            "blocker_count": 0
+          },
+          "edit": {
+            "status": "WARN",
+            "score": 0.95,
+            "evidence_count": 3,
+            "blocker_count": 0
+          },
+          "rights": {
+            "status": "PASS",
+            "score": 1.0,
+            "evidence_count": 1,
+            "blocker_count": 0
+          },
+          "story": {
+            "status": "PASS",
+            "score": 0.95,
+            "evidence_count": 1,
+            "blocker_count": 0
+          }
+        }
+      }
+    },
+    {
+      "archetype": "STORYTELLING",
+      "topic": "Hành trình khám phá tháp Rùa cổ kính",
+      "render_success": true,
+      "render_time_sec": 11.77,
+      "video_metadata": {
+        "width": 1080,
+        "height": 1920,
+        "aspect_ratio": "9:16",
+        "fps": 30,
+        "video_codec": "h264",
+        "audio_codec": "aac",
+        "file_size_bytes": 1169044
+      },
+      "timing": {
+        "planned_duration_sec": 42.813,
+        "actual_duration_seconds": 42.837,
+        "timeline_drift_ms": 24.0,
+        "drift_pass": true
+      },
+      "subtitle_mode": "PROPORTIONAL_FALLBACK",
+      "quality_report": {
+        "overall_status": "WARN",
+        "run_status": "READY",
+        "timeline_conformance_score": 1.0,
+        "blocker_count": 0,
+        "blockers": [],
+        "axes": {
+          "technical": {
+            "status": "PASS",
+            "score": 1.0,
+            "evidence_count": 4,
+            "blocker_count": 0
+          },
+          "visual": {
+            "status": "WARN",
+            "score": 0.76,
+            "evidence_count": 2,
+            "blocker_count": 0
+          },
+          "content": {
+            "status": "PASS",
+            "score": 1.0,
+            "evidence_count": 2,
+            "blocker_count": 0
+          },
+          "edit": {
+            "status": "WARN",
+            "score": 0.95,
+            "evidence_count": 3,
+            "blocker_count": 0
+          },
+          "rights": {
+            "status": "PASS",
+            "score": 1.0,
+            "evidence_count": 1,
+            "blocker_count": 0
+          },
+          "story": {
+            "status": "PASS",
+            "score": 0.95,
+            "evidence_count": 1,
+            "blocker_count": 0
+          }
+        }
+      }
+    }
+  ]
+}

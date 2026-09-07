@@ -41,13 +41,8 @@ def get_font_file_path(font_name: str = "BeVietnamPro-Bold.ttf") -> str:
 # 3. UNIVERSAL FFMPEG / FFPROBE BINARY RESOLVER
 # ─────────────────────────────────────────────────────────────────────────────
 def resolve_ffmpeg_exe() -> str:
-    """Tự động tìm đường dẫn FFmpeg hoạt động 100% trên cả Windows và Linux"""
-    # 1. Kiểm tra trong PATH hệ thống
-    ffmpeg_in_path = shutil.which("ffmpeg")
-    if ffmpeg_in_path:
-        return f'"{ffmpeg_in_path}"' if " " in ffmpeg_in_path else ffmpeg_in_path
-
-    # 2. Kiểm tra gói imageio_ffmpeg Python
+    """Tự động tìm đường dẫn FFmpeg hoạt động 100% trên cả Windows và Linux (ưu tiên modern FFmpeg 7.1)"""
+    # 1. Ưu tiên kiểm tra gói imageio_ffmpeg Python (modern FFmpeg 7.1)
     try:
         import imageio_ffmpeg
         exe = imageio_ffmpeg.get_ffmpeg_exe()
@@ -55,6 +50,11 @@ def resolve_ffmpeg_exe() -> str:
             return f'"{exe}"' if " " in exe else exe
     except Exception:
         pass
+
+    # 2. Kiểm tra trong PATH hệ thống
+    ffmpeg_in_path = shutil.which("ffmpeg")
+    if ffmpeg_in_path:
+        return f'"{ffmpeg_in_path}"' if " " in ffmpeg_in_path else ffmpeg_in_path
 
     # 3. Fallback theo hệ điều hành
     return "ffmpeg.exe" if sys.platform == "win32" else "ffmpeg"

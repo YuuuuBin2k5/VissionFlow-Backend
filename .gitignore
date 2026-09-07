@@ -50,3 +50,12 @@ Thumbs.db
 
 .codegraph/
 scratch/
+.media_cache/
+production/.*_storage/
+production/.runs_storage/
+production/.sources_storage/
+production/.reviews_storage/
+production/.channel_recommendations/
+production/.pilot_ground_truth/
+db/*.db
+db/*.sqlite*

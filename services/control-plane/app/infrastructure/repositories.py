@@ -51,6 +51,8 @@ class SqlAlchemyShortFormWorkflowRepository:
         if existing:
             return existing, False
 
+        from app.application.voice_configuration import attach_voice_context
+        input_payload = attach_voice_context(self._session, command.organization_id, command.input_payload)
         project = VideoProject(
             organization_id=command.organization_id,
             title=command.title.strip(),
@@ -65,7 +67,7 @@ class SqlAlchemyShortFormWorkflowRepository:
             state=WorkflowState.DRAFT.value,
             idempotency_key=command.idempotency_key,
             prompt_manifest=command.prompt_manifest,
-            input_payload=command.input_payload,
+            input_payload=input_payload,
         )
         self._session.add(workflow_run)
         self._session.flush()

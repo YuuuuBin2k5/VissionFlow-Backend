@@ -50,6 +50,8 @@ class CreationSpecSchema(BaseModel):
     # Voice & Audio
     voice: str = Field(default="edge-nam-minh", min_length=1, max_length=100)
     voice_code: str = Field(default="edge-nam-minh", min_length=1, max_length=100)
+    voice_selection: dict | None = None
+    channel_id: str | None = Field(default=None, max_length=160)
     voice_rate: float = Field(default=1.12, ge=0.5, le=2.0)
     enable_sfx: bool = Field(default=True)
 
@@ -125,6 +127,8 @@ class CreationSpecSchema(BaseModel):
         # Voice & voice_code (extract if dict or sanitize if string)
         raw_voice = d.get("voice")
         if isinstance(raw_voice, dict):
+            if raw_voice.get('profile_id') or raw_voice.get('use_channel_default'):
+                d['voice_selection'] = raw_voice
             voice_str = str(raw_voice.get("voice_code") or raw_voice.get("voice") or "edge-nam-minh").strip()
             d["voice"] = voice_str or "edge-nam-minh"
             if "voice_rate" in raw_voice and raw_rate is None:
@@ -144,6 +148,9 @@ class CreationSpecSchema(BaseModel):
             d["voice_code"] = d["voice"]
 
         # Language
+        if d.get('voice_selection') is not None:
+            from worker.voice_system.contracts import validate_selection
+            d['voice_selection'] = validate_selection(d['voice_selection'])
         raw_lang = str(d.get("language") or "vi").lower()
         d["language"] = "vi" if "vi" in raw_lang else "en"
 
@@ -1044,6 +1051,10 @@ class ManageCreativeSession:
             }
 
             final_prompt_manifest = dict(prop_gen_manifest)
+            if creation_spec.get('voice_selection'):
+                input_payload['voice'] = creation_spec['voice_selection']
+            if creation_spec.get('channel_id'):
+                input_payload['channel_id'] = creation_spec['channel_id']
             if pub_meta:
                 final_prompt_manifest["publish_metadata"] = pub_meta
 
