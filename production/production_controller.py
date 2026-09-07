@@ -27,6 +27,7 @@ from production.contracts import (
     ReviewSource,
     SceneAssetResolution,
     SceneFeedbackItem,
+    SceneSearchFilter,
     SceneSearchResult,
     ScriptDiffGroundTruth,
     ScriptPlan,

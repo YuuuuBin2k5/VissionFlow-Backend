@@ -31,6 +31,17 @@ from production.orchestrator import ORDERED_STAGES, orchestrator
 client = TestClient(app)
 
 
+def test_openapi_resolves_production_filters_and_remote_worker_routes():
+    schema = app.openapi()
+    prefix = "/api/v1/render-workers"
+    expected = {"/register", "/heartbeat", "/jobs/claim", "/status",
+                "/jobs/{job_id}/manifest", "/jobs/{job_id}/progress",
+                "/jobs/{job_id}/output-upload", "/jobs/{job_id}/complete",
+                "/jobs/{job_id}/fail"}
+    assert {prefix + path for path in expected}.issubset(schema["paths"])
+    assert "filters" in schema["components"]["schemas"]["SearchScenesPayload"]["properties"]
+
+
 
 def test_api_runtime_full_suite():
     print("\n[API RUNTIME TEST] 1. Test POST /runs with invalid input -> 422")
