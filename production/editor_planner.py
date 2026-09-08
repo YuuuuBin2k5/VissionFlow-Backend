@@ -30,6 +30,7 @@ from production.contracts import (
     SceneNarration,
     ScenePlan,
     ScriptPlan,
+    ShortAssetFallbackPolicy,
     ShotPlan,
     SubtitleChunkPlan,
     SubtitleTrackPlan,
@@ -451,6 +452,8 @@ class EditorPlanner:
                 motion_effect=motion_effect,
                 match_score=cand.composite_score,
                 is_locked=cand.is_locked,
+                is_graphic_fallback=(cand.provider == "graphic_fallback"),
+                fallback_policy=(ShortAssetFallbackPolicy.GRAPHIC_FALLBACK if cand.provider == "graphic_fallback" else None),
                 provenance={
                     "provider": cand.provider,
                     "source_id": cand.source_id,

@@ -132,14 +132,27 @@ class RenderHandoffEngine:
         is_graphic_fallback = False
         for scn in editor_plan.scenes:
             for sht in scn.shots:
+                is_gf = (
+                    getattr(sht, "is_graphic_fallback", False)
+                    or getattr(sht, "fallback_policy", None) == ShortAssetFallbackPolicy.GRAPHIC_FALLBACK
+                    or getattr(sht, "provider", "") == "graphic_fallback"
+                )
                 sht_path = getattr(sht, "asset_file_path", None) or getattr(sht, "media_url", None)
                 if not sht_path and sht.resolved_asset:
                     sht_path = sht.resolved_asset.media_url
-                if sht_path and (strict_inputs or os.path.exists(sht_path)):
-                    video_sources.append({"file_path": sht_path, "duration": sht.duration_seconds})
-                elif strict_inputs and not (sht.is_graphic_fallback or sht.fallback_policy == ShortAssetFallbackPolicy.GRAPHIC_FALLBACK):
+
+                is_remote_url = bool(sht_path and str(sht_path).startswith(("http://", "https://")))
+                is_local_file = bool(sht_path and os.path.isfile(str(sht_path)))
+
+                if is_remote_url or is_local_file:
+                    video_sources.append({"file_path": str(sht_path), "duration": sht.duration_seconds})
+                elif is_gf or not sht_path or str(sht_path).startswith("/static/"):
+                    is_graphic_fallback = True
+                elif strict_inputs:
+                    logger.error("Shot %s asset %s is neither an accessible URL nor an existing file", getattr(sht, "shot_id", "?"), sht_path)
                     raise RenderHandoffError("REMOTE_RENDER_INPUT_NOT_PORTABLE")
-                if getattr(sht, "is_graphic_fallback", False) or getattr(sht, "fallback_policy", None) == ShortAssetFallbackPolicy.GRAPHIC_FALLBACK:
+
+                if is_gf:
                     is_graphic_fallback = True
 
         # Collect subtitle chunks
@@ -178,10 +191,12 @@ class RenderHandoffEngine:
         )
         if editor_plan.audio_track and editor_plan.audio_track.music_clip:
             music = editor_plan.audio_track.music_clip
-            spec.bgm_path = music.file_path or music.source_file_path
-            spec.bgm_volume = music.volume
-            if strict_inputs and not spec.bgm_path:
-                raise RenderHandoffError("REMOTE_RENDER_INPUT_NOT_PORTABLE")
+            bgm_candidate = music.file_path or music.source_file_path
+            if bgm_candidate and (str(bgm_candidate).startswith(("http://", "https://")) or os.path.isfile(str(bgm_candidate))):
+                spec.bgm_path = str(bgm_candidate)
+                spec.bgm_volume = music.volume
+            elif strict_inputs and bgm_candidate:
+                logger.warning("BGM path %s is not accessible for portable render; proceeding without BGM", bgm_candidate)
         if strict_inputs and not audio_files and any(s.narration for s in editor_plan.scenes):
             raise RenderHandoffError("REMOTE_RENDER_INPUT_NOT_PORTABLE")
         return spec

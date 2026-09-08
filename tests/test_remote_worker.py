@@ -314,3 +314,59 @@ def test_worker_spawn_executes_real_canonical_ffmpeg_and_heartbeats(config, with
     finally:
         worker._active = None
         worker.shutdown()
+
+
+def test_editor_plan_type_and_graphic_fallback_portable_boundary(tmp_path):
+    import uuid
+    from production.contracts import EditorPlan, EditorPlanType, ScenePlan, ShotPlan
+    from production.remote_render import build_portable_manifest
+    from production.render_handoff import render_handoff
+
+    class MockStorage:
+        def __init__(self):
+            self.saved = {}
+        def put_file(self, ref, path, mime):
+            self.saved[ref] = path.read_bytes()
+
+    storage = MockStorage()
+    audio_file = tmp_path / "narration.mp3"
+    audio_file.write_bytes(b"mock-mp3-narration-audio")
+
+    # Final plan with lowercase 'final'
+    editor_plan = EditorPlan(
+        plan_id="plan_test_01",
+        run_id="run_test_01",
+        plan_type="final",
+        duration_seconds=5.0,
+        scenes=[
+            ScenePlan(
+                scene_id="scene_001",
+                narration="Hello world",
+                audio_file_path=str(audio_file),
+                actual_duration_seconds=5.0,
+                timeline_start=0.0,
+                timeline_end=5.0,
+                shots=[
+                    ShotPlan(
+                        shot_id="shot_001_01",
+                        asset_id="gfx_01",
+                        media_url="/static/motion_typography_backdrop.mp4",
+                        is_graphic_fallback=True,
+                        timeline_start=0.0,
+                        timeline_end=5.0,
+                        duration_sec=5.0,
+                    )
+                ]
+            )
+        ]
+    )
+
+    spec = render_handoff.build_spec(editor_plan, "run_test_01", strict_inputs=True)
+    assert spec.is_graphic_fallback is True
+    assert len(spec.video_sources) == 0
+    assert spec.audio_sources == [str(audio_file)]
+
+    manifest = build_portable_manifest(spec, uuid.uuid4(), storage)
+    assert len(manifest.artifacts) == 1
+    assert manifest.artifacts[0].role == "TTS"
+

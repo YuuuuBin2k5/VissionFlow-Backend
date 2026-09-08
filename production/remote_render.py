@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import mimetypes
 import os
 import tempfile
@@ -16,6 +17,8 @@ from sqlalchemy.orm import Session
 from production.artifact_storage import get_artifact_storage
 from production.contracts import ProductionRun, ProductionRunStatus, RenderArtifact
 from production.remote_manifest import PortableRenderManifest, sha256_file
+
+logger = logging.getLogger(__name__)
 
 
 def remote_render_enabled() -> bool:
@@ -41,16 +44,19 @@ def build_portable_manifest(spec, job_id, storage) -> PortableRenderManifest:
                     client.trust_env = False
                     with client.get(source, stream=True, timeout=(15, 120), allow_redirects=False) as response:
                         if response.status_code != 200:
-                            raise ValueError("REMOTE_RENDER_INPUT_NOT_PORTABLE")
+                            logger.error("REMOTE_RENDER_INPUT_NOT_PORTABLE: HTTP download failed for %s: status %d", source, response.status_code)
+                            raise ValueError(f"REMOTE_RENDER_INPUT_NOT_PORTABLE: download failed for {source} (status {response.status_code})")
                         size = 0
                         with path.open("wb") as output:
                             for chunk in response.iter_content(1024 * 1024):
                                 size += len(chunk)
                                 if size > 2 * 1024**3:
-                                    raise ValueError("REMOTE_RENDER_INPUT_NOT_PORTABLE")
+                                    logger.error("REMOTE_RENDER_INPUT_NOT_PORTABLE: source %s exceeded 2GB limit", source)
+                                    raise ValueError("REMOTE_RENDER_INPUT_NOT_PORTABLE: file size exceeds 2GB")
                                 output.write(chunk)
             if not path.is_file() or path.stat().st_size == 0:
-                raise ValueError("REMOTE_RENDER_INPUT_NOT_PORTABLE")
+                logger.error("REMOTE_RENDER_INPUT_NOT_PORTABLE: file not found or empty: %s (role: %s)", path, role)
+                raise ValueError(f"REMOTE_RENDER_INPUT_NOT_PORTABLE: {role} asset {path} not found or empty")
             mime = {".wav": "audio/wav", ".ass": "text/x-ssa", ".m4a": "audio/mp4"}.get(path.suffix.lower()) or mimetypes.guess_type(path.name)[0]
             digest = sha256_file(path)
             aid = f"asset_{len(artifacts)}_{digest[:12]}"
@@ -83,7 +89,20 @@ def enqueue_remote_render(run: ProductionRun, *, session=None, storage=None, spe
     from production.repositories.run_repository import run_repository
 
     storage = storage or get_artifact_storage()
-    if run.editor_plan is None or run.editor_plan.plan_type != "FINAL":
+    plan_type = getattr(run.editor_plan, "plan_type", None)
+    if isinstance(plan_type, str):
+        plan_type_val = plan_type.upper()
+    elif hasattr(plan_type, "value"):
+        plan_type_val = str(plan_type.value).upper()
+    else:
+        plan_type_val = str(plan_type).upper() if plan_type is not None else ""
+
+    if run.editor_plan is None or plan_type_val not in ("FINAL", "EDITORPLANTYPE.FINAL"):
+        logger.error(
+            "REMOTE_RENDER_INPUT_NOT_PORTABLE: editor_plan is %s, plan_type=%r",
+            "missing" if run.editor_plan is None else "present",
+            plan_type,
+        )
         raise ValueError("REMOTE_RENDER_INPUT_NOT_PORTABLE")
     spec = spec or render_handoff.build_spec(run.editor_plan, run.id, strict_inputs=True)
     manifest = build_portable_manifest(spec, uuid.uuid4(), storage)

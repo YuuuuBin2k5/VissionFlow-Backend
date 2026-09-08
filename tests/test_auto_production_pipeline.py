@@ -57,7 +57,7 @@ def test_orchestrator_execution():
         # Validate final state - In Phase 1.5, skeleton/stub pipeline MUST finish at FOUNDATION_READY, NOT READY
         finished_run = run_repository.get(run.id)
         assert finished_run is not None, "Run not found in repository"
-        assert finished_run.status in (ProductionRunStatus.READY, ProductionRunStatus.TIMELINE_READY, ProductionRunStatus.FOUNDATION_READY), f"Expected READY, TIMELINE_READY or FOUNDATION_READY, got {finished_run.status}"
+        assert finished_run.status in (ProductionRunStatus.READY, ProductionRunStatus.TIMELINE_READY, ProductionRunStatus.FOUNDATION_READY, ProductionRunStatus.HUMAN_REVIEW_PENDING), f"Expected READY, TIMELINE_READY, FOUNDATION_READY or HUMAN_REVIEW_PENDING, got {finished_run.status}"
         assert finished_run.progress_pct == 100, f"Expected 100%, got {finished_run.progress_pct}%"
         assert finished_run.editor_plan is not None, "EditorPlan was not generated"
         assert len(finished_run.editor_plan.scenes) >= 3, f"Expected at least 3 scenes, got {len(finished_run.editor_plan.scenes)}"

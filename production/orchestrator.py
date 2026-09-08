@@ -610,9 +610,10 @@ class ProductionOrchestrator:
                 try:
                     await asyncio.to_thread(enqueue_remote_render, run)
                 except Exception as remote_error:
-                    logger.exception("Remote render handoff failed for run %s", run_id)
+                    logger.exception("Remote render handoff failed for run %s: %s", run_id, remote_error)
+                    err_msg = "REMOTE_RENDER_INPUT_NOT_PORTABLE" if "REMOTE_RENDER_INPUT_NOT_PORTABLE" in str(remote_error) else "REMOTE_RENDER_HANDOFF_UNAVAILABLE"
                     run_repository.update_status(run_id=run_id, status=ProductionRunStatus.RENDER_FAILED,
-                                                 error_message="REMOTE_RENDER_INPUT_NOT_PORTABLE" if str(remote_error) == "REMOTE_RENDER_INPUT_NOT_PORTABLE" else "REMOTE_RENDER_HANDOFF_UNAVAILABLE")
+                                                 error_message=err_msg)
                 return
             run.status = ProductionRunStatus.RENDERING
             try:
