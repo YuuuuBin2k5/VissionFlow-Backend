@@ -155,6 +155,9 @@ class WorkerHttpClient:
                 return None
             if not 200 <= response.status_code < 300:
                 # Redirections must never forward the worker credential.
+                resp_text = getattr(response, "text", "")
+                if resp_text:
+                    logger.error("Worker API %s %s failed with status %d: %s", method, path, response.status_code, resp_text[:300])
                 raise WorkerError("WORKER_API_REJECTED", retryable=response.status_code >= 500 or response.status_code == 429)
             return response.json()
         except WorkerError:
@@ -531,8 +534,8 @@ def main() -> int:
         else:
             worker.run_forever()
         return 0
-    except (ValueError, WorkerError):
-        logger.error("Worker startup failed; check required configuration, binaries and worker API credentials")
+    except (ValueError, WorkerError) as err:
+        logger.error("Worker startup failed: %s; check required configuration, binaries and worker API credentials", err)
         return 1
     finally:
         if worker:
