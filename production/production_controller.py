@@ -513,10 +513,14 @@ def _handle_trigger_auto_fix(run_id: str):
     return {"success": True, "status": run.status, "quality_report": report}
 
 
+def _handle_list_runs(limit: int = 20) -> List[ProductionRun]:
+    return run_repository.list_all(limit=int(limit))
+
+
 # Register routes on both routers (/production and /auto-production)
 for r in [router, auto_production_router]:
     r.add_api_route("/runs", _handle_create_run, methods=["POST"], response_model=ProductionRun, status_code=status.HTTP_201_CREATED)
-    r.add_api_route("/runs", lambda limit=20: run_repository.list_all(limit=limit), methods=["GET"], response_model=List[ProductionRun])
+    r.add_api_route("/runs", _handle_list_runs, methods=["GET"], response_model=List[ProductionRun])
     r.add_api_route("/runs/{run_id}", _handle_get_run, methods=["GET"], response_model=ProductionRun)
     r.add_api_route("/runs/{run_id}/stages", _handle_get_stages, methods=["GET"])
     r.add_api_route("/runs/{run_id}/export", _handle_export_run, methods=["GET"])

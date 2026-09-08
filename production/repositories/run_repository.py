@@ -84,8 +84,9 @@ class DevelopmentRunRepository(ProductionRunRepositoryInterface):
         return self._runs.get(run_id)
 
     def list_all(self, limit: int = 50) -> List[ProductionRun]:
+        limit_val = int(limit) if limit is not None else 50
         sorted_runs = sorted(self._runs.values(), key=lambda r: r.created_at, reverse=True)
-        return sorted_runs[:limit]
+        return sorted_runs[:limit_val]
 
     def find_resumable_runs(self) -> List[ProductionRun]:
         """Returns runs that were interrupted or left unfinished prior to terminal states."""
