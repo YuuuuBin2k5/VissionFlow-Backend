@@ -279,7 +279,7 @@ class IngestSourcePayload(BaseModel):
     rights_state: str = "UNKNOWN"
 
 
-UPLOADS_DIR = Path("d:/VisionFlow/.uploaded_sources")
+UPLOADS_DIR = Path(os.getenv("VISIONFLOW_UPLOADS_DIR", ".uploaded_sources")).resolve()
 
 
 async def _handle_upload_source(file: UploadFile = File(...)) -> Dict[str, Any]:

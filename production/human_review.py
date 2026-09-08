@@ -25,7 +25,7 @@ from production.repositories.run_repository import run_repository
 
 logger = logging.getLogger("visionflow.production.human_review")
 
-REVIEWS_DIR = Path("d:/VisionFlow/.reviews_storage")
+REVIEWS_DIR = Path(os.getenv("VISIONFLOW_REVIEWS_DIR", ".reviews_storage")).resolve()
 REVIEWS_DIR.mkdir(parents=True, exist_ok=True)
 
 

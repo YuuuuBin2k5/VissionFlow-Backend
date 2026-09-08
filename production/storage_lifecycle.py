@@ -18,7 +18,7 @@ from production.contracts import StorageTier
 
 logger = logging.getLogger("visionflow.production.storage_lifecycle")
 
-MEDIA_ROOT = Path("d:/VisionFlow/.media_cache")
+MEDIA_ROOT = Path(os.getenv("VISIONFLOW_MEDIA_CACHE", ".media_cache")).resolve()
 
 
 class StorageLifecycleManager:

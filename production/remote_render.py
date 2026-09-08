@@ -97,7 +97,8 @@ def enqueue_remote_render(run: ProductionRun, *, session=None, storage=None, spe
     else:
         plan_type_val = str(plan_type).upper() if plan_type is not None else ""
 
-    if run.editor_plan is None or plan_type_val not in ("FINAL", "EDITORPLANTYPE.FINAL"):
+    valid_final_types = {"FINAL", "FINAL_EDITOR_PLAN", "FINAL_PLAN", "COMPLETED"}
+    if run.editor_plan is None or plan_type_val not in valid_final_types:
         logger.error(
             "REMOTE_RENDER_INPUT_NOT_PORTABLE: editor_plan is %s, plan_type=%r",
             "missing" if run.editor_plan is None else "present",

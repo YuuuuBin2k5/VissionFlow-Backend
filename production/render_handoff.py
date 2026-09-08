@@ -30,7 +30,7 @@ from worker.config.render_profile import resolve_ffmpeg_exe, resolve_ffprobe_exe
 
 logger = logging.getLogger("visionflow.production.render_handoff")
 
-EXPORTS_DIR = Path("d:/VisionFlow/.media_cache/exports")
+EXPORTS_DIR = Path(os.getenv("VISIONFLOW_EXPORTS_DIR", ".media_cache/exports")).resolve()
 EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 

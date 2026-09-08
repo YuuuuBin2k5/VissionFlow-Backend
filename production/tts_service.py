@@ -30,7 +30,7 @@ from worker.config.render_profile import resolve_ffprobe_exe
 
 logger = logging.getLogger("visionflow.production.tts_service")
 
-CACHE_DIR = Path("d:/VisionFlow/.media_cache/tts")
+CACHE_DIR = Path(os.getenv("VISIONFLOW_MEDIA_CACHE", ".media_cache/tts")).resolve()
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 

@@ -34,10 +34,10 @@ from production.channel_profile import channel_profile_registry
 
 logger = logging.getLogger("visionflow.production.pilot_learning")
 
-GROUND_TRUTH_DIR = Path("d:/VisionFlow/.pilot_ground_truth")
+GROUND_TRUTH_DIR = Path(os.getenv("VISIONFLOW_GROUND_TRUTH_DIR", ".pilot_ground_truth")).resolve()
 VISUAL_SWAPS_DIR = GROUND_TRUTH_DIR / "visual_swaps"
 SCRIPT_DIFFS_DIR = GROUND_TRUTH_DIR / "script_diffs"
-RECOMMENDATIONS_DIR = Path("d:/VisionFlow/.channel_recommendations")
+RECOMMENDATIONS_DIR = Path(os.getenv("VISIONFLOW_RECOMMENDATIONS_DIR", ".channel_recommendations")).resolve()
 
 VISUAL_SWAPS_DIR.mkdir(parents=True, exist_ok=True)
 SCRIPT_DIFFS_DIR.mkdir(parents=True, exist_ok=True)
@@ -712,7 +712,7 @@ class PilotLearningService:
         }
 
         # Save to scripts/pilot_production_report.json
-        out_path = Path("d:/VisionFlow/VisionFlow_Bakend/scripts/pilot_production_report.json")
+        out_path = Path(__file__).resolve().parent.parent / "scripts" / "pilot_production_report.json"
         out_path.parent.mkdir(parents=True, exist_ok=True)
         with open(out_path, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=2, ensure_ascii=False)
