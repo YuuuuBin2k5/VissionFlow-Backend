@@ -14,7 +14,7 @@ from app.infrastructure.overlay_uploads import PrivateObjectPreviewIssuer, Overl
 
 print("Endpoint:", os.getenv("VISIONFLOW_OBJECT_STORE_ENDPOINT"))
 print("Bucket:", os.getenv("VISIONFLOW_OBJECT_STORE_BUCKET"))
-print("Access Key ID:", os.getenv("VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID"))
+print("Access key configured:", bool(os.getenv("VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID")))
 
 wf_id = uuid.UUID("9897b8e6-2d1d-48da-b9d0-87384cc1f58d")
 key = "visionflow/9897b8e6-2d1d-48da-b9d0-87384cc1f58d/exports/final.mp4"
@@ -23,8 +23,6 @@ try:
     issuer = PrivateObjectPreviewIssuer.from_env()
     preview = issuer.issue_final_export(workflow_run_id=wf_id, object_key=key)
     print("SUCCESS! Presigned URL generated:")
-    print(preview.download_url[:120])
+    print("Signed URL present:", bool(preview.download_url))
 except Exception as e:
-    print("FAILED with error:", e)
-    import traceback
-    traceback.print_exc()
+    print("FAILED:", type(e).__name__)

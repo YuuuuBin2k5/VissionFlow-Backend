@@ -1670,8 +1670,8 @@ def _render_scene_chunk_impl(scene_payload: dict) -> dict:
     
     r2_endpoint = os.environ.get("VISIONFLOW_OBJECT_STORE_ENDPOINT", "https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com")
     r2_bucket = os.environ.get("VISIONFLOW_OBJECT_STORE_BUCKET", "vision-flow")
-    r2_access_key = os.environ.get("VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID", "fd28f47a855e5f2097d5f8c24c50da70")
-    r2_secret_key = os.environ.get("VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY", "c329293210d831c0bdba01f2434d86dab3eb23ab0a73f9b67819b7c3069cc9c6")
+    r2_access_key = os.environ["VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID"]
+    r2_secret_key = os.environ["VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY"]
     
     s3 = None
     try:
@@ -1721,7 +1721,7 @@ def _render_scene_chunk_impl(scene_payload: dict) -> dict:
                     print(f"[MicroWorker {scene_idx}] Notice: Media URL download error: {dl_err}", flush=True)
                 
         if not downloaded:
-            pexels_key = os.environ.get("PEXELS_API_KEY", "j3CIlOLR1RdRejkZPi56CCmJALu9axEyFjik0U77W3semlJtXFpMqgVp")
+            pexels_key = os.environ.get("PEXELS_API_KEY", "")
             pex_url = fetch_pexels_video_for_keyword(keyword, pexels_key, scene_idx=scene_idx)
             if pex_url and is_safe_url(pex_url):
                 try:
@@ -1814,8 +1814,8 @@ def render_scene_chunk_local(scene_payload: dict) -> dict:
     secrets=[modal.Secret.from_dict({
         "VISIONFLOW_OBJECT_STORE_ENDPOINT": "https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com",
         "VISIONFLOW_OBJECT_STORE_BUCKET": "vision-flow",
-        "VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID": "fd28f47a855e5f2097d5f8c24c50da70",
-        "VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY": "c329293210d831c0bdba01f2434d86dab3eb23ab0a73f9b67819b7c3069cc9c6",
+        "VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID": os.environ["VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID"],
+        "VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY": os.environ["VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY"],
     })] if (modal is not None and hasattr(modal, "Secret")) else []
 )
 def render_scene_chunk(scene_payload: dict) -> dict:
@@ -2184,7 +2184,7 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
             or contract_payload.get("background_url")
             or contract_payload.get("media_url")
         )
-        pexels_key = os.environ.get("PEXELS_API_KEY", "j3CIlOLR1RdRejkZPi56CCmJALu9axEyFjik0U77W3semlJtXFpMqgVp")
+        pexels_key = os.environ.get("PEXELS_API_KEY", "")
 
         # 0. FOR AUTO DUBBING MODE: Download Source Video & Skip Pexels B-Roll
         if is_dubbing_mode and bg_url and is_safe_url(bg_url):
@@ -2244,7 +2244,7 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
             if not sentences:
                 sentences = [script]
             scene_chunks = sentences[:4] if len(sentences) >= 4 else sentences
-            gemini_key = os.environ.get("GEMINI_API_KEY", "AIzaSyCNu2LQSzyBW6ACixl1D6SLy07_vdeu0ho")
+            gemini_key = os.environ.get("GEMINI_API_KEY", "")
             scenes = []
             for s_idx, s_text in enumerate(scene_chunks):
                 kw_list = extract_visual_keywords(s_text, gemini_api_key=gemini_key)
@@ -2290,7 +2290,7 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
             print(f"[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: {audio_duration:.1f}s): {synced_scene_durations}", flush=True)
 
             scene_payloads = []
-            gemini_key = os.environ.get("GEMINI_API_KEY", "AIzaSyCNu2LQSzyBW6ACixl1D6SLy07_vdeu0ho")
+            gemini_key = os.environ.get("GEMINI_API_KEY", "")
             for idx, sc in enumerate(scenes):
                 # Build rich scene text combining prompt, narration, keywords
                 sc_text = f"{sc.get('visual_prompt') or ''} {sc.get('prompt') or ''} {sc.get('narration') or ''} {sc.get('keyword') or ''} {sc.get('text') or ''}".strip()
@@ -2461,7 +2461,7 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
 
         # 3. Try Pexels HD Stock API Search
         if not custom_bg_downloaded:
-            pexels_key = os.environ.get("PEXELS_API_KEY", "j3CIlOLR1RdRejkZPi56CCmJALu9axEyFjik0U77W3semlJtXFpMqgVp")
+            pexels_key = os.environ.get("PEXELS_API_KEY", "")
             search_query = contract_payload.get("topic") or contract_payload.get("title") or "nature cinematic 4k"
             try:
                 print(f"[Modal] 🔍 Searching Pexels Stock API for visual background ('{search_query[:30]}')...", flush=True)
@@ -2692,8 +2692,8 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
         # -------------------------------------------------------------------
         r2_endpoint = os.environ.get("VISIONFLOW_OBJECT_STORE_ENDPOINT", "https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com")
         r2_bucket = os.environ.get("VISIONFLOW_OBJECT_STORE_BUCKET", "vision-flow")
-        r2_access_key = os.environ.get("VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID", "fd28f47a855e5f2097d5f8c24c50da70")
-        r2_secret_key = os.environ.get("VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY", "c329293210d831c0bdba01f2434d86dab3eb23ab0a73f9b67819b7c3069cc9c6")
+        r2_access_key = os.environ["VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID"]
+        r2_secret_key = os.environ["VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY"]
         r2_public = os.environ.get("VISIONFLOW_OBJECT_STORE_PUBLIC_BASE", "https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev")
         
         object_key = f"visionflow/{workflow_run_id}/exports/final.mp4"
@@ -2880,8 +2880,8 @@ def render_video_task_local(contract_payload: dict) -> dict:
     secrets=[modal.Secret.from_dict({
         "VISIONFLOW_OBJECT_STORE_ENDPOINT": "https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com",
         "VISIONFLOW_OBJECT_STORE_BUCKET": "vision-flow",
-        "VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID": "fd28f47a855e5f2097d5f8c24c50da70",
-        "VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY": "c329293210d831c0bdba01f2434d86dab3eb23ab0a73f9b67819b7c3069cc9c6",
+        "VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID": os.environ["VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID"],
+        "VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY": os.environ["VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY"],
     })] if (modal is not None and hasattr(modal, "Secret")) else []
 )
 def render_video_task(contract_payload: dict) -> dict:

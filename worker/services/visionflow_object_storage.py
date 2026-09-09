@@ -6,11 +6,33 @@ import hashlib
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
 
 try:
     import boto3
 except ImportError:
     boto3 = None
+
+
+def validate_object_store_endpoint(endpoint: str) -> str:
+    """API origin only: the SDK receives Bucket separately, never in endpoint_url."""
+    try:
+        parsed = urlsplit(endpoint)
+        valid = (parsed.scheme == 'https' and parsed.hostname and not parsed.username and not parsed.password
+                 and parsed.path in ('', '/') and not parsed.query and not parsed.fragment
+                 and '?' not in endpoint and '#' not in endpoint
+                 and not any(char.isspace() for char in endpoint) and '\\' not in endpoint
+                 and '@' not in parsed.netloc)
+        # Accessing port also rejects malformed non-R2 origins before SDK creation.
+        parsed.port
+        if parsed.hostname and parsed.hostname.endswith('.r2.cloudflarestorage.com'):
+            import re
+            valid = valid and bool(re.fullmatch(r'[a-fA-F0-9]{32}\.r2\.cloudflarestorage\.com', parsed.hostname)) and parsed.port in (None, 443)
+    except ValueError:
+        valid = False
+    if not valid:
+        raise ValueError('OBJECT_STORE_ENDPOINT_INVALID: R2 API endpoint must not contain a bucket path. Bucket must be configured separately.')
+    return endpoint.rstrip('/')
 
 
 @dataclass(frozen=True)
@@ -21,6 +43,13 @@ class VisionFlowObjectStorageSettings:
     secret_access_key: str
     region: str
 
+    def __post_init__(self):
+        object.__setattr__(self, 'endpoint', validate_object_store_endpoint(self.endpoint))
+        if not self.bucket or '/' in self.bucket or '\\' in self.bucket:
+            raise ValueError('OBJECT_STORE_BUCKET_INVALID: configure the bucket name separately.')
+        if not self.access_key_id.strip() or not self.secret_access_key.strip():
+            raise ValueError('OBJECT_STORE_CREDENTIALS_MISSING: configure access key and secret through environment.')
+
     @classmethod
     def from_env(cls) -> "VisionFlowObjectStorageSettings":
         values = {name: os.getenv(name, "").strip() for name in (
@@ -30,8 +59,6 @@ class VisionFlowObjectStorageSettings:
         missing = [name for name, value in values.items() if not value]
         if missing:
             raise ValueError(f"Missing VisionFlow object storage settings: {', '.join(missing)}")
-        if not values["VISIONFLOW_OBJECT_STORE_ENDPOINT"].startswith("https://"):
-            raise ValueError("VISIONFLOW_OBJECT_STORE_ENDPOINT must use HTTPS")
         return cls(
             endpoint=values["VISIONFLOW_OBJECT_STORE_ENDPOINT"], bucket=values["VISIONFLOW_OBJECT_STORE_BUCKET"],
             access_key_id=values["VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID"], secret_access_key=values["VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY"],

@@ -7,7 +7,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 
 os.environ["ENVIRONMENT"] = "development"
 os.environ["DATABASE_URL"] = "postgresql://neondb_owner:npg_Di3nJLmsh5cB@ep-green-salad-aoq7advi-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
-os.environ["GEMINI_API_KEY"] = "AIzaSyCNu2LQSzyBW6ACixl1D6SLy07_vdeu0ho"
+assert os.environ.get("GEMINI_API_KEY"), "GEMINI_API_KEY is required"
 
 sys.path.insert(0, os.path.abspath("services/control-plane"))
 sys.path.insert(0, os.path.abspath("worker"))

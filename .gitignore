@@ -30,6 +30,7 @@ LOCAL_APPDATA_FONTCONFIG_CACHE/
 *.log
 worker/.env
 worker/chrome_profile*/
+**/chrome_profile*/
 worker/temp_assets/
 **/temp_assets/
 worker/output_videos/

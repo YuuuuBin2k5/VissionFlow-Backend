@@ -82,11 +82,11 @@ os.environ.setdefault("ENVIRONMENT", "development")
 os.environ.setdefault("VISIONFLOW_CONTROL_PLANE_URL", "https://visionflow-control-plane-free.onrender.com")
 os.environ.setdefault("VISIONFLOW_TOKEN_URL", "https://visionflow-control-plane-free.onrender.com/api/v1/auth/token")
 os.environ.setdefault("VISIONFLOW_WORKER_CLIENT_ID", "visionflow-worker-runner")
-os.environ.setdefault("VISIONFLOW_WORKER_CLIENT_SECRET", "sec_worker_prod_99812")
+os.environ.setdefault("VISIONFLOW_WORKER_CLIENT_SECRET", "")
 os.environ.setdefault("VISIONFLOW_ORGANIZATION_ID", "7b91598c-6c3e-4e5d-8247-d3efa203984a")
 os.environ.setdefault("VISIONFLOW_AUTH_AUDIENCE", "visionflow-control-plane")
-os.environ.setdefault("GEMINI_API_KEY", "AIzaSyCNu2LQSzyBW6ACixl1D6SLy07_vdeu0ho")
-os.environ.setdefault("PEXELS_API_KEY", "j3CIlOLR1RdRejkZPi56CCmJALu9axEyFjik0U77W3semlJtXFpMqgVp")
+# GEMINI_API_KEY must be supplied by environment/configuration.
+os.environ.setdefault("PEXELS_API_KEY", "")
 
 # Add worker and control-plane paths
 sys.path.insert(0, os.path.abspath("worker"))

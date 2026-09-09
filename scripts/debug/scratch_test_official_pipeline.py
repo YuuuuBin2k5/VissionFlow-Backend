@@ -12,7 +12,7 @@ os.environ["VISIONFLOW_ORGANIZATION_ID"] = "7b91598c-6c3e-4e5d-8247-d3efa203984a
 os.environ["VISIONFLOW_WORKER_CLIENT_ID"] = "worker-service"
 os.environ["VISIONFLOW_WORKER_CLIENT_SECRET"] = "worker-secret"
 os.environ["VISIONFLOW_AUTH_AUDIENCE"] = "visionflow-control-plane"
-os.environ["GEMINI_API_KEY"] = "AIzaSyCNu2LQSzyBW6ACixl1D6SLy07_vdeu0ho"
+assert os.environ.get("GEMINI_API_KEY"), "GEMINI_API_KEY is required"
 os.environ["PEXELS_API_KEY"] = "j3CIlOLR1RdRejkZPi56CCmJALu9axEyFjik0U77W3semlJtXFpMqgVp"
 
 python_exe = sys.executable

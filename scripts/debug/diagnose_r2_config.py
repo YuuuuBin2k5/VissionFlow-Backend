@@ -19,7 +19,7 @@ for key in ["VISIONFLOW_OBJECT_STORE_ENDPOINT", "VISIONFLOW_OBJECT_STORE_BUCKET"
             "VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID", "VISIONFLOW_OBJECT_STORE_REGION"]:
     val = os.environ.get(key, "NOT SET")
     if "KEY" in key:
-        val = val[:8] + "..." if val != "NOT SET" else "NOT SET"
+        val = "CONFIGURED" if val != "NOT SET" and val else "NOT SET"
     print(f"  {key}: {val}")
 
 # Test if file exists using these credentials
@@ -33,6 +33,6 @@ try:
         object_key="visionflow/9897b8e6-2d1d-48da-b9d0-87384cc1f58d/exports/final.mp4"
     )
     print("\n✅ File EXISTS in R2 with these credentials")
-    print("   URL:", ticket.download_url[:80])
+    print("   Signed URL present:", bool(ticket.download_url))
 except Exception as e:
-    print(f"\n❌ FAILED: {e}")
+    print("FAILED:", type(e).__name__)
