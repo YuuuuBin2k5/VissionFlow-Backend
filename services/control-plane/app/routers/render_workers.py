@@ -1,6 +1,9 @@
 """Outbound render worker API; durable PostgreSQL coordination only."""
 from typing import Literal
 from uuid import UUID
+from datetime import datetime, timezone
+import os
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import Field, model_validator
@@ -112,7 +115,10 @@ def register(payload: Registration, identity=Depends(require_render_worker), ses
         )
     except PermissionError:
         raise HTTPException(403, "Worker is disabled") from None
-    return {"worker_id": worker.worker_id, "status": worker.status, "heartbeat_seconds": 10, "lease_seconds": 180}
+    revision = os.getenv("RENDER_GIT_COMMIT", "")
+    return {"worker_id": worker.worker_id, "status": worker.status, "heartbeat_seconds": 25,
+            "idle_heartbeat_seconds": 60, "lease_seconds": 180,
+            "backend_commit": revision if re.fullmatch(r"[0-9a-fA-F]{40}", revision) else None}
 
 
 @router.post("/heartbeat")
@@ -148,6 +154,21 @@ def manifest(job_id: UUID, attempt: int = Query(ge=1), worker=Depends(registered
         artifact["download_url"] = storage.presigned_download(artifact["storage_ref"])
     session.commit()
     return result
+
+
+@router.get("/jobs/{job_id}/status")
+def job_status(job_id: UUID, attempt: int = Query(ge=1), worker=Depends(registered_worker),
+               repo=Depends(repository)):
+    """Read-only reconciliation: no lease revival, no presigned URLs or run inputs."""
+    job = repo.get_job(job_id)
+    if job is None or job.claimed_by_worker_id != worker.worker_id or job.attempt != attempt:
+        raise HTTPException(409, "Job attempt is not owned by this worker")
+    completion = (job.render_spec_json or {}).get("completion") or {}
+    return {"job_id": str(job.id), "attempt": job.attempt, "status": job.status,
+            "lease_valid": bool(job.lease_expires_at and job.lease_expires_at > datetime.now(timezone.utc)
+                                and job.status in ("CLAIMED", "DOWNLOADING", "RENDERING", "UPLOADING")),
+            "completion": {k: completion[k] for k in ("status", "storage_ref", "checksum_sha256") if k in completion},
+            "output_artifact_ref": job.output_artifact_ref}
 
 
 @router.post("/jobs/{job_id}/progress")

@@ -18,6 +18,7 @@ from worker.remote_render_worker import (
     ArtifactCache, RemoteRenderWorker, WorkerConfig, WorkerError, WorkerHttpClient,
     _job_id, materialize_render_spec,
 )
+from worker.control_plane_retry import ControlPlaneError
 
 
 class Response:
@@ -106,14 +107,14 @@ def test_http_client_uses_identity_headers_and_no_job_is_normal(config):
     method, url, options = session.calls[0]
     assert method == "POST"
     assert url == "https://api.example.com/api/v1/render-workers/jobs/claim"
-    assert options["headers"] == {"Authorization": "Bearer dedicated-test-token", "X-VisionFlow-Worker-ID": "test-worker"}
+    assert options["headers"] == {"Authorization": "Bearer dedicated-test-token", "X-VisionFlow-Worker-ID": "test-worker", "User-Agent": "VisionFlow-RenderWorker/1.0"}
     assert options["allow_redirects"] is False
 
 
 @pytest.mark.parametrize("status", [301, 302, 307, 308, 401, 403])
 def test_worker_client_rejects_redirects_and_auth_errors_without_secrets(config, status):
     client = WorkerHttpClient(config, session=Session([Response(status)]))
-    with pytest.raises(WorkerError) as error:
+    with pytest.raises(ControlPlaneError) as error:
         client.claim_job()
     assert not error.value.retryable
     assert "token" not in str(error.value)
@@ -133,7 +134,7 @@ def test_client_methods_match_protocol_and_complete_allows_backend_qc(config):
     assert "worker_id" not in session.calls[0][2]["json"]
     assert session.calls[1][2]["json"] == {"job_id": job["job_id"], "attempt": 2}
     assert session.calls[2][1].endswith("/manifest?attempt=2")
-    assert session.calls[5][2]["timeout"] >= 180
+    assert session.calls[5][2]["timeout"] == (10, 120)
     assert session.calls[6][2]["json"] == {"attempt": 2, "error_code": "RENDER_FAILED", "retryable": True}
 
 
@@ -272,9 +273,9 @@ def test_worker_reports_safe_error_and_releases_active_job(config, monkeypatch):
     def broken(_):
         raise RuntimeError("https://signed.example.com?secret=must-not-leak")
     monkeypatch.setattr(worker, "_process", broken)
-    assert worker.run_once()
-    assert worker._active is None
-    assert session.calls[-1][2]["json"] == {"attempt": 1, "error_code": "WORKER_INTERNAL_ERROR", "retryable": True}
+    with pytest.raises(WorkerError, match="WORKER_INTERNAL_ERROR"):
+        worker.run_once()
+    assert not any(call[1].endswith('/fail') for call in session.calls)
 
 
 def test_no_work_returns_without_busy_loop(config):
@@ -369,4 +370,3 @@ def test_editor_plan_type_and_graphic_fallback_portable_boundary(tmp_path):
     manifest = build_portable_manifest(spec, uuid.uuid4(), storage)
     assert len(manifest.artifacts) == 1
     assert manifest.artifacts[0].role == "TTS"
-

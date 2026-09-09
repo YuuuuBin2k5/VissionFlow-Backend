@@ -22,6 +22,13 @@ ACTIVE = ("CLAIMED", "DOWNLOADING", "RENDERING", "UPLOADING")
 WORKER_ONLINE_SECONDS = 180
 
 
+def worker_online_seconds():
+    value = int(os.getenv("VISIONFLOW_WORKER_ONLINE_SECONDS", str(WORKER_ONLINE_SECONDS)))
+    if not 90 <= value <= 300:
+        raise ValueError("Worker freshness threshold must be between 90 and 300 seconds")
+    return value
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -86,7 +93,7 @@ class PostgresRenderJobRepository:
         now = _now()
         if (
             worker is None or worker.status != "ONLINE" or worker.last_heartbeat_at is None
-            or worker.last_heartbeat_at <= now - timedelta(seconds=WORKER_ONLINE_SECONDS)
+            or worker.last_heartbeat_at <= now - timedelta(seconds=worker_online_seconds())
         ):
             self._session.rollback()
             raise PermissionError("Render worker is not registered and online")
@@ -266,7 +273,8 @@ class PostgresRenderWorkerRepository:
         self._session.commit()
         return worker
 
-    def list_workers(self, *, online_seconds: int = WORKER_ONLINE_SECONDS) -> list[dict[str, Any]]:
+    def list_workers(self, *, online_seconds: int | None = None) -> list[dict[str, Any]]:
+        online_seconds = worker_online_seconds() if online_seconds is None else online_seconds
         now = _now()
         workers = self._session.scalars(select(RenderWorker).order_by(RenderWorker.worker_id)).all()
         counts = dict(self._session.execute(select(RenderJob.claimed_by_worker_id, func.count()).where(
@@ -284,7 +292,7 @@ class PostgresRenderWorkerRepository:
             "capacity": worker.max_concurrent_jobs,
         } for worker in workers]
 
-    def list_active_workers(self, *, online_seconds: int = WORKER_ONLINE_SECONDS) -> list[dict[str, Any]]:
+    def list_active_workers(self, *, online_seconds: int | None = None) -> list[dict[str, Any]]:
         return [worker for worker in self.list_workers(online_seconds=online_seconds) if worker["status"] == "ONLINE"]
 
 

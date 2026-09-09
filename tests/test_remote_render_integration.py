@@ -282,6 +282,11 @@ def test_worker_http_auth_ownership_upload_guards_and_failure(http_runtime):
     assert TOKEN_A not in json.dumps(status)
     job = a.claim_job()
     assert job["job_id"] == str(job_id) and b.claim_job() is None
+    lookup = a.job_status(job)
+    assert lookup['lease_valid'] and lookup['status'] == 'CLAIMED'
+    assert 'manifest' not in lookup and 'download_url' not in json.dumps(lookup)
+    assert requests.get(path + f'/jobs/{job_id}/status?attempt=1', headers=headers('desktop-b', TOKEN_B)).status_code == 409
+    assert requests.get(path + f'/jobs/{job_id}/status?attempt=2', headers=headers()).status_code == 409
     assert requests.get(path + f"/jobs/{job_id}/manifest?attempt=1", headers=headers("desktop-b", TOKEN_B)).status_code == 409
     assert requests.get(path + f"/jobs/{job_id}/manifest?attempt=2", headers=headers()).status_code == 409
     a.heartbeat(job)
@@ -304,6 +309,62 @@ def test_worker_http_auth_ownership_upload_guards_and_failure(http_runtime):
     reclaimed = b.claim_job()
     assert reclaimed["attempt"] == 2
     assert requests.get(path + f"/jobs/{job_id}/manifest?attempt=1", headers=headers()).status_code == 409
+
+
+def test_real_uploaded_completion_ack_loss_restart_reconciles(http_runtime, monkeypatch):
+    from worker.control_plane_retry import ControlPlaneError
+    runtime = http_runtime
+    _, job_id, _, _ = make_run(runtime)
+    worker = RemoteRenderWorker(config(runtime))
+    actual = worker.client.complete_job
+    def lost_ack(job, payload):
+        actual(job, payload)
+        raise ControlPlaneError('TRANSIENT_NETWORK')
+    monkeypatch.setattr(worker.client, 'complete_job', lost_ack)
+    try:
+        with pytest.raises(ControlPlaneError): worker.run_once()
+    finally:
+        worker.shutdown()
+    state_path = worker.config.work_dir / 'jobs' / str(job_id) / 'state.json'
+    assert json.loads(state_path.read_text())['phase'] == 'COMPLETION_UNKNOWN'
+    assert (state_path.parent / 'output' / 'final.mp4').is_file()
+    restarted = RemoteRenderWorker(config(runtime))
+    monkeypatch.setattr(restarted, '_render', lambda _: pytest.fail('No duplicate render'))
+    try:
+        assert restarted.run_once()
+        assert json.loads(state_path.read_text())['phase'] == 'COMPLETED'
+        assert runtime.storage.puts == 1
+        with Session(runtime.engine) as session:
+            assert session.get(RenderJob, job_id).attempt == 1
+    finally:
+        restarted.shutdown()
+
+
+def test_real_render_survives_virtual_60_second_control_plane_outage(http_runtime, monkeypatch):
+    from worker.control_plane_retry import ControlPlaneError, RetryPolicy
+    runtime = http_runtime
+    _, job_id, _, _ = make_run(runtime)
+    worker = RemoteRenderWorker(config(runtime))
+    now = [0.0]
+    worker.client.policy = RetryPolicy(clock=lambda: now[0], jitter=lambda: 0)
+    actual_render = worker._render
+    def render_during_outage(spec):
+        worker.client.policy.failure(ControlPlaneError('SERVER_UNAVAILABLE', status=503, retry_after=60))
+        actual_render(spec)
+    monkeypatch.setattr(worker, '_render', render_during_outage)
+    try:
+        with pytest.raises(ControlPlaneError): worker.run_once()
+        state_path = worker.config.work_dir / 'jobs' / str(job_id) / 'state.json'
+        assert json.loads(state_path.read_text())['phase'] == 'RENDER_OUTPUT_READY'
+        assert (state_path.parent / 'output' / 'final.mp4').is_file()
+        now[0] = 60
+        monkeypatch.setattr(worker, '_render', lambda _: pytest.fail('Output must not be rendered twice'))
+        monkeypatch.setattr(worker.client, 'fail_job', lambda *a: pytest.fail('Outage is not render failure'))
+        assert worker.run_once()
+        assert json.loads(state_path.read_text())['phase'] == 'COMPLETED'
+        assert runtime.storage.puts == 1
+    finally:
+        worker.shutdown()
 
 
 def test_offline_wait_restart_resume_stale_claim_and_cancellation(http_runtime):

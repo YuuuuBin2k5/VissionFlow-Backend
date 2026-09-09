@@ -7,6 +7,7 @@ Output artifacts are retained in a fresh .media_cache/remote-validation-* direct
 from __future__ import annotations
 
 import importlib
+import builtins
 import os
 from pathlib import Path
 import socket
@@ -57,6 +58,11 @@ def main():
         value = Path(*parts)
         return redirects.get(str(value).lower(), value)
     modules["pilot_learning"].Path = redirected_path
+    def isolated_report_open(file, *args, **kwargs):
+        if Path(file).name == "pilot_production_report.json":
+            file = root / "pilot-report.json"
+        return builtins.open(file, *args, **kwargs)
+    modules["pilot_learning"].open = isolated_report_open
 
     original_connect = socket.socket.connect
     def local_connect(sock, address):
@@ -76,7 +82,7 @@ def main():
     args = ["-q", "-p", "no:cacheprovider", "--basetemp", str(root / "pytest"),
             "tests/test_phase6_render_qc.py", "tests/test_phase7_production_stabilization.py",
             "tests/test_pilot_learning_loop.py", "tests/test_production_api_runtime.py",
-            "tests/test_remote_render_repository.py", "tests/test_remote_worker.py", "tests/test_remote_render_integration.py"]
+            "tests/test_remote_render_repository.py", "tests/test_remote_worker.py", "tests/test_remote_worker_reliability.py", "tests/test_remote_render_integration.py"]
     return pytest.main(args, plugins=[Isolation()])
 
 
