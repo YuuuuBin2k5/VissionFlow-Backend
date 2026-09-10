@@ -43,7 +43,11 @@ def test_openapi_resolves_production_filters_and_remote_worker_routes():
 
 
 
-def test_api_runtime_full_suite():
+def test_api_runtime_full_suite(monkeypatch):
+    # No live asset provider in this contract test: missing media must fail honestly.
+    from production.asset_resolver import asset_resolver
+    monkeypatch.setattr(asset_resolver.stock_adapter, 'api_key', '')
+    monkeypatch.setattr(asset_resolver.stock_adapter, '_cache', {})
     print("\n[API RUNTIME TEST] 1. Test POST /runs with invalid input -> 422")
     invalid_resp = client.post("/api/v1/auto-production/runs", json={})
     assert invalid_resp.status_code == 422, f"Expected 422 for empty request, got {invalid_resp.status_code}"
@@ -112,14 +116,15 @@ def test_api_runtime_full_suite():
         assert "shots" in scn
     print("  -> GET editor-plan succeeded with valid scenes structure.")
 
-    print("\n[API RUNTIME TEST] 7. Test GET /runs/{run_id}/quality-report -> 200 OK")
+    print("\n[API RUNTIME TEST] 7. Missing visuals cannot produce passing final QC")
     qc_resp = client.get(f"/api/v1/auto-production/runs/{run_id}/quality-report")
-    assert qc_resp.status_code == 200, f"Expected 200, got {qc_resp.status_code}"
-    qc_data = qc_resp.json()
-    assert qc_data["overall_status"] in [QualityStatus.NOT_EVALUATED.value, QualityStatus.PASS.value, QualityStatus.WARN.value]
-    assert "report_id" in qc_data
-    assert "axes" in qc_data
-    print("  -> GET quality-report succeeded with valid contract.")
+    assert qc_resp.status_code in (200, 404)
+    if qc_resp.status_code == 200:
+        assert qc_resp.json()['overall_status'] == 'FAIL', 'Missing visuals must not receive a passing report'
+    blocked = client.get(f"/api/v1/auto-production/runs/{run_id}").json()
+    assert blocked['status'] == 'FAILED'
+    assert 'VISUAL_MEDIA_UNAVAILABLE' in (blocked.get('error_message') or '')
+    assert blocked.get('render_artifact') is None
 
     print("\n[API RUNTIME TEST] 8. Test POST /runs/{run_id}/retry -> 200 OK & 422 for invalid stage")
     # Invalid stage
@@ -148,4 +153,4 @@ def test_api_runtime_full_suite():
 
 
 if __name__ == "__main__":
-    test_api_runtime_full_suite()
+    raise SystemExit(pytest.main([__file__]))

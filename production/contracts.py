@@ -323,6 +323,14 @@ class AssetCandidate(BaseModel):
     duration_sec: float = Field(default=0.0, ge=0.0)
     thumbnail_url: Optional[str] = None
     media_url: Optional[str] = None
+    preview_url: Optional[str] = None
+    preview_storage_ref: Optional[str] = None
+    storage_ref: Optional[str] = None
+    asset_type: str = "VIDEO"
+    graphic_spec: Optional[Dict[str, Any]] = None
+    renderable: bool = False
+    preview_error: Optional[str] = None
+    score_source: Optional[str] = None
     semantic_score: float = Field(default=0.0, ge=0.0, le=1.0)
     entity_action_score: float = Field(default=0.0, ge=0.0, le=1.0)
     visual_role_score: float = Field(default=0.0, ge=0.0, le=1.0)
@@ -351,6 +359,7 @@ class SceneAssetResolution(BaseModel):
     warnings: List[str] = Field(default_factory=list)
     rejection_reasons: List[str] = Field(default_factory=list)
     is_unresolved: bool = False
+    retrieval_diagnostics: Dict[str, Any] = Field(default_factory=dict)
 
 
 class AssetResolutionResult(BaseModel):
@@ -614,6 +623,7 @@ class AudioTrackPlan(BaseModel):
 
 
 class ShotPlan(BaseModel):
+    resolution_shot_order: Optional[int] = None
     shot_id: str
     shot_index: Optional[int] = None
     asset_id: str
@@ -1123,6 +1133,7 @@ class HumanReviewRecord(BaseModel):
 
 
 class ProductionRun(BaseModel):
+    review_revision: int = Field(default=0, ge=0)
     id: str
     video_project_id: Optional[str] = None
     channel_profile_id: Optional[str] = None

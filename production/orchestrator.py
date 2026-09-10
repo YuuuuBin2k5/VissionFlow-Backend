@@ -558,11 +558,16 @@ class ProductionOrchestrator:
             run_repository.set_editor_plan(run_id, draft_editor_plan)
             await self._run_stage_idempotent(run_id, "editor_planning", draft_editor_plan.model_dump(mode="json"), 80)
 
+            if any(not r.selected_candidate or (r.selected_candidate.provider == 'graphic_fallback' and not r.selected_candidate.renderable)
+                   for r in resolution_result.resolutions):
+                raise ValueError('VISUAL_MEDIA_UNAVAILABLE: kiểm tra provider/preview và chọn visual trước khi render')
+
             # 13. TTS & Timing (REAL - Canonical timing via ffprobe)
             voice_code = (
                 getattr(run.request, "voice_code", None)
                 or getattr(run.request, "voice", None)
                 or (run.request.overrides.get("voice") if run.request.overrides else None)
+                or (run.request.overrides.get("voice_code") if run.request.overrides else None)
                 or "vi-VN-NamMinhNeural"
             )
             tts_results = await tts_service.synthesize_script(
@@ -892,15 +897,24 @@ class ProductionOrchestrator:
         if not run or not run.script_plan or not run.editor_plan:
             raise ValueError(f"Run {run_id} does not have required plans for visual regeneration")
 
+        previous_resolutions = run.resolved_assets.model_copy(deep=True) if run.resolved_assets else None
+        scoped_visual_plan = run.visual_plan.model_copy(deep=True)
+        locked_keys = {(r.scene_id, r.shot_order) for r in previous_resolutions.resolutions
+                       if r.selected_candidate and r.selected_candidate.is_locked} if previous_resolutions else set()
+        scoped_visual_plan.intents = [v for v in scoped_visual_plan.intents
+            if (not scene_id or v.scene_id == scene_id) and (v.scene_id, v.shot_order) not in locked_keys]
         self.invalidate_for_change(run_id, "visuals_changed")
 
         chan_prof = getattr(run.request, "channel_profile", None)
         resolution_result = await asset_resolver.resolve_visual_plan(
-            visual_plan=run.visual_plan,
+            visual_plan=scoped_visual_plan,
             user_sources=run.request.sources,
             channel_profile=chan_prof,
             run_id=run_id,
         )
+        if previous_resolutions:
+            replacements = {(r.scene_id, r.shot_order): r for r in resolution_result.resolutions}
+            resolution_result.resolutions = [replacements.get((r.scene_id, r.shot_order), r) for r in previous_resolutions.resolutions]
         run.resolved_assets = resolution_result
 
         # Build TTS results from existing scene audio
@@ -922,7 +936,7 @@ class ProductionOrchestrator:
         locked_shots = {}
         for scn in run.editor_plan.scenes:
             for sh in scn.shots:
-                if sh.is_locked:
+                if sh.is_locked or (scene_id and scn.scene_id != scene_id):
                     locked_shots[sh.shot_id] = sh
 
         final_plan = editor_planner.build_final_editor_plan(

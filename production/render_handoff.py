@@ -138,6 +138,9 @@ class RenderHandoffEngine:
                     or getattr(sht, "provider", "") == "graphic_fallback"
                 )
                 sht_path = getattr(sht, "asset_file_path", None) or getattr(sht, "media_url", None)
+                if sht.resolved_asset and sht.resolved_asset.storage_ref:
+                    from production.artifact_storage import get_artifact_storage
+                    sht_path = get_artifact_storage().presigned_download(sht.resolved_asset.storage_ref)
                 if not sht_path and sht.resolved_asset:
                     sht_path = sht.resolved_asset.media_url
 
@@ -146,6 +149,8 @@ class RenderHandoffEngine:
 
                 if is_remote_url or is_local_file:
                     video_sources.append({"file_path": str(sht_path), "duration": sht.duration_seconds})
+                elif strict_inputs:
+                    raise RenderHandoffError('REMOTE_RENDER_INPUT_NOT_PORTABLE: shot has no materialized visual')
                 elif is_gf or not sht_path or str(sht_path).startswith("/static/"):
                     is_graphic_fallback = True
                 elif strict_inputs:

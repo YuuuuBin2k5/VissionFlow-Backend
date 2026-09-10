@@ -25,6 +25,7 @@ def main():
     os.environ.pop("MIGRATION_DATABASE_URL", None)
     os.environ["VISIONFLOW_ALLOW_INSECURE_DB"] = "true"
     os.environ["VISIONFLOW_USE_DEV_REPOSITORIES"] = "1"
+    os.environ["VISIONFLOW_ALLOW_TEST_TTS"] = "1"
     os.environ.pop("VISIONFLOW_RENDER_POLICY", None)
     os.environ["VISIONFLOW_RENDER_TARGET"] = "LOCAL_DIRECT"
     os.environ["VISIONFLOW_RENDER_JOB_BACKEND"] = "postgres"
@@ -48,6 +49,19 @@ def main():
     modules["human_review"].human_review_service.storage_dir.mkdir()
     modules["source_ingest"].MEDIA_CACHE_DIR = root / "ingest"
     modules["source_ingest"].MEDIA_CACHE_DIR.mkdir()
+    # Existing singletons may have loaded local fixture/catalog state at import time.
+    # Empty and relocate them; never mutate the repository's saved source library.
+    from production.repositories.source_repository import get_source_repository, get_scene_repository, get_embedding_repository
+    for name, repository, attribute in (
+        ('sources', get_source_repository(), '_sources'), ('scenes', get_scene_repository(), '_scenes'),
+        ('embeddings', get_embedding_repository(), '_entries'),
+    ):
+        repository.storage_dir = root / name
+        repository.storage_dir.mkdir()
+        setattr(repository, attribute, {})
+    import production.asset_resolver as resolver_module
+    resolver_module.CACHE_FILE_PATH = root / 'asset-cache.json'
+    resolver_module.asset_resolver.stock_adapter._cache = {}
 
     redirects = {
         str(Path("d:/VisionFlow/.media_cache/test_fixtures")).lower(): root / "phase6-fixtures",
@@ -67,7 +81,11 @@ def main():
     original_connect = socket.socket.connect
     def local_connect(sock, address):
         if isinstance(address, tuple) and address[0] not in ("127.0.0.1", "localhost", "::1"):
-            raise RuntimeError("Validation blocks external network access")
+            allowed_tts = os.getenv('VISIONFLOW_TEST_LIVE_TTS') == '1' and address[1] == 443 and address[0] in {
+                item[4][0] for item in socket.getaddrinfo('speech.platform.bing.com', 443)
+            }
+            if not allowed_tts:
+                raise RuntimeError("Validation blocks external network access")
         return original_connect(sock, address)
     socket.socket.connect = local_connect
 
@@ -82,8 +100,8 @@ def main():
     args = ["-q", "-p", "no:cacheprovider", "--basetemp", str(root / "pytest"),
             "tests/test_phase6_render_qc.py", "tests/test_phase7_production_stabilization.py",
             "tests/test_pilot_learning_loop.py", "tests/test_production_api_runtime.py",
-            "tests/test_remote_render_repository.py", "tests/test_remote_worker.py", "tests/test_remote_worker_reliability.py", "tests/test_remote_render_integration.py"]
-    return pytest.main(args, plugins=[Isolation()])
+            "tests/test_remote_render_repository.py", "tests/test_remote_worker.py", "tests/test_remote_worker_reliability.py", "tests/test_remote_render_integration.py", "tests/test_review_integration.py"]
+    return pytest.main(args + ["--tb=short"] + sys.argv[1:], plugins=[Isolation()])
 
 
 if __name__ == "__main__":

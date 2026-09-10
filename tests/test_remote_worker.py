@@ -63,7 +63,7 @@ def config(tmp_path):
 
 def artifact(body=b"media", **updates):
     data = dict(
-        artifact_id="asset_1", role="IMAGE", storage_ref="visionflow/runs/run_1/assets/image.png",
+        artifact_id="asset_1", role="IMAGE", storage_ref="visionflow/production/inputs/run_1/image.png",
         checksum_sha256=hashlib.sha256(body).hexdigest(), size_bytes=len(body),
         mime_type="image/png", download_url="https://objects.example.com/input?signature=scoped",
     )
@@ -194,7 +194,7 @@ def test_cache_enforces_budget_and_discards_old_entries(tmp_path):
 
 def test_materialization_preserves_image_and_audio_extensions(config):
     image = artifact(b"image")
-    audio = artifact(b"audio", artifact_id="tts_1", role="TTS", mime_type="audio/wav", storage_ref="visionflow/runs/run_1/assets/tts.wav")
+    audio = artifact(b"audio", artifact_id="tts_1", role="TTS", mime_type="audio/wav", storage_ref="visionflow/production/inputs/run_1/tts.wav")
     manifest = PortableRenderManifest(
         job_id=uuid.uuid4(), run_id="run_1",
         render_spec={"duration_seconds": 1, "video_sources": [{"artifact_id": image.artifact_id, "duration": 1}], "audio_sources": [audio.artifact_id]},
@@ -362,11 +362,18 @@ def test_editor_plan_type_and_graphic_fallback_portable_boundary(tmp_path):
         ]
     )
 
+    from production.render_handoff import RenderHandoffError
+    with pytest.raises(RenderHandoffError, match='materialized visual'):
+        render_handoff.build_spec(editor_plan, "run_test_01", strict_inputs=True)
+    from PIL import Image
+    graphic = tmp_path / 'graphic.png'
+    Image.new('RGB', (32, 32), 'blue').save(graphic)
+    editor_plan.scenes[0].shots[0].media_url = str(graphic)
     spec = render_handoff.build_spec(editor_plan, "run_test_01", strict_inputs=True)
     assert spec.is_graphic_fallback is True
-    assert len(spec.video_sources) == 0
+    assert len(spec.video_sources) == 1
     assert spec.audio_sources == [str(audio_file)]
 
     manifest = build_portable_manifest(spec, uuid.uuid4(), storage)
-    assert len(manifest.artifacts) == 1
-    assert manifest.artifacts[0].role == "TTS"
+    assert len(manifest.artifacts) == 2
+    assert {a.role for a in manifest.artifacts} == {'TTS', 'IMAGE'}

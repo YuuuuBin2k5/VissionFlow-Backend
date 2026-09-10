@@ -14,7 +14,7 @@ Checksum = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
 
 def validate_storage_ref(value: str) -> str:
     import re
-    if (not re.fullmatch(r"visionflow/[A-Za-z0-9_./-]{1,950}", value)
+    if (not re.fullmatch(r"visionflow/production/(?:inputs|outputs|attempts|graphics|review)/[A-Za-z0-9_./-]{1,900}", value)
             or any(part in ("", ".", "..") for part in value.split("/"))):
         raise ValueError("REMOTE_RENDER_INPUT_NOT_PORTABLE")
     return value

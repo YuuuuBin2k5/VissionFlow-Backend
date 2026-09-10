@@ -10,6 +10,7 @@ Estimated speech duration is strictly provisional for preliminary visual plannin
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import math
@@ -225,7 +226,7 @@ class EdgeTTSVoiceProvider(TTSVoiceProvider):
         output_dir: Path,
     ) -> SceneTTSResult:
         # If in offline test environment, use deterministic mock
-        if os.getenv("VISIONFLOW_USE_DEV_REPOSITORIES") == "1":
+        if os.getenv("VISIONFLOW_USE_DEV_REPOSITORIES") == "1" and os.getenv("VISIONFLOW_ALLOW_TEST_TTS") == "1":
             return await self._mock_fallback.synthesize_narration(
                 scene_id=scene_id,
                 text=text,
@@ -234,7 +235,8 @@ class EdgeTTSVoiceProvider(TTSVoiceProvider):
                 output_dir=output_dir,
             )
 
-        audio_asset_id = f"aud_{scene_id}_{abs(hash(text)) % 1000000:06d}"
+        fingerprint = hashlib.sha256(f'{text}\0{voice_code}\0{voice_rate}'.encode()).hexdigest()[:16]
+        audio_asset_id = f"aud_{scene_id}_{fingerprint}"
         output_path = output_dir / f"{audio_asset_id}.mp3"
 
         rate_str = f"{int((voice_rate - 1.0) * 100):+d}%"
@@ -260,14 +262,8 @@ class EdgeTTSVoiceProvider(TTSVoiceProvider):
                 measured_at=datetime.now(timezone.utc),
             )
         except Exception as e:
-            logger.warning(f"EdgeTTS failed for scene '{scene_id}': {e}. Falling back to deterministic audio.")
-            return await self._mock_fallback.synthesize_narration(
-                scene_id=scene_id,
-                text=text,
-                voice_code=voice_code,
-                voice_rate=voice_rate,
-                output_dir=output_dir,
-            )
+            logger.warning('EdgeTTS failed: %s', type(e).__name__)
+            raise RuntimeError('TTS_PROVIDER_UNAVAILABLE') from None
 
 
 class TTSService:

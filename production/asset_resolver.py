@@ -328,7 +328,10 @@ class PexelsStockAdapter:
         cache_key = f"pex:{clean_q}:{limit}:{prefer_portrait}"
         if cache_key in self._cache:
             raw_cached = self._cache[cache_key]
-            return [AssetCandidate.model_validate(c) for c in raw_cached]
+            live_cached = [c for c in raw_cached if c.get('provenance', {}).get('origin') == 'pexels_api'
+                           and c.get('selection_evidence', {}).get('description') and c.get('media_url')]
+            if live_cached:
+                return [AssetCandidate.model_validate(c) for c in live_cached]
 
         # Request Coalescing
         if cache_key in self._in_flight:
@@ -346,6 +349,7 @@ class PexelsStockAdapter:
             return candidates
         except Exception as exc:
             fut.set_exception(exc)
+            fut.exception()  # Observe producer error even when there are no coalesced waiters.
             raise
         finally:
             self._in_flight.pop(cache_key, None)
@@ -356,10 +360,9 @@ class PexelsStockAdapter:
         limit: int,
         prefer_portrait: bool,
     ) -> List[AssetCandidate]:
-        # If no real API key or offline mode set, use thematic fallback directly
-        is_dev = os.getenv("VISIONFLOW_USE_DEV_REPOSITORIES") == "1"
-        if not self.api_key or self.api_key.startswith("YOUR_") or is_dev:
-            return self._match_thematic_catalog(query, limit)
+        # A missing provider is an error, not permission to invent stock results.
+        if not self.api_key or self.api_key.startswith("YOUR_"):
+            raise RuntimeError("PEXELS_NOT_CONFIGURED")
 
         # Apply rate limiting
         await self.rate_limiter.acquire()
@@ -386,12 +389,14 @@ class PexelsStockAdapter:
                     data = response.json()
                     videos = data.get("videos", [])
                     if not videos:
-                        logger.info(f"Pexels returned 0 results for '{query}'. Falling back to thematic catalog.")
-                        return self._match_thematic_catalog(query, limit)
+                        logger.info('Pexels returned no search results')
+                        return []
 
                     results: List[AssetCandidate] = []
                     for v in videos[:limit]:
-                        files = v.get("video_files", [])
+                        files = [f for f in v.get('video_files', []) if f.get('file_type') == 'video/mp4' and f.get('link')]
+                        if not files or not v.get('duration'):
+                            continue
                         hd_file = next(
                             (f for f in files if f.get("height", 0) >= 720 and f.get("width", 0) <= f.get("height", 0)),
                             files[0] if files else {},
@@ -402,11 +407,11 @@ class PexelsStockAdapter:
                             source_id=f"pex_{v_id}",
                             provider="pexels_stock",
                             start_sec=0.0,
-                            end_sec=float(v.get("duration", 6.0)),
-                            duration_sec=float(v.get("duration", 6.0)),
+                            end_sec=float(v['duration']),
+                            duration_sec=float(v['duration']),
                             thumbnail_url=v.get("image"),
-                            media_url=hd_file.get("link") or v.get("url"),
-                            technical_quality_score=0.92,
+                            media_url=hd_file['link'],
+                            technical_quality_score=min(1.0, (hd_file.get('width', 0) * hd_file.get('height', 0)) / (1080 * 1920)),
                             rights_state=RightsState.APPROVED_STOCK,
                             rights_score=1.0,
                             visual_fingerprint=f"dhash:pex_{v_id[:12]}",
@@ -418,6 +423,7 @@ class PexelsStockAdapter:
                                 "retrieved_at": datetime.now(timezone.utc).isoformat(),
                                 "original_url": v.get("url"),
                             },
+                            selection_evidence={"description": re.sub(r"[-_/]+", " ", str(v.get("url", "")))},
                         )
                         results.append(cand)
                     return results
@@ -429,17 +435,17 @@ class PexelsStockAdapter:
                         backoff *= 2.0
                         continue
                     else:
-                        logger.warning("Pexels 429 retries exhausted. Gracefully degrading to thematic catalog.")
-                        return self._match_thematic_catalog(query, limit)
+                        logger.warning('Pexels 429 retries exhausted')
+                        raise RuntimeError("PEXELS_RATE_LIMITED")
                 else:
-                    logger.warning(f"Pexels returned status {response.status_code}. Fallback to thematic catalog.")
-                    return self._match_thematic_catalog(query, limit)
+                    logger.warning('Pexels HTTP failure: %s', response.status_code)
+                    raise RuntimeError(f"PEXELS_HTTP_{response.status_code}")
 
             except Exception as e:
-                logger.warning(f"Pexels fetch failed ({e}). Fallback to thematic catalog.")
-                return self._match_thematic_catalog(query, limit)
+                logger.warning("Pexels request failed: %s", type(e).__name__)
+                raise RuntimeError("PEXELS_REQUEST_FAILED") from None
 
-        return self._match_thematic_catalog(query, limit)
+        return []
 
     def _match_thematic_catalog(self, query: str, limit: int) -> List[AssetCandidate]:
         """Matches query terms against local vetted thematic catalog."""
@@ -638,11 +644,10 @@ class CandidateScorer:
         candidate.visual_role_score = role_score
 
         # 8. Shot Type Match Score
-        candidate.shot_type_score = 0.85
+        candidate.shot_type_score = 0.0  # No measured shot-type evidence for this candidate.
 
         # 9. Technical Quality Score
-        if candidate.technical_quality_score == 0.0:
-            candidate.technical_quality_score = 0.90
+        # Keep missing technical evidence at zero; do not invent a quality score.
 
         # 10. Duration Fit Score
         if candidate.duration_sec >= target_duration:
@@ -689,6 +694,7 @@ class CandidateScorer:
 
         total_penalties = candidate.repetition_penalty + candidate.watermark_penalty + candidate.conflict_penalty
         candidate.composite_score = round(max(0.0, min(1.0, weighted_sum - total_penalties)), 3)
+        candidate.score_source = "LEXICAL_RESOLVER"
 
         # Populate selection evidence
         candidate.selection_evidence = {
@@ -718,6 +724,12 @@ class CandidateScorer:
 # ---------------------------------------------------------------------------
 # Asset Resolver Service (Section 7 to 16)
 # ---------------------------------------------------------------------------
+class CandidateBatch(list):
+    def __init__(self):
+        super().__init__()
+        self.diagnostics = {'errors': [], 'scene_library_available': None, 'pexels_request_success': None}
+
+
 class AssetResolver:
     """
     Main Asset Resolver Service.
@@ -766,11 +778,19 @@ class AssetResolver:
             rejection_reasons: List[str] = []
 
             # Gather candidates across prioritized sources
-            raw_candidates = await self._gather_candidates_for_intent(
-                intent=intent,
-                source_priority=source_priority,
-                user_sources=user_sources,
-            )
+            diagnostics = {"query": intent.search_query_en, "user_source_count": len(user_sources or []), "errors": []}
+            try:
+                raw_candidates = await self._gather_candidates_for_intent(
+                    intent=intent, source_priority=source_priority, user_sources=user_sources,
+                )
+            except RuntimeError as exc:
+                raw_candidates = []
+                diagnostics["errors"].append(str(exc) if str(exc).startswith('PEXELS_') else 'RETRIEVAL_UNAVAILABLE')
+            diagnostics["raw_count"] = len(raw_candidates)
+            diagnostics.update(getattr(raw_candidates, 'diagnostics', {}))
+            diagnostics['pexels_configured'] = bool(getattr(self.stock_adapter, 'api_key', None))
+            diagnostics['r2_source_count'] = sum(bool(c.storage_ref) for c in raw_candidates)
+            diagnostics['gemini_visual_analysis_mode'] = 'NOT_RECORDED'
 
             # Score and filter candidates
             qualified_candidates: List[AssetCandidate] = []
@@ -797,9 +817,11 @@ class AssetResolver:
             def _get_provider_tier(c: AssetCandidate) -> int:
                 if c.provider == "user_source":
                     if c.composite_score >= 0.40 and (c.semantic_score >= 0.20 or c.entity_action_score >= 0.20):
-                        return 2
+                        return 3
                     return 1  # Demoted to standard tier if relevance is marginal
-                elif c.provider in ("scene_library", "pexels_stock"):
+                elif c.provider == "scene_library":
+                    return 2
+                elif c.provider == "pexels_stock":
                     return 1
                 return 0
 
@@ -828,15 +850,16 @@ class AssetResolver:
                         intent_id=intent.id,
                         selected_candidate=selected,
                         alternate_candidates=alternates,
-                        warnings=warnings,
+                        warnings=warnings + diagnostics['errors'],
                         rejection_reasons=rejection_reasons[:5],
                         is_unresolved=False,
+                        retrieval_diagnostics={**diagnostics, "eligible_count": len(qualified_candidates)},
                     )
                 )
             else:
                 # No candidate qualified -> Graphic fallback or unresolved
                 unresolved_count += 1
-                fallback_cand = self._create_graphic_fallback_candidate(intent)
+                fallback_cand = None if diagnostics["errors"] else self._create_graphic_fallback_candidate(intent)
                 resolutions.append(
                     SceneAssetResolution(
                         scene_id=intent.scene_id,
@@ -844,14 +867,16 @@ class AssetResolver:
                         intent_id=intent.id,
                         selected_candidate=fallback_cand,
                         alternate_candidates=[],
-                        warnings=["No footage candidates qualified. Using motion graphic fallback."],
+                        warnings=diagnostics["errors"] or ["No eligible footage. Explanatory graphic; not source footage."],
                         rejection_reasons=rejection_reasons[:5],
                         is_unresolved=True,
+                        retrieval_diagnostics={**diagnostics, "eligible_count": 0},
                     )
                 )
 
         # Overall Metrics
-        coverage_ratio = round(resolved_duration_weight / max(0.1, total_duration_weight), 3)
+        from production.review_media import review_candidate
+        coverage_ratio = sum(bool(r.selected_candidate and review_candidate(r.selected_candidate).renderable) for r in resolutions) / max(1, len(resolutions))
         avg_match = round(sum(match_scores) / max(1, len(match_scores)), 3) if match_scores else 0.0
 
         return AssetResolutionResult(
@@ -872,7 +897,7 @@ class AssetResolver:
         source_priority: List[str],
         user_sources: Optional[List[SourceInput]],
     ) -> List[AssetCandidate]:
-        candidates: List[AssetCandidate] = []
+        candidates = CandidateBatch()
 
         for source_type in source_priority:
             # 1. User Provided
@@ -886,31 +911,35 @@ class AssetResolver:
             # 2. Approved Scene Library
             elif source_type == "approved_scene_library":
                 try:
-                    lib_scenes = self.scene_repo.list_candidates(SceneSearchFilter(), limit=20)
+                    from production.embedding_service import embedding_service
+                    hits = embedding_service.search_scenes(query=intent.search_query_en, filters=SceneSearchFilter(), top_k=20)
+                    lib_scenes = [hit.scene for hit in hits if hit.scene]
+                    candidates.diagnostics['scene_library_available'] = True
+                    candidates.diagnostics['scene_library_count'] = len(lib_scenes)
                     for scn in lib_scenes:
-                        # Only include if meaningful semantic overlap with intent search query
-                        query_words = set(re.findall(r"\w+", intent.search_query_en.lower()))
-                        desc_words = set(re.findall(r"\w+", (scn.description or "").lower()))
-                        stop_words = {"in", "a", "the", "and", "of", "with", "to", "for", "on", "at", "by", "an", "is", "it", "from", "into"}
-                        meaningful = {w for w in query_words if len(w) > 2 and w not in stop_words}
-                        if len(meaningful.intersection(desc_words)) >= 2:
-                            cand = self._convert_scene_record_to_candidate(scn, provider="scene_library")
-                            candidates.append(cand)
+                        cand = self._convert_scene_record_to_candidate(scn, provider="scene_library")
+                        hit = next(h for h in hits if h.scene_id == scn.id)
+                        cand.semantic_score = max(0, min(1, hit.score))
+                        candidates.append(cand)
                 except Exception as e:
-                    logger.warning(f"Failed to query Scene Library: {e}")
+                    candidates.diagnostics['scene_library_available'] = False
+                    candidates.diagnostics['errors'].append('SCENE_LIBRARY_UNAVAILABLE')
+                    logger.warning('Scene Library lookup failed: %s', type(e).__name__)
 
             # 3. Approved Stock (Pexels)
             elif source_type == "approved_stock":
-                stock_cands = await self.stock_adapter.search_stock(
-                    query=intent.search_query_en,
-                    limit=5,
-                    prefer_portrait=True,
-                )
-                candidates.extend(stock_cands)
+                try:
+                    stock_cands = await self.stock_adapter.search_stock(
+                        query=intent.search_query_en, limit=5, prefer_portrait=True,
+                    )
+                    candidates.extend(stock_cands)
+                    candidates.diagnostics['pexels_request_success'] = True
+                    candidates.diagnostics['stock_count'] = len(stock_cands)
+                except RuntimeError:
+                    candidates.diagnostics['pexels_request_success'] = False
+                    candidates.diagnostics['errors'].append('PEXELS_UNAVAILABLE')
 
-        # If candidates are still empty, fetch from thematic stock catalog
-        if not candidates:
-            candidates.extend(self.stock_adapter._match_thematic_catalog(intent.search_query_en, limit=4))
+        # Provider failure or empty retrieval must never use a hardcoded catalog.
 
         return candidates
 
@@ -919,10 +948,10 @@ class AssetResolver:
         record: SourceSceneRecord,
         provider: str = "scene_library",
     ) -> AssetCandidate:
-        default_rights = RightsState.OWNED if provider == "user_source" else RightsState.APPROVED_STOCK
-        rights = getattr(record, "rights_state", default_rights)
+        source = self.source_repo.get(record.source_id)
+        rights = source.rights_state if source else RightsState.UNKNOWN
         rights_score = 1.0 if rights in (RightsState.OWNED, RightsState.APPROVED_STOCK) else 0.90
-        return AssetCandidate(
+        candidate = AssetCandidate(
             asset_id=record.id,
             source_id=record.source_id,
             provider=provider,
@@ -930,8 +959,8 @@ class AssetResolver:
             end_sec=record.end_sec,
             duration_sec=record.duration_sec or (record.end_sec - record.start_sec),
             thumbnail_url=record.keyframes[0] if (hasattr(record, "keyframes") and record.keyframes) else None,
-            media_url=getattr(record, "storage_ref", None) or f"/scenes/{record.id}/video",
-            technical_quality_score=getattr(record, "technical_quality_score", 0.85),
+            media_url=source.storage_ref if source else None,
+            technical_quality_score=getattr(record, "technical_quality_score", 0.0),
             rights_state=rights,
             rights_score=rights_score,
             visual_fingerprint=getattr(record, "visual_fingerprint", None) or record.fingerprint,
@@ -949,20 +978,21 @@ class AssetResolver:
                 "actions": record.actions,
             },
         )
+        from production.review_media import ingest_review_media
+        return ingest_review_media(candidate)
 
     def _create_graphic_fallback_candidate(self, intent: VisualIntent) -> AssetCandidate:
-        return AssetCandidate(
+        from production.review_media import materialize_graphic
+        candidate = AssetCandidate(
             asset_id=f"gfx_{intent.id}",
             source_id="graphic_backdrop_engine",
             provider="graphic_fallback",
             start_sec=0.0,
             end_sec=intent.duration_weight * 4.0,
             duration_sec=intent.duration_weight * 4.0,
-            thumbnail_url="/static/gfx_backdrop_thumb.jpg",
-            media_url="/static/motion_typography_backdrop.mp4",
-            semantic_score=0.75,
-            composite_score=0.75,
-            technical_quality_score=0.95,
+            semantic_score=0.0,
+            composite_score=0.0,
+            technical_quality_score=0.0,
             rights_state=RightsState.OWNED,
             rights_score=1.0,
             visual_fingerprint=f"dhash:gfx_{intent.id[:8]}",
@@ -975,6 +1005,7 @@ class AssetResolver:
             },
             selection_evidence={"reason": "fallback_graphic_motion_backdrop"},
         )
+        return materialize_graphic(candidate, intent)
 
     def swap_asset(
         self,
@@ -1006,18 +1037,6 @@ class AssetResolver:
                     *(a for a in target_res.alternate_candidates if a.asset_id != new_asset_id),
                 ]
             target_res.warnings.append(f"User manually swapped asset to '{new_asset_id}'")
-            return target_res
-
-        # If not in alternates, search in thematic catalog
-        thematic_match = next((t for t in THEMATIC_STOCK_CATALOG if t["id"] == new_asset_id), None)
-        if thematic_match:
-            new_cand = self.stock_adapter._match_thematic_catalog(thematic_match["title"], limit=1)[0]
-            new_cand.is_locked = True
-            old_selected = target_res.selected_candidate
-            target_res.selected_candidate = new_cand
-            if old_selected:
-                target_res.alternate_candidates.insert(0, old_selected)
-            target_res.warnings.append(f"User manually selected thematic catalog asset '{new_asset_id}'")
             return target_res
 
         raise ValueError(f"Asset '{new_asset_id}' is not an available candidate for this shot")

@@ -59,7 +59,7 @@ class HttpObjectStorage:
 
     def metadata(self, ref):
         data, metadata = self.objects[ref]
-        return {"ContentLength": len(data), "Metadata": metadata}
+        return {"ContentLength": len(data), "Metadata": metadata, 'ContentType': 'image/png' if ref.endswith('.png') else 'video/mp4'}
 
     def download_to(self, ref, path):
         path.write_bytes(self.objects[ref][0])
@@ -88,7 +88,14 @@ class HttpObjectStorage:
             method, ref, checksum = grant
             if method == "GET":
                 self.gets += 1
-                return Response(self.objects[ref][0])
+                data = self.objects[ref][0]
+                mime = 'image/png' if ref.endswith('.png') else 'video/mp4'
+                if request.headers.get('range', '').startswith('bytes='):
+                    start, _, end = request.headers['range'][6:].partition('-')
+                    start, end = int(start or 0), min(int(end) if end else len(data)-1, len(data)-1)
+                    return Response(data[start:end+1], status_code=206, media_type=mime,
+                        headers={'Content-Range': f'bytes {start}-{end}/{len(data)}', 'Accept-Ranges': 'bytes'})
+                return Response(data, media_type=mime, headers={'Accept-Ranges': 'bytes'})
             assert request.headers.get("x-amz-meta-sha256") == checksum
             self.puts += 1
             self.objects[ref] = (await request.body(), {"sha256": checksum})
@@ -145,6 +152,7 @@ def http_runtime(remote_pg_engine, tmp_path, monkeypatch):
     app.add_api_route("/api/v1/production/runs/{run_id}/video", _handle_get_video, methods=["GET"])
     import production.artifact_storage as artifacts
     monkeypatch.setattr(artifacts, "get_artifact_storage", lambda: storage)
+    monkeypatch.setattr('production.remote_render.get_artifact_storage', lambda: storage)
     with serve(app) as base:
         storage.base = base
         yield SimpleNamespace(base=base, app=app, storage=storage, engine=remote_pg_engine, tmp=tmp_path)

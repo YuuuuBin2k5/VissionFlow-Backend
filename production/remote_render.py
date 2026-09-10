@@ -117,7 +117,7 @@ def enqueue_remote_render(run: ProductionRun, *, session=None, storage=None, spe
     def persist(db):
         return get_render_job_repository(db).create_job(
             job_id=manifest.job_id, run_id=run.id, spec={"manifest": portable, "run_snapshot": snapshot},
-            input_hash=input_hash, idempotency_key=f"remote:{run.id}:{input_hash[:32]}",
+            input_hash=input_hash, idempotency_key=f"remote:{run.id}:{input_hash[:32]}" + (f":review{run.review_revision}" if run.review_revision else ''),
         )
     if session is None:
         with Session(get_engine(), expire_on_commit=False) as db:

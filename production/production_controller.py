@@ -172,7 +172,7 @@ def _handle_get_stages(run_id: str):
 
 
 def _handle_get_editor_plan(run_id: str) -> EditorPlan:
-    run = _handle_get_run(run_id)
+    run = _handle_review_run(run_id)
     if not run.editor_plan:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"EditorPlan not available for run {run_id}")
     return run.editor_plan
@@ -196,7 +196,51 @@ def _handle_get_resolved_assets(run_id: str) -> AssetResolutionResult:
     run = _handle_get_run(run_id)
     if not run.resolved_assets:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Resolved assets not available for run {run_id}")
-    return run.resolved_assets
+    from production.review_media import review_resolution
+    return review_resolution(run.resolved_assets)
+
+
+def _handle_review_run(run_id: str) -> ProductionRun:
+    from production.review_media import review_resolution, review_candidate, http_media
+    run = _handle_get_run(run_id).model_copy(deep=True)
+    if run.resolved_assets:
+        run.resolved_assets = review_resolution(run.resolved_assets)
+    if run.editor_plan:
+        for scene in run.editor_plan.scenes:
+            for shot in scene.shots:
+                shot.asset_file_path = None
+                if shot.resolved_asset:
+                    shot.resolved_asset = review_candidate(shot.resolved_asset)
+                    shot.media_url = shot.resolved_asset.media_url
+                    shot.thumbnail_url = shot.resolved_asset.preview_url
+                else:
+                    shot.media_url = http_media(shot.media_url)
+                    shot.thumbnail_url = http_media(shot.thumbnail_url)
+    return run
+
+
+def _handle_playback(run_id: str):
+    from datetime import datetime, timezone, timedelta
+    from production.artifact_storage import get_artifact_storage
+    from production.review_media import http_media
+    run = _handle_get_run(run_id)
+    artifact = run.render_artifact
+    if not artifact or not artifact.storage_ref or artifact.duration_seconds <= 0:
+        raise HTTPException(409, 'Chưa có bản render có thể phát')
+    if run.status.value not in {'RENDERED', 'QC_RUNNING', 'HUMAN_REVIEW_PENDING', 'READY', 'APPROVED', 'CHANGES_REQUESTED', 'PUBLISHED'}:
+        raise HTTPException(409, 'Bản render không còn hợp lệ với timeline hiện tại')
+    try:
+        storage = get_artifact_storage()
+        metadata = storage.metadata(artifact.storage_ref)
+        if int(metadata.get('ContentLength', 0)) <= 0 or metadata.get('ContentType', '').split(';')[0] != 'video/mp4':
+            raise ValueError('INVALID_MP4_METADATA')
+        url = http_media(storage.presigned_download(artifact.storage_ref))
+        if not url:
+            raise ValueError('INVALID_PLAYBACK_URL')
+        return {'playback_url': url, 'expires_at': (datetime.now(timezone.utc) + timedelta(seconds=900)).isoformat(),
+                'mime_type': 'video/mp4', 'duration_seconds': artifact.duration_seconds}
+    except Exception:
+        raise HTTPException(503, 'Không thể tải video từ kho media. Vui lòng thử lại.') from None
 
 
 class SwapAssetPayload(BaseModel):
@@ -208,38 +252,33 @@ class SwapAssetPayload(BaseModel):
 
 
 def _handle_swap_asset(run_id: str, payload: SwapAssetPayload) -> SceneAssetResolution:
-    from production.asset_resolver import asset_resolver
-    run = _handle_get_run(run_id)
-    if not run.resolved_assets:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"No resolved assets available for run {run_id}")
-
-    prev_res = next((r for r in run.resolved_assets.resolutions if r.scene_id == payload.scene_id and r.shot_order == payload.shot_order), None)
-    rejected_id = prev_res.selected_candidate.asset_id if (prev_res and prev_res.selected_candidate) else "unknown"
-
+    from production.review_actions import swap
     try:
-        updated_res = asset_resolver.swap_asset(
-            resolution_result=run.resolved_assets,
-            scene_id=payload.scene_id,
-            shot_order=payload.shot_order,
-            new_asset_id=payload.new_asset_id,
-        )
-        try:
-            sc_idx = int(''.join(filter(str.isdigit, payload.scene_id)) or 1)
-            pilot_learning_service.record_visual_swap_ground_truth(
-                run_id=run_id,
-                scene_index=sc_idx,
-                rejected_asset_id=rejected_id,
-                selected_replacement_id=payload.new_asset_id,
-                reason=payload.reason or "Operator swapped asset",
-                operator_id=payload.operator_id or "operator",
-            )
-        except Exception as gt_err:
-            logger.warning("Failed to record visual swap ground truth: %s", gt_err)
-
-        run_repository.update(run)
-        return updated_res
+        return swap(run_id, payload.scene_id, payload.shot_order, payload.new_asset_id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+
+
+class ReviewShotPayload(BaseModel):
+    scene_id: str
+    shot_order: int = Field(ge=1)
+    is_locked: bool = False
+
+
+def _handle_visual_lock(run_id: str, payload: ReviewShotPayload):
+    from production.review_actions import lock
+    try:
+        return lock(run_id, payload.scene_id, payload.shot_order, payload.is_locked)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from None
+
+
+async def _handle_resolve_shot(run_id: str, payload: ReviewShotPayload):
+    from production.review_actions import resolve_shot
+    try:
+        return await resolve_shot(run_id, payload.scene_id, payload.shot_order)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from None
 
 
 async def _handle_retry_stage(run_id: str, payload: RetryStagePayload):
@@ -444,6 +483,7 @@ def _handle_export_run(run_id: str) -> Dict[str, Any]:
 
 class PartialRegenPayload(BaseModel):
     scene_id: Optional[str] = None
+    voice_code: Optional[str] = None
 
 
 class LockShotPayload(BaseModel):
@@ -462,27 +502,52 @@ def _handle_get_timeline(run_id: str) -> Dict[str, Any]:
 
 
 async def _handle_regenerate_visual(run_id: str, payload: PartialRegenPayload):
-    try:
-        updated_plan = await orchestrator.regenerate_visual(run_id, scene_id=payload.scene_id)
-        return {"success": True, "message": "Visual plan regenerated successfully", "plan": updated_plan}
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    raise HTTPException(409, 'Dùng Tìm lại tại shot cần đổi trong Kiểm duyệt visual. Không tự thay toàn bộ timeline.')
 
 
 async def _handle_regenerate_voice(run_id: str, payload: PartialRegenPayload):
     try:
-        updated_plan = await orchestrator.regenerate_voice(run_id, scene_id=payload.scene_id)
+        from production.review_actions import change_voice
+        if not payload.voice_code:
+            raise ValueError('Chọn voice trước khi tạo lại audio')
+        updated_plan = await change_voice(run_id, payload.voice_code)
         return {"success": True, "message": "Voice audio regenerated and timeline reconciled successfully", "plan": updated_plan}
-    except Exception as e:
+    except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception:
+        raise HTTPException(503, 'Không thể tạo audio từ TTS provider. Bản cũ được giữ nguyên.') from None
+
+
+async def _handle_voices():
+    from production.review_actions import voices
+    try:
+        return await voices()
+    except Exception:
+        raise HTTPException(503, 'Không thể tải danh sách giọng đọc') from None
 
 
 def _handle_lock_shot(run_id: str, payload: LockShotPayload):
     try:
-        success = orchestrator.lock_shot(run_id, scene_id=payload.scene_id, shot_id=payload.shot_id, is_locked=payload.is_locked)
-        return {"success": success, "message": "Shot lock status updated"}
-    except Exception as e:
+        from production.review_actions import lock
+        run = _handle_get_run(run_id)
+        scene = next((s for s in run.editor_plan.scenes if s.scene_id == payload.scene_id), None) if run.editor_plan else None
+        order = next((shot.resolution_shot_order or i for i, shot in enumerate(scene.shots, 1) if shot.shot_id == payload.shot_id), None) if scene else None
+        if not order:
+            raise ValueError('Không tìm thấy shot')
+        lock(run_id, payload.scene_id, order, payload.is_locked)
+        return {"success": True, "message": "Shot lock status updated"}
+    except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+def _handle_render_review(run_id: str):
+    from production.review_actions import render_review
+    try:
+        return render_review(run_id)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from None
+    except Exception:
+        raise HTTPException(503, 'Không thể gửi timeline tới worker. Vui lòng thử lại.') from None
 
 
 def _handle_get_video(run_id: str):
@@ -519,9 +584,14 @@ def _handle_list_runs(limit: int = 20) -> List[ProductionRun]:
 
 # Register routes on both routers (/production and /auto-production)
 for r in [router, auto_production_router]:
+    r.add_api_route('/voices', _handle_voices, methods=['GET'])
     r.add_api_route("/runs", _handle_create_run, methods=["POST"], response_model=ProductionRun, status_code=status.HTTP_201_CREATED)
     r.add_api_route("/runs", _handle_list_runs, methods=["GET"], response_model=List[ProductionRun])
-    r.add_api_route("/runs/{run_id}", _handle_get_run, methods=["GET"], response_model=ProductionRun)
+    r.add_api_route("/runs/{run_id}", _handle_review_run, methods=["GET"], response_model=ProductionRun)
+    r.add_api_route("/runs/{run_id}/playback", _handle_playback, methods=["GET"])
+    r.add_api_route("/runs/{run_id}/render", _handle_render_review, methods=["POST"])
+    r.add_api_route("/runs/{run_id}/assets/lock", _handle_visual_lock, methods=["POST"])
+    r.add_api_route("/runs/{run_id}/assets/resolve", _handle_resolve_shot, methods=["POST"])
     r.add_api_route("/runs/{run_id}/stages", _handle_get_stages, methods=["GET"])
     r.add_api_route("/runs/{run_id}/export", _handle_export_run, methods=["GET"])
     r.add_api_route("/runs/{run_id}/editor-plan", _handle_get_editor_plan, methods=["GET"], response_model=EditorPlan)

@@ -149,6 +149,7 @@ class EditorPlanner:
         run_id: str = "run_default",
         locked_shots: Optional[Dict[str, ShotPlan]] = None,
         bgm_asset_url: Optional[str] = None,
+        preserve_visual_choices: bool = False,
     ) -> EditorPlan:
         """
         Constructs authoritative FINAL_EDITOR_PLAN.
@@ -214,6 +215,7 @@ class EditorPlanner:
                 is_draft=False,
                 locked_shots=locked_map,
                 recent_sources=used_sources,
+                preserve_visual_choices=preserve_visual_choices,
             )
 
             scenes.append(
@@ -301,6 +303,7 @@ class EditorPlanner:
         is_draft: bool = False,
         locked_shots: Optional[Dict[str, ShotPlan]] = None,
         recent_sources: Optional[List[str]] = None,
+        preserve_visual_choices: bool = False,
     ) -> List[ShotPlan]:
         """
         Reconciles visual candidate shots to exact target duration.
@@ -309,16 +312,16 @@ class EditorPlanner:
         locked_map = locked_shots or {}
         recent = recent_sources or []
 
-        # If no resolutions found, create graphic fallback shot
+        # A draft may represent missing media, but never invent a renderable graphic.
         if not resolutions:
+            if not is_draft:
+                raise ValueError('VISUAL_MEDIA_UNAVAILABLE: no resolved visual for scene')
             return [
                 ShotPlan(
                     shot_id=f"shot_{scene_id}_01",
                     asset_id=f"gfx_{scene_id}",
                     source_id="graphic_backdrop",
-                    provider="graphic_fallback",
-                    media_url="/static/motion_typography_backdrop.mp4",
-                    thumbnail_url="/static/gfx_backdrop_thumb.jpg",
+                    provider="unresolved",
                     timeline_start=scene_start_timeline,
                     timeline_end=round(scene_start_timeline + target_duration, 3),
                     duration_sec=target_duration,
@@ -326,7 +329,7 @@ class EditorPlanner:
                     asset_trim_end=target_duration,
                     visual_role=VisualRole.PROCESS.value,
                     transition_out="cut",
-                    match_score=0.50,
+                    match_score=0.0,
                 )
             ]
 
@@ -334,10 +337,11 @@ class EditorPlanner:
         shot_count = len(resolutions)
 
         # If actual duration is too short (< 3.2s) and 3 shots were planned: condense to 2
-        if target_duration < 3.2 and shot_count == 3:
+        preserve_visual_choices = preserve_visual_choices or any(r.selected_candidate and r.selected_candidate.is_locked for r in resolutions)
+        if not preserve_visual_choices and target_duration < 3.2 and shot_count == 3:
             resolutions = [resolutions[0], resolutions[-1]]
             shot_count = 2
-        elif target_duration < 2.0 and shot_count >= 2:
+        elif not preserve_visual_choices and target_duration < 2.0 and shot_count >= 2:
             resolutions = [resolutions[0]]
             shot_count = 1
 
@@ -389,6 +393,8 @@ class EditorPlanner:
 
             cand = res.selected_candidate
             if not cand:
+                if not is_draft:
+                    raise ValueError('VISUAL_MEDIA_UNAVAILABLE: shot has no selected visual')
                 cand = self._get_fallback_candidate(res, shot_dur)
 
             # Asset Trim Validity Check (Section 10)
@@ -409,7 +415,7 @@ class EditorPlanner:
             else:
                 # Clip is shorter than required shot duration (Section 10)
                 # Check if an alternate candidate has sufficient duration
-                viable_alt = next((alt for alt in res.alternate_candidates if alt.duration_sec >= shot_dur), None)
+                viable_alt = None if preserve_visual_choices or cand.is_locked else next((alt for alt in res.alternate_candidates if alt.duration_sec >= shot_dur), None)
                 if viable_alt:
                     cand = viable_alt
                     asset_duration = cand.duration_sec
@@ -435,12 +441,14 @@ class EditorPlanner:
             shot_timeline_end = round(shot_timeline_start + shot_dur, 3)
 
             shot_plan = ShotPlan(
+                resolution_shot_order=res.shot_order,
                 shot_id=shot_id,
                 asset_id=cand.asset_id,
                 source_id=cand.source_id,
                 provider=cand.provider,
                 media_url=cand.media_url,
                 thumbnail_url=cand.thumbnail_url,
+                resolved_asset=cand.model_copy(deep=True),
                 timeline_start=shot_timeline_start,
                 timeline_end=shot_timeline_end,
                 duration_sec=shot_dur,
@@ -536,14 +544,12 @@ class EditorPlanner:
         return AssetCandidate(
             asset_id=f"gfx_{res.scene_id}_{res.shot_order}",
             source_id="graphic_backdrop",
-            provider="graphic_fallback",
+            provider="unresolved",
             start_sec=0.0,
             end_sec=duration_sec,
             duration_sec=duration_sec,
-            thumbnail_url="/static/gfx_backdrop_thumb.jpg",
-            media_url="/static/motion_typography_backdrop.mp4",
-            composite_score=0.50,
-            rights_state=RightsState.APPROVED_STOCK,
+            composite_score=0.0,
+            rights_state=RightsState.UNKNOWN,
         )
 
 
