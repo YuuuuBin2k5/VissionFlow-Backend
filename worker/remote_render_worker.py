@@ -325,6 +325,7 @@ class ArtifactCache:
                 timeout=self.config.http_timeout_seconds, allow_redirects=False)
             try:
                 if response.status_code != 200:
+                    logger.warning("Asset download rejected: HTTP %d (URL omitted)", response.status_code)
                     raise WorkerError("ASSET_DOWNLOAD_FAILED")
                 received = 0
                 digest = hashlib.sha256()
@@ -693,7 +694,7 @@ class RemoteRenderWorker:
             # exceptions after delivery. Only actual media failures use /fail.
             if self._state_path(job).exists():
                 raise safe
-            if safe.code not in {"ASSET_CHECKSUM_MISMATCH", "RENDER_FAILED", "OUTPUT_INVALID", "FFMPEG_UNAVAILABLE"}:
+            if safe.code not in {"ASSET_DOWNLOAD_FAILED", "ASSET_CHECKSUM_MISMATCH", "RENDER_FAILED", "OUTPUT_INVALID", "FFMPEG_UNAVAILABLE"}:
                 raise safe
             self.client.fail_job(job, safe.code, safe.retryable)
             logger.warning("Render job %s failed: %s", job["job_id"], safe.code)

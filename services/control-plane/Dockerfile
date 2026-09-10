@@ -10,6 +10,7 @@ RUN addgroup --system visionflow && adduser --system --ingroup visionflow vision
 
 COPY services/control-plane/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
+RUN python -c "from google import genai; from google.genai import types"
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
 
 COPY services/control-plane/alembic.ini ./alembic.ini

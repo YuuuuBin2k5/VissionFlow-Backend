@@ -43,6 +43,35 @@ def client(tmp_path, replies):
     return WorkerHttpClient(config, session=session, policy=policy), clock, session
 
 
+def test_asset_download_failure_releases_slot_through_bounded_server_retry(tmp_path, monkeypatch):
+    job = {'job_id': str(uuid.uuid4()), 'run_id': 'run_download_failure', 'attempt': 3}
+    api, _, session = client(tmp_path, [Reply(payload=job), Reply(payload={'status': 'FAILED'}), Reply(204)])
+    worker = RemoteRenderWorker(api.config, api)
+    worker._started = True
+    def fail_download(_):
+        raise WorkerError('ASSET_DOWNLOAD_FAILED')
+    monkeypatch.setattr(worker, '_process', fail_download)
+    assert worker.run_once()
+    assert worker._active is None
+    failures = [kw['json'] for _, url, kw in session.calls if url.endswith('/fail')]
+    assert len(failures) == 1
+    assert failures[0]['attempt'] == 3
+    assert not worker.run_once()
+
+
+def test_failed_failure_delivery_retains_job_for_retry(tmp_path, monkeypatch):
+    job = {'job_id': str(uuid.uuid4()), 'run_id': 'run_download_failure', 'attempt': 1}
+    api, _, _ = client(tmp_path, [Reply(payload=job), requests.Timeout()])
+    worker = RemoteRenderWorker(api.config, api)
+    worker._started = True
+    def fail_download(_):
+        raise WorkerError('ASSET_DOWNLOAD_FAILED')
+    monkeypatch.setattr(worker, '_process', fail_download)
+    with pytest.raises(ControlPlaneError):
+        worker.run_once()
+    assert worker._active == job
+
+
 def test_retry_after_shared_between_claim_and_heartbeat(tmp_path):
     api, clock, session = client(tmp_path, [Reply(429, headers={'Retry-After': '30'}), Reply(204)])
     with pytest.raises(ControlPlaneError, match='RATE_LIMITED'): api.claim_job()
