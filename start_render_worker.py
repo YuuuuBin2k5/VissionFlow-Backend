@@ -130,6 +130,10 @@ def process_workflow_official(wf_id: str) -> bool:
             print(f"  [Worker Route] Skipping '{title}' ({wf_id}) in standard B-roll pipeline (Handled by DubbingStrategy).")
             return False
 
+        # Atomically mark workflow as RENDERING in DB to prevent concurrent runs
+        wf.state = "RENDERING"
+        session_db.commit()
+
     print(f"\n=======================================================")
     print(f"[WORKER] PROCESSING VIDEO: '{title}' (ID: {wf_id})")
     print(f"=======================================================")
@@ -187,17 +191,30 @@ def process_workflow_official(wf_id: str) -> bool:
             print(f"[DB Auto-Publish] ⚡ Auto-Publish ON: Workflow {wf_id} -> PUBLISHED!")
             try:
                 from worker.application.publish_use_case import handle_publish
-                job_id = int(wf.metadata_json.get("job_id", 0)) if wf.metadata_json else 0
+                job_id = int(wf.metadata_json.get("job_id", 0)) if getattr(wf, "metadata_json", None) else 0
                 if job_id:
                     handle_publish(job_id=job_id)
             except Exception as pub_err:
                 print(f"[DB Auto-Publish Notice] Immediate publish execution: {pub_err}")
         else:
+            with Session(get_engine()) as fresh_db:
+                wf_t = fresh_db.get(WorkflowRun, wf_id)
+                if wf_t:
+                    wf_t.state = "APPROVAL_PENDING"
+                    fresh_db.commit()
             print(f"[DB] Auto-Publish OFF: Workflow {wf_id} -> APPROVAL_PENDING (Ready for Studio review)!\n")
 
         return True
     else:
-        print(f"\n❌ [FAILED] RENDER FAILED FOR {wf_id}: {result.get('error')}")
+        err_msg = str(result.get("error", "Unknown render error"))
+        print(f"\n❌ [FAILED] RENDER FAILED FOR {wf_id}: {err_msg}")
+        with Session(get_engine()) as fresh_db:
+            wf_t = fresh_db.get(WorkflowRun, wf_id)
+            if wf_t:
+                wf_t.state = "FAILED"
+                wf_t.failure_code = "RENDER_FAILED"
+                wf_t.failure_detail = err_msg[:1000]
+                fresh_db.commit()
         return False
 
 
