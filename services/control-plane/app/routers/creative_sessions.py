@@ -66,7 +66,7 @@ class CreateProposalRequest(BaseModel):
     title: str = Field(min_length=1, max_length=240)
     brief: str = Field(min_length=1, max_length=50000)
     script: str = Field(min_length=40, max_length=50000)
-    scenes: list[dict] = Field(min_length=3, max_length=20)
+    scenes: list[dict] = Field(min_length=3, max_length=100)
     publish_metadata: dict[str, Any] | None = None
 
 

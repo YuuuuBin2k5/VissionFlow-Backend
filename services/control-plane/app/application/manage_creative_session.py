@@ -396,8 +396,8 @@ class ManageCreativeSession:
     ) -> uuid.UUID:
         if len(script) < 40:
             raise CreativeSessionError("Script must be at least 40 characters long.")
-        if not (3 <= len(scenes) <= 20):
-            raise CreativeSessionError("Scenes count must be between 3 and 20.")
+        if not (3 <= len(scenes) <= 100):
+            raise CreativeSessionError("Scenes count must be between 3 and 100.")
 
         fingerprint_payload = {
             "title": title,
@@ -495,8 +495,8 @@ class ManageCreativeSession:
     ) -> uuid.UUID:
         if len(script) < 40:
             raise CreativeSessionError("Script must be at least 40 characters long.")
-        if not (3 <= len(scenes) <= 20):
-            raise CreativeSessionError("Scenes count must be between 3 and 20.")
+        if not (3 <= len(scenes) <= 100):
+            raise CreativeSessionError("Scenes count must be between 3 and 100.")
 
         fingerprint_payload = {
             "parent_proposal_id": str(parent_proposal_id),

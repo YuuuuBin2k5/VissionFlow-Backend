@@ -112,8 +112,8 @@ def _validate_generated(generated: dict[str, Any]) -> tuple[str, list[dict[str, 
     scenes = generated.get("scenes_layout_json")
     if not isinstance(script, str) or len(script.strip()) < 40:
         raise ValueError("generator returned an invalid short-form script")
-    if not isinstance(scenes, list) or not 3 <= len(scenes) <= 20:
-        raise ValueError("generator must return between 3 and 20 storyboard scenes")
+    if not isinstance(scenes, list) or not 3 <= len(scenes) <= 100:
+        raise ValueError("generator must return between 3 and 100 storyboard scenes")
     normalized: list[dict[str, Any]] = []
     for index, scene in enumerate(scenes, start=1):
         if not isinstance(scene, dict):

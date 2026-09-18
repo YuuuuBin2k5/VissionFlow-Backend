@@ -232,7 +232,7 @@ class RecordNarrationRequest(BaseModel):
     organization_id: uuid.UUID
     idempotency_key: str = Field(min_length=16, max_length=128)
     script: str = Field(min_length=40, max_length=50_000)
-    scenes: list[RecordNarrationSceneRequest] = Field(min_length=3, max_length=20)
+    scenes: list[RecordNarrationSceneRequest] = Field(min_length=3, max_length=100)
     source_metadata: SourceMetadataRequest
     # narration_attempt_id is required and must have been obtained from the
     # context-by-job or execution-context endpoint before submitting results.
@@ -324,7 +324,7 @@ class SaveCreativeDraftRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     organization_id: uuid.UUID
     script: str = Field(min_length=40, max_length=50_000)
-    scenes: list[CreativeSceneRequest] = Field(min_length=3, max_length=20)
+    scenes: list[CreativeSceneRequest] = Field(min_length=3, max_length=100)
 
 
 class CreativeDocumentSceneRequest(BaseModel):
@@ -341,7 +341,7 @@ class SaveCreativeDocumentRequest(BaseModel):
     organization_id: uuid.UUID
     expected_revision: int = Field(ge=0)
     script: str = Field(min_length=40, max_length=50_000)
-    scenes: list[CreativeDocumentSceneRequest] = Field(min_length=3, max_length=20)
+    scenes: list[CreativeDocumentSceneRequest] = Field(min_length=3, max_length=100)
 
 
 class LockCreativeDocumentRequest(BaseModel):
