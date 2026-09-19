@@ -173,6 +173,8 @@ def process_workflow_official(wf_id: str) -> bool:
     print(f"  [Studio Sync] Logo Handle: {contract_payload.get('logo_handle')} (Pos: {contract_payload.get('logo_position')})")
     print(f"  [Studio Sync] Captions Preset: {contract_payload.get('caption_preset')} (Font: {contract_payload.get('caption_font_family')}, Color: {contract_payload.get('caption_color')})")
     print(f"  [Studio Sync] Title Banner: {contract_payload.get('title_banner_text')} (Style: {contract_payload.get('title_banner_style')})")
+    print(f"  [Studio Sync] BGM: Preset='{contract_payload.get('bgm_preset') or 'Auto'}', Vol={contract_payload.get('bgm_volume', 0.12)}")
+    print(f"  [Studio Sync] Visual Engine: {contract_payload.get('visual_engine') or 'fal_ai'}")
     print(f"  [Studio Sync] Scene Count: {len(contract_payload.get('scenes') or [])}")
 
     # 3. Execute Unified FFmpeg 7.1 Video Composition Engine

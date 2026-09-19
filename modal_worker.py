@@ -595,7 +595,20 @@ SOUNDBANK_REGISTRY = {
 
 def detect_video_genre_modal(title: str, script: str = "", explicit_genre: str = "") -> str:
     if isinstance(explicit_genre, str) and explicit_genre.strip():
-        return explicit_genre.strip()
+        eg = explicit_genre.strip().lower()
+        if any(k in eg for k in ["documentary", "tài liệu", "triết lý", "chiêm nghiệm", "nhân sinh", "life", "wisdom", "philosophy", "lifestyle", "cuộc sống"]):
+            return "PHILOSOPHY_LIFE_LESSON"
+        if any(k in eg for k in ["mystery", "bí ẩn", "rùng rợn", "horror", "paranormal", "vụ án"]):
+            return "MYSTERY_PARANORMAL_HISTORY"
+        if any(k in eg for k in ["wealth", "tài chính", "tiền", "finance", "kinh doanh", "money", "làm giàu"]):
+            return "WEALTH_FINANCE_MINDSET"
+        if any(k in eg for k in ["strategy", "chiến thuật", "binh pháp", "war", "lịch sử", "ancient"]):
+            return "ANCIENT_STRATEGY_WAR"
+        if any(k in eg for k in ["tech", "công nghệ", "vũ trụ", "khoa học", "science", "future", "ai", "robot"]):
+            return "SCIENCE_TECH_FUTURE"
+        if eg.upper() in SOUNDBANK_REGISTRY:
+            return eg.upper()
+
     combined = f"{title} {script}".lower()
     if any(k in combined for k in ["mary celeste", "flannan", "bí ẩn", "mất tích", "hải đăng", "tàu ma", "bốc hơi", "rùng rợn", "hồ sơ", "vụ án", "đại dương", "paranormal", "mystery", "unsolved", "ghost ship", "horror"]):
         return "MYSTERY_PARANORMAL_HISTORY"
@@ -605,9 +618,9 @@ def detect_video_genre_modal(title: str, script: str = "", explicit_genre: str =
         return "ANCIENT_STRATEGY_WAR"
     if any(k in combined for k in ["khoa học", "vũ trụ", "công nghệ", "ai", "trí tuệ nhân tạo", "robot", "hố đen", "tương lai", "science", "universe"]):
         return "SCIENCE_TECH_FUTURE"
-    if any(k in combined for k in ["bài học", "triết lý", "nhân sinh", "kinh nghiệm sống", "thức tỉnh", "tâm hồn", "lời người xưa", "thời xưa", "đạo làm người", "goc chiem nghiem", "cuộc sống", "wisdom", "life lesson"]):
+    if any(k in combined for k in ["bài học", "triết lý", "nhân sinh", "kinh nghiệm sống", "thức tỉnh", "tâm hồn", "lời người xưa", "thời xưa", "đạo làm người", "goc chiem nghiem", "cuộc sống", "wisdom", "life lesson", "dunning-kruger", "tâm lý"]):
         return "PHILOSOPHY_LIFE_LESSON"
-    return "GENERAL_DISCOVERY"
+    return "PHILOSOPHY_LIFE_LESSON"
 
 def resolve_genre_bgm_modal(genre: str, mood_override: str = "", custom_url: str = "", track_index: int = 0) -> dict:
     if custom_url and custom_url.startswith("http"):
@@ -621,9 +634,18 @@ def resolve_genre_bgm_modal(genre: str, mood_override: str = "", custom_url: str
             "credit": "",
             "mood": mood_override or "custom"
         }
-    genre_key = genre.upper() if genre else "GENERAL_DISCOVERY"
-    tracks = SOUNDBANK_REGISTRY.get(genre_key, SOUNDBANK_REGISTRY["GENERAL_DISCOVERY"])
-    if mood_override:
+
+    # 1. Tra cứu trực tiếp theo BGM Preset ID hoặc Tên bài trên toàn bộ Soundbank
+    if mood_override and mood_override.strip() and mood_override.strip().lower() != "auto":
+        clean_override = mood_override.strip().lower()
+        for g_tracks in SOUNDBANK_REGISTRY.values():
+            for t in g_tracks:
+                if clean_override == t.get("id", "").lower() or clean_override in t.get("id", "").lower() or clean_override in t.get("name", "").lower():
+                    return t
+
+    genre_key = genre.upper() if genre else "PHILOSOPHY_LIFE_LESSON"
+    tracks = SOUNDBANK_REGISTRY.get(genre_key, SOUNDBANK_REGISTRY["PHILOSOPHY_LIFE_LESSON"])
+    if mood_override and mood_override.strip() and mood_override.strip().lower() != "auto":
         for t in tracks:
             if mood_override.lower() in t.get("mood", "").lower():
                 return t
@@ -1355,19 +1377,35 @@ def create_logo_pill_overlay(
     canvas_h: int = 1920,
     x_percent: float = 18.0,
     y_percent: float = 6.0,
-    output_path: str = "/tmp/logo_pill_overlay.png"
+    output_path: str = "/tmp/logo_pill_overlay.png",
+    logo_url: str = ""
 ) -> str:
-    """Generates pixel-perfect Glassmorphic Channel Logo Pill matching Studio Preview."""
+    """Generates pixel-perfect Glassmorphic Channel Logo Pill supporting real image logo & handle matching Studio Preview."""
     img = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
-    if not logo_handle:
+    clean_handle = (logo_handle or "").split("||")[0].strip()
+    if clean_handle and not clean_handle.startswith("@"):
+        clean_handle = f"@{clean_handle}"
+
+    # 1. Tải và xử lý file ảnh logo thương hiệu (nếu được cung cấp)
+    logo_img = None
+    if logo_url and (logo_url.startswith("http://") or logo_url.startswith("https://") or os.path.exists(logo_url)):
+        try:
+            if logo_url.startswith("http"):
+                import requests
+                from io import BytesIO
+                r_logo = requests.get(logo_url, timeout=10)
+                if r_logo.status_code == 200 and len(r_logo.content) > 500:
+                    logo_img = Image.open(BytesIO(r_logo.content)).convert("RGBA")
+            elif os.path.exists(logo_url) and os.path.getsize(logo_url) > 500:
+                logo_img = Image.open(logo_url).convert("RGBA")
+        except Exception as l_img_err:
+            print(f"[Modal] Notice: Could not load logo image ({l_img_err})", flush=True)
+
+    if not clean_handle and not logo_img:
         img.save(output_path, "PNG")
         return output_path
-        
+
     draw = ImageDraw.Draw(img)
-    clean_handle = logo_handle.split("||")[0].strip()
-    if not clean_handle.startswith("@"):
-        clean_handle = f"@{clean_handle}"
-        
     font_size = 28
     font = None
     for font_name in [
@@ -1384,43 +1422,108 @@ def create_logo_pill_overlay(
                 pass
     if not font:
         font = ImageFont.load_default()
-        
-    bbox = draw.textbbox((0, 0), clean_handle, font=font)
+
+    bbox = draw.textbbox((0, 0), clean_handle, font=font) if clean_handle else (0, 0, 0, 0)
     text_w = bbox[2] - bbox[0]
-    text_h = bbox[3] - bbox[1]
-    
-    dot_radius = 6
-    pad_l = 22
-    pad_r = 22
+    text_h = bbox[3] - bbox[1] if clean_handle else 28
+
+    icon_size = 32 if logo_img else 12
+    pad_l = 18
+    pad_r = 22 if clean_handle else 18
     pad_y = 12
-    dot_spacing = 14
-    
-    pill_w = pad_l + (dot_radius * 2) + dot_spacing + text_w + pad_r
-    pill_h = max(text_h + pad_y * 2, 50)
-    
+    dot_spacing = 12 if clean_handle else 0
+
+    pill_w = pad_l + icon_size + dot_spacing + text_w + pad_r
+    pill_h = max(text_h + pad_y * 2, icon_size + 16, 50)
+
     center_x = int(canvas_w * (x_percent / 100.0))
     center_y = int(canvas_h * (y_percent / 100.0))
-    
+
     x0 = center_x - pill_w // 2
     y0 = center_y - pill_h // 2
     x1 = center_x + pill_w // 2
     y1 = center_y + pill_h // 2
-    
+
     bg_color = (2, 6, 23, 215)          # Dark Slate 85%
     border_color = (52, 211, 153, 110)  # Emerald border
     dot_color = (52, 211, 153, 255)     # Glowing green dot
     text_color = (110, 231, 183, 255)   # Mint Emerald text
-    
+
     draw.rounded_rectangle((x0, y0, x1, y1), radius=pill_h // 2, fill=bg_color, outline=border_color, width=2)
-    
-    dot_cx = x0 + pad_l + dot_radius
-    dot_cy = center_y
-    draw.ellipse((dot_cx - dot_radius, dot_cy - dot_radius, dot_cx + dot_radius, dot_cy + dot_radius), fill=dot_color)
-    
-    text_x = dot_cx + dot_radius + dot_spacing
-    text_y = center_y
-    draw.text((text_x, text_y), clean_handle, font=font, fill=text_color, anchor="lm")
-    
+
+    icon_x = x0 + pad_l
+    icon_y = center_y - icon_size // 2
+
+    if logo_img:
+        try:
+            # Resize logo maintaining aspect ratio
+            logo_img.thumbnail((icon_size, icon_size), Image.Resampling.LANCZOS)
+            img.alpha_composite(logo_img, (icon_x, center_y - logo_img.height // 2))
+        except Exception:
+            draw.ellipse((icon_x, center_y - 6, icon_x + 12, center_y + 6), fill=dot_color)
+    else:
+        draw.ellipse((icon_x, center_y - 6, icon_x + 12, center_y + 6), fill=dot_color)
+
+    if clean_handle:
+        text_x = icon_x + icon_size + dot_spacing
+        text_y = center_y
+        draw.text((text_x, text_y), clean_handle, font=font, fill=text_color, anchor="lm")
+
+    img.save(output_path, "PNG")
+    return output_path
+
+def create_outro_card_overlay(
+    title: str = "",
+    logo_handle: str = "@GocChiemNghiem",
+    canvas_w: int = 1080,
+    canvas_h: int = 1920,
+    output_path: str = "/tmp/outro_card_overlay.png"
+) -> str:
+    """Generates an aesthetic, frosted-glass Outro Brand Card for the final seconds of the video."""
+    img = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+    clean_handle = str(logo_handle or "@GocChiemNghiem").split("||")[0].strip()
+    if not clean_handle.startswith("@"):
+        clean_handle = f"@{clean_handle}"
+
+    font_title = None
+    font_sub = None
+    for font_name in [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "C:/Windows/Fonts/arialbd.ttf",
+        "C:/Windows/Fonts/tahoma.ttf"
+    ]:
+        if os.path.exists(font_name):
+            try:
+                font_title = ImageFont.truetype(font_name, 38)
+                font_sub = ImageFont.truetype(font_name, 26)
+                break
+            except Exception:
+                pass
+    if not font_title:
+        font_title = ImageFont.load_default()
+        font_sub = ImageFont.load_default()
+
+    card_w = 720
+    card_h = 220
+    center_x = canvas_w // 2
+    center_y = int(canvas_h * 0.50)
+    x0, y0 = center_x - card_w // 2, center_y - card_h // 2
+    x1, y1 = center_x + card_w // 2, center_y + card_h // 2
+
+    # Cyan Glow Halo
+    glow_img = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+    glow_draw = ImageDraw.Draw(glow_img)
+    glow_draw.rounded_rectangle((x0 - 18, y0 - 18, x1 + 18, y1 + 18), radius=36, fill=(6, 182, 212, 110))
+    glow_img = glow_img.filter(ImageFilter.GaussianBlur(18))
+    img = Image.alpha_composite(img, glow_img)
+
+    # Frosted Slate Card
+    draw = ImageDraw.Draw(img)
+    draw.rounded_rectangle((x0, y0, x1, y1), radius=28, fill=(15, 23, 42, 238), outline=(56, 189, 248, 220), width=3)
+    display_title = title[:42] + "..." if len(title) > 42 else title
+    draw.text((center_x, center_y - 50), clean_handle, font=font_title, fill=(56, 189, 248, 255), anchor="mm")
+    draw.text((center_x, center_y), f"« {display_title} »" if display_title else "Cảm Ơn Bạn Đã Lắng Nghe", font=font_sub, fill=(255, 255, 255, 240), anchor="mm")
+    draw.text((center_x, center_y + 50), "Lưu lại & Chia sẻ nếu thấy hữu ích ✨", font=font_sub, fill=(245, 158, 11, 255), anchor="mm")
     img.save(output_path, "PNG")
     return output_path
 
@@ -1721,19 +1824,38 @@ def _render_scene_chunk_impl(scene_payload: dict) -> dict:
                     print(f"[MicroWorker {scene_idx}] Notice: Media URL download error: {dl_err}", flush=True)
                 
         if not downloaded:
-            pexels_key = os.environ.get("PEXELS_API_KEY", "")
-            pex_url = fetch_pexels_video_for_keyword(keyword, pexels_key, scene_idx=scene_idx)
-            if pex_url and is_safe_url(pex_url):
-                try:
-                    r_pex = requests.get(pex_url, timeout=25, stream=True)
-                    if r_pex.status_code == 200:
-                        with open(raw_media_path, "wb") as f_raw:
-                            for chunk in r_pex.iter_content(chunk_size=8192):
-                                f_raw.write(chunk)
-                        downloaded = True
-                        print(f"[MicroWorker {scene_idx}] 🎯 Downloaded Stock HD video for query: '{keyword}' ({pex_url[:60]}...)", flush=True)
-                except Exception as pex_err:
-                    print(f"[MicroWorker {scene_idx}] Notice: Stock video download error: {pex_err}", flush=True)
+            visual_engine = str(scene_payload.get("visual_engine") or scene_payload.get("asset_source") or "fal_ai").lower()
+            visual_prompt = str(scene_payload.get("visual_prompt") or scene_payload.get("prompt") or scene_payload.get("narration") or keyword).strip()
+
+            if visual_engine in ["fal_ai", "ai", "fal"]:
+                # 1. Ưu tiên sinh ảnh AI nghệ thuật bám sát visual prompt của phân cảnh
+                print(f"[MicroWorker {scene_idx}] 🎨 Visual Engine 'fal_ai' active: Generating AI scene visuals for prompt: '{visual_prompt[:40]}...'...", flush=True)
+                ai_ok = fetch_ai_image_fallback(visual_prompt, raw_media_path)
+                if ai_ok and os.path.exists(raw_media_path) and os.path.getsize(raw_media_path) > 10000:
+                    downloaded = True
+                    print(f"[MicroWorker {scene_idx}] ✨ AI Visual successfully created ({os.path.getsize(raw_media_path)} bytes)!", flush=True)
+
+            if not downloaded:
+                # 2. Tìm kiếm Stock Video chân thực trên Pexels HD API
+                pexels_key = os.environ.get("PEXELS_API_KEY", "")
+                pex_url = fetch_pexels_video_for_keyword(keyword, pexels_key, scene_idx=scene_idx)
+                if pex_url and is_safe_url(pex_url):
+                    try:
+                        r_pex = requests.get(pex_url, timeout=25, stream=True)
+                        if r_pex.status_code == 200:
+                            with open(raw_media_path, "wb") as f_raw:
+                                for chunk in r_pex.iter_content(chunk_size=8192):
+                                    f_raw.write(chunk)
+                            downloaded = True
+                            print(f"[MicroWorker {scene_idx}] 🎯 Downloaded Stock HD video for query: '{keyword}' ({pex_url[:60]}...)", flush=True)
+                    except Exception as pex_err:
+                        print(f"[MicroWorker {scene_idx}] Notice: Stock video download error: {pex_err}", flush=True)
+
+            if not downloaded and visual_engine not in ["fal_ai", "ai", "fal"]:
+                # Fallback sang AI generator nếu Pexels cũng không tìm ra video
+                ai_ok = fetch_ai_image_fallback(visual_prompt, raw_media_path)
+                if ai_ok and os.path.exists(raw_media_path) and os.path.getsize(raw_media_path) > 10000:
+                    downloaded = True
                     
         # Normalize and trim to exact duration, resolution, 60fps CRF 18
         if downloaded and os.path.exists(raw_media_path) and os.path.getsize(raw_media_path) > 10000:
@@ -2111,7 +2233,8 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
 
         logo_png_path = f"{work_dir}/logo_overlay.png"
         has_logo = False
-        if watermark_text:
+        logo_url_input = str(contract_payload.get("logoUrl") or contract_payload.get("logo_url") or "").strip()
+        if watermark_text or logo_url_input:
             try:
                 create_logo_pill_overlay(
                     logo_handle=watermark_text,
@@ -2119,7 +2242,8 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
                     canvas_h=res_h,
                     x_percent=watermark_x_percent,
                     y_percent=watermark_y_percent,
-                    output_path=logo_png_path
+                    output_path=logo_png_path,
+                    logo_url=logo_url_input
                 )
                 has_logo = os.path.exists(logo_png_path) and os.path.getsize(logo_png_path) > 1000
                 if has_logo:
@@ -2142,6 +2266,24 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
                     print(f"[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!", flush=True)
             except Exception as cta_err:
                 print(f"[Modal] Notice: Follow CTA generation fallback: {cta_err}", flush=True)
+
+        outro_png_path = f"{work_dir}/outro_card_overlay.png"
+        has_outro = False
+        enable_outro_card = bool(contract_payload.get("enableOutroCard", contract_payload.get("enable_outro_card", False)))
+        if enable_outro_card:
+            try:
+                create_outro_card_overlay(
+                    title=title_banner_text or contract_payload.get("title", ""),
+                    logo_handle=watermark_text,
+                    canvas_w=res_w,
+                    canvas_h=res_h,
+                    output_path=outro_png_path
+                )
+                has_outro = os.path.exists(outro_png_path) and os.path.getsize(outro_png_path) > 1000
+                if has_outro:
+                    print(f"[Modal] 🎬 Created Frosted-Glass Outro Card Overlay for Video Outro!", flush=True)
+            except Exception as outro_err:
+                print(f"[Modal] Notice: Outro Card generation fallback: {outro_err}", flush=True)
 
         # 2. Generate ASS Subtitles with Kinetic Karaoke highlight
         ass_path = f"{work_dir}/subtitles.ass"
@@ -2607,6 +2749,13 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
             cta_start = max(0.5, video_duration - 3.5)
             filter_steps.append(f"{curr_v}[{next_input_idx}:v]overlay=0:0:enable='between(t,{cta_start:.2f},{video_duration:.2f})'[vcta]")
             curr_v = "[vcta]"
+            next_input_idx += 1
+
+        if has_outro:
+            extra_inputs.extend(["-loop", "1", "-i", outro_png_path])
+            outro_start = max(0.5, video_duration - 3.0)
+            filter_steps.append(f"{curr_v}[{next_input_idx}:v]overlay=0:0:enable='between(t,{outro_start:.2f},{video_duration:.2f})'[voutro]")
+            curr_v = "[voutro]"
             next_input_idx += 1
 
         filter_steps.append(f"{curr_v}subtitles=filename='{ass_path_escaped}'[vout]")

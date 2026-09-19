@@ -1137,6 +1137,7 @@ class ManageCreativeSession:
                     "transition": _normalize_transition(sc.get("transition", "cut")),
                     "caption": sc.get("caption"),
                     "asset_source": scene_asset_source,
+                    "visual_engine": scene_asset_source,
                     "visual_search_keywords": sc.get("visual_search_keywords") or sc.get("visual_prompt", ""),
                     "mascot_profile": sc.get("mascot_profile"),
                     "style_preset": sc.get("style_preset", creation_spec.get("visual_preset", "cozy_anime_3d")),

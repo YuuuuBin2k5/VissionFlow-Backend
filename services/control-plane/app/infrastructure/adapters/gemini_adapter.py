@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import logging
@@ -201,6 +201,10 @@ class GeminiCreativePlanningAdapter(CreativePlanningProvider):
         }
 
         # Build System Instruction
+        expected_dur = int(creation_spec.get('duration_seconds') or 45)
+        target_words = int(expected_dur * 2.4)
+        max_words = int(expected_dur * 2.7)
+        min_words = max(20, int(expected_dur * 1.8))
         system_instruction = (
             f"You are VisionFlow Creative AI. Your task is to act as a Video Scene Planner and a Visual Art Director "
             f"to generate vertical short-form video script proposals.\n\n"
@@ -214,7 +218,9 @@ class GeminiCreativePlanningAdapter(CreativePlanningProvider):
             f"Voice Actor Preset: {creation_spec.get('voice')}\n"
             f"Caption Subtitle Preset: {creation_spec.get('caption_preset')}\n"
             f"Visual Preset Theme: {creation_spec.get('visual_preset')}\n"
-            f"Expected Duration: {creation_spec.get('duration_seconds')} seconds\n"
+            f"Expected Duration: {expected_dur} seconds\n"
+            f"CRITICAL PACING RULE: The total narrator script word count MUST be approximately {target_words} words (strictly between {min_words} and {max_words} words) "
+            f"to speak naturally within the requested {expected_dur} seconds. DO NOT write an excessively long script exceeding {max_words} words!\n"
         )
 
         # Map history to Gemini content parts
