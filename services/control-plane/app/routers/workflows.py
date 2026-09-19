@@ -452,6 +452,7 @@ class ApproveManualApprovalRequest(BaseModel):
 
     organization_id: uuid.UUID
     note: str | None = Field(default=None, max_length=2_000)
+    publish_metadata: dict[str, Any] | None = None
 
 
 class BeginManualPublishRequest(BaseModel):
@@ -1279,7 +1280,14 @@ def list_publication_history(organization_id: uuid.UUID, limit: int = Query(defa
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.WORKFLOW_VIEW, identity.email)
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
-    rows = session.execute(select(WorkflowRun, VideoProject, WorkflowStep).join(VideoProject, WorkflowRun.project_id == VideoProject.id).join(WorkflowStep, (WorkflowStep.workflow_run_id == WorkflowRun.id) & (WorkflowStep.step_key == "publish")).where(VideoProject.organization_id == organization_id, WorkflowRun.state == WorkflowState.PUBLISHED.value).order_by(WorkflowRun.created_at.desc()).limit(limit)).all()
+    rows = session.execute(
+        select(WorkflowRun, VideoProject, WorkflowStep)
+        .join(VideoProject, WorkflowRun.project_id == VideoProject.id)
+        .outerjoin(WorkflowStep, (WorkflowStep.workflow_run_id == WorkflowRun.id) & (WorkflowStep.step_key == "publish"))
+        .where(VideoProject.organization_id == organization_id, WorkflowRun.state == WorkflowState.PUBLISHED.value)
+        .order_by(WorkflowRun.created_at.desc())
+        .limit(limit)
+    ).all()
     return PublicationHistoryResponse(
         items=[
             PublishedVideoResponse(
@@ -1288,13 +1296,12 @@ def list_publication_history(organization_id: uuid.UUID, limit: int = Query(defa
                 title=project.title,
                 state=workflow.state,
                 created_at=workflow.created_at,
-                scheduled_at_iso=str(step.output_payload.get("scheduled_at_iso")) if step.output_payload.get("scheduled_at_iso") else (workflow.updated_at.isoformat() if workflow.updated_at else None),
-                published_at_iso=str(step.output_payload.get("published_at_iso")) if step.output_payload.get("published_at_iso") else (workflow.updated_at.isoformat() if workflow.updated_at else None),
-                external_url=str(step.output_payload.get("external_url", "")),
-                external_video_id=str(step.output_payload.get("external_video_id", "")),
+                scheduled_at_iso=str(step.output_payload.get("scheduled_at_iso")) if (step and isinstance(step.output_payload, dict) and step.output_payload.get("scheduled_at_iso")) else (workflow.updated_at.isoformat() if workflow.updated_at else None),
+                published_at_iso=str(step.output_payload.get("published_at_iso")) if (step and isinstance(step.output_payload, dict) and step.output_payload.get("published_at_iso")) else (workflow.updated_at.isoformat() if workflow.updated_at else None),
+                external_url=str(step.output_payload.get("external_url", "")) if (step and isinstance(step.output_payload, dict)) else "",
+                external_video_id=str(step.output_payload.get("external_video_id", "")) if (step and isinstance(step.output_payload, dict)) else "",
             )
             for workflow, project, step in rows
-            if isinstance(step.output_payload, dict)
         ]
     )
 
@@ -1575,6 +1582,21 @@ def approve_manual_approval(
         if not reviewer_sub:
             reviewer_sub = "operator|admin"
 
+        if request.publish_metadata:
+            wf_obj = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
+            if wf_obj:
+                existing_manifest = dict(wf_obj.prompt_manifest) if isinstance(wf_obj.prompt_manifest, dict) else {}
+                existing_user = existing_manifest.get("publish_metadata_user")
+                merged_user = dict(existing_user) if isinstance(existing_user, dict) else {}
+                for platform, values in request.publish_metadata.items():
+                    if isinstance(values, dict):
+                        prior = merged_user.get(platform)
+                        merged_user[platform] = {**(prior if isinstance(prior, dict) else {}), **values}
+                if merged_user:
+                    existing_manifest["publish_metadata_user"] = merged_user
+                    wf_obj.prompt_manifest = existing_manifest
+                    session.flush()
+
         result = ManualApproval(AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(session))).approve(
             ApproveManualReviewCommand(
                 organization_id=request.organization_id,
@@ -1783,18 +1805,27 @@ def _process_publication_attempt_in_background(
                 WorkflowStep.step_key == "publish",
             )
         )
-        if publish_step:
-            publish_step.state = WorkflowState.PUBLISHED
-            payload = dict(publish_step.output_payload) if isinstance(publish_step.output_payload, dict) else {}
-            payload["provider"] = "youtube"
-            payload["publisher_connection_id"] = str(publisher_connection_id)
-            payload["external_video_id"] = result.video_id
-            payload["external_url"] = result.url
-            now_iso = datetime.now(UTC).isoformat()
-            if not payload.get("scheduled_at_iso"):
-                payload["scheduled_at_iso"] = now_iso
-            payload["published_at_iso"] = now_iso
-            publish_step.output_payload = payload
+        if publish_step is None:
+            publish_step = WorkflowStep(
+                workflow_run_id=workflow_run_id,
+                step_key="publish",
+                state=WorkflowState.PUBLISHED.value,
+                attempt_count=1,
+                input_payload={},
+                output_payload={},
+            )
+            session.add(publish_step)
+        publish_step.state = WorkflowState.PUBLISHED.value
+        payload = dict(publish_step.output_payload) if isinstance(publish_step.output_payload, dict) else {}
+        payload["provider"] = "youtube"
+        payload["publisher_connection_id"] = str(publisher_connection_id)
+        payload["external_video_id"] = result.video_id
+        payload["external_url"] = result.url
+        now_iso = datetime.now(UTC).isoformat()
+        if not payload.get("scheduled_at_iso"):
+            payload["scheduled_at_iso"] = now_iso
+        payload["published_at_iso"] = now_iso
+        publish_step.output_payload = payload
 
         session.commit()
         _bg_logger.info(

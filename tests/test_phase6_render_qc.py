@@ -219,6 +219,93 @@ class TestPhase6RenderQC(unittest.TestCase):
         self.assertEqual(visual_axis.status, QualityStatus.FAIL)
         self.assertTrue(any("Severe visual mismatch" in b for b in visual_axis.blockers))
 
+    def test_semantic_qc_scopes_actions_to_the_matching_scene_and_shot(self):
+        """Multi-shot scene intents must not be shifted onto subsequent scenes."""
+        editor_plan = EditorPlan(
+            plan_id="plan_action_scope",
+            duration_seconds=4.0,
+            scenes=[
+                ScenePlan(
+                    scene_id="scene_001",
+                    narration="Automated semiconductor etching.",
+                    actual_duration_seconds=2.0,
+                    shots=[
+                        ShotPlan(
+                            shot_id="shot_scene_001_01",
+                            asset_id="asset_etching",
+                            resolution_shot_order=1,
+                            match_score=0.45,
+                            visual_prompt="automated etching machine in a cleanroom",
+                        ),
+                    ],
+                ),
+                ScenePlan(
+                    scene_id="scene_002",
+                    narration="Robotic wafer handling.",
+                    actual_duration_seconds=2.0,
+                    shots=[
+                        ShotPlan(
+                            shot_id="shot_scene_002_01",
+                            asset_id="asset_robotic",
+                            resolution_shot_order=1,
+                            match_score=0.45,
+                            visual_prompt="robotic wafer handling arm",
+                        ),
+                    ],
+                ),
+            ],
+        )
+        visual_plan = VisualPlan(
+            intents=[
+                VisualIntent(scene_id="scene_001", shot_order=1, actions=["etching"]),
+                VisualIntent(scene_id="scene_001", shot_order=2, actions=["photolithography"]),
+                VisualIntent(scene_id="scene_002", shot_order=1, actions=["robotic"]),
+            ]
+        )
+
+        visual_axis, _ = semantic_qc.evaluate(
+            artifact=self.artifact,
+            editor_plan=editor_plan,
+            visual_plan=visual_plan,
+        )
+
+        self.assertFalse(any("Required action" in warning for warning in visual_axis.warnings))
+
+    def test_semantic_qc_does_not_infer_missing_actions_from_graphic_fallback(self):
+        """A graphic fallback has no footage metadata and cannot prove an action mismatch."""
+        editor_plan = EditorPlan(
+            plan_id="plan_graphic_action_scope",
+            duration_seconds=2.0,
+            scenes=[
+                ScenePlan(
+                    scene_id="scene_001",
+                    narration="Automated production process.",
+                    actual_duration_seconds=2.0,
+                    shots=[
+                        ShotPlan(
+                            shot_id="shot_scene_001_01",
+                            asset_id="gfx_scene_001_01",
+                            provider="graphic_fallback",
+                            is_graphic_fallback=True,
+                            resolution_shot_order=1,
+                            match_score=0.2,
+                        ),
+                    ],
+                ),
+            ],
+        )
+        visual_plan = VisualPlan(
+            intents=[VisualIntent(scene_id="scene_001", shot_order=1, actions=["automated"])]
+        )
+
+        visual_axis, _ = semantic_qc.evaluate(
+            artifact=self.artifact,
+            editor_plan=editor_plan,
+            visual_plan=visual_plan,
+        )
+
+        self.assertFalse(any("Required action" in warning for warning in visual_axis.warnings))
+
     # 10. Semantic QC: Ungrounded Absolute Claim Detection
     def test_semantic_qc_ungrounded_claims(self):
         from production.contracts import ScriptPlan, SceneNarration

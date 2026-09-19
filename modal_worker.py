@@ -1998,9 +1998,9 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
         ]
         try:
             if canonical_audio is None:
-                subprocess.run(tts_cmd, check=True)
+                subprocess.run(tts_cmd, check=True, capture_output=True)
         except Exception as tts_err:
-            print(f"[Modal TTS Warning] TTS with rate={voice_rate_str}, pitch={pitch_arg} failed: {tts_err}. Trying with pitch=+0Hz...", flush=True)
+            print(f"[Modal TTS Warning] TTS with rate={voice_rate_str}, pitch={pitch_arg} failed. Trying with pitch=+0Hz...", flush=True)
             fallback_tts_cmd = [
                 sys.executable, "-m", "edge_tts",
                 "--text", tts_script,
@@ -2011,9 +2011,9 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
                 "--write-subtitles", vtt_output
             ]
             try:
-                subprocess.run(fallback_tts_cmd, check=True)
+                subprocess.run(fallback_tts_cmd, check=True, capture_output=True)
             except Exception as tts_fb_err:
-                print(f"[Modal TTS Warning] Fallback with pitch=+0Hz failed: {tts_fb_err}. Trying default TTS...", flush=True)
+                print(f"[Modal TTS Warning] Fallback with pitch=+0Hz failed. Trying standard default TTS...", flush=True)
                 standard_tts_cmd = [
                     sys.executable, "-m", "edge_tts",
                     "--text", tts_script,
@@ -2813,10 +2813,20 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
                     (object_key, byte_size, meta, wf_uuid)
                 )
 
-            # Update Workflow Run State to APPROVAL_PENDING
+            # Update Workflow Run State to APPROVAL_PENDING and register render WorkflowStep
             cur.execute(
                 "UPDATE workflow_runs SET state = 'APPROVAL_PENDING', updated_at = NOW() WHERE id = %s::uuid",
                 (wf_uuid,)
+            )
+            render_payload = json.dumps({"object_key": object_key, "duration": video_duration, "media_asset_id": media_id})
+            cur.execute(
+                """
+                INSERT INTO workflow_steps (id, workflow_run_id, step_key, state, attempt_count, input_payload, output_payload, created_at, updated_at)
+                VALUES (gen_random_uuid(), %s::uuid, 'render', 'completed', 1, '{}'::jsonb, %s::jsonb, NOW(), NOW())
+                ON CONFLICT (workflow_run_id, step_key) DO UPDATE
+                SET state = 'completed', output_payload = EXCLUDED.output_payload, updated_at = NOW()
+                """,
+                (wf_uuid, render_payload)
             )
             conn.commit()
             cur.close()

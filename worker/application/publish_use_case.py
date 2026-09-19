@@ -16,7 +16,13 @@ from __future__ import annotations
 import json
 import os
 
-from worker.domain.caption_policy import extract_publish_music_metadata, build_high_converting_description, build_publish_caption_and_hashtags, build_topic_hashtags
+from worker.domain.caption_policy import (
+    extract_publish_music_metadata,
+    build_high_converting_description,
+    build_high_converting_tiktok_caption,
+    build_publish_caption_and_hashtags,
+    build_topic_hashtags,
+)
 from worker.domain.publish_metadata import append_required_attribution, resolve_publish_metadata
 from worker.domain.job_metadata import parse_job_metadata
 from worker.infrastructure.database import log_realtime_progress
@@ -122,16 +128,46 @@ def handle_publish(
     )
     description_or_caption = resolved.description if platform == "youtube" else resolved.caption
     if description_or_caption is None:
-        fallback_text = build_high_converting_description(
-            title=fallback_title,
-            script=job.get("script") or job.get("full_voice_script") or "",
-            seo_data=seo_data,
-            language="en" if str(job.get("video_language") or "vi").lower().startswith("en") else "vi",
-        ) if platform == "youtube" else legacy_title
+        scenes_data = (
+            job.get("scenes")
+            or prompt_manifest.get("scenes")
+            or input_payload.get("scenes")
+            or (metadata.get("scenes") if isinstance(metadata.get("scenes"), list) else None)
+        )
+        brief_data = job.get("brief") or prompt_manifest.get("brief") or input_payload.get("brief")
+        genre_data = job.get("genre") or prompt_manifest.get("genre") or input_payload.get("genre") or "triết lý - chiêm nghiệm cuộc sống"
+        handle_data = metadata.get("channel_handle") or seo_data.get("channel_handle") or "@GocChiemNghiem"
+        raw_script = job.get("script") or job.get("full_voice_script") or ""
+        lang_detected = "en" if str(job.get("video_language") or "vi").lower().startswith("en") else "vi"
+
+        if platform == "youtube":
+            fallback_text = build_high_converting_description(
+                title=fallback_title,
+                script=raw_script,
+                seo_data=seo_data,
+                language=lang_detected,
+                scenes=scenes_data if isinstance(scenes_data, list) else None,
+                brief=brief_data,
+                channel_handle=handle_data,
+            )
+        else:
+            fallback_text = build_high_converting_tiktok_caption(
+                title=fallback_title,
+                script=raw_script,
+                genre=genre_data,
+                channel_handle=handle_data,
+            )
+
         resolved = resolve_publish_metadata(
             content_metadata=content_metadata,
             user_metadata=user_metadata,
-            fallback={platform: {"title": fallback_title, "description" if platform == "youtube" else "caption": fallback_text, "hashtags": build_topic_hashtags(fallback_title, "", seo_data)}},
+            fallback={
+                platform: {
+                    "title": fallback_title,
+                    "description" if platform == "youtube" else "caption": fallback_text,
+                    "hashtags": build_topic_hashtags(fallback_title, raw_script, seo_data, lang_detected),
+                }
+            },
             platform=platform,
         )
         description_or_caption = resolved.description if platform == "youtube" else resolved.caption

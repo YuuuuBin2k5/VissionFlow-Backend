@@ -88,9 +88,11 @@ os.environ.setdefault("VISIONFLOW_AUTH_AUDIENCE", "visionflow-control-plane")
 # GEMINI_API_KEY must be supplied by environment/configuration.
 os.environ.setdefault("PEXELS_API_KEY", "")
 
-# Add worker and control-plane paths
-sys.path.insert(0, os.path.abspath("worker"))
-sys.path.insert(0, os.path.abspath("services/control-plane"))
+# Add worker and control-plane paths relative to this script
+_backend_root = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _backend_root)
+sys.path.insert(0, os.path.join(_backend_root, "worker"))
+sys.path.insert(0, os.path.join(_backend_root, "services", "control-plane"))
 
 from sqlalchemy.orm import Session
 from app.infrastructure.database import get_engine
@@ -122,9 +124,13 @@ def process_workflow_official(wf_id: str) -> bool:
         if not wf or wf.state in ("PUBLISHED", "CANCELED"):
             return False
         proj = session_db.get(VideoProject, wf.project_id)
-        title = proj.title if proj else "Video ngan tu dong"
-        manifest = wf.prompt_manifest or {}
-        payload = wf.input_payload or {}
+        title = str(proj.title if proj and proj.title else "Video ngan tu dong")
+        brief = str(proj.brief if proj and proj.brief else "")
+        org_id = str(proj.organization_id if proj and proj.organization_id else "7b91598c-6c3e-4e5d-8247-d3efa203984a")
+        manifest = dict(wf.prompt_manifest or {})
+        payload = dict(wf.input_payload or {})
+        meta_json = dict(getattr(wf, "metadata_json", None) or {})
+
         render_mode = str(manifest.get("render_mode") or payload.get("render_mode") or "").upper()
         if render_mode == "TRANSLATE_DUB" or "dub" in title.lower() or "lồng tiếng" in title.lower() or "douyin" in title.lower() or "tiktok" in title.lower():
             print(f"  [Worker Route] Skipping '{title}' ({wf_id}) in standard B-roll pipeline (Handled by DubbingStrategy).")
@@ -152,9 +158,9 @@ def process_workflow_official(wf_id: str) -> bool:
     # This guarantees 100% synchronization with the Studio!
     contract_payload = {
         "workflow_run_id": str(wf_id),
-        "organization_id": str(proj.organization_id if proj else "7b91598c-6c3e-4e5d-8247-d3efa203984a"),
+        "organization_id": org_id,
         "title": payload.get("title") or title,
-        "brief": payload.get("brief") or (proj.brief if proj else ""),
+        "brief": payload.get("brief") or brief,
     }
     # Merge manifest first, then payload overrides so user's explicit Studio choices ALWAYS win!
     for k, v in manifest.items():
@@ -191,7 +197,7 @@ def process_workflow_official(wf_id: str) -> bool:
             print(f"[DB Auto-Publish] ⚡ Auto-Publish ON: Workflow {wf_id} -> PUBLISHED!")
             try:
                 from worker.application.publish_use_case import handle_publish
-                job_id = int(wf.metadata_json.get("job_id", 0)) if getattr(wf, "metadata_json", None) else 0
+                job_id = int(meta_json.get("job_id", 0)) if meta_json else 0
                 if job_id:
                     handle_publish(job_id=job_id)
             except Exception as pub_err:
@@ -201,6 +207,25 @@ def process_workflow_official(wf_id: str) -> bool:
                 wf_t = fresh_db.get(WorkflowRun, wf_id)
                 if wf_t:
                     wf_t.state = "APPROVAL_PENDING"
+                    # Upsert render WorkflowStep
+                    from app.infrastructure.models import WorkflowStep
+                    step_render = fresh_db.query(WorkflowStep).filter(
+                        WorkflowStep.workflow_run_id == wf_id,
+                        WorkflowStep.step_key == "render"
+                    ).first()
+                    if not step_render:
+                        step_render = WorkflowStep(
+                            workflow_run_id=wf_id,
+                            step_key="render",
+                            state="completed",
+                            attempt_count=1,
+                            input_payload={},
+                            output_payload={"object_key": result.get("object_key"), "video_url": result.get("video_url")},
+                        )
+                        fresh_db.add(step_render)
+                    else:
+                        step_render.state = "completed"
+                        step_render.output_payload = {"object_key": result.get("object_key"), "video_url": result.get("video_url")}
                     fresh_db.commit()
             print(f"[DB] Auto-Publish OFF: Workflow {wf_id} -> APPROVAL_PENDING (Ready for Studio review)!\n")
 
@@ -237,17 +262,19 @@ def run_unified_render_pass() -> int:
     engine = get_engine()
     try:
         with Session(engine) as session_db:
-            pending_runs = session_db.query(WorkflowRun).filter(
-                WorkflowRun.state.in_(["QUEUED", "PLANNING", "SCRIPTED", "STORYBOARDED", "RENDERING", "ASSETS_READY"])
-            ).order_by(WorkflowRun.id.desc()).all()
+            pending_ids = [
+                str(row[0]) for row in session_db.query(WorkflowRun.id).filter(
+                    WorkflowRun.state.in_(["QUEUED", "PLANNING", "SCRIPTED", "STORYBOARDED", "RENDERING", "ASSETS_READY"])
+                ).order_by(WorkflowRun.id.desc()).all()
+            ]
 
-            for run in pending_runs:
-                try:
-                    ok = process_workflow_official(str(run.id))
-                    if ok:
-                        processed_total += 1
-                except Exception as err:
-                    print(f"❌ [Pass Error] Workflow #{run.id} render error: {err}")
+        for run_id in pending_ids:
+            try:
+                ok = process_workflow_official(run_id)
+                if ok:
+                    processed_total += 1
+            except Exception as err:
+                print(f"❌ [Pass Error] Workflow #{run_id} render error: {err}")
     except Exception as db_err:
         print(f"[Pass Notice] Short-form DB queue query notice: {db_err}")
 

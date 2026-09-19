@@ -1000,6 +1000,51 @@ class ManageCreativeSession:
             # Extract canonical publish_metadata from proposal generation_manifest or session creation_spec
             prop_gen_manifest = proposal.generation_manifest if isinstance(proposal.generation_manifest, dict) else {}
             pub_meta = prop_gen_manifest.get("publish_metadata") or creation_spec.get("publish_metadata")
+            if not isinstance(pub_meta, dict) or not pub_meta.get("youtube"):
+                try:
+                    from app.domain.caption_policy import build_publish_caption_and_hashtags
+                    prop_title = proposal.title or creation_spec.get("title") or creation_spec.get("brief") or "Untitled"
+                    prop_script = proposal.script or creation_spec.get("script") or ""
+                    prop_scenes = proposal.scenes or []
+                    prop_genre = creation_spec.get("video_genre") or creation_spec.get("genre") or "triết lý - chiêm nghiệm cuộc sống"
+                    prop_handle = creation_spec.get("logo_handle") or "@GocChiemNghiem"
+                    prop_brief = proposal.brief or creation_spec.get("brief") or ""
+
+                    yt_desc, yt_tags = build_publish_caption_and_hashtags(
+                        title=prop_title,
+                        script=prop_script,
+                        platform="youtube",
+                        scenes=prop_scenes,
+                        brief=prop_brief,
+                        channel_handle=prop_handle,
+                    )
+                    tt_capt, tt_tags = build_publish_caption_and_hashtags(
+                        title=prop_title,
+                        script=prop_script,
+                        platform="tiktok",
+                        scenes=prop_scenes,
+                        genre=prop_genre,
+                        channel_handle=prop_handle,
+                    )
+                    generated_meta = {
+                        "youtube": {
+                            "title": prop_title[:100],
+                            "description": yt_desc,
+                            "hashtags": yt_tags,
+                        },
+                        "tiktok": {
+                            "caption": tt_capt,
+                            "hashtags": tt_tags,
+                        },
+                    }
+                    if isinstance(pub_meta, dict):
+                        for plt, vals in generated_meta.items():
+                            if plt not in pub_meta:
+                                pub_meta[plt] = vals
+                    else:
+                        pub_meta = generated_meta
+                except Exception as meta_err:
+                    logger.warning("Auto-generating publish metadata in draft creation failed: %s", meta_err)
 
             # Map input payload
             input_payload = {

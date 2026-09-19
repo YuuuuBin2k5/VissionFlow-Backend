@@ -67,18 +67,33 @@ class SemanticQCEvaluator:
         total_shots = 0
         seen_assets: Dict[str, int] = {}
         mismatch_count = 0
+        # A VisualPlan contains one intent per *shot*, not one intent per scene.
+        # Looking an intent up by the scene's list index misaligns every scene
+        # after a multi-shot scene and produces misleading action warnings.
+        intents_by_scene_and_shot = {
+            (intent.scene_id, intent.shot_order): intent
+            for intent in (visual_plan.intents if visual_plan else [])
+        }
+        scene_intents: Dict[str, List[Any]] = {}
+        for intent in (visual_plan.intents if visual_plan else []):
+            scene_intents.setdefault(intent.scene_id, []).append(intent)
+        reported_missing_actions = set()
 
         for scn_idx, scn in enumerate(editor_plan.scenes):
-            v_intent = (
-                visual_plan.intents[scn_idx]
-                if visual_plan and scn_idx < len(visual_plan.intents)
-                else None
-            )
-
             for sh in scn.shots:
                 total_shots += 1
                 asset_id = sh.asset_id or "unknown"
                 seen_assets[asset_id] = seen_assets.get(asset_id, 0) + 1
+
+                # `resolution_shot_order` is set by EditorPlanner and is the
+                # stable link back to the VisualIntent.  Older one-shot plans
+                # may not have it, so only use their sole scene intent.
+                shot_order = sh.resolution_shot_order or sh.shot_index
+                v_intent = intents_by_scene_and_shot.get((scn.scene_id, shot_order))
+                if v_intent is None:
+                    intents_for_scene = scene_intents.get(scn.scene_id, [])
+                    if len(intents_for_scene) == 1:
+                        v_intent = intents_for_scene[0]
 
                 # Check match score
                 score = getattr(sh, "match_score", 1.0)
@@ -97,17 +112,44 @@ class SemanticQCEvaluator:
                     )
 
                 # Entity / Action check against intent if available
-                if v_intent:
+                if v_intent and not (sh.is_graphic_fallback or getattr(sh, "provider", "") == "graphic_fallback"):
                     raw_actions = getattr(v_intent, "actions", None) or getattr(v_intent, "action_verbs", []) or []
-                    req_actions = [a.lower() for a in raw_actions if a]
+                    req_actions = {
+                        " ".join(re.findall(r"[a-z0-9]+", str(action).lower()))
+                        for action in raw_actions
+                    }
+                    candidate = sh.resolved_asset
                     prov = sh.provenance or {}
-                    cand_desc = (prov.get("description") or sh.visual_prompt or "").lower()
+                    candidate_evidence = []
+                    if candidate:
+                        candidate_evidence.extend(
+                            [
+                                candidate.asset_id,
+                                str(candidate.provenance.get("title", "")),
+                                str(candidate.provenance.get("tags", "")),
+                                str(candidate.selection_evidence.get("description", "")),
+                                str(candidate.selection_evidence.get("actions", "")),
+                            ]
+                        )
+                    candidate_evidence.extend([str(prov.get("description", "")), sh.visual_prompt or ""])
+                    cand_desc = " ".join(candidate_evidence).lower()
 
-                    # Detect wrong action hard rejection
+                    # Metadata can only disprove an action when there is actual
+                    # candidate evidence.  A missing description is not proof
+                    # of a semantic mismatch.
                     for act in req_actions:
-                        if act and len(act) > 3 and act not in cand_desc and score < 0.50:
+                        warning_key = (scn.scene_id, sh.shot_id, act)
+                        if (
+                            act
+                            and len(act) > 3
+                            and cand_desc
+                            and act not in cand_desc
+                            and score < 0.50
+                            and warning_key not in reported_missing_actions
+                        ):
+                            reported_missing_actions.add(warning_key)
                             warnings.append(
-                                f"Scene {scn_idx + 1}: Required action '{act}' not detected in resolved asset."
+                                f"Scene {scn_idx + 1} Shot '{sh.shot_id}': Required action '{act}' not detected in resolved asset."
                             )
 
         # Repetitive footage detection (Section 12)

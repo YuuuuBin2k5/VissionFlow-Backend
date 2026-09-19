@@ -493,8 +493,21 @@ def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organizatio
         fallback={"youtube": {"title": project.title}},
     )
     if resolved.description is None:
+        scenes_manifest = (
+            (intel_step.output_payload.get("scenes") if intel_step and isinstance(intel_step.output_payload, dict) else None)
+            or prompt_manifest.get("scenes")
+        )
+        brief_val = getattr(project, "brief", None) or prompt_manifest.get("brief")
+        channel_handle_val = prompt_manifest.get("channel_handle") or seo_data.get("channel_handle") or "@GocChiemNghiem"
+
         fallback_description = build_high_converting_description(
-            title=project.title, script=script, seo_data=seo_data, language=lang
+            title=project.title,
+            script=script,
+            seo_data=seo_data,
+            language=lang,
+            scenes=scenes_manifest if isinstance(scenes_manifest, list) else None,
+            brief=brief_val,
+            channel_handle=channel_handle_val,
         )
         resolved = resolve_publish_metadata(
             content_metadata=content_metadata,
