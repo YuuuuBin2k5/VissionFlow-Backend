@@ -21,19 +21,20 @@ VOICE_PRESET_MAP: dict[str, str] = {
     "edge-en-ryan":        "en-GB-RyanNeural",
 }
 
-def resolve_voice(voice_code: str) -> str:
-    """Map preset name → valid edge-tts or ElevenLabs voice. Falls back to HoaiMyNeural."""
+def resolve_voice(voice_code: str, language: str = "vi") -> str:
+    """Map preset name → valid edge-tts or ElevenLabs voice. Falls back based on language."""
+    fallback = "en-US-ChristopherNeural" if str(language or "").lower().startswith("en") else "vi-VN-HoaiMyNeural"
     if not voice_code:
-        return "vi-VN-HoaiMyNeural"
+        return fallback
     lower_code = voice_code.lower()
     if "adam" in lower_code:
         if "eleven" in lower_code:
             return "pNInz6obpgDQGcFmaJgB"
         return "en-US-ChristopherNeural"
-    # Already a valid IETF voice name (e.g. vi-VN-HoaiMyNeural)
+    # Already a valid IETF voice name (e.g. vi-VN-HoaiMyNeural, en-US-ChristopherNeural)
     if "-" in voice_code and "Neural" in voice_code:
         return voice_code
-    return VOICE_PRESET_MAP.get(voice_code, "vi-VN-HoaiMyNeural")
+    return VOICE_PRESET_MAP.get(voice_code, fallback)
 
 
 def detect_genre_from_script(script: str) -> str:
@@ -101,9 +102,9 @@ class VisionFlowSpeech:
     word_timestamps: list[dict]
 
 class VisionFlowTts:
-    def synthesize(self, script: str, voice_code: str, workspace: RenderWorkspace, voice_rate: float = 1.12) -> VisionFlowSpeech:
+    def synthesize(self, script: str, voice_code: str, workspace: RenderWorkspace, voice_rate: float = 1.12, language: str = "vi") -> VisionFlowSpeech:
         from worker.services.tts_service import TTSService
-        resolved_voice = resolve_voice(voice_code)
+        resolved_voice = resolve_voice(voice_code, language=language)
         rate_percent = int((voice_rate - 1.0) * 100)
         rate_str = f"+{rate_percent}%" if rate_percent >= 0 else f"{rate_percent}%"
         workspace.create()

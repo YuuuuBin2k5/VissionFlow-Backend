@@ -96,7 +96,51 @@ class GeminiScriptProvider(ScriptProvider):
             else ""
         )
 
-        prompt = f"""
+        is_en = (language or "vi").strip().lower().startswith("en")
+        effective_wps = 2.5 if is_en else target_wps
+
+        if is_en:
+            prompt = f"""
+You are the VisionFlow Master Script Engine.
+Your task is to write a punchy, conversational, retention-optimized English voiceover script for high-engagement vertical short-form video.
+scenes[].narration is the CANONICAL CONTENT SOURCE.
+
+STORY ARCHITECTURE:
+- Angle: {story_plan.angle}
+- Audience Promise: {story_plan.audience_promise}
+- Hook Strategy: {story_plan.hook_mechanism}
+- Target Duration: {story_plan.target_duration_sec} seconds
+- Narrative Beats:
+{beats_text}
+
+FACTPACK GROUNDING:
+{claims_text}
+{contradictions_text}
+
+MANDATORY RULES:
+1. Write in natural, vivid, idiomatic conversational English (rhythmic, fast-paced, high retention, avoid awkward robotic translation).
+2. Exactly ONE scene narration item for each narrative beat.
+3. Every scene narration must be semantically complete and deliverable within that beat's duration (at ~{effective_wps} words/sec).
+4. Scene 1 (Hook) MUST grab attention immediately in under 15 words.
+5. In each scene, specify 'fact_refs': array of matching claim IDs from the FactPack that ground the claims made in that scene.
+6. If contradictions are listed, qualify the statement (e.g. 'While experts remain divided...') rather than asserting disputed claims as absolute truth.
+7. Do NOT add sound effect descriptions or brackets in the narration field. Put visual notes into 'visual_cue' in English.
+8. Return valid raw JSON matching:
+{{
+  "title": "catchy English video title",
+  "scenes": [
+    {{
+      "scene_index": 1,
+      "beat_ref": "beat_01_hook",
+      "narration": "English voiceover narration line",
+      "visual_cue": "English visual direction cue",
+      "fact_refs": ["fact_001"]
+    }}
+  ]
+}}
+"""
+        else:
+            prompt = f"""
 You are the VisionFlow Master Script Engine.
 Your task is to write a punchy, conversational, retention-optimized Vietnamese voiceover script.
 scenes[].narration is the CANONICAL CONTENT SOURCE.
@@ -116,7 +160,7 @@ FACTPACK GROUNDING:
 MANDATORY RULES:
 1. Write in natural, vivid, conversational Vietnamese (không dịch máy, không văn phong dịch thuật gượng gạo).
 2. Exactly ONE scene narration item for each narrative beat.
-3. Every scene narration must be semantically complete and deliverable within that beat's duration (at ~{target_wps} words/sec).
+3. Every scene narration must be semantically complete and deliverable within that beat's duration (at ~{effective_wps} words/sec).
 4. Scene 1 (Hook) MUST grab attention immediately in under 15 words.
 5. In each scene, specify 'fact_refs': array of matching claim IDs from the FactPack that ground the claims made in that scene.
 6. If contradictions are listed, qualify the statement (e.g. 'Dù còn nhiều ý kiến trái chiều...') rather than asserting disputed claims as absolute truth.
@@ -210,29 +254,53 @@ class LocalScriptProvider(ScriptProvider):
             target_dur = beat.estimated_duration_sec
             target_words = max(8, int(target_dur * target_wps))
 
+            is_en = (language or "vi").strip().lower().startswith("en")
             # Determine relevant fact_refs for this scene
-            if beat.beat_type == "hook":
-                narration = f"Điều gì tạo nên sự tinh xảo khó tin của {topic}?"
-                refs = [fact_ids[0]] if fact_ids else []
-            elif beat.beat_type == "setup":
-                narration = f"Mọi kiệt tác đều khởi đầu từ việc chọn lọc những nguyên liệu tốt nhất cùng sự chuẩn bị công phu đến từng milimét."
-                refs = [fact_ids[0]] if len(fact_ids) == 1 else fact_ids[:2]
-            elif beat.beat_type == "development":
-                narration = f"Từng đường đục và nhát cắt đòi hỏi bàn tay người thợ phải có sự điềm tĩnh tuyệt đối, nơi một sai sót nhỏ cũng không được phép xảy ra."
-                refs = [fact_ids[min(1, len(fact_ids) - 1)]] if fact_ids else []
-            elif beat.beat_type == "climax":
-                narration = f"Và khi các chi tiết ăn khớp vào nhau một cách hoàn hảo, tác phẩm bộc lộ vẻ đẹp vượt thời gian mà không cần một chiếc đinh hay ốc vít nào."
-                refs = [fact_ids[-1]] if fact_ids else []
-            elif beat.beat_type in ("climax_payoff", "payoff_cta"):
-                narration = f"Đó chính là tinh hoa của sự tận tâm. Bạn ấn tượng nhất với chi tiết nào trong quy trình kỳ diệu này?"
-                refs = [fact_ids[0]] if fact_ids else []
-            else:
-                narration = f"Những bước tiếp theo đòi hỏi độ chính xác tuyệt đối để hoàn thiện trọn vẹn từng đường nét của {topic}."
-                refs = [fact_ids[idx % len(fact_ids)]] if fact_ids else []
+            if is_en:
+                if beat.beat_type == "hook":
+                    narration = f"What is the untold secret behind the mastery of {topic}?"
+                    refs = [fact_ids[0]] if fact_ids else []
+                elif beat.beat_type == "setup":
+                    narration = f"Every masterpiece begins with meticulous preparation and precision engineered down to the millimeter."
+                    refs = [fact_ids[0]] if len(fact_ids) == 1 else fact_ids[:2]
+                elif beat.beat_type == "development":
+                    narration = f"Each cut requires steady hands and immense patience, where even a tiny mistake cannot be tolerated."
+                    refs = [fact_ids[min(1, len(fact_ids) - 1)]] if fact_ids else []
+                elif beat.beat_type == "climax":
+                    narration = f"And when every joint fits together seamlessly, it reveals a timeless work of art crafted without a single nail."
+                    refs = [fact_ids[-1]] if fact_ids else []
+                elif beat.beat_type in ("climax_payoff", "payoff_cta"):
+                    narration = f"That is the pure essence of true dedication. Which detail of this process surprised you the most?"
+                    refs = [fact_ids[0]] if fact_ids else []
+                else:
+                    narration = f"The following steps require absolute accuracy to bring out the complete beauty of {topic}."
+                    refs = [fact_ids[idx % len(fact_ids)]] if fact_ids else []
 
-            # If contradictions exist, append cautious qualification in development/climax
-            if fact_pack.contradictions and beat.beat_type == "development":
-                narration += " Dù có những quan điểm kỹ thuật khác nhau, tiêu chuẩn khắt khe vẫn luôn được đặt lên hàng đầu."
+                if fact_pack.contradictions and beat.beat_type == "development":
+                    narration += " While technical opinions may differ, uncompromising standards remain paramount."
+            else:
+                if beat.beat_type == "hook":
+                    narration = f"Điều gì tạo nên sự tinh xảo khó tin của {topic}?"
+                    refs = [fact_ids[0]] if fact_ids else []
+                elif beat.beat_type == "setup":
+                    narration = f"Mọi kiệt tác đều khởi đầu từ việc chọn lọc những nguyên liệu tốt nhất cùng sự chuẩn bị công phu đến từng milimét."
+                    refs = [fact_ids[0]] if len(fact_ids) == 1 else fact_ids[:2]
+                elif beat.beat_type == "development":
+                    narration = f"Từng đường đục và nhát cắt đòi hỏi bàn tay người thợ phải có sự điềm tĩnh tuyệt đối, nơi một sai sót nhỏ cũng không được phép xảy ra."
+                    refs = [fact_ids[min(1, len(fact_ids) - 1)]] if fact_ids else []
+                elif beat.beat_type == "climax":
+                    narration = f"Và khi các chi tiết ăn khớp vào nhau một cách hoàn hảo, tác phẩm bộc lộ vẻ đẹp vượt thời gian mà không cần một chiếc đinh hay ốc vít nào."
+                    refs = [fact_ids[-1]] if fact_ids else []
+                elif beat.beat_type in ("climax_payoff", "payoff_cta"):
+                    narration = f"Đó chính là tinh hoa của sự tận tâm. Bạn ấn tượng nhất với chi tiết nào trong quy trình kỳ diệu này?"
+                    refs = [fact_ids[0]] if fact_ids else []
+                else:
+                    narration = f"Những bước tiếp theo đòi hỏi độ chính xác tuyệt đối để hoàn thiện trọn vẹn từng đường nét của {topic}."
+                    refs = [fact_ids[idx % len(fact_ids)]] if fact_ids else []
+
+                # If contradictions exist, append cautious qualification in development/climax
+                if fact_pack.contradictions and beat.beat_type == "development":
+                    narration += " Dù có những quan điểm kỹ thuật khác nhau, tiêu chuẩn khắt khe vẫn luôn được đặt lên hàng đầu."
 
             w_count = count_words(narration)
             est_dur = estimate_duration_sec(w_count, target_wps)
@@ -254,7 +322,7 @@ class LocalScriptProvider(ScriptProvider):
         total_words = count_words(full_script)
         hook_words = count_words(scenes[0].narration) if scenes else 0
 
-        title = f"Bí Mật Đỉnh Cao Của {topic}"
+        title = f"The Untold Secret Of {topic}" if is_en else f"Bí Mật Đỉnh Cao Của {topic}"
 
         return ScriptPlan(
             title=title,

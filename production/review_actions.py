@@ -164,12 +164,23 @@ async def resolve_shot(run_id, scene_id, shot_order):
     return result
 
 
-async def voices():
+async def voices(language: str | None = None):
     import asyncio
     import edge_tts
     entries = await asyncio.wait_for(edge_tts.list_voices(), timeout=20)
+
+    if language:
+        clean_lang = language.strip().lower()
+        if clean_lang.startswith('en'):
+            return [{'code': v['ShortName'], 'label': v.get('FriendlyName', v['ShortName']), 'locale': v['Locale']}
+                    for v in entries if v.get('Locale', '').startswith('en-')]
+        elif clean_lang.startswith('vi'):
+            return [{'code': v['ShortName'], 'label': v.get('FriendlyName', v['ShortName']), 'locale': v['Locale']}
+                    for v in entries if v.get('Locale', '').startswith('vi-')]
+
+    # Return both Vietnamese and English voices
     return [{'code': v['ShortName'], 'label': v.get('FriendlyName', v['ShortName']), 'locale': v['Locale']}
-            for v in entries if v.get('Locale', '').startswith('vi-')]
+            for v in entries if v.get('Locale', '').startswith(('vi-', 'en-'))]
 
 
 async def change_voice(run_id, voice_code):

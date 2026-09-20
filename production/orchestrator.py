@@ -563,12 +563,14 @@ class ProductionOrchestrator:
                 raise ValueError('VISUAL_MEDIA_UNAVAILABLE: kiểm tra provider/preview và chọn visual trước khi render')
 
             # 13. TTS & Timing (REAL - Canonical timing via ffprobe)
+            req_lang = (getattr(run.request, "language", "") or "vi").strip().lower()
+            default_voice = "en-US-ChristopherNeural" if req_lang.startswith("en") else "vi-VN-NamMinhNeural"
             voice_code = (
                 getattr(run.request, "voice_code", None)
                 or getattr(run.request, "voice", None)
                 or (run.request.overrides.get("voice") if run.request.overrides else None)
                 or (run.request.overrides.get("voice_code") if run.request.overrides else None)
-                or "vi-VN-NamMinhNeural"
+                or default_voice
             )
             tts_results = await tts_service.synthesize_script(
                 scenes=run.script_plan.scenes,
@@ -974,10 +976,12 @@ class ProductionOrchestrator:
 
         self.invalidate_for_change(run_id, "voice_changed")
 
+        req_lang = (getattr(run.request, "language", "") or "vi").strip().lower()
+        default_voice = "en-US-ChristopherNeural" if req_lang.startswith("en") else "vi-VN-NamMinhNeural"
         voice_code = (
             getattr(run.request, "voice_code", None)
             or getattr(run.request, "voice", None)
-            or "vi-VN-NamMinhNeural"
+            or default_voice
         )
 
         scenes_to_synth = run.script_plan.scenes

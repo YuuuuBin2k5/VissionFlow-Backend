@@ -25,10 +25,24 @@ class VisionFlowVideoRenderer:
         background_paths = self._materializer.download(assets, workspace)
 
         print(f"[VisionFlowRenderer] 🎙️ Synthesizing TTS audio (voice={contract.voice_code})...", flush=True)
+        lang = getattr(contract, "language", None)
+        if not lang:
+            spec = getattr(contract, "spec", None)
+            lang = getattr(spec, "language", "vi") if spec else "vi"
+
         try:
-            speech = self._tts.synthesize(contract.script, contract.voice_code, workspace, voice_rate=getattr(contract, "voice_rate", 1.12))
+            speech = self._tts.synthesize(
+                contract.script,
+                contract.voice_code,
+                workspace,
+                voice_rate=getattr(contract, "voice_rate", 1.12),
+                language=lang or "vi",
+            )
         except TypeError:
-            speech = self._tts.synthesize(contract.script, contract.voice_code, workspace)
+            try:
+                speech = self._tts.synthesize(contract.script, contract.voice_code, workspace, voice_rate=getattr(contract, "voice_rate", 1.12))
+            except TypeError:
+                speech = self._tts.synthesize(contract.script, contract.voice_code, workspace)
 
         scene_layout = build_renderable_scene_layout(contract.scenes, contract.render_plan)
 

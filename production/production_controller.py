@@ -518,10 +518,10 @@ async def _handle_regenerate_voice(run_id: str, payload: PartialRegenPayload):
         raise HTTPException(503, 'Không thể tạo audio từ TTS provider. Bản cũ được giữ nguyên.') from None
 
 
-async def _handle_voices():
+async def _handle_voices(language: Optional[str] = Query(None)):
     from production.review_actions import voices
     try:
-        return await voices()
+        return await voices(language=language)
     except Exception:
         raise HTTPException(503, 'Không thể tải danh sách giọng đọc') from None
 

@@ -33563,3 +33563,26 @@ Multiple connection attempts failed. All failures were:
   Output Object Key: visionflow/run_30921b21a6de/exports/final.mp4
   Public Video URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/run_30921b21a6de/exports/final.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fd28f47a855e5f2097d5f8c24c50da70%2F20260920%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260920T080503Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=efa2a0bf63f142ee2069c99301f0bd0d35469a8c425b4566946822648871f1a2
 ✅ Pass Complete! Total Workflows Processed: 2
+[FFmpeg] Using modern FFmpeg binary: D:\VisionFlow\VisionFlow_Bakend\venv\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe
+=======================================================
+🚀 VISIONFLOW UNIFIED AUTOMATIC RENDER SERVER RUNNING
+   [1] AI Dubbing & Translation Queue
+   [2] Studio & OpenCut Creative Video Queue
+   [3] Auto Production Autonomous Video Queue (R2 Sync)
+=======================================================
+📌 Running Continuous Local Worker Daemon Loop...
+
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)

@@ -73,7 +73,13 @@ class ElevenLabsProvider(TTSProvider):
         )
 
         # Pre-process kịch bản: số→chữ, viết hoa, SSML/emotion tags, chunking
-        chunks = preprocess_for_elevenlabs(text, model_id=model)
+        language = voice_profile.get("language")
+        if not language:
+            vi_chars = "àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
+            is_vietnamese = any(c in vi_chars for c in text.lower())
+            language = "vi" if is_vietnamese else "en"
+
+        chunks = preprocess_for_elevenlabs(text, model_id=model, language=language)
 
         all_word_timestamps: list[dict] = []
         all_audio_bytes = bytearray()
