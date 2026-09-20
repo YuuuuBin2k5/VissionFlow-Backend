@@ -54,6 +54,9 @@ class ScriptProvider(ABC):
         pass
 
 
+from production.credential_resolver import get_gemini_api_key
+
+
 class GeminiScriptProvider(ScriptProvider):
     """
     Cloud script generation provider using Google Gemini GenAI SDK.
@@ -61,7 +64,7 @@ class GeminiScriptProvider(ScriptProvider):
     populating fact_refs to maintain strict claim-to-evidence provenance.
     """
     def __init__(self, api_key: Optional[str] = None, model_name: str = "gemini-2.5-flash"):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        self.api_key = api_key or get_gemini_api_key()
         self.model_name = model_name
 
     def generate_script(
@@ -271,7 +274,7 @@ class ScriptEngine:
     def __init__(self, provider: Optional[ScriptProvider] = None):
         if provider is not None:
             self.provider = provider
-        elif os.getenv("GEMINI_API_KEY"):
+        elif get_gemini_api_key():
             self.provider = GeminiScriptProvider()
         else:
             self.provider = LocalScriptProvider()

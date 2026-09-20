@@ -539,6 +539,9 @@ class LocalVisualPlannerProvider(VisualPlannerProvider):
         )
 
 
+from production.credential_resolver import get_gemini_api_key
+
+
 class GeminiVisualPlannerProvider(VisualPlannerProvider):
     """
     Cloud LLM Visual Planner utilizing Google GenAI SDK.
@@ -546,7 +549,7 @@ class GeminiVisualPlannerProvider(VisualPlannerProvider):
     """
 
     def __init__(self, api_key: Optional[str] = None, model_name: str = "gemini-2.5-flash"):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        self.api_key = api_key or get_gemini_api_key()
         self.model_name = model_name
         self.fallback = LocalVisualPlannerProvider()
 
@@ -648,7 +651,7 @@ class VisualPlanner:
     def __init__(self, provider: Optional[VisualPlannerProvider] = None):
         if provider is not None:
             self.provider = provider
-        elif os.getenv("GEMINI_API_KEY") and os.getenv("VISIONFLOW_USE_DEV_REPOSITORIES") != "1":
+        elif get_gemini_api_key() and os.getenv("VISIONFLOW_USE_DEV_REPOSITORIES") != "1":
             self.provider = GeminiVisualPlannerProvider()
         else:
             self.provider = LocalVisualPlannerProvider()

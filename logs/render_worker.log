@@ -32861,3 +32861,540 @@ Traceback (most recent call last):
     )
 worker.services.visionflow_control_plane_client.VisionFlowControlPlaneError: Control Plane client-credentials exchange failed with HTTP 404
 ⚠️ Worker polling notice: [Errno 22] Invalid argument
+[FFmpeg] Using modern FFmpeg binary: D:\VisionFlow\VisionFlow_Bakend\venv\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe
+Traceback (most recent call last):
+  File "D:\VisionFlow\VisionFlow_Bakend\start_render_worker.py", line 96, in <module>
+    from app.infrastructure.database import get_engine
+ModuleNotFoundError: No module named 'app'
+[FFmpeg] Using modern FFmpeg binary: D:\VisionFlow\VisionFlow_Bakend\venv\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe
+=======================================================
+🚀 VISIONFLOW UNIFIED AUTOMATIC RENDER SERVER RUNNING
+   (100% Single Source of Truth — Local & GitHub Actions)
+=======================================================
+📌 Running 1 Single Unified Render Pass...
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'Meme Từ Năm 2026 Đang Trở Thành Sự Thật? | Polar Bear 2026' (ID: 67bdcbad-04fc-44f4-881a-7e5583fd1651)
+=======================================================
+❌ [Pass Error] Workflow #67bdcbad-04fc-44f4-881a-7e5583fd1651 render error: Instance <VideoProject at 0x2936401cc20> is not bound to a Session; attribute refresh operation cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'Vì Sao Sao Thổ Có Một Hình 10 Cạnh Khổng Lồ?' (ID: 627fa8dc-d793-4340-9e11-4fb61710f0fd)
+=======================================================
+❌ [Pass Error] Workflow #627fa8dc-d793-4340-9e11-4fb61710f0fd render error: Instance <VideoProject at 0x2936402f110> is not bound to a Session; attribute refresh operation cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'Một Cú Va Chạm Cỡ Thế Kỷ Xảy Ra Trên Mặt Trăng… Nhưng Không Ai Thấy 🌕💥' (ID: 3fa7be0a-9bc5-4129-84b2-c31a917d55f7)
+=======================================================
+❌ [Pass Error] Workflow #3fa7be0a-9bc5-4129-84b2-c31a917d55f7 render error: Instance <VideoProject at 0x29363dd3ed0> is not bound to a Session; attribute refresh operation cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'Elias 2-24 b: Chúng Ta Đã Thấy Dấu Vết Của Hành Tinh Này Trước Khi Thấy Chính Nó 🪐' (ID: 20226c57-82f5-4a46-8043-156162a2ab8d)
+=======================================================
+❌ [Pass Error] Workflow #20226c57-82f5-4a46-8043-156162a2ab8d render error: Instance <VideoProject at 0x29363dcb950> is not bound to a Session; attribute refresh operation cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
+✅ Pass Complete! Total Workflows Processed: 0
+[FFmpeg] Using modern FFmpeg binary: D:\VisionFlow\VisionFlow_Bakend\venv\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe
+=======================================================
+🚀 VISIONFLOW UNIFIED AUTOMATIC RENDER SERVER RUNNING
+   (100% Single Source of Truth — Local & GitHub Actions)
+=======================================================
+📌 Running 1 Single Unified Render Pass...
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'Meme Từ Năm 2026 Đang Trở Thành Sự Thật? | Polar Bear 2026' (ID: 67bdcbad-04fc-44f4-881a-7e5583fd1651)
+=======================================================
+  [Studio Sync] Voice: edge-nam-minh
+  [Studio Sync] Logo Handle: @GocChiemNghiem (Pos: top_right)
+  [Studio Sync] Captions Preset: hormozi (Font: Montserrat, Color: #FFE600)
+  [Studio Sync] Title Banner: Meme Từ Năm 2026 Đang Trở Thành Sự Thật? | Polar Bear 2026 (Style: neon)
+  [Studio Sync] Scene Count: 12
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: 67bdcbad-04fc-44f4-881a-7e5583fd1651
+=================================================================
+[Modal] 📜 Normalized Vietnamese script (976 chars): 'Năm 2023, một TikTok kỳ quái nói: đây là meme của tháng 11 n...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=vi-VN-NamMinhNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (976 chars -> 976 chars)
+[FFmpeg] Using modern FFmpeg binary: D:\VisionFlow\VisionFlow_Bakend\venv\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe
+usage: start_render_worker.py [-h] [--once] [--loop]
+
+VisionFlow Unified Render Engine (Local & GitHub Actions)
+
+options:
+  -h, --help  show this help message and exit
+  --once      Chạy 1 pass duy nhất rồi thoát (GitHub Actions / CLI mode)
+  --loop      Chạy lặp lại liên tục ngầm (Local Server Daemon mode)
+[Modal] 🎯 Extracted 11 word-level timestamps from Edge TTS for Karaoke sync!
+[Modal] 📐 Canvas Format: Aspect=9:16 -> Resolution=1080x1920 @ 60 FPS (CRF 18 Broadcast Profile)
+[Modal] 🟨 Created Pixel-Perfect Title Banner Card (NEON)!
+[Modal] 🟢 Created Pixel-Perfect Logo Pill (@GocChiemNghiem) at pos=top_right (18.0%, 6.0%)!
+[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!
+[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for 12 visual scenes...
+[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: 62.9s): [4.49, 5.08, 4.89, 4.89, 4.89, 4.69, 5.28, 4.49, 6.25, 6.25, 6.25, 5.48]
+[FFmpeg] Using modern FFmpeg binary: D:\VisionFlow\VisionFlow_Bakend\venv\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe
+[MicroWorker 3] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/39425812/16788543_540_...
+[MicroWorker 1] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/9898435/9898435-uhd_21...
+[MicroWorker 2] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/18156336/18156336-hd_7...
+[MicroWorker 0] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6650303/6650303-uhd_21...
+=======================================================
+🚀 VISIONFLOW UNIFIED AUTOMATIC RENDER SERVER RUNNING
+   (100% Single Source of Truth — Local & GitHub Actions)
+=======================================================
+📌 Running Continuous Local Worker Daemon Loop...
+
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'Meme Từ Năm 2026 Đang Trở Thành Sự Thật? | Polar Bear 2026' (ID: 67bdcbad-04fc-44f4-881a-7e5583fd1651)
+=======================================================
+  [Studio Sync] Voice: edge-nam-minh
+  [Studio Sync] Logo Handle: @GocChiemNghiem (Pos: top_right)
+  [Studio Sync] Captions Preset: hormozi (Font: Montserrat, Color: #FFE600)
+  [Studio Sync] Title Banner: Meme Từ Năm 2026 Đang Trở Thành Sự Thật? | Polar Bear 2026 (Style: neon)
+  [Studio Sync] Scene Count: 12
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: 67bdcbad-04fc-44f4-881a-7e5583fd1651
+=================================================================
+[MicroWorker 4] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/18156336/18156336-hd_7...
+[Modal] 📜 Normalized Vietnamese script (976 chars): 'Năm 2023, một TikTok kỳ quái nói: đây là meme của tháng 11 n...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=vi-VN-NamMinhNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (976 chars -> 976 chars)
+[Modal TTS Warning] TTS with rate=+12%, pitch=+0Hz failed: Command '['D:\\VisionFlow\\VisionFlow_Bakend\\venv\\Scripts\\python.exe', '-m', 'edge_tts', '--text', 'Năm 2023, một TikTok kỳ quái nói: đây là meme của tháng 11 năm 2026. Bây giờ, câu đùa đó đang sống lại. Ngày 27 tháng 3, tài khoản gmd_arahis đăng hình một con gấu Bắc Cực méo mó giữa tuyết và gọi nó là meme từ tương lai. Video đạt khoảng 3, 1 triệu lượt xem Đến tháng 9, người dùng bắt đầu thêm những ngày như 18 9 26 và 29 9 26 vào các bản edit. Nhưng đó không phải lời tiên tri gốc. Những ngày kia được cộng đồng thêm sau, biến bức ảnh thành creepypasta về năm 2026. Rồi 2026 thật sự đến. Cuối tháng 8, một video AI mới nhắc rằng tháng 11 năm 2026 đang tới và gần chạm một triệu lượt xem Đầu tháng 9, các bản cover và remix tiếp tục lan trên TikTok và Instagram, nhiều bài đạt hàng trăm nghìn lượt xem. Vậy con gấu có dự đoán tương lai không? Không có bằng chứng nào Điều đang xảy ra thú vị hơn: Internet đang tự làm cho câu đùa cũ thành sự thật. Chỉ cần đủ nhiều người cùng nhớ một meme và cùng chờ đúng thời điểm, một lời đùa có thể biến thành lời tiên tri tự ứng nghiệm.', '--voice', 'vi-VN-NamMinhNeural', '--rate=+12%', '--pitch=+0Hz', '--write-media', 'D:/tmp/67bdcbad-04fc-44f4-881a-7e5583fd1651/tts_voice.mp3', '--write-subtitles', 'D:/tmp/67bdcbad-04fc-44f4-881a-7e5583fd1651/tts_words.vtt']' returned non-zero exit status 1.. Trying with pitch=+0Hz...
+[Modal] 🎯 Extracted 11 word-level timestamps from Edge TTS for Karaoke sync!
+[Modal] 📐 Canvas Format: Aspect=9:16 -> Resolution=1080x1920 @ 60 FPS (CRF 18 Broadcast Profile)
+[Modal] 🟨 Created Pixel-Perfect Title Banner Card (NEON)!
+[Modal] 🟢 Created Pixel-Perfect Logo Pill (@GocChiemNghiem) at pos=top_right (18.0%, 6.0%)!
+[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!
+[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for 12 visual scenes...
+[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: 62.9s): [4.49, 5.08, 4.89, 4.89, 4.89, 4.69, 5.28, 4.49, 6.25, 6.25, 6.25, 5.48]
+[MicroWorker 3] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/39425812/16788543_540_...
+[MicroWorker 2] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/18156336/18156336-hd_7...
+[MicroWorker 5] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/37446281/15859795_540_...
+[MicroWorker 1] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/9898435/9898435-uhd_21...
+[MicroWorker 0] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6650303/6650303-uhd_21...
+[MicroWorker 6] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/35371254/14986683_540_...
+[MicroWorker 7] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/8126500/8126500-hd_108...
+[MicroWorker 8] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/35160268/14894367_540_...
+[MicroWorker 4] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/18156336/18156336-hd_7...
+[MicroWorker 9] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/34994717/14825900_540_...
+[MicroWorker 10] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/34995393/14826240_540_...
+[MicroWorker 11] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/7042276/7042276-hd_108...
+[MicroWorker 5] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/37446281/15859795_540_...
+[MicroWorker 6] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/35371254/14986683_540_...
+[MicroWorker 7] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/8126500/8126500-hd_108...
+[MicroWorker 8] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/35160268/14894367_540_...
+[Modal] ⚠️ Notice: Transition concat fallback (Command '['D:\\VisionFlow\\VisionFlow_Bakend\\venv\\Lib\\site-packages\\imageio_ffmpeg\\binaries\\ffmpeg-win-x86_64-v7.1.exe', '-y', '-i', 'D:/tmp/67bdcbad-04fc-44f4-881a-7e5583fd1651/scene_chunk_0.mp4', '-i', 'D:/tmp/67bdcbad-04fc-44f4-881a-7e5583fd1651/scene_chunk_1.mp4', '-i', 'D:/tmp/67bdcbad-04fc-44f4-881a-7e5583fd1651/scene_chunk_2.mp4', '-i', 'D:/tmp/67bdcbad-04fc-44f4-881a-7e5583fd1651/scene_chunk_3.mp4', '-i', 'D:/tmp/67bdcbad-04fc-44f4-881a-7e5583fd1651/scene_chunk_4.mp4', '-i', 'D:/tmp/67bdcbad-04fc-44f4-881a-7e5583fd1651/scene_chunk_5.mp4', '-i', 'D:/tmp/67bdcbad-04fc-44f4-881a-7e5583fd1651/scene_chunk_6.mp4', '-i', 'D:/tmp/67bdcbad-04fc-44f4-881a-7e5583fd1651/scene_chunk_7.mp4', '-i', 'D:/tmp/67bdcbad-04fc-44f4-881a-7e5583fd1651/scene_chunk_8.mp4', '-i', 'D:/tmp/67bdcbad-04fc-44f4-881a-7e5583fd1651/scene_chunk_9.mp4', '-i', 'D:/tmp/67bdcbad-04fc-44f4-881a-7e5583fd1651/scene_chunk_10.mp4', '-i', 'D:/tmp/67bdcbad-04fc-44f4-881a-7e5583fd1651/scene_chunk_11.mp4', '-filter_complex', '[0:v][1:v]xfade=transition=dissolve:duration=0.45:offset=4.04[v1];[v1][2:v]xfade=transition=pixelize:duration=0.22:offset=8.90[v2];[v2][3:v]xfade=transition=fade:duration=0.4:offset=13.39[v3];[v3][4:v]xfade=transition=zoomin:duration=0.35:offset=17.93[v4];[v4][5:v]xfade=transition=smoothleft:duration=0.25:offset=22.57[v5];[v5][6:v]xfade=transition=dissolve:duration=0.45:offset=26.81[v6];[v6][7:v]xfade=transition=fade:duration=0.4:offset=31.69[v7];[v7][8:v]xfade=transition=fade:duration=0.4:offset=35.78[v8];[v8][9:v]xfade=transition=fade:duration=0.4:offset=41.63[v9];[v9][10:v]xfade=transition=fade:duration=0.4:offset=47.48[v10];[v10][11:v]xfade=transition=fade:duration=0.4:offset=53.33[vout]', '-map', '[vout]', '-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-pix_fmt', 'yuv420p', 'D:/tmp/67bdcbad-04fc-44f4-881a-7e5583fd1651/concat_scenes.mp4']' returned non-zero exit status 3199971767.)
+[Modal] ⚡ Fallback Direct Stream Concat: Joined 12 scenes without re-encoding!
+[Modal] 🎵 Auto-resolving BGM track 'Carefree' for genre [documentary] from CDN...
+[MicroWorker 9] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/34994717/14825900_540_...
+[Modal] 🔊 Smart SFX Sound Design: Injected 'horror_riser' sound effect at 8.9s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'whoosh' sound effect at 17.9s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'whoosh' sound effect at 22.6s!
+[MicroWorker 10] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/34995393/14826240_540_...
+[Modal] 🔊 Smart SFX Sound Design: Injected 'pop_accent' sound effect at 51.2s!
+[MicroWorker 11] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/7042276/7042276-hd_108...
+[Modal] ⚡ Applied 30+ Cinematic XFade Transitions across 12 scenes with auto SFX sync!
+[Modal] 🎵 Auto-resolving BGM track 'Carefree' for genre [documentary] from CDN...
+[Modal] 🔊 Smart SFX Sound Design: Injected 'horror_riser' sound effect at 8.9s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'whoosh' sound effect at 17.9s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'whoosh' sound effect at 22.6s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'pop_accent' sound effect at 51.2s!
+[Modal] ✅ Video render complete! Export path: D:/tmp/67bdcbad-04fc-44f4-881a-7e5583fd1651/final_output.mp4
+[Modal Quality Gate] Evaluation Result: {'passed': True, 'score': 99, 'metrics': {'size_bytes': 80433223, 'actual_duration': 63.434, 'resolution': '1080x1920', 'fps': 60}}
+[Modal] ☁️ Uploading rendered video to R2 (vision-flow/visionflow/67bdcbad-04fc-44f4-881a-7e5583fd1651/exports/final.mp4)...
+[Modal] ✅ R2 Upload complete: vision-flow/visionflow/67bdcbad-04fc-44f4-881a-7e5583fd1651/exports/final.mp4
+[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 (https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev/workflows/67bdcbad-04fc-44f4-881a-7e5583fd1651/cover.jpg)!
+[Modal] 💾 Successfully saved MediaAsset & registered APPROVAL_PENDING in DB for workflow 67bdcbad-04fc-44f4-881a-7e5583fd1651!
+
+[SUCCESS] OFFICIAL RENDER COMPLETE FOR 67bdcbad-04fc-44f4-881a-7e5583fd1651!
+  Output Object Key: visionflow/67bdcbad-04fc-44f4-881a-7e5583fd1651/exports/final.mp4
+  Public Video URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/67bdcbad-04fc-44f4-881a-7e5583fd1651/exports/final.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fd28f47a855e5f2097d5f8c24c50da70%2F20260918%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260918T184333Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=b87d1aac7d7955ed918db416bb3227c3884d5a429979363c91d0f625c91c87ad
+[DB] Auto-Publish OFF: Workflow 67bdcbad-04fc-44f4-881a-7e5583fd1651 -> APPROVAL_PENDING (Ready for Studio review)!
+
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'Vì Sao Sao Thổ Có Một Hình 10 Cạnh Khổng Lồ?' (ID: 627fa8dc-d793-4340-9e11-4fb61710f0fd)
+=======================================================
+  [Studio Sync] Voice: vi-VN-HoaiMyNeural
+  [Studio Sync] Logo Handle: @GocChiemNghiem (Pos: top_right)
+  [Studio Sync] Captions Preset: hormozi (Font: Montserrat, Color: #FFE600)
+  [Studio Sync] Title Banner: Vì Sao Sao Thổ Có Một Hình 10 Cạnh Khổng Lồ? (Style: neon)
+  [Studio Sync] Scene Count: 18
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: 627fa8dc-d793-4340-9e11-4fb61710f0fd
+=================================================================
+[Modal] 📜 Normalized Vietnamese script (2240 chars): 'Nếu nhìn xuống cực Nam Sao Thổ, bạn sẽ thấy một thứ trông nh...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=vi-VN-HoaiMyNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 🎭 Emotion-Dynamic Voice Modulation active! [Emotion: suspenseful_warning] -> Rate: +6%, Pitch: -10Hz
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (2240 chars -> 2240 chars)
+[Modal] 🎯 Extracted 21 word-level timestamps from Edge TTS for Karaoke sync!
+[Modal] 📐 Canvas Format: Aspect=9:16 -> Resolution=1080x1920 @ 60 FPS (CRF 18 Broadcast Profile)
+[Modal] 🟨 Created Pixel-Perfect Title Banner Card (NEON)!
+[Modal] 🟢 Created Pixel-Perfect Logo Pill (@GocChiemNghiem) at pos=top_right (18.0%, 6.0%)!
+[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!
+[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for 18 visual scenes...
+[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: 130.7s): [6.05, 6.05, 6.05, 6.05, 6.82, 6.82, 7.98, 7.98, 7.72, 7.72, 7.46, 7.46, 10.42, 10.42, 6.3, 6.3, 6.56, 6.57]
+[MicroWorker 0] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/20464846/20464846-hd_7...
+[MicroWorker 3] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/20349634/20349634-hd_1...
+[MicroWorker 1] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/10995717/10995717-hd_7...
+[MicroWorker 2] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/11631252/11631252-uhd_...
+[MicroWorker 4] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/14618955/14618955-sd_5...
+[MicroWorker 5] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/20175846/20175846-uhd_...
+[MicroWorker 6] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6707366/6707366-hd_108...
+[MicroWorker 7] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/12278511/12278511-hd_1...
+[MicroWorker 8] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/11565218/11565218-hd_7...
+[MicroWorker 9] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/18068805/18068805-uhd_...
+[MicroWorker 10] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/9667988/9667988-hd_720...
+[MicroWorker 11] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6624853/6624853-hd_720...
+[MicroWorker 12] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/19932424/19932424-uhd_...
+[MicroWorker 13] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/9667990/9667990-hd_720...
+[MicroWorker 14] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/8381580/8381580-hd_108...
+[MicroWorker 15] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/16629709/16629709-hd_1...
+[MicroWorker 16] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/5057690/5057690-hd_720...
+[MicroWorker 17] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/36964618/15660326_540_...
+[Modal] ⚡ Applied 30+ Cinematic XFade Transitions across 18 scenes with auto SFX sync!
+[Modal] 🎵 Auto-resolving BGM track 'Carefree' for genre [documentary] from CDN...
+[Modal] 🔊 Smart SFX Sound Design: Injected 'sub_boom' sound effect at 38.3s!
+[Modal] ✅ Video render complete! Export path: D:/tmp/627fa8dc-d793-4340-9e11-4fb61710f0fd/final_output.mp4
+[Modal Quality Gate] Evaluation Result: {'passed': True, 'score': 99, 'metrics': {'size_bytes': 135870187, 'actual_duration': 131.234, 'resolution': '1080x1920', 'fps': 60}}
+[Modal] ☁️ Uploading rendered video to R2 (vision-flow/visionflow/627fa8dc-d793-4340-9e11-4fb61710f0fd/exports/final.mp4)...
+[Modal] ✅ R2 Upload complete: vision-flow/visionflow/627fa8dc-d793-4340-9e11-4fb61710f0fd/exports/final.mp4
+[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 (https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev/workflows/627fa8dc-d793-4340-9e11-4fb61710f0fd/cover.jpg)!
+[Modal] 💾 Successfully saved MediaAsset & registered APPROVAL_PENDING in DB for workflow 627fa8dc-d793-4340-9e11-4fb61710f0fd!
+
+[SUCCESS] OFFICIAL RENDER COMPLETE FOR 627fa8dc-d793-4340-9e11-4fb61710f0fd!
+  Output Object Key: visionflow/627fa8dc-d793-4340-9e11-4fb61710f0fd/exports/final.mp4
+  Public Video URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/627fa8dc-d793-4340-9e11-4fb61710f0fd/exports/final.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fd28f47a855e5f2097d5f8c24c50da70%2F20260918%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260918T185544Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=db6104cbde54ba3cfa6e52ee1a7138441157dad73f879c169808b60e0c6f3931
+[DB] Auto-Publish OFF: Workflow 627fa8dc-d793-4340-9e11-4fb61710f0fd -> APPROVAL_PENDING (Ready for Studio review)!
+
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'Một Cú Va Chạm Cỡ Thế Kỷ Xảy Ra Trên Mặt Trăng… Nhưng Không Ai Thấy 🌕💥' (ID: 3fa7be0a-9bc5-4129-84b2-c31a917d55f7)
+=======================================================
+  [Studio Sync] Voice: vi-VN-NamMinhNeural
+  [Studio Sync] Logo Handle: @GocChiemNghiem (Pos: top_right)
+  [Studio Sync] Captions Preset: hormozi (Font: Montserrat, Color: #FFE600)
+  [Studio Sync] Title Banner: Một Cú Va Chạm Cỡ Thế Kỷ Xảy Ra Trên Mặt Trăng… Nhưng Không Ai Thấy 🌕💥 (Style: neon)
+  [Studio Sync] Scene Count: 8
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: 3fa7be0a-9bc5-4129-84b2-c31a917d55f7
+=================================================================
+[Modal] 📜 Normalized Vietnamese script (1381 chars): 'Một vật thể cỡ tòa nhà đã đâm vào Mặt Trăng. Và điều kỳ lạ l...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=vi-VN-NamMinhNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 🎭 Emotion-Dynamic Voice Modulation active! [Emotion: ominous_urgency] -> Rate: +6%, Pitch: -10Hz
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (1381 chars -> 1381 chars)
+[Modal] 🎯 Extracted 13 word-level timestamps from Edge TTS for Karaoke sync!
+[Modal] 📐 Canvas Format: Aspect=9:16 -> Resolution=1080x1920 @ 60 FPS (CRF 18 Broadcast Profile)
+[Modal] 🟨 Created Pixel-Perfect Title Banner Card (NEON)!
+[Modal] 🟢 Created Pixel-Perfect Logo Pill (@GocChiemNghiem) at pos=top_right (18.0%, 6.0%)!
+[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!
+[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for 8 visual scenes...
+[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: 85.5s): [6.87, 13.47, 10.17, 10.72, 9.34, 13.19, 11.54, 10.16]
+[MicroWorker 0] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/36964618/15660326_540_...
+[MicroWorker 2] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/37023380/15685895_540_...
+[MicroWorker 3] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6236751/6236751-hd_720...
+[MicroWorker 1] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/39582953/16871255_540_...
+[MicroWorker 4] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/37723924/15998997_540_...
+[MicroWorker 5] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/36965910/15661034_540_...
+[MicroWorker 6] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/39244252/16699744_540_...
+[MicroWorker 7] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/36964023/15660038_540_...
+[Modal] ⚡ Applied 30+ Cinematic XFade Transitions across 8 scenes with auto SFX sync!
+[Modal] 🎵 Auto-resolving BGM track 'Carefree' for genre [documentary] from CDN...
+[Modal] 🔊 Smart SFX Sound Design: Injected 'whoosh' sound effect at 19.5s!
+[Modal] ✅ Video render complete! Export path: D:/tmp/3fa7be0a-9bc5-4129-84b2-c31a917d55f7/final_output.mp4
+[Modal Quality Gate] Evaluation Result: {'passed': True, 'score': 99, 'metrics': {'size_bytes': 87456963, 'actual_duration': 85.967, 'resolution': '1080x1920', 'fps': 60}}
+[Modal] ☁️ Uploading rendered video to R2 (vision-flow/visionflow/3fa7be0a-9bc5-4129-84b2-c31a917d55f7/exports/final.mp4)...
+[Modal] ✅ R2 Upload complete: vision-flow/visionflow/3fa7be0a-9bc5-4129-84b2-c31a917d55f7/exports/final.mp4
+[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 (https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev/workflows/3fa7be0a-9bc5-4129-84b2-c31a917d55f7/cover.jpg)!
+[Modal] 💾 Successfully saved MediaAsset & registered APPROVAL_PENDING in DB for workflow 3fa7be0a-9bc5-4129-84b2-c31a917d55f7!
+
+[SUCCESS] OFFICIAL RENDER COMPLETE FOR 3fa7be0a-9bc5-4129-84b2-c31a917d55f7!
+  Output Object Key: visionflow/3fa7be0a-9bc5-4129-84b2-c31a917d55f7/exports/final.mp4
+  Public Video URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/3fa7be0a-9bc5-4129-84b2-c31a917d55f7/exports/final.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fd28f47a855e5f2097d5f8c24c50da70%2F20260918%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260918T190228Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=670da60e2cc59fa58ffbba4ed8b075a93bca3367991a8392aa2be46ceae8d90a
+[DB] Auto-Publish OFF: Workflow 3fa7be0a-9bc5-4129-84b2-c31a917d55f7 -> APPROVAL_PENDING (Ready for Studio review)!
+
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'Elias 2-24 b: Chúng Ta Đã Thấy Dấu Vết Của Hành Tinh Này Trước Khi Thấy Chính Nó 🪐' (ID: 20226c57-82f5-4a46-8043-156162a2ab8d)
+=======================================================
+  [Studio Sync] Voice: vi-VN-NamMinhNeural
+  [Studio Sync] Logo Handle: @GocChiemNghiem (Pos: top_right)
+  [Studio Sync] Captions Preset: hormozi (Font: Montserrat, Color: #FFE600)
+  [Studio Sync] Title Banner: Elias 2-24 b: Chúng Ta Đã Thấy Dấu Vết Của Hành Tinh Này Trước Khi Thấy Chính Nó 🪐 (Style: neon)
+  [Studio Sync] Scene Count: 8
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: 20226c57-82f5-4a46-8043-156162a2ab8d
+=================================================================
+[Modal] 📜 Normalized Vietnamese script (1393 chars): 'Hành tinh này chưa đầy một triệu năm tuổi, nhưng đã có khối ...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=vi-VN-NamMinhNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (1393 chars -> 1393 chars)
+[Modal TTS Warning] TTS with rate=+12%, pitch=+0Hz failed: Command '['D:\\VisionFlow\\VisionFlow_Bakend\\venv\\Scripts\\python.exe', '-m', 'edge_tts', '--text', 'Hành tinh này chưa đầy một triệu năm tuổi, nhưng đã có khối lượng xấp xỉ Sao Mộc. Và tốc độ hình thành của nó đang cho thấy các mô hình hiện tại vẫn còn thiếu một phần của câu chuyện. Cách Trái Đất khoảng 450 năm ánh sáng, sao trẻ Elias 2-24 vẫn được bao quanh bởi một đĩa khí và bụi — nơi các hành tinh đang ra đời. Từ năm 2017, ALMA đã thấy những khoảng trống trong chiếc đĩa này. Một trong số đó gợi ý rằng có thể một hành tinh trẻ đang quét vật chất khỏi quỹ đạo của nó. Năm 2018, kính Keck ghi lại một điểm sáng cực mờ ngay trong khu vực ấy. Nhưng tín hiệu khi đó chưa đủ để khẳng định đây là một hành tinh. Nhiều năm sau, Andrea Bernardi quay lại kho dữ liệu Keck Điểm sáng năm 2018 xuất hiện trở lại trong quan sát năm 2020, vẫn ở đúng vùng mà hành tinh được nghi ngờ tồn tại. Khi dữ liệu Keck được ghép với quan sát độc lập từ VLT và bằng chứng từ ALMA, chuyển động của điểm sáng cho thấy nó không phải lỗi ảnh hay một ngôi sao nền Đó là Elias 2-24 b. Nó trở thành ngoại hành tinh trẻ nhất được biết đến hiện nay, chưa đầy một triệu năm tuổi, có khối lượng xấp xỉ Sao Mộc và vẫn đang hút khí từ chiếc đĩa nơi nó sinh ra Điều đẹp nhất là chúng ta đã thấy dấu vết của hành tinh này trước khi đủ khả năng xác nhận chính nó. Hệ Elias 2-24 nằm trong vùng tạo sao Ophiuchus, cách chúng ta khoảng 450 năm ánh sáng. Muốn xem nguồn chính thức, hãy tìm: Elias 2-24 b NASA hoặc Elias 2-24 b Keck.', '--voice', 'vi-VN-NamMinhNeural', '--rate=+12%', '--pitch=+0Hz', '--write-media', 'D:/tmp/20226c57-82f5-4a46-8043-156162a2ab8d/tts_voice.mp3', '--write-subtitles', 'D:/tmp/20226c57-82f5-4a46-8043-156162a2ab8d/tts_words.vtt']' returned non-zero exit status 1.. Trying with pitch=+0Hz...
+[Modal] 🎯 Extracted 11 word-level timestamps from Edge TTS for Karaoke sync!
+[Modal] 📐 Canvas Format: Aspect=9:16 -> Resolution=1080x1920 @ 60 FPS (CRF 18 Broadcast Profile)
+[Modal] 🟨 Created Pixel-Perfect Title Banner Card (NEON)!
+[Modal] 🟢 Created Pixel-Perfect Logo Pill (@GocChiemNghiem) at pos=top_right (18.0%, 6.0%)!
+[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!
+[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for 8 visual scenes...
+[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: 78.5s): [10.48, 7.67, 8.94, 7.92, 9.2, 10.22, 9.71, 14.32]
+[MicroWorker 3] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/32349013/13800909_540_...
+[MicroWorker 2] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/5452770/5452770-hd_108...
+[MicroWorker 1] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/38999378/16594002_540_...
+[MicroWorker 0] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/27975940/12278760_540_...
+[MicroWorker 4] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/20436933/20436933-hd_1...
+[MicroWorker 5] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/14618955/14618955-sd_5...
+[MicroWorker 6] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/7564056/7564056-hd_720...
+[MicroWorker 7] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/39054455/16618521_540_...
+[Modal] ⚡ Applied 30+ Cinematic XFade Transitions across 8 scenes with auto SFX sync!
+[Modal] 🎵 Auto-resolving BGM track 'Carefree' for genre [documentary] from CDN...
+[Modal] 🔊 Smart SFX Sound Design: Injected 'whoosh' sound effect at 42.1s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'glitch_static' sound effect at 45.9s!
+[Modal] ✅ Video render complete! Export path: D:/tmp/20226c57-82f5-4a46-8043-156162a2ab8d/final_output.mp4
+[Modal Quality Gate] Evaluation Result: {'passed': True, 'score': 99, 'metrics': {'size_bytes': 80204814, 'actual_duration': 78.967, 'resolution': '1080x1920', 'fps': 60}}
+[Modal] ☁️ Uploading rendered video to R2 (vision-flow/visionflow/20226c57-82f5-4a46-8043-156162a2ab8d/exports/final.mp4)...
+[Modal] ✅ R2 Upload complete: vision-flow/visionflow/20226c57-82f5-4a46-8043-156162a2ab8d/exports/final.mp4
+[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 (https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev/workflows/20226c57-82f5-4a46-8043-156162a2ab8d/cover.jpg)!
+[Modal] 💾 Successfully saved MediaAsset & registered APPROVAL_PENDING in DB for workflow 20226c57-82f5-4a46-8043-156162a2ab8d!
+
+[SUCCESS] OFFICIAL RENDER COMPLETE FOR 20226c57-82f5-4a46-8043-156162a2ab8d!
+  Output Object Key: visionflow/20226c57-82f5-4a46-8043-156162a2ab8d/exports/final.mp4
+  Public Video URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/20226c57-82f5-4a46-8043-156162a2ab8d/exports/final.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fd28f47a855e5f2097d5f8c24c50da70%2F20260918%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260918T190925Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=5cc4f71c185a8e52ff3957f35ccf872d7b3df0990736bb44dc4678fb573ee992
+[DB] Auto-Publish OFF: Workflow 20226c57-82f5-4a46-8043-156162a2ab8d -> APPROVAL_PENDING (Ready for Studio review)!
+
+[Pass Notice] Short-form DB queue query notice: (psycopg.errors.ProtocolViolation) server conn crashed?
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[FFmpeg] Using modern FFmpeg binary: D:\VisionFlow\VisionFlow_Bakend\venv\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe
+
+=======================================================
+🚀 VISIONFLOW UNIFIED AUTOMATIC RENDER SERVER RUNNING
+   (100% Single Source of Truth — Local & GitHub Actions)
+=======================================================
+📌 Running Continuous Local Worker Daemon Loop...
+
+[FFmpeg] Using modern FFmpeg binary: D:\VisionFlow\VisionFlow_Bakend\venv\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe
+=======================================================
+🚀 VISIONFLOW UNIFIED AUTOMATIC RENDER SERVER RUNNING
+   (100% Single Source of Truth — Local & GitHub Actions)
+=======================================================
+📌 Running Continuous Local Worker Daemon Loop...
+
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "52.76.128.157", port 5432 failed: No route to host (0x00002751/10065)
+	Is the server running on that host and accepting TCP/IP connections?
+Multiple connection attempts failed. All failures were:
+- host: 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech', port: None, hostaddr: '52.76.108.241': connection timeout expired
+- host: 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech', port: None, hostaddr: '13.251.213.89': connection failed: connection to server at "13.251.213.89", port 5432 failed: No route to host (0x00002751/10065)
+	Is the server running on that host and accepting TCP/IP connections?
+- host: 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech', port: None, hostaddr: '52.76.128.157': connection failed: connection to server at "52.76.128.157", port 5432 failed: No route to host (0x00002751/10065)
+	Is the server running on that host and accepting TCP/IP connections?
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.OperationalError) failed to resolve host 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech': [Errno 11001] getaddrinfo failed
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Pass Notice] Short-form DB queue query notice: (psycopg.errors.ConnectionTimeout) connection timeout expired
+Multiple connection attempts failed. All failures were:
+- host: 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech', port: None, hostaddr: '52.76.108.241': connection timeout expired
+- host: 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech', port: None, hostaddr: '52.76.128.157': connection timeout expired
+- host: 'ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech', port: None, hostaddr: '13.251.213.89': connection timeout expired
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[FFmpeg] Using modern FFmpeg binary: D:\VisionFlow\VisionFlow_Bakend\venv\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe
+=======================================================
+🚀 VISIONFLOW UNIFIED AUTOMATIC RENDER SERVER RUNNING
+   (100% Single Source of Truth — Local & GitHub Actions)
+=======================================================
+📌 Running Continuous Local Worker Daemon Loop...
+
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'Một Tòa Nhà Biến Mất Hơn 200 Năm… Nhưng Bãi Cỏ Vẫn Nhớ Nó 🌿🏛️' (ID: 0095adf6-7554-4b13-b950-f75e07e314ed)
+=======================================================
+  [Studio Sync] Voice: vi-VN-NamMinhNeural
+  [Studio Sync] Logo Handle: @GocChiemNghiem (Pos: top_right)
+  [Studio Sync] Captions Preset: hormozi (Font: Montserrat, Color: #FFFFFF)
+  [Studio Sync] Title Banner: Một Tòa Nhà Biến Mất Hơn 200 Năm… Nhưng Bãi Cỏ Vẫn Nhớ Nó 🌿🏛️ (Style: glass)
+  [Studio Sync] BGM: Preset='Auto', Vol=0.12
+  [Studio Sync] Visual Engine: fal_ai
+  [Studio Sync] Scene Count: 18
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: 0095adf6-7554-4b13-b950-f75e07e314ed
+=================================================================
+[Modal] 📜 Normalized Vietnamese script (1276 chars): 'Một tòa nhà đã biến mất khỏi mặt đất hơn hai thế kỷ. Nhưng v...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=vi-VN-NamMinhNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (1276 chars -> 1276 chars)
+[Modal] 🎯 Extracted 20 word-level timestamps from Edge TTS for Karaoke sync!
+[Modal] 📐 Canvas Format: Aspect=9:16 -> Resolution=1080x1920 @ 60 FPS (CRF 18 Broadcast Profile)
+[Modal] 🟨 Created Pixel-Perfect Title Banner Card (GLASS)!
+[Modal] 🟢 Created Pixel-Perfect Logo Pill (@GocChiemNghiem) at pos=top_right (18.0%, 6.0%)!
+[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!
+[Modal] 🎬 Created Frosted-Glass Outro Card Overlay for Video Outro!
+[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for 18 visual scenes...
+[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: 78.6s): [3.8, 3.8, 3.8, 4.8, 4.8, 4.8, 4.8, 4.8, 4.8, 2.68, 2.5, 5.92, 5.92, 5.92, 2.9, 4.36, 4.36, 3.86]
+[MicroWorker 2] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/33403890/14218978_540_...
+[MicroWorker 3] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/12498236/12498236-hd_7...
+[MicroWorker 0] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/29460410/12681576_540_...
+[MicroWorker 1] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/33404113/14219100_540_...
+[MicroWorker 4] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/32652154/13921947_540_...
+[MicroWorker 5] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/37727684/16000915_540_...
+[MicroWorker 7] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/36454805/15458493_540_...
+[MicroWorker 6] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/10080669/10080669-hd_7...
+[MicroWorker 8] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/38087418/16170888_540_...
+[MicroWorker 9] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/39310477/16726823_540_...
+[MicroWorker 10] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/13352766/13352766-hd_1...
+[MicroWorker 11] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/29191224/12604554_540_...
+[MicroWorker 12] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/29144001/12588890_540_...
+[MicroWorker 13] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/29144002/12588884_540_...
+[MicroWorker 14] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/29460437/12681564_540_...
+[MicroWorker 15] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/12204694/12204694-sd_5...
+[MicroWorker 16] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/31033743/13264179_540_...
+[MicroWorker 17] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/29293937/12633276_540_...
+[Modal] ⚡ Applied 30+ Cinematic XFade Transitions across 18 scenes with auto SFX sync!
+[Modal] 🎵 Auto-resolving BGM track 'Clover 3 Nostalgic Piano' for genre [PHILOSOPHY_LIFE_LESSON] from CDN...
+[Modal] 🔊 Smart SFX Sound Design: Injected 'whoosh' sound effect at 6.8s!
+[Modal] ✅ Video render complete! Export path: D:/tmp/0095adf6-7554-4b13-b950-f75e07e314ed/final_output.mp4
+[Modal Quality Gate] Evaluation Result: {'passed': True, 'score': 99, 'metrics': {'size_bytes': 135554226, 'actual_duration': 79.117, 'resolution': '1080x1920', 'fps': 60}}
+[Modal] ☁️ Uploading rendered video to R2 (vision-flow/visionflow/0095adf6-7554-4b13-b950-f75e07e314ed/exports/final.mp4)...

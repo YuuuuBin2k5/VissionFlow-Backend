@@ -31,6 +31,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import yaml
 
+from production.config_loader import config_loader
+from production.credential_resolver import get_gemini_api_key
 from production.contracts import (
     RetrievalMode,
     RightsState,
@@ -136,7 +138,7 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
         fallback_model: str = "gemini-embedding-001",
         dimensions: int = 768,
     ):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        self.api_key = api_key or get_gemini_api_key()
         self._model_name = model_name
         self._fallback_model = fallback_model
         self._dimensions = dimensions
@@ -376,7 +378,7 @@ class EmbeddingService:
             model_name=offline_cfg.get("model", "hashed-lexical-v1"),
         )
 
-        has_gemini_key = bool(os.getenv("GEMINI_API_KEY"))
+        has_gemini_key = bool(get_gemini_api_key())
         if has_gemini_key:
             self.cloud_provider: Optional[EmbeddingProvider] = GeminiEmbeddingProvider(
                 model_name=primary_cfg.get("model", "gemini-embedding-2"),

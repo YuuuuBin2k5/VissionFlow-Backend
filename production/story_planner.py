@@ -138,13 +138,16 @@ class StoryPlannerProvider(ABC):
         pass
 
 
+from production.credential_resolver import get_gemini_api_key
+
+
 class GeminiStoryPlannerProvider(StoryPlannerProvider):
     """
     Cloud story planning provider using Google Gemini GenAI SDK.
     Emits strictly validated StoryPlan schemas without writing full script lines.
     """
     def __init__(self, api_key: Optional[str] = None, model_name: str = "gemini-2.5-flash"):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        self.api_key = api_key or get_gemini_api_key()
         self.model_name = model_name
 
     def plan_story(
@@ -368,7 +371,7 @@ class StoryPlanner:
     def __init__(self, provider: Optional[StoryPlannerProvider] = None):
         if provider is not None:
             self.provider = provider
-        elif os.getenv("GEMINI_API_KEY"):
+        elif get_gemini_api_key():
             self.provider = GeminiStoryPlannerProvider()
         else:
             self.provider = LocalStoryPlannerProvider()

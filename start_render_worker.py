@@ -136,6 +136,25 @@ def process_workflow_official(wf_id: str) -> bool:
             print(f"  [Worker Route] Skipping '{title}' ({wf_id}) in standard B-roll pipeline (Handled by DubbingStrategy).")
             return False
 
+        render_target = str(
+            manifest.get("render_target")
+            or payload.get("render_target")
+            or ""
+        ).upper()
+
+        is_gh_actions = os.environ.get("GITHUB_ACTIONS") == "true"
+
+        if is_gh_actions:
+            # On GitHub Actions, skip jobs that are explicitly marked for user's LOCAL PC
+            if render_target == "LOCAL":
+                print(f"  [Worker Route] Skipping '{title}' ({wf_id}): targeted explicitly for user's LOCAL machine.")
+                return False
+        else:
+            # On Local machine daemon, skip jobs targeted for cloud (MODAL or GITHUB)
+            if render_target in ("MODAL", "GITHUB"):
+                print(f"  [Worker Route] Skipping '{title}' ({wf_id}): targeted for {render_target}, skipping on local worker.")
+                return False
+
         # Atomically mark workflow as RENDERING in DB to prevent concurrent runs
         wf.state = "RENDERING"
         session_db.commit()

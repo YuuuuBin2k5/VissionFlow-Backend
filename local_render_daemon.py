@@ -50,6 +50,8 @@ def poll_and_render_one_job():
             FROM workflow_runs
             WHERE (state = 'QUEUED' OR (state = 'PROCESSING' AND updated_at < NOW() - INTERVAL '3 minutes'))
               AND NOT (COALESCE(input_payload, '{}'::jsonb) ? 'voice_context')
+              AND UPPER(COALESCE(prompt_manifest->>'render_target', input_payload->>'render_target', 'LOCAL')) NOT IN ('MODAL', 'GITHUB')
+              AND UPPER(COALESCE(prompt_manifest->>'render_mode', input_payload->>'render_mode', '')) != 'TRANSLATE_DUB'
             ORDER BY created_at ASC
             LIMIT 1
             FOR UPDATE SKIP LOCKED
@@ -63,9 +65,8 @@ def poll_and_render_one_job():
 
         wf_id = str(job['id'])
         org_id = "7b91598c-6c3e-4e5d-8247-d3efa203984a"
-        
+
         print("\n" + "=" * 70, flush=True)
-        print(f"⚡ [Local Render Daemon] Picked up QUEUED job: {wf_id}", flush=True)
         print("=" * 70, flush=True)
 
         # Update state to PROCESSING

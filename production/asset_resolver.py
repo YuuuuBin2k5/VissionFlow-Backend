@@ -283,6 +283,9 @@ class TokenBucketRateLimiter:
 # ---------------------------------------------------------------------------
 # Pexels Stock Adapter (Section 12)
 # ---------------------------------------------------------------------------
+from production.credential_resolver import get_pexels_api_key
+
+
 class PexelsStockAdapter:
     """
     Stock footage retrieval adapter for Pexels.
@@ -291,7 +294,7 @@ class PexelsStockAdapter:
     """
 
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("PEXELS_API_KEY", "")
+        self.api_key = api_key or get_pexels_api_key() or ""
         self.headers = {"Authorization": self.api_key} if self.api_key else {}
         self.rate_limiter = TokenBucketRateLimiter(rate=5.0, capacity=5.0)
         self._cache: Dict[str, List[Dict[str, Any]]] = {}

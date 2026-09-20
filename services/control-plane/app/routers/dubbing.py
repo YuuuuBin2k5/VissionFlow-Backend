@@ -90,6 +90,7 @@ class DubbingDispatchRequest(BaseModel):
     blur_original_logo: bool = True
     enable_narration_cta: bool = False
     enable_seamless_loop_adaptation: bool = False
+    render_target: Optional[str] = "LOCAL"
 
 
 class SourceUploadIntentRequest(BaseModel):
@@ -274,6 +275,7 @@ def dispatch_dubbing_job(
         "translation_mode": payload.translation_mode,
         "enable_narration_cta": payload.enable_narration_cta,
         "enable_seamless_loop_adaptation": payload.enable_seamless_loop_adaptation,
+        "render_target": (payload.render_target or "LOCAL").upper(),
     }
     metadata["source_asset_id"] = str(payload.source_asset_id) if payload.source_asset_id else None
     metadata["dubbing_workflow"] = build_dubbing_workflow_package(metadata, source_asset_id=metadata["source_asset_id"])
@@ -397,12 +399,24 @@ def get_dubbing_job_status(
 
     download_url = None
     if asset:
-        try:
-            from worker.services.visionflow_object_storage import S3CompatibleObjectStorage, VisionFlowObjectStorageSettings
-            storage = S3CompatibleObjectStorage(VisionFlowObjectStorageSettings.from_env())
-            download_url = storage.generate_presigned_download_url(asset.object_key, expires_in_seconds=3600)
-        except Exception:
-            pass
+        if asset.object_key and (asset.object_key.startswith("http://") or asset.object_key.startswith("https://")):
+            download_url = asset.object_key
+        else:
+            try:
+                from worker.services.visionflow_object_storage import S3CompatibleObjectStorage, VisionFlowObjectStorageSettings
+                storage = S3CompatibleObjectStorage(VisionFlowObjectStorageSettings.from_env())
+                download_url = storage.generate_presigned_download_url(asset.object_key, expires_in_seconds=3600)
+            except Exception:
+                pass
+
+    # Fallback to WorkflowStep payloads if MediaAsset presigned URL unavailable
+    if not download_url:
+        for s in steps:
+            if s.step_key in ("render", "dubbing") and isinstance(s.output_payload, dict):
+                cand = s.output_payload.get("video_url") or s.output_payload.get("download_url") or s.output_payload.get("public_url")
+                if cand and isinstance(cand, str) and cand.startswith("http"):
+                    download_url = cand
+                    break
 
     manifest = wf.prompt_manifest or {}
     seo_metadata = manifest.get("seo") or {}

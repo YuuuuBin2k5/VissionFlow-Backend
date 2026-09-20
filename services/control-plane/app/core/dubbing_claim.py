@@ -43,6 +43,20 @@ def claim_next_dubbing_workflow(session: Session, *, worker_id: str, lease_secon
     for workflow in rows:
         if not _is_dubbing(workflow):
             continue
+
+        target = (
+            (workflow.prompt_manifest or {}).get("render_target")
+            or (workflow.input_payload or {}).get("render_target")
+            or "LOCAL"
+        ).upper()
+
+        import os
+        is_github_runner = os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted"
+        if is_github_runner and target == "LOCAL":
+            continue
+        if not is_github_runner and target in ("MODAL", "GITHUB"):
+            continue
+
         payload: dict[str, Any] = dict(workflow.input_payload or {})
         lease = payload.get("dubbing_claim") if isinstance(payload.get("dubbing_claim"), dict) else {}
         expires_at = lease.get("expires_at")

@@ -134,9 +134,12 @@ class VisionAnalyzerProvider(ABC):
         pass
 
 
+from production.credential_resolver import get_gemini_api_key
+
+
 class GeminiVisionProvider(VisionAnalyzerProvider):
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        self.api_key = api_key or get_gemini_api_key()
 
     def analyze_scene(
         self,
@@ -239,7 +242,7 @@ class SourceAnalyzerService:
         """Consults model_routing.yaml for active vision engine."""
         routing = config_loader.model_routing
         preferred = routing.get("vision_routing", {}).get("preferred", "gemini")
-        if preferred == "gemini" and os.getenv("GEMINI_API_KEY"):
+        if preferred == "gemini" and get_gemini_api_key():
             return self.gemini_provider
         return self.heuristic_provider
 

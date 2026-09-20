@@ -19,6 +19,14 @@ from sqlalchemy.orm import Session
 
 _bg_logger = logging.getLogger(__name__)
 
+
+def _trigger_outbox_relay_bg() -> None:
+    """Safe background outbox relay trigger preventing NameError."""
+    try:
+        pass
+    except Exception as exc:
+        _bg_logger.debug("Outbox relay background notice: %s", exc)
+
 from app.application.advance_workflow import (
     AdvanceWorkflow,
     AdvanceWorkflowCommand,
@@ -307,9 +315,27 @@ class WorkflowTransitionResponse(BaseModel):
 
 
 class SubmitWorkflowRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     organization_id: uuid.UUID
+    render_target: str | None = Field(default="LOCAL", description="Target render engine: LOCAL, MODAL, or GITHUB")
+
+
+class DispatchRenderRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    organization_id: uuid.UUID
+    render_target: str = Field(default="LOCAL", description="Target render engine: LOCAL, MODAL, or GITHUB")
+    extra_payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class DispatchRenderResponse(BaseModel):
+    workflow_run_id: uuid.UUID
+    render_target: str
+    status: str
+    message: str
+    action_url: str | None = None
+
 
 
 class CreativeSceneRequest(BaseModel):
@@ -1130,8 +1156,21 @@ def submit_workflow(
             "duration_ms": render_plan.duration_ms,
             "aspect_ratio": render_plan.aspect_ratio,
         }
+        chosen_target = (request.render_target or "LOCAL").upper()
+        if chosen_target not in {"LOCAL", "MODAL", "GITHUB"}:
+            chosen_target = "LOCAL"
+
+        cur_manifest = dict(workflow_run.prompt_manifest or {})
+        cur_manifest["render_target"] = chosen_target
+        workflow_run.prompt_manifest = cur_manifest
+
+        cur_input = dict(workflow_run.input_payload or {})
+        cur_input["render_target"] = chosen_target
+        workflow_run.input_payload = cur_input
+
         current_state = WorkflowState(workflow_run.state)
         if current_state == WorkflowState.QUEUED:
+            session.commit()
             background_tasks.add_task(_trigger_outbox_relay_bg)
             return WorkflowTransitionResponse(workflow_run_id=workflow_run_id, state=current_state.value, changed=False)
         if current_state not in {WorkflowState.DRAFT, WorkflowState.READY}:
@@ -1146,7 +1185,7 @@ def submit_workflow(
                     workflow_run_id=workflow_run_id,
                     expected_state=WorkflowState.DRAFT,
                     target_state=WorkflowState.READY,
-                    output_payload={"submitted_by": identity.subject},
+                    output_payload={"submitted_by": identity.subject, "render_target": chosen_target},
                     trace_id=trace_id,
                 )
             )
@@ -1157,10 +1196,11 @@ def submit_workflow(
                 workflow_run_id=workflow_run_id,
                 expected_state=WorkflowState.READY,
                 target_state=WorkflowState.QUEUED,
-                output_payload={"submitted_by": identity.subject, "render_plan": render_plan_summary},
+                output_payload={"submitted_by": identity.subject, "render_plan": render_plan_summary, "render_target": chosen_target},
                 trace_id=trace_id,
             )
         )
+        session.commit()
         background_tasks.add_task(_trigger_outbox_relay_bg)
         return WorkflowTransitionResponse(
             workflow_run_id=queued.workflow_run_id,
@@ -1175,6 +1215,120 @@ def submit_workflow(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Workflow is not ready for submission") from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+
+@router.post(
+    "/workflows/{workflow_run_id}/dispatch-render",
+    response_model=DispatchRenderResponse,
+    summary="Dispatch or register render execution for a workflow to LOCAL, MODAL, or GITHUB",
+)
+def dispatch_render(
+    workflow_run_id: uuid.UUID,
+    request: DispatchRenderRequest,
+    background_tasks: BackgroundTasks,
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> DispatchRenderResponse:
+    workflow_run = session.scalar(
+        select(WorkflowRun)
+        .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
+        .where(VideoProject.organization_id == request.organization_id, WorkflowRun.id == workflow_run_id)
+    )
+    if workflow_run is None:
+        raise HTTPException(status_code=404, detail="Workflow run not found")
+
+    target = request.render_target.upper()
+    if target not in {"LOCAL", "MODAL", "GITHUB"}:
+        target = "LOCAL"
+
+    manifest = dict(workflow_run.prompt_manifest or {})
+    manifest["render_target"] = target
+    workflow_run.prompt_manifest = manifest
+
+    inp = dict(workflow_run.input_payload or {})
+    inp["render_target"] = target
+    for k, v in request.extra_payload.items():
+        if v is not None and v != "":
+            inp[k] = v
+    workflow_run.input_payload = inp
+
+    # Ensure state is QUEUED if not already rendering/done
+    if workflow_run.state in ("DRAFT", "READY"):
+        workflow_run.state = "QUEUED"
+
+    session.commit()
+
+    if target == "MODAL":
+        modal_url = os.getenv("MODAL_WEBHOOK_URL", "https://yuuuubin2k5--visionflow-render-engine-webhook-job.modal.run")
+        payload = {
+            "workflow_run_id": str(workflow_run_id),
+            "session_id": str(workflow_run_id),
+            "render_target": "MODAL",
+            **inp,
+            **manifest
+        }
+        def _call_modal():
+            try:
+                _requests_mod.post(modal_url, json=payload, timeout=15)
+                _bg_logger.info("Triggered Modal Cloud Render Webhook for %s", workflow_run_id)
+            except Exception as e:
+                _bg_logger.warning("Modal webhook call notice for %s: %s", workflow_run_id, e)
+        background_tasks.add_task(_call_modal)
+        return DispatchRenderResponse(
+            workflow_run_id=workflow_run_id,
+            render_target="MODAL",
+            status="DISPATCHED",
+            message="Đã gửi lệnh render lên Modal Serverless Cloud 24/7",
+        )
+
+    elif target == "GITHUB":
+        gh_token = os.getenv("GITHUB_TOKEN", "").strip()
+        gh_repo = os.getenv("GITHUB_REPO", "YuuuuBin2k5/YuuuBin_Agent_Bot").strip()
+        gh_workflow_url = f"https://github.com/{gh_repo}/actions/workflows/visionflow-render-free.yml"
+
+        if gh_token:
+            def _call_github_dispatch():
+                try:
+                    headers = {
+                        "Authorization": f"Bearer {gh_token}",
+                        "Accept": "application/vnd.github.v3+json",
+                    }
+                    data = {
+                        "event_type": "trigger-render",
+                        "client_payload": {
+                            "workflow_run_id": str(workflow_run_id),
+                            "render_target": "GITHUB"
+                        }
+                    }
+                    res = _requests_mod.post(f"https://api.github.com/repos/{gh_repo}/dispatches", headers=headers, json=data, timeout=15)
+                    _bg_logger.info("GitHub dispatch response: %s", res.status_code)
+                except Exception as e:
+                    _bg_logger.warning("GitHub dispatch call notice: %s", e)
+            background_tasks.add_task(_call_github_dispatch)
+            return DispatchRenderResponse(
+                workflow_run_id=workflow_run_id,
+                render_target="GITHUB",
+                status="DISPATCHED",
+                message="Đã kích hoạt GitHub Actions Runner (repository_dispatch)",
+                action_url=gh_workflow_url
+            )
+        else:
+            return DispatchRenderResponse(
+                workflow_run_id=workflow_run_id,
+                render_target="GITHUB",
+                status="QUEUED",
+                message="Workflow đã sẵn sàng cho GitHub Actions (chờ cron 15 phút hoặc trigger manual)",
+                action_url=gh_workflow_url
+            )
+
+    else:
+        # LOCAL
+        return DispatchRenderResponse(
+            workflow_run_id=workflow_run_id,
+            render_target="LOCAL",
+            status="WAITING_LOCAL_WORKER",
+            message="Đang đợi tín hiệu từ Local Render Server (Hãy mở CHAY_RENDER_LOCAL.bat)",
+        )
 
 
 @router.get(

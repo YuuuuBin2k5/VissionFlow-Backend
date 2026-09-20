@@ -43,13 +43,16 @@ class ResearchProvider(ABC):
         pass
 
 
+from production.credential_resolver import get_gemini_api_key
+
+
 class GeminiResearchProvider(ResearchProvider):
     """
     Cloud research provider using Google Gemini GenAI SDK.
     Emits strictly validated FactPack schemas.
     """
     def __init__(self, api_key: Optional[str] = None, model_name: str = "gemini-2.5-flash", enable_grounding: bool = False):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        self.api_key = api_key or get_gemini_api_key()
         self.model_name = model_name
         self.enable_grounding = enable_grounding
 
@@ -424,7 +427,7 @@ class ResearchAgent:
     def __init__(self, provider: Optional[ResearchProvider] = None):
         if provider is not None:
             self.provider = provider
-        elif os.getenv("GEMINI_API_KEY"):
+        elif get_gemini_api_key():
             self.provider = GeminiResearchProvider()
         else:
             self.provider = LocalResearchProvider()
