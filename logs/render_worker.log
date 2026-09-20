@@ -33679,3 +33679,45 @@ Multiple connection attempts failed. All failures were:
 ✅ [SUCCESS] AUTO PRODUCTION RENDER COMPLETE FOR run_2f70984b9df0!
   Output Object Key: visionflow/run_2f70984b9df0/exports/final.mp4
   Public Video URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/run_2f70984b9df0/exports/final.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fd28f47a855e5f2097d5f8c24c50da70%2F20260920%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260920T100259Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=03532020bb06822d4188ea6cee675ad4b59e1b31cf5d1fe1ea395b594c9bbab2
+
+=======================================================
+[WORKER] PROCESSING AUTO PRODUCTION VIDEO: 'run_e9bbc54778ce' (Job: 233e25d2)
+=======================================================
+  [Auto Production Sync] Title: 'The Untold Secret Of một khả năng hoàn toàn khác: AI không chỉ làm việc cho con người nữa'
+  [Auto Production Sync] Voice: en-AU-NatashaNeural
+  [Auto Production Sync] Scenes: 5
+  [Auto Production Sync] Style: Banner='neon', Captions='hormozi'
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: run_e9bbc54778ce
+=================================================================
+[Modal] 📜 Normalized Vietnamese script (529 chars): 'What is the untold secret behind the mastery of một khả năng...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=en-AU-NatashaNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (529 chars -> 529 chars)
+[Modal] 🎵 Using pre-assembled master narration: D:\VisionFlow\VisionFlow_Bakend\worker\workspace_temp\audio_assembly\run_e9bbc54778ce\master_tts.mp3 (883399 bytes)
+[Modal] 🎯 Extracted 25 word-level timestamps from Edge TTS for Karaoke sync!
+[Modal] 📐 Canvas Format: Aspect=9:16 -> Resolution=1080x1920 @ 30 FPS (CRF 18 Broadcast Profile)
+[Modal] 🟨 Created Pixel-Perfect Title Banner Card (NEON)!
+[Modal] 🟢 Created Pixel-Perfect Logo Pill (@VisionFlow) at pos=top_left (18.0%, 6.0%)!
+[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!
+[Modal] 🎬 Created Frosted-Glass Outro Card Overlay for Video Outro!
+[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for 5 visual scenes...
+[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: 36.8s): [8.784, 6.648, 6.912, 7.248, 7.152]
+[MicroWorker 3] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/34822987/14762873_540_...
+[MicroWorker 1] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/32316895/13783382_540_...
+[MicroWorker 0] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/37361952/15824583_540_...
+[MicroWorker 2] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/36352159/15418519_540_...
+[MicroWorker 4] 🌐 Downloaded scene media from URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorag...
+[Modal] ⚡ Applied 30+ Cinematic XFade Transitions across 5 scenes with auto SFX sync!
+[Modal] 🎵 Auto-resolving BGM track 'Deep Space Pulse' for genre [SCIENCE_TECH_FUTURE] from CDN...
+[Modal] 🔊 Smart SFX Sound Design: Injected 'heartbeat' sound effect at 25.2s!
+[Modal] ✅ Video render complete! Export path: D:/tmp/run_e9bbc54778ce/final_output.mp4
+[Modal Quality Gate] Evaluation Result: {'passed': True, 'score': 99, 'metrics': {'size_bytes': 46423459, 'actual_duration': 36.744, 'resolution': '1080x1920', 'fps': 30}}
+[Modal] ☁️ Uploading rendered video to R2 (vision-flow/visionflow/run_e9bbc54778ce/exports/final.mp4)...
+[Modal] ✅ R2 Upload complete: vision-flow/visionflow/run_e9bbc54778ce/exports/final.mp4
+[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 (https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev/workflows/run_e9bbc54778ce/cover.jpg)!
+[Modal] 💾 Successfully saved MediaAsset & registered APPROVAL_PENDING in DB for workflow run_e9bbc54778ce!
+
+✅ [SUCCESS] AUTO PRODUCTION RENDER COMPLETE FOR run_e9bbc54778ce!
+  Output Object Key: visionflow/run_e9bbc54778ce/exports/final.mp4
+  Public Video URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/run_e9bbc54778ce/exports/final.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fd28f47a855e5f2097d5f8c24c50da70%2F20260920%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260920T104431Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=a5e258c019b759115b1490c540ee16d0a919ff6a491ef3725eac8aac7156f066

@@ -625,6 +625,29 @@ SCENES:
             intents = []
             for item in raw_intents:
                 intent_obj = VisualIntent(**item)
+                # Sanitize search_query_en: if Gemini returned Vietnamese, translate it
+                sqen = intent_obj.search_query_en.strip()
+                if VietnameseQueryTranslationBridge.is_vietnamese(sqen):
+                    _, translated, en_str = VietnameseQueryTranslationBridge.translate_and_enrich(sqen)
+                    if translated and en_str:
+                        # Build clean canonical English query from translation
+                        clean_tokens = [
+                            w for w in re.findall(r"\w+", en_str.lower())
+                            if w not in GENERIC_QUERY_STOPWORDS and len(w) > 2
+                        ]
+                        intent_obj.search_query_en = " ".join(clean_tokens[:5]) or "workshop craft process"
+                    else:
+                        # Fallback: strip diacritics (ascii-fold) and use remaining words
+                        ascii_q = re.sub(r"[^\w\s]", "", sqen)
+                        clean_tokens = [w for w in ascii_q.split() if len(w) > 2][:5]
+                        intent_obj.search_query_en = " ".join(clean_tokens) or "workshop craft process"
+                # Remove generic stopwords
+                clean_tokens = [
+                    w for w in re.findall(r"\w+", intent_obj.search_query_en.lower())
+                    if w not in GENERIC_QUERY_STOPWORDS and len(w) > 2
+                ]
+                if len(clean_tokens) >= 2:
+                    intent_obj.search_query_en = " ".join(clean_tokens[:5])
                 intents.append(intent_obj)
 
             if intents:

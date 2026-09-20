@@ -142,6 +142,8 @@ def lock(run_id, scene_id, shot_order, locked):
 
 async def resolve_shot(run_id, scene_id, shot_order):
     from production.asset_resolver import asset_resolver
+    from production.embedding_service import VietnameseQueryTranslationBridge
+    import re
     with edit_run(run_id) as run:
         result = resolution_for(run, scene_id, shot_order)
         if result.selected_candidate and result.selected_candidate.is_locked:
@@ -153,10 +155,19 @@ async def resolve_shot(run_id, scene_id, shot_order):
         if not plan.intents:
             raise ValueError('Không tìm thấy VisualIntent')
         # Refresh search cache only for this query; do not regenerate upstream plans.
-        query = plan.intents[0].search_query_en.lower()
+        # Also invalidate both the raw query and its English translation to force a fresh Pexels fetch.
+        raw_query = plan.intents[0].search_query_en.lower()
+        queries_to_invalidate = {raw_query}
+        if VietnameseQueryTranslationBridge.is_vietnamese(raw_query):
+            _, translated, en_str = VietnameseQueryTranslationBridge.translate_and_enrich(raw_query)
+            if translated and en_str:
+                clean_en = re.sub(r'[^\w\s]', '', en_str).strip().lower()
+                queries_to_invalidate.add(clean_en)
         for key in list(asset_resolver.stock_adapter._cache):
-            if key.startswith(f'pex:{query}:'):
-                asset_resolver.stock_adapter._cache.pop(key, None)
+            for q in queries_to_invalidate:
+                if key.startswith(f'pex:{q}:'):
+                    asset_resolver.stock_adapter._cache.pop(key, None)
+                    break
         fresh = await asset_resolver.resolve_visual_plan(plan, user_sources=run.request.sources, run_id=run_id)
         found = fresh.resolutions[0]
         candidates = ([found.selected_candidate] if found.selected_candidate else []) + found.alternate_candidates

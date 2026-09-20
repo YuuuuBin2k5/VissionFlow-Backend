@@ -46,6 +46,7 @@ from production.repositories.source_repository import (
     get_source_repository,
 )
 from production.visual_hasher import hamming_distance
+from production.embedding_service import VietnameseQueryTranslationBridge
 
 logger = logging.getLogger(__name__)
 
@@ -324,6 +325,15 @@ class PexelsStockAdapter:
         limit: int = 6,
         prefer_portrait: bool = True,
     ) -> List[AssetCandidate]:
+        # Translate Vietnamese queries to English before hitting Pexels API
+        # Pexels only processes English keywords; Vietnamese queries yield near-zero relevance scores.
+        if VietnameseQueryTranslationBridge.is_vietnamese(query):
+            _, translated, en_str = VietnameseQueryTranslationBridge.translate_and_enrich(query)
+            if translated and en_str:
+                # Use only the English translation for the Pexels search
+                query = en_str
+                logger.info("Translated Vietnamese query for Pexels: %r", query)
+
         clean_q = re.sub(r"[^\w\s]", "", query).strip().lower()
         if not clean_q:
             clean_q = "cinematic atmospheric footage"
@@ -405,6 +415,15 @@ class PexelsStockAdapter:
                             files[0] if files else {},
                         )
                         v_id = str(v.get("id"))
+                        # Build a rich description from the URL slug + video_files titles
+                        # so the scorer can compute meaningful semantic/entity overlap
+                        pex_url = str(v.get("url", ""))
+                        slug_tokens = re.sub(r"[-_/]+", " ", pex_url).strip()
+                        # Also extract any photographer info for enrichment
+                        photographer = str(v.get("user", {}).get("name", "")).lower()
+                        video_tags = v.get("tags", [])
+                        tags_str = " ".join(video_tags) if isinstance(video_tags, list) else ""
+                        rich_description = f"{slug_tokens} {photographer} {tags_str}".strip()
                         cand = AssetCandidate(
                             asset_id=f"pex_{v_id}",
                             source_id=f"pex_{v_id}",
@@ -424,9 +443,10 @@ class PexelsStockAdapter:
                                 "source_id": v_id,
                                 "license_ref": "Pexels License Free Commercial",
                                 "retrieved_at": datetime.now(timezone.utc).isoformat(),
-                                "original_url": v.get("url"),
+                                "original_url": pex_url,
+                                "title": slug_tokens,
                             },
-                            selection_evidence={"description": re.sub(r"[-_/]+", " ", str(v.get("url", "")))},
+                            selection_evidence={"description": rich_description},
                         )
                         results.append(cand)
                     return results
