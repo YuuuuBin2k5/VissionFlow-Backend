@@ -572,9 +572,11 @@ class ProductionOrchestrator:
                 or (run.request.overrides.get("voice_code") if run.request.overrides else None)
                 or default_voice
             )
+            from worker.services.visionflow_tts import resolve_voice
+            resolved_voice = resolve_voice(voice_code, language=req_lang)
             tts_results = await tts_service.synthesize_script(
                 scenes=run.script_plan.scenes,
-                voice_code=voice_code,
+                voice_code=resolved_voice,
                 run_id=run_id,
             )
             tts_providers = {item.provider for item in tts_results}

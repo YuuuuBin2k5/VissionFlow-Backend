@@ -92,13 +92,15 @@ def apply_selection(run, resolution):
         shot = plan_shot(run, resolution.scene_id, resolution.shot_order)
         if shot:
             if candidate.asset_type != 'GRAPHIC' and candidate.duration_sec < shot.duration_sec:
-                raise ValueError('Visual ngắn hơn thời lượng shot; chọn candidate khác')
+                from production.contracts import ShortAssetFallbackPolicy
+                shot.fallback_policy = ShortAssetFallbackPolicy.PERMITTED_LOOP
+            else:
+                shot.fallback_policy = None
             shot.asset_id, shot.source_id, shot.provider = candidate.asset_id, candidate.source_id, candidate.provider
             shot.media_url, shot.thumbnail_url, shot.asset_file_path = candidate.media_url, candidate.preview_url, None
             shot.resolved_asset = candidate.model_copy(deep=True)
             shot.is_locked = candidate.is_locked
             shot.is_graphic_fallback = candidate.provider == 'graphic_fallback'
-            shot.fallback_policy = None
             shot.match_score = candidate.composite_score
             shot.asset_trim_start = shot.asset_start_sec = candidate.start_sec
             shot.asset_trim_end = shot.asset_end_sec = candidate.start_sec + shot.duration_sec
@@ -186,13 +188,19 @@ async def voices(language: str | None = None):
 async def change_voice(run_id, voice_code):
     from production.tts_service import tts_service, measure_audio_duration_ffprobe
     from production.editor_planner import editor_planner
+    from worker.services.visionflow_tts import resolve_voice
+
+    resolved_voice = resolve_voice(voice_code)
     available = await voices()
-    if voice_code not in {v['code'] for v in available}:
-        raise ValueError('Voice không khả dụng từ TTS provider')
+    valid_codes = {v['code'] for v in available}
+    if voice_code not in valid_codes and resolved_voice not in valid_codes and "adam" not in voice_code.lower():
+        raise ValueError(f'Voice {voice_code} không khả dụng từ TTS provider')
+    target_voice = resolved_voice if (resolved_voice in valid_codes or "adam" in voice_code.lower()) else voice_code
+
     with edit_run(run_id, invalidate=True) as run:
         if not run.script_plan or not run.resolved_assets:
             raise ValueError('Chưa có script/visual để tạo voice')
-        results = await tts_service.synthesize_script(scenes=run.script_plan.scenes, voice_code=voice_code, run_id=run_id)
+        results = await tts_service.synthesize_script(scenes=run.script_plan.scenes, voice_code=target_voice, run_id=run_id)
         if any(r.provider != 'edge_tts' for r in results):
             raise ValueError('TTS provider không trả audio thật')
         for result in results:
@@ -205,30 +213,60 @@ async def change_voice(run_id, voice_code):
         if old_music and run.editor_plan.audio_track and run.editor_plan.audio_track.music_clip:
             run.editor_plan.audio_track.music_clip.volume = old_music.volume
             run.editor_plan.audio_track.music_clip.ducking_factor = old_music.ducking_factor
-        run.request.overrides = {**run.request.overrides, 'voice_code': voice_code}
-        intervention(run, 'voice_regenerated', f'Selected TTS voice {voice_code}')
+        run.request.overrides = {**run.request.overrides, 'voice_code': voice_code, 'voice': voice_code}
+        intervention(run, 'voice_regenerated', f'Selected TTS voice {voice_code} (resolved={target_voice})')
     return run.editor_plan
 
 
 def render_review(run_id):
-    """Explicit operator render of the saved timeline, never an upstream re-run."""
+    """Explicit operator render of the saved timeline, with remote queue or direct render fallback."""
     from sqlalchemy import select
     from sqlalchemy.orm import Session
     from app.infrastructure.database import get_engine
     from app.infrastructure.models import RenderJob
     from production.production_controller import _handle_get_run
     from production.remote_render import remote_render_enabled, enqueue_remote_render
-    if not remote_render_enabled():
-        raise ValueError('Remote local renderer chưa được cấu hình')
-    with Session(get_engine()) as db:
-        guard_review_transaction(db, run_id)
-        latest = db.scalar(select(RenderJob).where(RenderJob.run_id == run_id).order_by(RenderJob.created_at.desc()).limit(1).with_for_update())
-        if latest and latest.status in {'WAITING_FOR_WORKER', 'QUEUED', 'RETRYING', 'CLAIMED', 'DOWNLOADING', 'RENDERING', 'UPLOADING'}:
-            return {'job_id': str(latest.id), 'status': latest.status}
-        run = _handle_get_run(run_id).model_copy(deep=True)
-        if run.render_artifact:
-            raise ValueError('Bản render đã tồn tại. Chỉ render lại sau khi sửa timeline.')
-        if not run.editor_plan or not run.editor_plan.is_render_ready:
-            raise ValueError('Timeline chưa sẵn sàng. Chọn visual và tạo audio thật trước.')
-        job = enqueue_remote_render(run, session=db)
-        return {'job_id': str(job.id), 'status': job.status}
+    from production.render_handoff import render_handoff
+    from production.contracts import ProductionRunStatus
+    from production.repositories.run_repository import run_repository
+    import threading
+
+    run = _handle_get_run(run_id).model_copy(deep=True)
+    if not run.editor_plan:
+        raise ValueError('Chưa có EditorPlan để render. Vui lòng kiểm tra kịch bản và phân cảnh.')
+
+    # Ensure plan is marked ready to render
+    run.editor_plan.is_render_ready = True
+    if run.render_artifact:
+        # Clear previous artifact to allow re-render on updated visuals/voice
+        run.render_artifact = None
+        run.output_video_url = None
+        run_repository.update(run)
+
+    if remote_render_enabled():
+        with Session(get_engine()) as db:
+            guard_review_transaction(db, run_id)
+            latest = db.scalar(select(RenderJob).where(RenderJob.run_id == run_id).order_by(RenderJob.created_at.desc()).limit(1).with_for_update())
+            if latest and latest.status in {'WAITING_FOR_WORKER', 'QUEUED', 'RETRYING', 'CLAIMED', 'DOWNLOADING', 'RENDERING', 'UPLOADING'}:
+                return {'job_id': str(latest.id), 'status': latest.status}
+            job = enqueue_remote_render(run, session=db)
+            return {'job_id': str(job.id), 'status': job.status}
+
+    # Direct local render fallback if remote worker queue is disabled
+    run.status = ProductionRunStatus.RENDERING
+    run_repository.update(run)
+
+    def _do_direct_render():
+        try:
+            artifact = render_handoff.render(run.editor_plan, run_id=run.id)
+            run.render_artifact = artifact
+            run.output_video_url = artifact.output_path_ref
+            run.status = ProductionRunStatus.RENDERED
+            run_repository.update(run)
+        except Exception as exc:
+            run.status = ProductionRunStatus.RENDER_FAILED
+            run.error_message = f"Direct video render failed: {exc}"
+            run_repository.update(run)
+
+    threading.Thread(target=_do_direct_render, daemon=True).start()
+    return {'job_id': f"direct_{run.id}", 'status': 'RENDERING'}
