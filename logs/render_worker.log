@@ -33398,3 +33398,168 @@ Multiple connection attempts failed. All failures were:
 [Modal] ✅ Video render complete! Export path: D:/tmp/0095adf6-7554-4b13-b950-f75e07e314ed/final_output.mp4
 [Modal Quality Gate] Evaluation Result: {'passed': True, 'score': 99, 'metrics': {'size_bytes': 135554226, 'actual_duration': 79.117, 'resolution': '1080x1920', 'fps': 60}}
 [Modal] ☁️ Uploading rendered video to R2 (vision-flow/visionflow/0095adf6-7554-4b13-b950-f75e07e314ed/exports/final.mp4)...
+[FFmpeg] Using modern FFmpeg binary: D:\VisionFlow\VisionFlow_Bakend\venv\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe
+=======================================================
+🚀 VISIONFLOW UNIFIED AUTOMATIC RENDER SERVER RUNNING
+   (100% Single Source of Truth — Local & GitHub Actions)
+=======================================================
+📌 Running Continuous Local Worker Daemon Loop...
+
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'Một Tòa Nhà Biến Mất Hơn 200 Năm… Nhưng Bãi Cỏ Vẫn Nhớ Nó 🌿🏛️' (ID: 0095adf6-7554-4b13-b950-f75e07e314ed)
+=======================================================
+  [Studio Sync] Voice: vi-VN-NamMinhNeural
+  [Studio Sync] Logo Handle: @GocChiemNghiem (Pos: top_right)
+  [Studio Sync] Captions Preset: hormozi (Font: Montserrat, Color: #FFFFFF)
+  [Studio Sync] Title Banner: Một Tòa Nhà Biến Mất Hơn 200 Năm… Nhưng Bãi Cỏ Vẫn Nhớ Nó 🌿🏛️ (Style: glass)
+  [Studio Sync] BGM: Preset='Auto', Vol=0.12
+  [Studio Sync] Visual Engine: fal_ai
+  [Studio Sync] Scene Count: 18
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: 0095adf6-7554-4b13-b950-f75e07e314ed
+=================================================================
+[Modal] 📜 Normalized Vietnamese script (1276 chars): 'Một tòa nhà đã biến mất khỏi mặt đất hơn hai thế kỷ. Nhưng v...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=vi-VN-NamMinhNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (1276 chars -> 1276 chars)
+[Modal] 🎯 Extracted 20 word-level timestamps from Edge TTS for Karaoke sync!
+[Modal] 📐 Canvas Format: Aspect=9:16 -> Resolution=1080x1920 @ 60 FPS (CRF 18 Broadcast Profile)
+[Modal] 🟨 Created Pixel-Perfect Title Banner Card (GLASS)!
+[Modal] 🟢 Created Pixel-Perfect Logo Pill (@GocChiemNghiem) at pos=top_right (18.0%, 6.0%)!
+[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!
+[Modal] 🎬 Created Frosted-Glass Outro Card Overlay for Video Outro!
+[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for 18 visual scenes...
+[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: 78.6s): [3.8, 3.8, 3.8, 4.8, 4.8, 4.8, 4.8, 4.8, 4.8, 2.68, 2.5, 5.92, 5.92, 5.92, 2.9, 4.36, 4.36, 3.86]
+[MicroWorker 0] Notice: Media URL download error: ('Connection broken: IncompleteRead(1912960 bytes read, 10707190 more expected)', IncompleteRead(1912960 bytes read, 10707190 more expected))
+[MicroWorker 0] 🎨 Visual Engine 'fal_ai' active: Generating AI scene visuals for prompt: 'spooky ghost shadow...'...
+[MicroWorker 3] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/12498236/12498236-hd_7...
+[MicroWorker 2] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/33403890/14218978_540_...
+[MicroWorker 0] 🎯 Downloaded Stock HD video for query: 'spooky ghost shadow' (https://videos.pexels.com/video-files/34016972/14428871_720_...)
+[MicroWorker 1] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/33404113/14219100_540_...
+[MicroWorker 4] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/32652154/13921947_540_...
+[MicroWorker 7] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/36454805/15458493_540_...
+[MicroWorker 5] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/37727684/16000915_540_...
+[MicroWorker 6] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/10080669/10080669-hd_7...
+[MicroWorker 8] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/38087418/16170888_540_...
+[MicroWorker 9] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/39310477/16726823_540_...
+[MicroWorker 12] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/29144001/12588890_540_...
+[MicroWorker 13] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/29144002/12588884_540_...
+[MicroWorker 10] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/13352766/13352766-hd_1...
+[MicroWorker 11] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/29191224/12604554_540_...
+[MicroWorker 14] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/29460437/12681564_540_...
+[MicroWorker 15] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/12204694/12204694-sd_5...
+[MicroWorker 17] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/29293937/12633276_540_...
+[MicroWorker 16] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/31033743/13264179_540_...
+[Modal] ⚡ Applied 30+ Cinematic XFade Transitions across 18 scenes with auto SFX sync!
+[Modal] 🎵 Auto-resolving BGM track 'Clover 3 Nostalgic Piano' for genre [PHILOSOPHY_LIFE_LESSON] from CDN...
+[Modal] 🔊 Smart SFX Sound Design: Injected 'whoosh' sound effect at 6.8s!
+[Modal] ✅ Video render complete! Export path: D:/tmp/0095adf6-7554-4b13-b950-f75e07e314ed/final_output.mp4
+[Modal Quality Gate] Evaluation Result: {'passed': True, 'score': 99, 'metrics': {'size_bytes': 135409864, 'actual_duration': 79.117, 'resolution': '1080x1920', 'fps': 60}}
+[Modal] ☁️ Uploading rendered video to R2 (vision-flow/visionflow/0095adf6-7554-4b13-b950-f75e07e314ed/exports/final.mp4)...
+[Modal] ✅ R2 Upload complete: vision-flow/visionflow/0095adf6-7554-4b13-b950-f75e07e314ed/exports/final.mp4
+[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 (https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev/workflows/0095adf6-7554-4b13-b950-f75e07e314ed/cover.jpg)!
+[Modal] 💾 Successfully saved MediaAsset & registered APPROVAL_PENDING in DB for workflow 0095adf6-7554-4b13-b950-f75e07e314ed!
+
+[SUCCESS] OFFICIAL RENDER COMPLETE FOR 0095adf6-7554-4b13-b950-f75e07e314ed!
+  Output Object Key: visionflow/0095adf6-7554-4b13-b950-f75e07e314ed/exports/final.mp4
+  Public Video URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/0095adf6-7554-4b13-b950-f75e07e314ed/exports/final.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fd28f47a855e5f2097d5f8c24c50da70%2F20260920%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260920T065536Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=47c8225266c3fc6fb11e580f4190375909ec19190c6d2cacd6d59c51d11e2480
+[DB] Auto-Publish OFF: Workflow 0095adf6-7554-4b13-b950-f75e07e314ed -> APPROVAL_PENDING (Ready for Studio review)!
+
+[FFmpeg] Using modern FFmpeg binary: D:\VisionFlow\VisionFlow_Bakend\venv\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe
+=======================================================
+🚀 VISIONFLOW UNIFIED AUTOMATIC RENDER SERVER RUNNING
+   [1] AI Dubbing & Translation Queue
+   [2] Studio & OpenCut Creative Video Queue
+   [3] Auto Production Autonomous Video Queue (R2 Sync)
+=======================================================
+📌 Running 1 Single Unified Render Pass...
+
+=======================================================
+[WORKER] PROCESSING AUTO PRODUCTION VIDEO: 'run_757be29dcb25' (Job: 40651ccc)
+=======================================================
+  [Auto Production Sync] Title: 'Bí Mật Đỉnh Cao Của chế tác mộng gỗ Kigumi không cần đinh sắt'
+  [Auto Production Sync] Voice: vi-VN-HoaiMyNeural
+  [Auto Production Sync] Scenes: 5
+  [Auto Production Sync] Style: Banner='neon', Captions='hormozi'
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: run_757be29dcb25
+=================================================================
+[Modal] 📜 Normalized Vietnamese script (568 chars): 'Điều gì tạo nên sự tinh xảo khó tin của chế tác mộng gỗ Kigu...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=vi-VN-HoaiMyNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (568 chars -> 568 chars)
+[Modal] 🎵 Using pre-assembled master narration: D:\VisionFlow\VisionFlow_Bakend\worker\workspace_temp\audio_assembly\run_757be29dcb25\master_tts.mp3 (816944 bytes)
+[Modal] 🎯 Extracted 34 word-level timestamps from Edge TTS for Karaoke sync!
+[Modal] 📐 Canvas Format: Aspect=9:16 -> Resolution=1080x1920 @ 30 FPS (CRF 18 Broadcast Profile)
+[Modal] 🟨 Created Pixel-Perfect Title Banner Card (NEON)!
+[Modal] 🟢 Created Pixel-Perfect Logo Pill (@VisionFlow) at pos=top_left (18.0%, 6.0%)!
+[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!
+[Modal] 🎬 Created Frosted-Glass Outro Card Overlay for Video Outro!
+[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for 5 visual scenes...
+[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: 34.0s): [5.376, 6.264, 7.56, 7.776, 7.008]
+[MicroWorker 2] 🎨 Visual Engine 'fal_ai' active: Generating AI scene visuals for prompt: 'mysterious mist shadow...'...
+[MicroWorker 3] 🎨 Visual Engine 'fal_ai' active: Generating AI scene visuals for prompt: 'dark atmospheric cinematic...'...
+[MicroWorker 3] 🎯 Downloaded Stock HD video for query: 'dark atmospheric cinematic' (https://videos.pexels.com/video-files/28560965/12421172_720_...)
+[MicroWorker 2] 🎯 Downloaded Stock HD video for query: 'mysterious mist shadow' (https://videos.pexels.com/video-files/19157961/19157961-hd_1...)
+[MicroWorker 1] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/5972920/5972920-uhd_21...
+[MicroWorker 0] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/5972914/5972914-uhd_14...
+[MicroWorker 4] 🎨 Visual Engine 'fal_ai' active: Generating AI scene visuals for prompt: 'dark atmospheric cinematic...'...
+[MicroWorker 4] 🎯 Downloaded Stock HD video for query: 'dark atmospheric cinematic' (https://videos.pexels.com/video-files/30728860/13145901_720_...)
+[Modal] ⚡ Applied 30+ Cinematic XFade Transitions across 5 scenes with auto SFX sync!
+[Modal] 🎵 Auto-resolving BGM track 'Deep Space Pulse' for genre [SCIENCE_TECH_FUTURE] from CDN...
+[Modal] ✅ Video render complete! Export path: D:/tmp/run_757be29dcb25/final_output.mp4
+[Modal Quality Gate] Evaluation Result: {'passed': True, 'score': 99, 'metrics': {'size_bytes': 35781816, 'actual_duration': 34.0, 'resolution': '1080x1920', 'fps': 30}}
+[Modal] ☁️ Uploading rendered video to R2 (vision-flow/visionflow/run_757be29dcb25/exports/final.mp4)...
+[Modal] ✅ R2 Upload complete: vision-flow/visionflow/run_757be29dcb25/exports/final.mp4
+[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 (https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev/workflows/run_757be29dcb25/cover.jpg)!
+[Modal] 💾 Successfully saved MediaAsset & registered APPROVAL_PENDING in DB for workflow run_757be29dcb25!
+
+✅ [SUCCESS] AUTO PRODUCTION RENDER COMPLETE FOR run_757be29dcb25!
+  Output Object Key: visionflow/run_757be29dcb25/exports/final.mp4
+  Public Video URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/run_757be29dcb25/exports/final.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fd28f47a855e5f2097d5f8c24c50da70%2F20260920%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260920T080240Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=1c82e0436da8ad58ec6e0fc76278eeb2cc7aec8c072408baf56f2b8a3582efce
+
+=======================================================
+[WORKER] PROCESSING AUTO PRODUCTION VIDEO: 'run_30921b21a6de' (Job: 01fe3c94)
+=======================================================
+  [Auto Production Sync] Title: 'Bí Mật Đỉnh Cao Của chế tác mộng gỗ Kigumi không cần đinh sắt'
+  [Auto Production Sync] Voice: vi-VN-HoaiMyNeural
+  [Auto Production Sync] Scenes: 5
+  [Auto Production Sync] Style: Banner='neon', Captions='hormozi'
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: run_30921b21a6de
+=================================================================
+[Modal] 📜 Normalized Vietnamese script (568 chars): 'Điều gì tạo nên sự tinh xảo khó tin của chế tác mộng gỗ Kigu...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=vi-VN-HoaiMyNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (568 chars -> 568 chars)
+[Modal] 🎵 Using pre-assembled master narration: D:\VisionFlow\VisionFlow_Bakend\worker\workspace_temp\audio_assembly\run_30921b21a6de\master_tts.mp3 (823213 bytes)
+[Modal] 🎯 Extracted 34 word-level timestamps from Edge TTS for Karaoke sync!
+[Modal] 📐 Canvas Format: Aspect=9:16 -> Resolution=1080x1920 @ 30 FPS (CRF 18 Broadcast Profile)
+[Modal] 🟨 Created Pixel-Perfect Title Banner Card (NEON)!
+[Modal] 🟢 Created Pixel-Perfect Logo Pill (@VisionFlow) at pos=top_left (18.0%, 6.0%)!
+[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!
+[Modal] 🎬 Created Frosted-Glass Outro Card Overlay for Video Outro!
+[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for 5 visual scenes...
+[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: 34.3s): [5.64, 6.096, 7.416, 7.608, 7.464]
+[MicroWorker 2] 🎨 Visual Engine 'fal_ai' active: Generating AI scene visuals for prompt: 'mysterious mist shadow...'...
+[MicroWorker 3] 🎨 Visual Engine 'fal_ai' active: Generating AI scene visuals for prompt: 'dark atmospheric cinematic...'...
+[MicroWorker 3] 🎯 Downloaded Stock HD video for query: 'dark atmospheric cinematic' (https://videos.pexels.com/video-files/28560965/12421172_720_...)
+[MicroWorker 2] 🎯 Downloaded Stock HD video for query: 'mysterious mist shadow' (https://videos.pexels.com/video-files/19157961/19157961-hd_1...)
+[MicroWorker 4] 🎨 Visual Engine 'fal_ai' active: Generating AI scene visuals for prompt: 'dark atmospheric cinematic...'...
+[MicroWorker 0] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/5972914/5972914-uhd_14...
+[MicroWorker 4] 🎯 Downloaded Stock HD video for query: 'dark atmospheric cinematic' (https://videos.pexels.com/video-files/30728860/13145901_720_...)
+[MicroWorker 1] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/5972920/5972920-uhd_21...
+[Modal] ⚡ Applied 30+ Cinematic XFade Transitions across 5 scenes with auto SFX sync!
+[Modal] 🎵 Auto-resolving BGM track 'Deep Space Pulse' for genre [SCIENCE_TECH_FUTURE] from CDN...
+[Modal] ✅ Video render complete! Export path: D:/tmp/run_30921b21a6de/final_output.mp4
+[Modal Quality Gate] Evaluation Result: {'passed': True, 'score': 99, 'metrics': {'size_bytes': 35779273, 'actual_duration': 34.234, 'resolution': '1080x1920', 'fps': 30}}
+[Modal] ☁️ Uploading rendered video to R2 (vision-flow/visionflow/run_30921b21a6de/exports/final.mp4)...
+[Modal] ✅ R2 Upload complete: vision-flow/visionflow/run_30921b21a6de/exports/final.mp4
+[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 (https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev/workflows/run_30921b21a6de/cover.jpg)!
+[Modal] 💾 Successfully saved MediaAsset & registered APPROVAL_PENDING in DB for workflow run_30921b21a6de!
+
+✅ [SUCCESS] AUTO PRODUCTION RENDER COMPLETE FOR run_30921b21a6de!
+  Output Object Key: visionflow/run_30921b21a6de/exports/final.mp4
+  Public Video URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/run_30921b21a6de/exports/final.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fd28f47a855e5f2097d5f8c24c50da70%2F20260920%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260920T080503Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=efa2a0bf63f142ee2069c99301f0bd0d35469a8c425b4566946822648871f1a2
+✅ Pass Complete! Total Workflows Processed: 2

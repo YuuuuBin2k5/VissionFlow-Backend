@@ -106,7 +106,7 @@ async def _handle_create_run(payload: CreateRunPayload) -> ProductionRun:
 def _handle_get_run(run_id: str) -> ProductionRun:
     run = run_repository.get(run_id)
     from production.remote_render import remote_render_enabled, load_remote_run
-    if remote_render_enabled():
+    if remote_render_enabled() or run is None:
         remote = load_remote_run(run_id)
         if remote:
             # Preserve later operator decisions in the existing review repository.

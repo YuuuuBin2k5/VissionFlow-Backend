@@ -2107,7 +2107,16 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
 
         from worker.voice_system.render import is_canonical_voice, render_narration
         canonical_audio = None
-        if is_canonical_voice(contract_payload):
+        pre_assembled_audio = contract_payload.get("pre_assembled_audio_path")
+        pre_assembled_vtt = contract_payload.get("pre_assembled_vtt_path")
+        if pre_assembled_audio and os.path.exists(pre_assembled_audio):
+            import shutil
+            shutil.copyfile(pre_assembled_audio, audio_output)
+            if pre_assembled_vtt and os.path.exists(pre_assembled_vtt):
+                shutil.copyfile(pre_assembled_vtt, vtt_output)
+            canonical_audio = contract_payload.get("canonical_audio_meta")
+            print(f"[Modal] 🎵 Using pre-assembled master narration: {pre_assembled_audio} ({os.path.getsize(pre_assembled_audio)} bytes)", flush=True)
+        elif is_canonical_voice(contract_payload):
             canonical_audio = render_narration(contract_payload, raw_script, audio_output, vtt_output)
         tts_cmd = [
             sys.executable, "-m", "edge_tts",
@@ -2119,7 +2128,7 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
             "--write-subtitles", vtt_output
         ]
         try:
-            if canonical_audio is None:
+            if canonical_audio is None and not (pre_assembled_audio and os.path.exists(pre_assembled_audio)):
                 subprocess.run(tts_cmd, check=True, capture_output=True)
         except Exception as tts_err:
             print(f"[Modal TTS Warning] TTS with rate={voice_rate_str}, pitch={pitch_arg} failed. Trying with pitch=+0Hz...", flush=True)
@@ -2150,7 +2159,11 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
 
         from worker.voice_system.service import measure_audio
         audio_duration = measure_audio(audio_output) / 1000.0
-        video_duration = max(3.0, round(audio_duration + 0.5, 2))
+        exact_dur_req = contract_payload.get("exact_duration") or contract_payload.get("target_duration")
+        if exact_dur_req:
+            video_duration = float(exact_dur_req)
+        else:
+            video_duration = max(3.0, round(audio_duration + 0.5, 2))
 
         # -------------------------------------------------------------------
         # 1. Resolve Dynamic Canvas Resolution & Broadcast Frame Rate

@@ -96,7 +96,7 @@ sys.path.insert(0, os.path.join(_backend_root, "services", "control-plane"))
 
 from sqlalchemy.orm import Session
 from app.infrastructure.database import get_engine
-from app.infrastructure.models import WorkflowRun, VideoProject, MediaAsset
+from app.infrastructure.models import WorkflowRun, VideoProject, MediaAsset, RenderJob
 
 from worker.services.visionflow_control_plane_client import VisionFlowControlPlaneClient, VisionFlowWorkerSettings
 from worker.services.asset_service import AssetService
@@ -264,6 +264,197 @@ def process_workflow_official(wf_id: str) -> bool:
         return False
 
 
+def process_auto_production_job_official(job_id_str: str) -> bool:
+    """
+    Renders an Auto Production job from render_jobs table using the rich FFmpeg styling engine
+    (modal_worker.py) with full Hormozi subtitles, Neon title banner, watermark, and progress bar.
+    """
+    import uuid
+    from datetime import datetime, timezone, timedelta
+    from app.infrastructure.models import RenderJob
+    from production.auto_production_adapter import adapt_auto_production_to_modal_contract
+    from modal_worker import render_video_task_local
+
+    engine = get_engine()
+    with Session(engine) as session_db:
+        try:
+            job_uuid = uuid.UUID(job_id_str)
+        except Exception:
+            return False
+
+        job = session_db.get(RenderJob, job_uuid)
+        if not job or job.status not in ("WAITING_FOR_WORKER", "QUEUED"):
+            return False
+
+        run_id = str(job.run_id)
+        spec_json = dict(job.render_spec_json or {})
+        manifest = spec_json.get("manifest") or {}
+        run_snapshot = spec_json.get("run_snapshot") or {}
+
+        # Claim the job atomically
+        job.status = "CLAIMED"
+        job.attempt = (job.attempt or 0) + 1
+        job.claimed_by_worker_id = "desktop-main"
+        job.last_heartbeat_at = datetime.now(timezone.utc)
+        job.lease_expires_at = datetime.now(timezone.utc) + timedelta(seconds=600)
+        session_db.commit()
+
+    print(f"\n=======================================================")
+    print(f"[WORKER] PROCESSING AUTO PRODUCTION VIDEO: '{run_id}' (Job: {job_id_str[:8]})")
+    print(f"=======================================================")
+
+    try:
+        # Adapt payload to modal_worker contract with full styling presets
+        contract_payload = adapt_auto_production_to_modal_contract(
+            run_snapshot=run_snapshot,
+            manifest=manifest,
+            job_id=job_id_str,
+        )
+
+        print(f"  [Auto Production Sync] Title: '{contract_payload.get('title')}'")
+        print(f"  [Auto Production Sync] Voice: {contract_payload.get('voice_code')}")
+        print(f"  [Auto Production Sync] Scenes: {len(contract_payload.get('scenes') or [])}")
+        print(f"  [Auto Production Sync] Style: Banner='{contract_payload.get('title_banner_style')}', Captions='{contract_payload.get('caption_preset')}'")
+
+        # Execute Modal Worker FFmpeg composition engine
+        result = render_video_task_local(contract_payload)
+        status = result.get("status", "ERROR")
+
+        if status == "SUCCESS":
+            object_key = result.get("object_key")
+            video_url = result.get("video_url")
+            video_duration = float(result.get("duration") or 30.0)
+
+            print(f"\n✅ [SUCCESS] AUTO PRODUCTION RENDER COMPLETE FOR {run_id}!")
+            print(f"  Output Object Key: {object_key}")
+            print(f"  Public Video URL: {video_url}")
+
+            video_output_path = result.get("video_output")
+            file_size = os.path.getsize(video_output_path) if video_output_path and os.path.exists(video_output_path) else 1024
+            res_w = 1080 if contract_payload.get("aspect_ratio") == "9:16" else 1920
+            res_h = 1920 if contract_payload.get("aspect_ratio") == "9:16" else 1080
+            fps_val = int(contract_payload.get("fps") or 30)
+
+            with Session(engine) as fresh_db:
+                job_t = fresh_db.get(RenderJob, job_uuid)
+                if job_t:
+                    job_t.status = "COMPLETED"
+                    job_t.completed_at = datetime.now(timezone.utc)
+                    job_t.output_artifact_ref = object_key
+                    # Update run_snapshot in render_spec_json
+                    s_data = dict(job_t.render_spec_json or {})
+                    snap = dict(s_data.get("run_snapshot") or {})
+                    snap["status"] = "RENDERED"
+                    snap["output_video_url"] = video_url
+                    snap["current_stage"] = "final_qc"
+                    snap["progress_pct"] = 100
+                    snap["render_artifact"] = {
+                        "run_id": run_id,
+                        "output_path_ref": f"/api/v1/production/runs/{run_id}/video",
+                        "storage_ref": object_key,
+                        "duration_seconds": video_duration,
+                        "width": res_w,
+                        "height": res_h,
+                        "fps": fps_val,
+                        "video_codec": "h264",
+                        "audio_codec": "aac",
+                        "file_size_bytes": file_size,
+                    }
+                    stages_list = snap.get("stages") or []
+                    for stg in stages_list:
+                        if stg.get("stage_name") in ("remote_render", "canonical_render", "final_qc"):
+                            stg["status"] = "COMPLETED"
+                            stg["execution_mode"] = "REAL"
+                    snap["stages"] = stages_list
+                    s_data["run_snapshot"] = snap
+                    job_t.render_spec_json = s_data
+                    fresh_db.commit()
+
+            # Update DevelopmentRunRepository if available
+            try:
+                from production.repositories.run_repository import run_repository
+                from production.contracts import ProductionRunStatus, RenderArtifact, StageStatus
+                prod_run = run_repository.get(run_id)
+                if prod_run:
+                    prod_run.status = ProductionRunStatus.RENDERED
+                    prod_run.output_video_url = video_url
+                    prod_run.render_artifact = RenderArtifact(
+                        run_id=run_id,
+                        output_path_ref=f"/api/v1/production/runs/{run_id}/video",
+                        storage_ref=object_key,
+                        duration_seconds=video_duration,
+                        width=res_w,
+                        height=res_h,
+                        fps=fps_val,
+                        video_codec="h264",
+                        audio_codec="aac",
+                        file_size_bytes=file_size,
+                    )
+                    prod_run.current_stage = "final_qc"
+                    prod_run.progress_pct = 100
+                    for stg in prod_run.stages:
+                        if stg.stage_name in ("remote_render", "canonical_render", "final_qc"):
+                            stg.status = StageStatus.COMPLETED
+                            stg.execution_mode = "REAL"
+                    run_repository.update(prod_run)
+            except Exception as repo_err:
+                print(f"  [Auto Production Notice] Local run_repository update: {repo_err}")
+
+            return True
+        else:
+            err_msg = str(result.get("error", "Unknown render error"))
+            print(f"\n❌ [FAILED] AUTO PRODUCTION RENDER FAILED FOR {run_id}: {err_msg}")
+            with Session(engine) as fresh_db:
+                job_t = fresh_db.get(RenderJob, job_uuid)
+                if job_t:
+                    job_t.status = "FAILED"
+                    job_t.failed_at = datetime.now(timezone.utc)
+                    job_t.error_code = "RENDER_FAILED"
+                    job_t.error_message = err_msg[:500]
+                    fresh_db.commit()
+            return False
+
+    except Exception as exc:
+        print(f"\n❌ [EXCEPTION] AUTO PRODUCTION JOB ERROR FOR {run_id}: {exc}")
+        import traceback
+        traceback.print_exc()
+        with Session(engine) as fresh_db:
+            job_t = fresh_db.get(RenderJob, job_uuid)
+            if job_t:
+                job_t.status = "FAILED"
+                job_t.failed_at = datetime.now(timezone.utc)
+                job_t.error_code = "WORKER_INTERNAL_ERROR"
+                job_t.error_message = str(exc)[:500]
+                fresh_db.commit()
+        return False
+
+
+def process_auto_production_jobs() -> int:
+    """Polls and processes claimable jobs from the durable render_jobs queue."""
+    from app.infrastructure.models import RenderJob
+    engine = get_engine()
+    processed_count = 0
+    try:
+        with Session(engine) as session_db:
+            pending = session_db.query(RenderJob.id).filter(
+                RenderJob.status.in_(["WAITING_FOR_WORKER", "QUEUED"]),
+                RenderJob.attempt < RenderJob.max_attempts
+            ).order_by(RenderJob.priority.asc(), RenderJob.created_at.asc()).all()
+            pending_ids = [str(r[0]) for r in pending]
+
+        for j_id in pending_ids:
+            try:
+                ok = process_auto_production_job_official(j_id)
+                if ok:
+                    processed_count += 1
+            except Exception as err:
+                print(f"❌ [Auto Production Pass Error] Job #{j_id} error: {err}")
+    except Exception as db_err:
+        print(f"[Pass Notice] Auto Production DB queue query notice: {db_err}")
+
+    return processed_count
+
+
 def run_unified_render_pass() -> int:
     """
     Chạy 1 Lần Nhất Quán (Single Source of Truth) Chuỗi Pipeline Render:
@@ -279,7 +470,7 @@ def run_unified_render_pass() -> int:
     except Exception as dub_err:
         print(f"[Pass Notice] Dubbing queue step notice: {dub_err}")
 
-    # 2. Pipeline Short-Form AI B-Roll Video
+    # 2. Pipeline Short-Form AI B-Roll Video (Legacy Workflows)
     engine = get_engine()
     try:
         with Session(engine) as session_db:
@@ -299,6 +490,13 @@ def run_unified_render_pass() -> int:
     except Exception as db_err:
         print(f"[Pass Notice] Short-form DB queue query notice: {db_err}")
 
+    # 3. Pipeline Auto Production Video (render_jobs + R2)
+    try:
+        auto_count = process_auto_production_jobs()
+        processed_total += auto_count
+    except Exception as auto_err:
+        print(f"[Pass Notice] Auto Production queue step notice: {auto_err}")
+
     return processed_total
 
 
@@ -311,7 +509,9 @@ def run_worker_loop():
 
     print("=======================================================")
     print("🚀 VISIONFLOW UNIFIED AUTOMATIC RENDER SERVER RUNNING")
-    print("   (100% Single Source of Truth — Local & GitHub Actions)")
+    print("   [1] AI Dubbing & Translation Queue")
+    print("   [2] Studio & OpenCut Creative Video Queue")
+    print("   [3] Auto Production Autonomous Video Queue (R2 Sync)")
     print("=======================================================")
 
     if args.once:
