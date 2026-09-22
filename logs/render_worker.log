@@ -33721,3 +33721,12 @@ Multiple connection attempts failed. All failures were:
 ✅ [SUCCESS] AUTO PRODUCTION RENDER COMPLETE FOR run_e9bbc54778ce!
   Output Object Key: visionflow/run_e9bbc54778ce/exports/final.mp4
   Public Video URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/run_e9bbc54778ce/exports/final.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fd28f47a855e5f2097d5f8c24c50da70%2F20260920%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260920T104431Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=a5e258c019b759115b1490c540ee16d0a919ff6a491ef3725eac8aac7156f066
+[FFmpeg] Using modern FFmpeg binary: D:\VisionFlow\VisionFlow_Bakend\venv\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe
+=======================================================
+🚀 VISIONFLOW UNIFIED AUTOMATIC RENDER SERVER RUNNING
+   [1] AI Dubbing & Translation Queue
+   [2] Studio & OpenCut Creative Video Queue
+   [3] Auto Production Autonomous Video Queue (R2 Sync)
+=======================================================
+📌 Running Continuous Local Worker Daemon Loop...
+

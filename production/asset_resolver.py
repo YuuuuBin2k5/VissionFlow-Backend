@@ -801,7 +801,18 @@ class AssetResolver:
             rejection_reasons: List[str] = []
 
             # Gather candidates across prioritized sources
-            diagnostics = {"query": intent.search_query_en, "user_source_count": len(user_sources or []), "errors": []}
+            # Determine effective English query for Pexels (may differ if intent query was Vietnamese)
+            effective_query = intent.search_query_en
+            if VietnameseQueryTranslationBridge.is_vietnamese(effective_query):
+                _, translated, en_str = VietnameseQueryTranslationBridge.translate_and_enrich(effective_query)
+                if translated and en_str:
+                    effective_query = en_str
+            diagnostics = {
+                "query": intent.search_query_en,
+                "english_query": effective_query if effective_query != intent.search_query_en else None,
+                "user_source_count": len(user_sources or []),
+                "errors": [],
+            }
             try:
                 raw_candidates = await self._gather_candidates_for_intent(
                     intent=intent, source_priority=source_priority, user_sources=user_sources,
