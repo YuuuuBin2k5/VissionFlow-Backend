@@ -429,8 +429,12 @@ def process_auto_production_job_official(job_id_str: str) -> bool:
         return False
 
 
+_last_auto_prod_err = None
+
+
 def process_auto_production_jobs() -> int:
     """Polls and processes claimable jobs from the durable render_jobs queue."""
+    global _last_auto_prod_err
     from app.infrastructure.models import RenderJob
     engine = get_engine()
     processed_count = 0
@@ -449,8 +453,12 @@ def process_auto_production_jobs() -> int:
                     processed_count += 1
             except Exception as err:
                 print(f"❌ [Auto Production Pass Error] Job #{j_id} error: {err}")
+        _last_auto_prod_err = None
     except Exception as db_err:
-        print(f"[Pass Notice] Auto Production DB queue query notice: {db_err}")
+        err_msg = str(db_err).split("\n")[0]
+        if err_msg != _last_auto_prod_err:
+            _last_auto_prod_err = err_msg
+            print(f"[Pass Notice] Auto Production DB queue notice: {err_msg}")
 
     return processed_count
 

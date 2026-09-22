@@ -141,38 +141,59 @@ EMOTION_PROSODY_MATRIX = {
 
 SFX_STEM_CATALOG = {
     # ── 1. TRANSITIONS, WHOOSHES & SWEEPERS ──
-    "whoosh_fast": "https://assets.mixkit.co/active_storage/sfx/2872/2872-preview.mp3",
-    "whoosh_cinematic": "https://assets.mixkit.co/active_storage/sfx/2873/2873-preview.mp3",
-    "whoosh_air": "https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3",
-    "sub_boom": "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3",
-    "camera_shutter": "https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3",
-    "swish": "https://assets.mixkit.co/active_storage/sfx/2872/2872-preview.mp3",
-    "whoosh": "https://assets.mixkit.co/active_storage/sfx/2872/2872-preview.mp3",
+    "whoosh_cinematic_deep": "whoosh_cinematic_deep.mp3",
+    "whoosh_cinematic": "whoosh_cinematic_deep.mp3",
+    "swoosh_quick_air": "swoosh_quick_air.mp3",
+    "whoosh_air": "swoosh_quick_air.mp3",
+    "whoosh_fast": "whoosh_fast.mp3",
+    "whoosh": "whoosh_fast.mp3",
+    "swish": "swoosh_quick_air.mp3",
+    "whoosh_sub_boom": "whoosh_sub_boom.mp3",
+    "sub_boom": "whoosh_sub_boom.mp3",
 
-    # ── 2. IMPACTS, RISERS & THRILLERS ──
-    "cinematic_hit": "https://assets.mixkit.co/active_storage/sfx/2868/2868-preview.mp3",
-    "horror_riser": "https://assets.mixkit.co/active_storage/sfx/2875/2875-preview.mp3",
-    "heartbeat": "https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3",
-    "glitch_static": "https://assets.mixkit.co/active_storage/sfx/2575/2575-preview.mp3",
-    "glass_shatter": "https://assets.mixkit.co/active_storage/sfx/2580/2580-preview.mp3",
-    "metal_impact": "https://assets.mixkit.co/active_storage/sfx/2867/2867-preview.mp3",
-    "explosion_distant": "https://assets.mixkit.co/active_storage/sfx/2585/2585-preview.mp3",
+    # ── 2. IMPACTS, GLITCHES & RISERS ──
+    "cinematic_hit": "cinematic_hit.mp3",
+    "cyber_glitch_switch": "cyber_glitch_switch.mp3",
+    "glitch_static": "cyber_glitch_switch.mp3",
+    "glass_shatter": "cyber_glitch_switch.mp3",
+    "horror_riser": "whoosh_sub_boom.mp3",
+    "heartbeat": "whoosh_cinematic_deep.mp3",
+    "metal_impact": "cinematic_hit.mp3",
+    "explosion_distant": "whoosh_sub_boom.mp3",
 
-    # ── 3. FOLEY & MYSTERY AMBIENCE ──
-    "door_knock": "https://assets.mixkit.co/active_storage/sfx/2874/2874-preview.mp3",
-    "creaking_door": "https://assets.mixkit.co/active_storage/sfx/2876/2876-preview.mp3",
-    "clock_tick": "https://assets.mixkit.co/active_storage/sfx/2871/2871-preview.mp3",
-    "morse_code": "https://assets.mixkit.co/active_storage/sfx/2583/2583-preview.mp3",
-    "rain_thunder": "https://assets.mixkit.co/active_storage/sfx/1253/1253-preview.mp3",
-    "footsteps_wood": "https://assets.mixkit.co/active_storage/sfx/2878/2878-preview.mp3",
-    "whisper_ghost": "https://assets.mixkit.co/active_storage/sfx/2877/2877-preview.mp3",
-    "ocean_waves_deep": "https://assets.mixkit.co/active_storage/sfx/1240/1240-preview.mp3",
+    # ── 3. FOLEY, RETENTION & ACCENTS ──
+    "camera_shutter_click": "camera_shutter_click.mp3",
+    "camera_shutter": "camera_shutter_click.mp3",
+    "tape_rewind_stop": "tape_rewind_stop.mp3",
+    "record_scratch": "tape_rewind_stop.mp3",
+    "retro_pop_bubble": "retro_pop_bubble.mp3",
+    "pop_accent": "retro_pop_bubble.mp3",
+    "accent_bell_ting": "accent_bell_ting.mp3",
+    "ding_bell": "accent_bell_ting.mp3",
+    "magic_sparkle": "magic_sparkle.mp3",
+    "cash_register": "magic_sparkle.mp3",
+    "clock_tick": "retro_pop_bubble.mp3",
+    "door_knock": "cinematic_hit.mp3",
+    "creaking_door": "whoosh_cinematic_deep.mp3",
+    "morse_code": "accent_bell_ting.mp3",
+    "rain_thunder": "whoosh_cinematic_deep.mp3",
+    "footsteps_wood": "retro_pop_bubble.mp3",
+    "whisper_ghost": "whoosh_cinematic_deep.mp3",
+    "ocean_waves_deep": "whoosh_cinematic_deep.mp3",
+}
 
-    # ── 4. VIRAL RETENTION, ACCENTS & UI ──
-    "pop_accent": "https://assets.mixkit.co/active_storage/sfx/2574/2574-preview.mp3",
-    "ding_bell": "https://assets.mixkit.co/active_storage/sfx/2865/2865-preview.mp3",
-    "cash_register": "https://assets.mixkit.co/active_storage/sfx/2582/2582-preview.mp3",
-    "record_scratch": "https://assets.mixkit.co/active_storage/sfx/2576/2576-preview.mp3",
+SFX_STEM_FALLBACK_URLS = {
+    "whoosh_cinematic_deep.mp3": "https://assets.mixkit.co/active_storage/sfx/2873/2873-preview.mp3",
+    "swoosh_quick_air.mp3": "https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3",
+    "whoosh_fast.mp3": "https://assets.mixkit.co/active_storage/sfx/2872/2872-preview.mp3",
+    "whoosh_sub_boom.mp3": "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3",
+    "cinematic_hit.mp3": "https://assets.mixkit.co/active_storage/sfx/2868/2868-preview.mp3",
+    "cyber_glitch_switch.mp3": "https://assets.mixkit.co/active_storage/sfx/2575/2575-preview.mp3",
+    "camera_shutter_click.mp3": "https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3",
+    "tape_rewind_stop.mp3": "https://assets.mixkit.co/active_storage/sfx/2579/2579-preview.mp3",
+    "retro_pop_bubble.mp3": "https://assets.mixkit.co/active_storage/sfx/2574/2574-preview.mp3",
+    "accent_bell_ting.mp3": "https://assets.mixkit.co/active_storage/sfx/2865/2865-preview.mp3",
+    "magic_sparkle.mp3": "https://assets.mixkit.co/active_storage/sfx/2582/2582-preview.mp3",
 }
 
 TRANSITION_MAP = {
@@ -276,17 +297,106 @@ TRANSITION_DURATION_MAP = {
 }
 
 TRANSITION_SFX_MAP = {
-    "smoothleft": ("whoosh", 0.45),
-    "smoothright": ("whoosh", 0.45),
-    "slideleft": ("whoosh", 0.40),
-    "slideright": ("whoosh", 0.40),
-    "zoomin": ("whoosh", 0.45),
-    "distance": ("whoosh", 0.50),
-    "pixelize": ("horror_riser", 0.35),
-    "fadeblack": ("heartbeat", 0.30),
-    "fadewhite": ("horror_riser", 0.40),
-    "radial": ("clock_tick", 0.40),
+    "smoothleft": ("swoosh_quick_air", 0.28),
+    "smoothright": ("swoosh_quick_air", 0.28),
+    "smoothup": ("swoosh_quick_air", 0.28),
+    "smoothdown": ("swoosh_quick_air", 0.28),
+    "slideleft": ("whoosh_fast", 0.28),
+    "slideright": ("whoosh_fast", 0.28),
+    "slideup": ("whoosh_fast", 0.28),
+    "slidedown": ("whoosh_fast", 0.28),
+    "zoomin": ("whoosh_cinematic_deep", 0.30),
+    "distance": ("whoosh_sub_boom", 0.30),
+    "pixelize": ("cyber_glitch_switch", 0.28),
+    "fadeblack": ("cinematic_hit", 0.26),
+    "fadewhite": ("tape_rewind_stop", 0.25),
+    "radial": ("accent_bell_ting", 0.26),
+    "circlecrop": ("magic_sparkle", 0.25),
+    "dissolve": ("whoosh_fast", 0.24),
+    "fade": ("swoosh_quick_air", 0.24),
+    "hlslice": ("cyber_glitch_switch", 0.28),
+    "diagtl": ("retro_pop_bubble", 0.26),
+    "horzopen": ("camera_shutter_click", 0.28),
 }
+
+def resolve_audio_asset_file(asset_ref: str, category: str = "bgm", work_dir: str = "/tmp") -> str | None:
+    """
+    Robust Multi-Tier Audio Asset Resolver:
+    Tier 1: Direct Local File path (if exists).
+    Tier 2: Bundled local assets in VisionFlow_Bakend/assets/audio and VisionFlow_Client/public/audio.
+    Tier 3: Cloudflare R2 bucket download via boto3 S3 SDK.
+    Tier 4: Public HTTP mirror download via requests.
+    Tier 5: Fallback to bundled default asset (zero-silence guarantee).
+    """
+    if not asset_ref or not isinstance(asset_ref, str):
+        asset_ref = ""
+    
+    asset_clean = asset_ref.strip()
+    if os.path.exists(asset_clean) and os.path.getsize(asset_clean) > 1000:
+        return asset_clean
+
+    base_name = os.path.basename(asset_clean.split("?")[0])
+    if not base_name.endswith(".mp3"):
+        if category == "bgm":
+            base_name = "bgm_philosophy_clean_soul.mp3"
+        else:
+            base_name = "whoosh_fast.mp3"
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(script_dir, "assets", "audio", category, base_name),
+        os.path.join(script_dir, "..", "VisionFlow_Client", "public", "audio", category, base_name),
+        os.path.join(os.getcwd(), "assets", "audio", category, base_name),
+        os.path.join(os.getcwd(), "VisionFlow_Client", "public", "audio", category, base_name),
+    ]
+    for c_path in candidates:
+        if os.path.exists(c_path) and os.path.getsize(c_path) > 1000:
+            return c_path
+
+    # Tier 3: Cloudflare R2 via boto3
+    try:
+        import boto3
+        s3 = boto3.client(
+            "s3",
+            endpoint_url="https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com",
+            aws_access_key_id=os.environ.get("R2_ACCESS_KEY_ID", "fd28f47a855e5f2097d5f8c24c50da70"),
+            aws_secret_access_key=os.environ.get("R2_SECRET_ACCESS_KEY", "c329293210d831c0bdba01f2434d86dab3eb23ab0a73f9b67819b7c3069cc9c6"),
+        )
+        r2_key = f"audio/{category}/{base_name}"
+        dl_dest = os.path.join(work_dir, f"r2_{base_name}")
+        s3.download_file("vision-flow", r2_key, dl_dest)
+        if os.path.exists(dl_dest) and os.path.getsize(dl_dest) > 1000:
+            return dl_dest
+    except Exception:
+        pass
+
+    # Tier 4: Direct HTTP download
+    target_http_url = asset_clean if asset_clean.startswith("http") else SFX_STEM_FALLBACK_URLS.get(base_name)
+    if target_http_url and target_http_url.startswith("http"):
+        try:
+            import requests
+            dl_dest = os.path.join(work_dir, f"http_{base_name}")
+            r = requests.get(target_http_url, timeout=15)
+            if r.status_code == 200 and len(r.content) > 1000:
+                with open(dl_dest, "wb") as f:
+                    f.write(r.content)
+                return dl_dest
+        except Exception:
+            pass
+
+    # Tier 5: Fallback to any local file in the folder
+    for c_dir in [
+        os.path.join(script_dir, "assets", "audio", category),
+        os.path.join(script_dir, "..", "VisionFlow_Client", "public", "audio", category)
+    ]:
+        if os.path.exists(c_dir):
+            for f_name in os.listdir(c_dir):
+                if f_name.endswith(".mp3"):
+                    full_p = os.path.join(c_dir, f_name)
+                    if os.path.getsize(full_p) > 1000:
+                        return full_p
+
+    return None
 
 
 from urllib.parse import urlparse
@@ -459,135 +569,215 @@ def normalize_vietnamese_script(raw_text: str) -> str:
 R2_AUDIO_BASE = "https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev/audio/bgm"
 
 SOUNDBANK_REGISTRY = {
-    "MYSTERY_PARANORMAL_HISTORY": [
+    "PHILOSOPHY_LIFE_LESSON": [
         {
-            "id": "bgm_mystery_blackout",
-            "name": "Blackout Dark Ambiance",
-            "artist": "Myuu (The Dark Piano)",
-            "url": f"{R2_AUDIO_BASE}/mystery_blackout.mp3",
-            "volume_gain": 0.12,
+            "id": "bgm_philosophy_clean_soul",
+            "name": "Clean Soul",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_philosophy_clean_soul.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Clean%20Soul.mp3",
+            "volume_gain": 0.20,
             "license": "CC-BY 4.0",
-            "credit": "Music: Blackout by Myuu (thedarkpiano.com)",
-            "mood": "ominous_creepy"
+            "credit": "Music: Clean Soul by Kevin MacLeod (incompetech.com)",
+            "mood": "peaceful_wisdom"
         },
         {
-            "id": "bgm_mystery_escalation",
-            "name": "The Escalation",
+            "id": "bgm_chiem_nghiem_clean_soul",
+            "name": "Clean Soul",
             "artist": "Kevin MacLeod",
-            "url": f"{R2_AUDIO_BASE}/mystery_escalation.mp3",
-            "volume_gain": 0.11,
+            "file_name": "bgm_philosophy_clean_soul.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Clean%20Soul.mp3",
+            "volume_gain": 0.20,
             "license": "CC-BY 4.0",
-            "credit": "Music: The Escalation by Kevin MacLeod (incompetech.com)",
+            "credit": "Music: Clean Soul by Kevin MacLeod",
+            "mood": "peaceful_wisdom"
+        },
+        {
+            "id": "bgm_chiem_nghiem_clover",
+            "name": "Clean Soul (Acoustic)",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_philosophy_clean_soul.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Clean%20Soul.mp3",
+            "volume_gain": 0.20,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Clean Soul by Kevin MacLeod",
+            "mood": "healing_nostalgic"
+        },
+        {
+            "id": "bgm_chiem_nghiem_acoustic",
+            "name": "Clean Soul",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_philosophy_clean_soul.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Clean%20Soul.mp3",
+            "volume_gain": 0.20,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Clean Soul by Kevin MacLeod",
+            "mood": "warm_guitar"
+        }
+    ],
+    "SCIENCE_TECH_FUTURE": [
+        {
+            "id": "bgm_science_equatorial",
+            "name": "Equatorial Complex",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_science_equatorial.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Equatorial%20Complex.mp3",
+            "volume_gain": 0.20,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Equatorial Complex by Kevin MacLeod (incompetech.com)",
+            "mood": "futuristic_cosmic"
+        },
+        {
+            "id": "bgm_tech_space_ambient",
+            "name": "Equatorial Complex",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_science_equatorial.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Equatorial%20Complex.mp3",
+            "volume_gain": 0.20,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Equatorial Complex by Kevin MacLeod",
+            "mood": "futuristic_cosmic"
+        }
+    ],
+    "MYSTERY_PARANORMAL_HISTORY": [
+        {
+            "id": "bgm_mystery_gathering_darkness",
+            "name": "Gathering Darkness",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_mystery_gathering_darkness.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Gathering%20Darkness.mp3",
+            "volume_gain": 0.18,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Gathering Darkness by Kevin MacLeod (incompetech.com)",
             "mood": "suspense_investigation"
         },
         {
             "id": "bgm_mystery_gathering",
             "name": "Gathering Darkness",
             "artist": "Kevin MacLeod",
-            "url": f"{R2_AUDIO_BASE}/mystery_gathering_darkness.mp3",
-            "volume_gain": 0.10,
+            "file_name": "bgm_mystery_gathering_darkness.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Gathering%20Darkness.mp3",
+            "volume_gain": 0.18,
             "license": "CC-BY 4.0",
-            "credit": "Music: Gathering Darkness by Kevin MacLeod (incompetech.com)",
+            "credit": "Music: Gathering Darkness by Kevin MacLeod",
             "mood": "eerie_drone"
-        }
-    ],
-    "PHILOSOPHY_LIFE_LESSON": [
-        {
-            "id": "bgm_chiem_nghiem_clover",
-            "name": "Clover 3 Nostalgic Piano",
-            "artist": "YouTube Audio Library",
-            "url": f"{R2_AUDIO_BASE}/chiem_nghiem_clover3.mp3",
-            "volume_gain": 0.14,
-            "license": "Royalty Free (No Attribution Required)",
-            "credit": "Music: YouTube Audio Library",
-            "mood": "healing_nostalgic"
         },
         {
-            "id": "bgm_chiem_nghiem_acoustic",
-            "name": "Acoustic Breeze",
-            "artist": "Bensound",
-            "url": f"{R2_AUDIO_BASE}/chiem_nghiem_acoustic_breeze.mp3",
-            "volume_gain": 0.13,
-            "license": "Royalty Free",
-            "credit": "Music: Bensound.com",
-            "mood": "warm_guitar"
-        },
-        {
-            "id": "bgm_chiem_nghiem_clean_soul",
-            "name": "Clean Soul",
+            "id": "bgm_mystery_blackout",
+            "name": "Gathering Darkness (Ambient)",
             "artist": "Kevin MacLeod",
-            "url": f"{R2_AUDIO_BASE}/chiem_nghiem_clean_soul.mp3",
-            "volume_gain": 0.12,
+            "file_name": "bgm_mystery_gathering_darkness.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Gathering%20Darkness.mp3",
+            "volume_gain": 0.18,
             "license": "CC-BY 4.0",
-            "credit": "Music: Clean Soul by Kevin MacLeod (incompetech.com)",
-            "mood": "peaceful_wisdom"
+            "credit": "Music: Gathering Darkness by Kevin MacLeod",
+            "mood": "ominous_creepy"
+        },
+        {
+            "id": "bgm_mystery_escalation",
+            "name": "Gathering Darkness",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_mystery_gathering_darkness.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Gathering%20Darkness.mp3",
+            "volume_gain": 0.18,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Gathering Darkness by Kevin MacLeod",
+            "mood": "suspense_investigation"
         }
     ],
     "WEALTH_FINANCE_MINDSET": [
         {
+            "id": "bgm_wealth_long_road",
+            "name": "Long Road Ahead",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_wealth_long_road.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Long%20Road%20Ahead.mp3",
+            "volume_gain": 0.20,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Long Road Ahead by Kevin MacLeod (incompetech.com)",
+            "mood": "modern_inspiring"
+        },
+        {
             "id": "bgm_wealth_better_days",
-            "name": "Better Days",
-            "artist": "LAKEY INSPIRED",
-            "url": f"{R2_AUDIO_BASE}/wealth_better_days.mp3",
-            "volume_gain": 0.13,
-            "license": "CC-BY 3.0",
-            "credit": "Music: Better Days by LAKEY INSPIRED",
+            "name": "Long Road Ahead",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_wealth_long_road.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Long%20Road%20Ahead.mp3",
+            "volume_gain": 0.20,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Long Road Ahead by Kevin MacLeod",
             "mood": "modern_inspiring"
         },
         {
             "id": "bgm_wealth_chill_day",
-            "name": "Chill Day",
-            "artist": "LAKEY INSPIRED",
-            "url": f"{R2_AUDIO_BASE}/wealth_chill_day.mp3",
-            "volume_gain": 0.13,
-            "license": "CC-BY 3.0",
-            "credit": "Music: Chill Day by LAKEY INSPIRED",
+            "name": "Long Road Ahead (Focus)",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_wealth_long_road.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Long%20Road%20Ahead.mp3",
+            "volume_gain": 0.20,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Long Road Ahead by Kevin MacLeod",
             "mood": "upbeat_focus"
         }
     ],
     "ANCIENT_STRATEGY_WAR": [
         {
+            "id": "bgm_strategy_virtutes",
+            "name": "Virtutes Instrumenti",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_strategy_virtutes.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Virtutes%20Instrumenti.mp3",
+            "volume_gain": 0.20,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Virtutes Instrumenti by Kevin MacLeod (incompetech.com)",
+            "mood": "heroic_tactical"
+        },
+        {
             "id": "bgm_strategy_taiko",
-            "name": "Ancient Battle Drums",
-            "artist": "YouTube Audio Library",
-            "url": f"{R2_AUDIO_BASE}/strategy_battle_drums.mp3",
-            "volume_gain": 0.12,
-            "license": "Royalty Free",
-            "credit": "Music: YouTube Audio Library",
+            "name": "Virtutes Instrumenti",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_strategy_virtutes.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Virtutes%20Instrumenti.mp3",
+            "volume_gain": 0.20,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Virtutes Instrumenti by Kevin MacLeod",
             "mood": "heroic_tactical"
         },
         {
             "id": "bgm_strategy_epic_hero",
-            "name": "The Epic Hero",
-            "artist": "Keys of Moon",
-            "url": f"{R2_AUDIO_BASE}/strategy_epic_hero.mp3",
-            "volume_gain": 0.11,
+            "name": "Virtutes Instrumenti",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_strategy_virtutes.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Virtutes%20Instrumenti.mp3",
+            "volume_gain": 0.20,
             "license": "CC-BY 4.0",
-            "credit": "Music: The Epic Hero by Keys of Moon",
+            "credit": "Music: Virtutes Instrumenti by Kevin MacLeod",
             "mood": "cinematic_grand"
         }
     ],
-    "SCIENCE_TECH_FUTURE": [
+    "CHILL_LIFESTYLE": [
         {
-            "id": "bgm_tech_space_ambient",
-            "name": "Deep Space Pulse",
-            "artist": "YouTube Audio Library",
-            "url": f"{R2_AUDIO_BASE}/tech_deep_space.mp3",
-            "volume_gain": 0.12,
-            "license": "Royalty Free",
-            "credit": "Music: YouTube Audio Library",
-            "mood": "futuristic_cosmic"
+            "id": "bgm_chill_zen_moment",
+            "name": "That Zen Moment",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_chill_zen_moment.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/That%20Zen%20Moment.mp3",
+            "volume_gain": 0.20,
+            "license": "CC-BY 4.0",
+            "credit": "Music: That Zen Moment by Kevin MacLeod (incompetech.com)",
+            "mood": "lofi_relaxing"
         }
     ],
     "GENERAL_DISCOVERY": [
         {
             "id": "bgm_general_carefree",
-            "name": "Carefree",
+            "name": "Clean Soul",
             "artist": "Kevin MacLeod",
-            "url": f"{R2_AUDIO_BASE}/general_carefree.mp3",
-            "volume_gain": 0.13,
+            "file_name": "bgm_philosophy_clean_soul.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Clean%20Soul.mp3",
+            "volume_gain": 0.20,
             "license": "CC-BY 4.0",
-            "credit": "Music: Carefree by Kevin MacLeod (incompetech.com)",
+            "credit": "Music: Clean Soul by Kevin MacLeod",
             "mood": "curious_light"
         }
     ]
@@ -606,17 +796,21 @@ def detect_video_genre_modal(title: str, script: str = "", explicit_genre: str =
             return "ANCIENT_STRATEGY_WAR"
         if any(k in eg for k in ["tech", "công nghệ", "vũ trụ", "khoa học", "science", "future", "ai", "robot"]):
             return "SCIENCE_TECH_FUTURE"
+        if any(k in eg for k in ["chill", "thư giãn", "cà phê", "podcast", "lofi", "lifestyle"]):
+            return "CHILL_LIFESTYLE"
         if eg.upper() in SOUNDBANK_REGISTRY:
             return eg.upper()
 
     combined = f"{title} {script}".lower()
-    if any(k in combined for k in ["mary celeste", "flannan", "bí ẩn", "mất tích", "hải đăng", "tàu ma", "bốc hơi", "rùng rợn", "hồ sơ", "vụ án", "đại dương", "paranormal", "mystery", "unsolved", "ghost ship", "horror"]):
+    if any(k in combined for k in ["cà phê", "thư giãn", "podcast", "lofi", "thói quen", "bữa sáng", "cuộc sống chậm", "chill"]):
+        return "CHILL_LIFESTYLE"
+    if any(k in combined for k in ["khảo cổ", "cổ vật", "sắt gỉ", "lăng mộ", "xác ướp", "mary celeste", "flannan", "bí ẩn", "mất tích", "hải đăng", "tàu ma", "bốc hơi", "rùng rợn", "hồ sơ", "vụ án", "đại dương", "paranormal", "mystery", "unsolved", "ghost ship", "horror", "tutankhamun"]):
         return "MYSTERY_PARANORMAL_HISTORY"
-    if any(k in combined for k in ["làm giàu", "tài chính", "tiền bạc", "đầu tư", "kinh doanh", "tư duy triệu phú", "thành công", "wealth", "finance", "money"]):
+    if any(k in combined for k in ["làm giàu", "tài chính", "tiền bạc", "đầu tư", "kinh doanh", "tư duy triệu phú", "thành công", "wealth", "finance", "money", "thương mại"]):
         return "WEALTH_FINANCE_MINDSET"
-    if any(k in combined for k in ["sun bin", "tôn tẫn", "bàng quyên", "tam quốc", "tào tháo", "khổng minh", "binh pháp", "chiến thuật", "mã lăng", "ancient tactics", "war"]):
+    if any(k in combined for k in ["thanh kiếm", "vũ khí", "chiến tranh", "sun bin", "tôn tẫn", "bàng quyên", "tam quốc", "tào tháo", "khổng minh", "binh pháp", "chiến thuật", "mã lăng", "ancient tactics", "war", "quân sự"]):
         return "ANCIENT_STRATEGY_WAR"
-    if any(k in combined for k in ["khoa học", "vũ trụ", "công nghệ", "ai", "trí tuệ nhân tạo", "robot", "hố đen", "tương lai", "science", "universe"]):
+    if any(k in combined for k in ["não", "khoa học", "vũ trụ", "công nghệ", "ai", "trí tuệ nhân tạo", "robot", "hố đen", "tương lai", "science", "universe", "tế bào", "sinh học"]):
         return "SCIENCE_TECH_FUTURE"
     if any(k in combined for k in ["bài học", "triết lý", "nhân sinh", "kinh nghiệm sống", "thức tỉnh", "tâm hồn", "lời người xưa", "thời xưa", "đạo làm người", "goc chiem nghiem", "cuộc sống", "wisdom", "life lesson", "dunning-kruger", "tâm lý"]):
         return "PHILOSOPHY_LIFE_LESSON"
@@ -1530,6 +1724,28 @@ def create_logo_pill_overlay(
     x1 = center_x + pill_w // 2
     y1 = center_y + pill_h // 2
 
+    # Screen boundary safety padding (prevents pill clipping on video edge)
+    margin_px = 24
+    if x1 > canvas_w - margin_px:
+        shift_x = x1 - (canvas_w - margin_px)
+        x0 -= shift_x
+        x1 -= shift_x
+    if x0 < margin_px:
+        shift_x = margin_px - x0
+        x0 += shift_x
+        x1 += shift_x
+
+    if y1 > canvas_h - margin_px:
+        shift_y = y1 - (canvas_h - margin_px)
+        y0 -= shift_y
+        y1 -= shift_y
+    if y0 < margin_px:
+        shift_y = margin_px - y0
+        y0 += shift_y
+        y1 += shift_y
+
+    actual_center_y = (y0 + y1) // 2
+
     bg_color = (2, 6, 23, 215)          # Dark Slate 85%
     border_color = (52, 211, 153, 110)  # Emerald border
     dot_color = (52, 211, 153, 255)     # Glowing green dot
@@ -1538,21 +1754,21 @@ def create_logo_pill_overlay(
     draw.rounded_rectangle((x0, y0, x1, y1), radius=pill_h // 2, fill=bg_color, outline=border_color, width=2)
 
     icon_x = x0 + pad_l
-    icon_y = center_y - icon_size // 2
+    icon_y = actual_center_y - icon_size // 2
 
     if logo_img:
         try:
             # Resize logo maintaining aspect ratio
             logo_img.thumbnail((icon_size, icon_size), Image.Resampling.LANCZOS)
-            img.alpha_composite(logo_img, (icon_x, center_y - logo_img.height // 2))
+            img.alpha_composite(logo_img, (icon_x, actual_center_y - logo_img.height // 2))
         except Exception:
-            draw.ellipse((icon_x, center_y - 6, icon_x + 12, center_y + 6), fill=dot_color)
+            draw.ellipse((icon_x, actual_center_y - 6, icon_x + 12, actual_center_y + 6), fill=dot_color)
     else:
-        draw.ellipse((icon_x, center_y - 6, icon_x + 12, center_y + 6), fill=dot_color)
+        draw.ellipse((icon_x, actual_center_y - 6, icon_x + 12, actual_center_y + 6), fill=dot_color)
 
     if clean_handle:
         text_x = icon_x + icon_size + dot_spacing
-        text_y = center_y
+        text_y = actual_center_y
         draw.text((text_x, text_y), clean_handle, font=font, fill=text_color, anchor="lm")
 
     img.save(output_path, "PNG")
@@ -2285,11 +2501,33 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
             or contract_payload.get("brandText")
             or "@VisionFlow"
         )
-        logo_pos = str(contract_payload.get("logoPosition") or contract_payload.get("logo_position") or "top_left").lower()
-        default_logo_x = 18 if "left" in logo_pos else 82
-        default_logo_y = 92 if "bottom" in logo_pos else 6
-        watermark_x_percent = float(contract_payload.get("logoXPercent") or contract_payload.get("logo_x_percent") or default_logo_x)
-        watermark_y_percent = float(contract_payload.get("logoYPercent") or contract_payload.get("logo_y_percent") or default_logo_y)
+        logo_pos = str(contract_payload.get("logoPosition") or contract_payload.get("logo_position") or "top_right").lower()
+        default_logo_x = 18.0 if "left" in logo_pos else 82.0
+        default_logo_y = 92.0 if "bottom" in logo_pos else 6.0
+
+        raw_logo_x = contract_payload.get("logoXPercent") if contract_payload.get("logoXPercent") is not None else contract_payload.get("logo_x_percent")
+        raw_logo_y = contract_payload.get("logoYPercent") if contract_payload.get("logoYPercent") is not None else contract_payload.get("logo_y_percent")
+
+        try:
+            watermark_x_percent = float(raw_logo_x) if raw_logo_x is not None else default_logo_x
+        except (ValueError, TypeError):
+            watermark_x_percent = default_logo_x
+
+        try:
+            watermark_y_percent = float(raw_logo_y) if raw_logo_y is not None else default_logo_y
+        except (ValueError, TypeError):
+            watermark_y_percent = default_logo_y
+
+        # Auto-reconcile coordinate conflicts (e.g. if position is top_right but x_percent was defaulted to 18%)
+        if "right" in logo_pos and watermark_x_percent <= 30.0:
+            watermark_x_percent = 82.0
+        elif "left" in logo_pos and watermark_x_percent >= 70.0:
+            watermark_x_percent = 18.0
+
+        if "bottom" in logo_pos and watermark_y_percent <= 30.0:
+            watermark_y_percent = 92.0
+        elif "top" in logo_pos and watermark_y_percent >= 70.0:
+            watermark_y_percent = 6.0
 
         color_grading = str(contract_payload.get("colorGrading") or contract_payload.get("color_grading") or "cyber_teal").lower()
         enable_vignette = bool(contract_payload.get("enableVignette", contract_payload.get("enable_vignette", True)))
@@ -2611,15 +2849,29 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
                                 last_v = f"[v{i+1}]"
                                 
                                 # Register dynamic Transition SFX sound design cue
-                                if xfade_effect in TRANSITION_SFX_MAP:
-                                    sfx_name, sfx_vol = TRANSITION_SFX_MAP[xfade_effect]
-                                    if not any(f.get("start_time") == current_offset for f in sfx_events):
-                                        sfx_events.append({
-                                            "type": sfx_name,
-                                            "start_time": max(0.2, current_offset),
-                                            "url": SFX_STEM_CATALOG.get(sfx_name, SFX_STEM_CATALOG["whoosh"]),
-                                            "volume": sfx_vol
-                                        })
+                                sfx_info = TRANSITION_SFX_MAP.get(xfade_effect)
+                                if not sfx_info:
+                                    alt_stems = ["swoosh_quick_air", "whoosh_fast", "whoosh_cinematic_deep", "cyber_glitch_switch"]
+                                    sfx_name = alt_stems[i % len(alt_stems)]
+                                    sfx_vol = 0.28
+                                else:
+                                    sfx_name, sfx_vol = sfx_info
+                                
+                                # Avoid consecutive identical sounds
+                                if sfx_events and sfx_events[-1].get("type") == sfx_name:
+                                    alt_pool = ["swoosh_quick_air", "whoosh_fast", "cyber_glitch_switch", "whoosh_cinematic_deep"]
+                                    for alt in alt_pool:
+                                        if alt != sfx_name:
+                                            sfx_name = alt
+                                            break
+
+                                if not any(abs(f.get("start_time", 0) - current_offset) < 0.3 for f in sfx_events):
+                                    sfx_events.append({
+                                        "type": sfx_name,
+                                        "start_time": max(0.2, current_offset),
+                                        "url": SFX_STEM_CATALOG.get(sfx_name, "whoosh_fast.mp3"),
+                                        "volume": sfx_vol
+                                    })
                                 
                             filter_graph = ";".join(filter_parts)
                             xfade_cmd = [
@@ -2785,24 +3037,26 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
         
         user_bgm_vol = contract_payload.get("bgm_volume") or contract_payload.get("bgmVolume") or contract_payload.get("music_volume")
         try:
-            bgm_volume_gain = float(user_bgm_vol) if user_bgm_vol is not None else float(bgm_meta.get("volume_gain", 0.12))
+            bgm_volume_gain = float(user_bgm_vol) if user_bgm_vol is not None else float(bgm_meta.get("volume_gain", 0.20))
         except Exception:
-            bgm_volume_gain = 0.12
+            bgm_volume_gain = 0.20
 
-        if enable_bgm and target_bgm_url and is_safe_url(target_bgm_url):
-            try:
-                import requests
-                print(f"[Modal] 🎵 Auto-resolving BGM track '{bgm_meta.get('name')}' for genre [{detected_genre}] from CDN...", flush=True)
-                r_m = requests.get(target_bgm_url, timeout=20, stream=True)
-                if r_m.status_code == 200:
-                    with open(bgm_file_path, "wb") as f_m:
-                        for chunk in r_m.iter_content(chunk_size=8192):
-                            f_m.write(chunk)
-                    if os.path.exists(bgm_file_path) and os.path.getsize(bgm_file_path) > 1000:
-                        has_bgm = True
-                        print(f"[Modal] ✅ Downloaded BGM track '{bgm_meta.get('name')}' ({os.path.getsize(bgm_file_path)} bytes) [Artist: {bgm_meta.get('artist')}]!", flush=True)
-            except Exception as m_err:
-                print(f"[Modal] ⚠️ Notice: BGM download fallback ({m_err})", flush=True)
+        if enable_bgm:
+            candidate_ref = (
+                custom_bgm_url
+                or bgm_meta.get("file_name")
+                or target_bgm_url
+                or bgm_mood
+                or "bgm_philosophy_clean_soul.mp3"
+            )
+            print(f"[Modal] 🎵 Auto-resolving BGM track '{bgm_meta.get('name')}' (ref: {candidate_ref}) for genre [{detected_genre}]...", flush=True)
+            resolved_bgm = resolve_audio_asset_file(candidate_ref, category="bgm", work_dir=work_dir)
+            if resolved_bgm and os.path.exists(resolved_bgm) and os.path.getsize(resolved_bgm) > 1000:
+                bgm_file_path = resolved_bgm
+                has_bgm = True
+                print(f"[Modal] ✅ Multi-Tier BGM Active: '{bgm_meta.get('name')}' ({os.path.getsize(bgm_file_path)} bytes, gain: {bgm_volume_gain})!", flush=True)
+            else:
+                print(f"[Modal] ⚠️ Notice: BGM download fallback, skipping BGM.", flush=True)
 
         # -------------------------------------------------------------------
         # Smart SFX Sound Design Track Extraction & Mixing
@@ -2865,28 +3119,25 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
 
         filter_steps.append(f"{curr_v}subtitles=filename='{ass_path_escaped}'[vout]")
 
-        # Download and inject SFX sound effects
+        # Multi-Tier SFX Sound Design Injection
         for sfx_idx, sfx_item in enumerate(sfx_events):
             s_type = sfx_item["type"]
-            s_url = sfx_item["url"]
-            s_st = sfx_item["start_time"]
-            s_vol = sfx_item["volume"]
-            s_path = f"{work_dir}/sfx_{sfx_idx}_{s_type}.mp3"
-            try:
-                import requests
-                r_s = requests.get(s_url, timeout=10)
-                if r_s.status_code == 200:
-                    with open(s_path, "wb") as f_s:
-                        f_s.write(r_s.content)
-                    sfx_extra_inputs.extend(["-i", s_path])
-                    delay_ms = int(s_st * 1000)
-                    lbl = f"sfx_{sfx_idx}"
-                    filter_steps.append(f"[{next_input_idx}:a]adelay={delay_ms}|{delay_ms},volume={s_vol}[{lbl}]")
-                    sfx_audio_labels.append(f"[{lbl}]")
-                    next_input_idx += 1
-                    print(f"[Modal] 🔊 Smart SFX Sound Design: Injected '{s_type}' sound effect at {s_st:.1f}s!", flush=True)
-            except Exception as s_err:
-                print(f"[Modal] ⚠️ Notice: SFX download fallback: {s_err}", flush=True)
+            s_url = sfx_item.get("url") or ""
+            s_st = float(sfx_item.get("start_time", 0.0))
+            s_vol = float(sfx_item.get("volume", 0.28))
+            
+            candidate_sfx_ref = s_url or SFX_STEM_CATALOG.get(s_type) or s_type
+            resolved_sfx = resolve_audio_asset_file(candidate_sfx_ref, category="sfx", work_dir=work_dir)
+            if resolved_sfx and os.path.exists(resolved_sfx) and os.path.getsize(resolved_sfx) > 500:
+                sfx_extra_inputs.extend(["-i", resolved_sfx])
+                delay_ms = int(s_st * 1000)
+                lbl = f"sfx_{sfx_idx}"
+                filter_steps.append(f"[{next_input_idx}:a]adelay={delay_ms}|{delay_ms},volume={s_vol}[{lbl}]")
+                sfx_audio_labels.append(f"[{lbl}]")
+                next_input_idx += 1
+                print(f"[Modal] 🔊 Smart SFX Sound Design: Injected '{s_type}' ({os.path.basename(resolved_sfx)}) at {s_st:.1f}s!", flush=True)
+            else:
+                print(f"[Modal] ⚠️ Notice: SFX '{s_type}' could not be resolved, skipping cue.", flush=True)
 
         # Audio Filter Mixing: Clean Voice + EQ Sculpted Ducked BGM + SFX
         filter_steps.append(
@@ -2898,14 +3149,14 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
         if has_bgm:
             filter_steps.append(
                 f"[3:a]equalizer=f=2500:t=q:w=1.5:g=-4,volume={bgm_volume_gain}[bgm_shaped];"
-                f"[bgm_shaped][vclean]sidechaincompress=threshold=0.08:ratio=12:attack=15:release=250[mducked]"
+                f"[bgm_shaped][vclean]sidechaincompress=threshold=0.12:ratio=6:attack=20:release=350[mducked]"
             )
             mix_inputs.append("[mducked]")
             mix_weights.append("1.0")
 
         for s_lbl in sfx_audio_labels:
             mix_inputs.append(s_lbl)
-            mix_weights.append("0.35")
+            mix_weights.append("0.45")
 
         if len(mix_inputs) > 1:
             amix_str = "".join(mix_inputs) + f"amix=inputs={len(mix_inputs)}:duration=first:weights='{' '.join(mix_weights)}',loudnorm=I=-14:TP=-1.5:LRA=11[aout]"

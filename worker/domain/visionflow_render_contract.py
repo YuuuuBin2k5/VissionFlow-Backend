@@ -81,7 +81,7 @@ def build_visionflow_render_contract(
         enable_sfx=bool(payload.get("enable_sfx", True)),
         logo_url=str(payload.get("logo_url") or ""),
         logo_handle=str(payload.get("logo_handle") or payload.get("logo_text") or "GócChiêmNghiệm||YuuuBin"),
-        logo_position=str(payload.get("logo_position") or "top_left"),
+        logo_position=str(payload.get("logo_position") or payload.get("logoPosition") or "top_right"),
         logo_opacity=float(payload.get("logo_opacity") or 0.85),
         show_title_banner=bool(payload.get("show_title_banner", True)),
         title_banner_style=str(payload.get("title_banner_style") or "neon"),
