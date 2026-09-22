@@ -33730,3 +33730,1825 @@ Multiple connection attempts failed. All failures were:
 =======================================================
 📌 Running Continuous Local Worker Daemon Loop...
 
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'Đống sắt gỉ đủ cho 500 thanh kiếm' (ID: 5c1b9438-52e2-4c85-b44d-851485455d63)
+=======================================================
+  [Studio Sync] Voice: vi-VN-NamMinhNeural
+  [Studio Sync] Logo Handle: @VisionFlow (Pos: top_right)
+  [Studio Sync] Captions Preset: hormozi (Font: Montserrat, Color: #FFE600)
+  [Studio Sync] Title Banner: Đống sắt gỉ đủ cho 500 thanh kiếm (Style: neon)
+  [Studio Sync] BGM: Preset='Auto', Vol=0.12
+  [Studio Sync] Visual Engine: fal_ai
+  [Studio Sync] Scene Count: 14
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: 5c1b9438-52e2-4c85-b44d-851485455d63
+=================================================================
+[Modal] 📜 Normalized Vietnamese script (963 chars): 'Trông như sắt vụn. Nhưng số này từng đủ để rèn khoảng 500 th...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=vi-VN-NamMinhNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 🎭 Emotion-Dynamic Voice Modulation active! [Emotion: suspenseful_warning] -> Rate: +6%, Pitch: -10Hz
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (963 chars -> 963 chars)
+[Modal TTS Warning] TTS with rate=+6%, pitch=-10Hz failed. Trying with pitch=+0Hz...
+[Modal] 🎯 Extracted 12 word-level timestamps from Edge TTS for Karaoke sync!
+[Modal] 📐 Canvas Format: Aspect=9:16 -> Resolution=1080x1920 @ 60 FPS (CRF 18 Broadcast Profile)
+[Modal] 🟨 Created Pixel-Perfect Title Banner Card (NEON)!
+[Modal] 🟢 Created Pixel-Perfect Logo Pill (@VisionFlow) at pos=top_right (18.0%, 6.0%)!
+[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!
+[Modal] 🎬 Created Frosted-Glass Outro Card Overlay for Video Outro!
+[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for 14 visual scenes...
+[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: 58.9s): [2.5, 4.96, 4.96, 3.46, 3.46, 6.01, 6.01, 4.81, 4.81, 2.56, 3.91, 3.91, 3.91, 3.67]
+[MicroWorker 2] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/36307706/15397719_540_...
+[MicroWorker 3] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/7427952/7427952-uhd_14...
+[MicroWorker 0] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/15620398/15620398-hd_1...
+[MicroWorker 1] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/36921336/15640970_540_...
+[MicroWorker 4] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/7427938/7427938-hd_720...
+[MicroWorker 5] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/18083082/18083082-hd_7...
+[MicroWorker 6] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/27858078/12245669_540_...
+[MicroWorker 7] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/27677219/12201946_540_...
+[MicroWorker 8] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/5846306/5846306-hd_720...
+[MicroWorker 10] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/19292123/19292123-hd_7...
+[MicroWorker 9] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/5973874/5973874-hd_720...
+[MicroWorker 11] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/28698221/12454553_540_...
+[MicroWorker 12] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/19726599/19726599-hd_1...
+[MicroWorker 13] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/9288163/9288163-uhd_21...
+[Modal] ⚡ Applied 30+ Cinematic XFade Transitions across 14 scenes with auto SFX sync!
+[Modal] 🎵 Auto-resolving BGM track 'Clover 3 Nostalgic Piano' for genre [PHILOSOPHY_LIFE_LESSON] from CDN...
+[Modal] 🔊 Smart SFX Sound Design: Injected 'heartbeat' sound effect at 28.3s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'ding_bell' sound effect at 41.0s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'ding_bell' sound effect at 46.9s!
+[Modal] ✅ Video render complete! Export path: D:/tmp/5c1b9438-52e2-4c85-b44d-851485455d63/final_output.mp4
+[Modal Quality Gate] Evaluation Result: {'passed': True, 'score': 99, 'metrics': {'size_bytes': 91799031, 'actual_duration': 59.434, 'resolution': '1080x1920', 'fps': 60}}
+[Modal] ☁️ Uploading rendered video to R2 (vision-flow/visionflow/5c1b9438-52e2-4c85-b44d-851485455d63/exports/final.mp4)...
+[Modal] ✅ R2 Upload complete: vision-flow/visionflow/5c1b9438-52e2-4c85-b44d-851485455d63/exports/final.mp4
+[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 (https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev/workflows/5c1b9438-52e2-4c85-b44d-851485455d63/cover.jpg)!
+[Modal] 💾 Successfully saved MediaAsset & registered APPROVAL_PENDING in DB for workflow 5c1b9438-52e2-4c85-b44d-851485455d63!
+
+[SUCCESS] OFFICIAL RENDER COMPLETE FOR 5c1b9438-52e2-4c85-b44d-851485455d63!
+  Output Object Key: visionflow/5c1b9438-52e2-4c85-b44d-851485455d63/exports/final.mp4
+  Public Video URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/5c1b9438-52e2-4c85-b44d-851485455d63/exports/final.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fd28f47a855e5f2097d5f8c24c50da70%2F20260922%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260922T093159Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=523428377acffa2fba9d24a50605bc88cf97d814c460b71376ec896f7c97e956
+[DB] Auto-Publish OFF: Workflow 5c1b9438-52e2-4c85-b44d-851485455d63 -> APPROVAL_PENDING (Ready for Studio review)!
+
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'Não bạn có thể có hai nguồn gốc' (ID: fa5a4333-21eb-4b9a-91ad-d85b415773e3)
+=======================================================
+  [Studio Sync] Voice: vi-VN-NamMinhNeural
+  [Studio Sync] Logo Handle: @VisionFlow (Pos: top_right)
+  [Studio Sync] Captions Preset: hormozi (Font: Montserrat, Color: #FFE600)
+  [Studio Sync] Title Banner: Não bạn có thể có hai nguồn gốc (Style: neon)
+  [Studio Sync] BGM: Preset='Auto', Vol=0.12
+  [Studio Sync] Visual Engine: fal_ai
+  [Studio Sync] Scene Count: 14
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: fa5a4333-21eb-4b9a-91ad-d85b415773e3
+=================================================================
+[Modal] 📜 Normalized Vietnamese script (994 chars): 'Bạn không có hai bộ não. Nhưng não bạn có thể bắt đầu từ hai...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=vi-VN-NamMinhNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 🎭 Emotion-Dynamic Voice Modulation active! [Emotion: suspenseful_warning] -> Rate: +6%, Pitch: -10Hz
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (994 chars -> 994 chars)
+[Modal TTS Warning] TTS with rate=+6%, pitch=-10Hz failed. Trying with pitch=+0Hz...
+[Modal TTS Warning] Fallback with pitch=+0Hz failed. Trying standard default TTS...
+[Modal] ❌ Execution Error: Command '['D:\\VisionFlow\\VisionFlow_Bakend\\venv\\Scripts\\python.exe', '-m', 'edge_tts', '--text', 'Bạn không có hai bộ não. Nhưng não bạn có thể bắt đầu từ hai nguồn. Một nghiên cứu do Stanford Medicine dẫn dắt vừa thách thức mô hình lâu nay rằng toàn bộ não phát triển từ một quần thể tế bào tổ tiên duy nhất. Trong phôi chuột, nhóm thấy hai quần thể tế bào xuất hiện rất sớm và không chồng lấp: một tạo forebrain và midbrain, nhóm kia tạo hindbrain. Chúng không giống một nhánh tách ra muộn từ cùng thân cây. Hai con đường phát triển chạy song song ngay từ giai đoạn đầu của phôi. Khi nhìn ngược qua tiến hóa, nhóm còn thấy mô hình hai nguồn tương tự ở gà, cá ngựa vằn và acorn worm, kéo lịch sử này lùi hơn 550 triệu năm. Họ cũng dùng hiểu biết đó để tạo neuron vận động hindbrain từ tế bào gốc người trong phòng thí nghiệm Điều này không có nghĩa trong đầu bạn tồn tại hai bộ não độc lập Ở người trưởng thành, chúng hoạt động như một hệ thống thống nhất. Nhưng đôi khi thứ trông như một cơ quan duy nhất hôm nay lại mang trong nó hai lịch sử phát triển rất cổ, được tiến hóa đặt cạnh nhau.', '--voice', 'vi-VN-NamMinhNeural', '--write-media', 'D:/tmp/fa5a4333-21eb-4b9a-91ad-d85b415773e3/tts_voice.mp3', '--write-subtitles', 'D:/tmp/fa5a4333-21eb-4b9a-91ad-d85b415773e3/tts_words.vtt']' returned non-zero exit status 1.
+Traceback (most recent call last):
+  File "D:\VisionFlow\VisionFlow_Bakend\modal_worker.py", line 2132, in _render_video_task_impl
+    subprocess.run(tts_cmd, check=True, capture_output=True)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\subprocess.py", line 577, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['D:\\VisionFlow\\VisionFlow_Bakend\\venv\\Scripts\\python.exe', '-m', 'edge_tts', '--text', 'Bạn không có hai bộ não. Nhưng não bạn có thể bắt đầu từ hai nguồn. Một nghiên cứu do Stanford Medicine dẫn dắt vừa thách thức mô hình lâu nay rằng toàn bộ não phát triển từ một quần thể tế bào tổ tiên duy nhất. Trong phôi chuột, nhóm thấy hai quần thể tế bào xuất hiện rất sớm và không chồng lấp: một tạo forebrain và midbrain, nhóm kia tạo hindbrain. Chúng không giống một nhánh tách ra muộn từ cùng thân cây. Hai con đường phát triển chạy song song ngay từ giai đoạn đầu của phôi. Khi nhìn ngược qua tiến hóa, nhóm còn thấy mô hình hai nguồn tương tự ở gà, cá ngựa vằn và acorn worm, kéo lịch sử này lùi hơn 550 triệu năm. Họ cũng dùng hiểu biết đó để tạo neuron vận động hindbrain từ tế bào gốc người trong phòng thí nghiệm Điều này không có nghĩa trong đầu bạn tồn tại hai bộ não độc lập Ở người trưởng thành, chúng hoạt động như một hệ thống thống nhất. Nhưng đôi khi thứ trông như một cơ quan duy nhất hôm nay lại mang trong nó hai lịch sử phát triển rất cổ, được tiến hóa đặt cạnh nhau.', '--voice', 'vi-VN-NamMinhNeural', '--rate=+6%', '--pitch=-10Hz', '--write-media', 'D:/tmp/fa5a4333-21eb-4b9a-91ad-d85b415773e3/tts_voice.mp3', '--write-subtitles', 'D:/tmp/fa5a4333-21eb-4b9a-91ad-d85b415773e3/tts_words.vtt']' returned non-zero exit status 1.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\VisionFlow\VisionFlow_Bakend\modal_worker.py", line 2145, in _render_video_task_impl
+    subprocess.run(fallback_tts_cmd, check=True, capture_output=True)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\subprocess.py", line 577, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['D:\\VisionFlow\\VisionFlow_Bakend\\venv\\Scripts\\python.exe', '-m', 'edge_tts', '--text', 'Bạn không có hai bộ não. Nhưng não bạn có thể bắt đầu từ hai nguồn. Một nghiên cứu do Stanford Medicine dẫn dắt vừa thách thức mô hình lâu nay rằng toàn bộ não phát triển từ một quần thể tế bào tổ tiên duy nhất. Trong phôi chuột, nhóm thấy hai quần thể tế bào xuất hiện rất sớm và không chồng lấp: một tạo forebrain và midbrain, nhóm kia tạo hindbrain. Chúng không giống một nhánh tách ra muộn từ cùng thân cây. Hai con đường phát triển chạy song song ngay từ giai đoạn đầu của phôi. Khi nhìn ngược qua tiến hóa, nhóm còn thấy mô hình hai nguồn tương tự ở gà, cá ngựa vằn và acorn worm, kéo lịch sử này lùi hơn 550 triệu năm. Họ cũng dùng hiểu biết đó để tạo neuron vận động hindbrain từ tế bào gốc người trong phòng thí nghiệm Điều này không có nghĩa trong đầu bạn tồn tại hai bộ não độc lập Ở người trưởng thành, chúng hoạt động như một hệ thống thống nhất. Nhưng đôi khi thứ trông như một cơ quan duy nhất hôm nay lại mang trong nó hai lịch sử phát triển rất cổ, được tiến hóa đặt cạnh nhau.', '--voice', 'vi-VN-NamMinhNeural', '--rate=+6%', '--pitch=+0Hz', '--write-media', 'D:/tmp/fa5a4333-21eb-4b9a-91ad-d85b415773e3/tts_voice.mp3', '--write-subtitles', 'D:/tmp/fa5a4333-21eb-4b9a-91ad-d85b415773e3/tts_words.vtt']' returned non-zero exit status 1.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\VisionFlow\VisionFlow_Bakend\modal_worker.py", line 2155, in _render_video_task_impl
+    subprocess.run(standard_tts_cmd, check=True)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\subprocess.py", line 577, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['D:\\VisionFlow\\VisionFlow_Bakend\\venv\\Scripts\\python.exe', '-m', 'edge_tts', '--text', 'Bạn không có hai bộ não. Nhưng não bạn có thể bắt đầu từ hai nguồn. Một nghiên cứu do Stanford Medicine dẫn dắt vừa thách thức mô hình lâu nay rằng toàn bộ não phát triển từ một quần thể tế bào tổ tiên duy nhất. Trong phôi chuột, nhóm thấy hai quần thể tế bào xuất hiện rất sớm và không chồng lấp: một tạo forebrain và midbrain, nhóm kia tạo hindbrain. Chúng không giống một nhánh tách ra muộn từ cùng thân cây. Hai con đường phát triển chạy song song ngay từ giai đoạn đầu của phôi. Khi nhìn ngược qua tiến hóa, nhóm còn thấy mô hình hai nguồn tương tự ở gà, cá ngựa vằn và acorn worm, kéo lịch sử này lùi hơn 550 triệu năm. Họ cũng dùng hiểu biết đó để tạo neuron vận động hindbrain từ tế bào gốc người trong phòng thí nghiệm Điều này không có nghĩa trong đầu bạn tồn tại hai bộ não độc lập Ở người trưởng thành, chúng hoạt động như một hệ thống thống nhất. Nhưng đôi khi thứ trông như một cơ quan duy nhất hôm nay lại mang trong nó hai lịch sử phát triển rất cổ, được tiến hóa đặt cạnh nhau.', '--voice', 'vi-VN-NamMinhNeural', '--write-media', 'D:/tmp/fa5a4333-21eb-4b9a-91ad-d85b415773e3/tts_voice.mp3', '--write-subtitles', 'D:/tmp/fa5a4333-21eb-4b9a-91ad-d85b415773e3/tts_words.vtt']' returned non-zero exit status 1.
+[Modal] ⚠️ Recorded FAILED state in DB for workflow fa5a4333-21eb-4b9a-91ad-d85b415773e3: Command '['D:\\VisionFlow\\VisionFlow_Bakend\\venv\\Scripts\\python.exe', '-m', 'edge_tts'
+
+❌ [FAILED] RENDER FAILED FOR fa5a4333-21eb-4b9a-91ad-d85b415773e3: Command '['D:\\VisionFlow\\VisionFlow_Bakend\\venv\\Scripts\\python.exe', '-m', 'edge_tts', '--text', 'Bạn không có hai bộ não. Nhưng não bạn có thể bắt đầu từ hai nguồn. Một nghiên cứu do Stanford Medicine dẫn dắt vừa thách thức mô hình lâu nay rằng toàn bộ não phát triển từ một quần thể tế bào tổ tiên duy nhất. Trong phôi chuột, nhóm thấy hai quần thể tế bào xuất hiện rất sớm và không chồng lấp: một tạo forebrain và midbrain, nhóm kia tạo hindbrain. Chúng không giống một nhánh tách ra muộn từ cùng thân cây. Hai con đường phát triển chạy song song ngay từ giai đoạn đầu của phôi. Khi nhìn ngược qua tiến hóa, nhóm còn thấy mô hình hai nguồn tương tự ở gà, cá ngựa vằn và acorn worm, kéo lịch sử này lùi hơn 550 triệu năm. Họ cũng dùng hiểu biết đó để tạo neuron vận động hindbrain từ tế bào gốc người trong phòng thí nghiệm Điều này không có nghĩa trong đầu bạn tồn tại hai bộ não độc lập Ở người trưởng thành, chúng hoạt động như một hệ thống thống nhất. Nhưng đôi khi thứ trông như một cơ quan duy nhất hôm nay lại mang trong nó hai lịch sử phát triển rất cổ, được tiến hóa đặt cạnh nhau.', '--voice', 'vi-VN-NamMinhNeural', '--write-media', 'D:/tmp/fa5a4333-21eb-4b9a-91ad-d85b415773e3/tts_voice.mp3', '--write-subtitles', 'D:/tmp/fa5a4333-21eb-4b9a-91ad-d85b415773e3/tts_words.vtt']' returned non-zero exit status 1.
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'Dấu tay 15.000 năm vẫn còn' (ID: c5a235dc-7b5f-498f-bda6-7db876c76087)
+=======================================================
+  [Studio Sync] Voice: vi-VN-NamMinhNeural
+  [Studio Sync] Logo Handle: @VisionFlow (Pos: top_right)
+  [Studio Sync] Captions Preset: hormozi (Font: Montserrat, Color: #FFE600)
+  [Studio Sync] Title Banner: Dấu tay 15.000 năm vẫn còn (Style: neon)
+  [Studio Sync] BGM: Preset='Auto', Vol=0.12
+  [Studio Sync] Visual Engine: fal_ai
+  [Studio Sync] Scene Count: 15
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: c5a235dc-7b5f-498f-bda6-7db876c76087
+=================================================================
+[Modal] 📜 Normalized Vietnamese script (1004 chars): 'Người này biến mất 15 000 năm trước. Nhưng dấu tay của họ vẫ...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=vi-VN-NamMinhNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 🎭 Emotion-Dynamic Voice Modulation active! [Emotion: suspenseful_warning] -> Rate: +6%, Pitch: -10Hz
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (1004 chars -> 1004 chars)
+[Modal TTS Warning] TTS with rate=+6%, pitch=-10Hz failed. Trying with pitch=+0Hz...
+[Modal] 🎯 Extracted 13 word-level timestamps from Edge TTS for Karaoke sync!
+[Modal] 📐 Canvas Format: Aspect=9:16 -> Resolution=1080x1920 @ 60 FPS (CRF 18 Broadcast Profile)
+[Modal] 🟨 Created Pixel-Perfect Title Banner Card (NEON)!
+[Modal] 🟢 Created Pixel-Perfect Logo Pill (@VisionFlow) at pos=top_right (18.0%, 6.0%)!
+[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!
+[Modal] 🎬 Created Frosted-Glass Outro Card Overlay for Video Outro!
+[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for 15 visual scenes...
+[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: 63.6s): [2.5, 4.79, 4.79, 3.99, 3.99, 2.56, 6.23, 6.23, 3.99, 3.99, 5.27, 5.27, 2.88, 3.68, 3.44]
+[MicroWorker 1] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6185529/6185529-hd_108...
+[MicroWorker 0] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/7299420/7299420-uhd_14...
+[MicroWorker 2] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/8516552/8516552-uhd_14...
+[MicroWorker 3] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6693575/6693575-hd_108...
+[MicroWorker 4] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6730263/6730263-uhd_14...
+[MicroWorker 5] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/19841907/19841907-hd_1...
+[MicroWorker 6] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/7299472/7299472-hd_720...
+[MicroWorker 7] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/7299468/7299468-uhd_21...
+[MicroWorker 9] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6693587/6693587-hd_108...
+[MicroWorker 10] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6133259/6133259-hd_720...
+[MicroWorker 11] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6063031/6063031-hd_108...
+[MicroWorker 12] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/10617225/10617225-hd_7...
+[MicroWorker 13] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/8063919/8063919-uhd_14...
+[MicroWorker 14] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/15283135/15283135-hd_7...
+[MicroWorker 8] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/8063946/8063946-uhd_21...
+[Modal] ⚡ Applied 30+ Cinematic XFade Transitions across 15 scenes with auto SFX sync!
+[Modal] 🎵 Auto-resolving BGM track 'Clover 3 Nostalgic Piano' for genre [PHILOSOPHY_LIFE_LESSON] from CDN...
+[Modal] 🔊 Smart SFX Sound Design: Injected 'heartbeat' sound effect at 31.6s!
+[Modal] ✅ Video render complete! Export path: D:/tmp/c5a235dc-7b5f-498f-bda6-7db876c76087/final_output.mp4
+[Modal Quality Gate] Evaluation Result: {'passed': True, 'score': 99, 'metrics': {'size_bytes': 79990790, 'actual_duration': 64.1, 'resolution': '1080x1920', 'fps': 60}}
+[Modal] ☁️ Uploading rendered video to R2 (vision-flow/visionflow/c5a235dc-7b5f-498f-bda6-7db876c76087/exports/final.mp4)...
+[Modal] ✅ R2 Upload complete: vision-flow/visionflow/c5a235dc-7b5f-498f-bda6-7db876c76087/exports/final.mp4
+[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 (https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev/workflows/c5a235dc-7b5f-498f-bda6-7db876c76087/cover.jpg)!
+[Modal] 💾 Successfully saved MediaAsset & registered APPROVAL_PENDING in DB for workflow c5a235dc-7b5f-498f-bda6-7db876c76087!
+
+[SUCCESS] OFFICIAL RENDER COMPLETE FOR c5a235dc-7b5f-498f-bda6-7db876c76087!
+  Output Object Key: visionflow/c5a235dc-7b5f-498f-bda6-7db876c76087/exports/final.mp4
+  Public Video URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/c5a235dc-7b5f-498f-bda6-7db876c76087/exports/final.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fd28f47a855e5f2097d5f8c24c50da70%2F20260922%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260922T094028Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=e3f320f7cfef79218bc8f0e2b40588bd62e50a64898e673b52fa9797ad3bf465
+[DB] Auto-Publish OFF: Workflow c5a235dc-7b5f-498f-bda6-7db876c76087 -> APPROVAL_PENDING (Ready for Studio review)!
+
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'Vì sao trend ghép mặt nhìn giống đến vậy?' (ID: b7b44bd1-5bf5-4181-a368-d76b1ebcafef)
+=======================================================
+  [Studio Sync] Voice: vi-VN-NamMinhNeural
+  [Studio Sync] Logo Handle: @VisionFlow (Pos: top_right)
+  [Studio Sync] Captions Preset: clean_news (Font: Montserrat, Color: #38BDF8)
+  [Studio Sync] Title Banner: Vì sao trend ghép mặt nhìn giống đến vậy? (Style: neon)
+  [Studio Sync] BGM: Preset='Auto', Vol=0.12
+  [Studio Sync] Visual Engine: fal_ai
+  [Studio Sync] Scene Count: 13
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: b7b44bd1-5bf5-4181-a368-d76b1ebcafef
+=================================================================
+[Modal] 📜 Normalized Vietnamese script (888 chars): 'Ghép nửa mặt bạn với bố mẹ, sự giống nhau bỗng hiện lên rõ r...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=vi-VN-NamMinhNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 🎭 Emotion-Dynamic Voice Modulation active! [Emotion: suspenseful_warning] -> Rate: +6%, Pitch: -10Hz
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (888 chars -> 888 chars)
+[Modal] 🎯 Extracted 8 word-level timestamps from Edge TTS for Karaoke sync!
+[Modal] 📐 Canvas Format: Aspect=9:16 -> Resolution=1080x1920 @ 60 FPS (CRF 18 Broadcast Profile)
+[Modal] 🟨 Created Pixel-Perfect Title Banner Card (NEON)!
+[Modal] 🟢 Created Pixel-Perfect Logo Pill (@VisionFlow) at pos=top_right (18.0%, 6.0%)!
+[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!
+[Modal] 🎬 Created Frosted-Glass Outro Card Overlay for Video Outro!
+[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for 13 visual scenes...
+[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: 50.2s): [2.5, 4.07, 4.07, 4.07, 4.07, 4.34, 4.34, 3.26, 3.26, 3.26, 3.26, 4.88, 4.8]
+[MicroWorker 1] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/12761063/12761063-hd_7...
+[MicroWorker 2] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/9479753/9479753-uhd_14...
+[MicroWorker 3] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/4821003/4821003-hd_108...
+[MicroWorker 0] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/8116466/8116466-hd_108...
+[MicroWorker 4] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/36171729/15339472_540_...
+[MicroWorker 5] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/7721832/7721832-uhd_14...
+[MicroWorker 6] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/10601495/10601495-hd_7...
+[MicroWorker 9] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/5982354/5982354-hd_720...
+[MicroWorker 8] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/10210558/10210558-uhd_...
+[MicroWorker 10] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/34855098/14772134_540_...
+[MicroWorker 11] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6278929/6278929-hd_108...
+[MicroWorker 12] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6278913/6278913-uhd_14...
+[MicroWorker 7] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6649834/6649834-uhd_14...
+[Modal] ⚡ Applied 30+ Cinematic XFade Transitions across 13 scenes with auto SFX sync!
+[Modal] 🎵 Auto-resolving BGM track 'Clover 3 Nostalgic Piano' for genre [PHILOSOPHY_LIFE_LESSON] from CDN...
+[Modal] 🔊 Smart SFX Sound Design: Injected 'heartbeat' sound effect at 20.5s!
+[Modal] ✅ Video render complete! Export path: D:/tmp/b7b44bd1-5bf5-4181-a368-d76b1ebcafef/final_output.mp4
+[Modal Quality Gate] Evaluation Result: {'passed': True, 'score': 99, 'metrics': {'size_bytes': 56097442, 'actual_duration': 50.684, 'resolution': '1080x1920', 'fps': 60}}
+[Modal] ☁️ Uploading rendered video to R2 (vision-flow/visionflow/b7b44bd1-5bf5-4181-a368-d76b1ebcafef/exports/final.mp4)...
+[Modal] ✅ R2 Upload complete: vision-flow/visionflow/b7b44bd1-5bf5-4181-a368-d76b1ebcafef/exports/final.mp4
+[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 (https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev/workflows/b7b44bd1-5bf5-4181-a368-d76b1ebcafef/cover.jpg)!
+[Modal] 💾 Successfully saved MediaAsset & registered APPROVAL_PENDING in DB for workflow b7b44bd1-5bf5-4181-a368-d76b1ebcafef!
+
+[SUCCESS] OFFICIAL RENDER COMPLETE FOR b7b44bd1-5bf5-4181-a368-d76b1ebcafef!
+  Output Object Key: visionflow/b7b44bd1-5bf5-4181-a368-d76b1ebcafef/exports/final.mp4
+  Public Video URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/b7b44bd1-5bf5-4181-a368-d76b1ebcafef/exports/final.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fd28f47a855e5f2097d5f8c24c50da70%2F20260922%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260922T094450Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=7a085602e342d97f0bbf388f7642984819434562f511ff08ee7ce5df212323cb
+[DB] Auto-Publish OFF: Workflow b7b44bd1-5bf5-4181-a368-d76b1ebcafef -> APPROVAL_PENDING (Ready for Studio review)!
+
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'Dò mìn, tìm thấy khẩu súng hơn 500 năm' (ID: a1bd9223-6e52-490d-9684-588929902978)
+=======================================================
+  [Studio Sync] Voice: vi-VN-NamMinhNeural
+  [Studio Sync] Logo Handle: @VisionFlow (Pos: top_right)
+  [Studio Sync] Captions Preset: hormozi (Font: Montserrat, Color: #FFE600)
+  [Studio Sync] Title Banner: Dò mìn, tìm thấy khẩu súng hơn 500 năm (Style: neon)
+  [Studio Sync] BGM: Preset='Auto', Vol=0.12
+  [Studio Sync] Visual Engine: fal_ai
+  [Studio Sync] Scene Count: 13
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: a1bd9223-6e52-490d-9684-588929902978
+=================================================================
+[Modal] 📜 Normalized Vietnamese script (954 chars): 'Họ dò mìn. Nhưng thứ tìm thấy là một khẩu súng hơn 500 năm t...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=vi-VN-NamMinhNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 🎭 Emotion-Dynamic Voice Modulation active! [Emotion: suspenseful_warning] -> Rate: +6%, Pitch: -10Hz
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (954 chars -> 954 chars)
+[Modal] 🎯 Extracted 12 word-level timestamps from Edge TTS for Karaoke sync!
+[Modal] 📐 Canvas Format: Aspect=9:16 -> Resolution=1080x1920 @ 60 FPS (CRF 18 Broadcast Profile)
+[Modal] 🟨 Created Pixel-Perfect Title Banner Card (NEON)!
+[Modal] 🟢 Created Pixel-Perfect Logo Pill (@VisionFlow) at pos=top_right (18.0%, 6.0%)!
+[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!
+[Modal] 🎬 Created Frosted-Glass Outro Card Overlay for Video Outro!
+[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for 13 visual scenes...
+[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: 63.8s): [2.62, 5.25, 5.25, 4.72, 4.72, 6.65, 6.65, 6.82, 6.82, 4.37, 4.37, 2.5, 3.1]
+[MicroWorker 3] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/7291130/7291130-uhd_21...
+[MicroWorker 2] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/33452317/14234771_540_...
+[MicroWorker 1] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/15985937/15985937-hd_7...
+[MicroWorker 0] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/30080731/12901437_540_...
+[MicroWorker 4] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/36303973/15395791_540_...
+[MicroWorker 5] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/31171269/13316504_540_...
+[MicroWorker 6] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/11153564/11153564-uhd_...
+[MicroWorker 7] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6263477/6263477-uhd_14...
+[MicroWorker 8] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6577541/6577541-uhd_14...
+[MicroWorker 9] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/13511897/13511897-hd_7...
+[MicroWorker 11] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/15283174/15283174-hd_7...
+[MicroWorker 10] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/8791743/8791743-uhd_14...
+[MicroWorker 12] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6719638/6719638-uhd_14...
+[Modal] ⚡ Applied 30+ Cinematic XFade Transitions across 13 scenes with auto SFX sync!
+[Modal] 🎵 Auto-resolving BGM track 'Clover 3 Nostalgic Piano' for genre [PHILOSOPHY_LIFE_LESSON] from CDN...
+[Modal] 🔊 Smart SFX Sound Design: Injected 'heartbeat' sound effect at 32.8s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'heartbeat' sound effect at 22.1s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'sub_boom' sound effect at 35.7s!
+[Modal] ✅ Video render complete! Export path: D:/tmp/a1bd9223-6e52-490d-9684-588929902978/final_output.mp4
+[Modal Quality Gate] Evaluation Result: {'passed': True, 'score': 99, 'metrics': {'size_bytes': 94276189, 'actual_duration': 64.334, 'resolution': '1080x1920', 'fps': 60}}
+[Modal] ☁️ Uploading rendered video to R2 (vision-flow/visionflow/a1bd9223-6e52-490d-9684-588929902978/exports/final.mp4)...
+[Modal] ✅ R2 Upload complete: vision-flow/visionflow/a1bd9223-6e52-490d-9684-588929902978/exports/final.mp4
+[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 (https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev/workflows/a1bd9223-6e52-490d-9684-588929902978/cover.jpg)!
+[Modal] 💾 Successfully saved MediaAsset & registered APPROVAL_PENDING in DB for workflow a1bd9223-6e52-490d-9684-588929902978!
+
+[SUCCESS] OFFICIAL RENDER COMPLETE FOR a1bd9223-6e52-490d-9684-588929902978!
+  Output Object Key: visionflow/a1bd9223-6e52-490d-9684-588929902978/exports/final.mp4
+  Public Video URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/a1bd9223-6e52-490d-9684-588929902978/exports/final.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fd28f47a855e5f2097d5f8c24c50da70%2F20260922%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260922T095128Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=a81681f5b1f68eb04ea52331dd9c1458338d5c274dfa26ff2eb9fcd8ccc2d786
+[DB] Auto-Publish OFF: Workflow a1bd9223-6e52-490d-9684-588929902978 -> APPROVAL_PENDING (Ready for Studio review)!
+
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'Phía sau mộ Tutankhamun còn gì?' (ID: 4b977220-7919-476e-bb1e-c723e1435a91)
+=======================================================
+  [Studio Sync] Voice: vi-VN-NamMinhNeural
+  [Studio Sync] Logo Handle: @VisionFlow (Pos: top_right)
+  [Studio Sync] Captions Preset: hormozi (Font: Montserrat, Color: #FFE600)
+  [Studio Sync] Title Banner: Phía sau mộ Tutankhamun còn gì? (Style: neon)
+  [Studio Sync] BGM: Preset='Auto', Vol=0.12
+  [Studio Sync] Visual Engine: fal_ai
+  [Studio Sync] Scene Count: 13
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: 4b977220-7919-476e-bb1e-c723e1435a91
+=================================================================
+[Modal] 📜 Normalized Vietnamese script (996 chars): 'Có thể còn những căn phòng chưa ai mở phía sau mộ Tutankhamu...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=vi-VN-NamMinhNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 🎭 Emotion-Dynamic Voice Modulation active! [Emotion: suspenseful_warning] -> Rate: +6%, Pitch: -10Hz
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (996 chars -> 996 chars)
+[Modal] 🎯 Extracted 10 word-level timestamps from Edge TTS for Karaoke sync!
+[Modal] 📐 Canvas Format: Aspect=9:16 -> Resolution=1080x1920 @ 60 FPS (CRF 18 Broadcast Profile)
+[Modal] 🟨 Created Pixel-Perfect Title Banner Card (NEON)!
+[Modal] 🟢 Created Pixel-Perfect Logo Pill (@VisionFlow) at pos=top_right (18.0%, 6.0%)!
+[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!
+[Modal] 🎬 Created Frosted-Glass Outro Card Overlay for Video Outro!
+[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for 13 visual scenes...
+[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: 58.7s): [2.5, 5.29, 5.29, 5.43, 5.43, 5.57, 5.57, 3.76, 3.76, 3.2, 3.2, 5.16, 4.5]
+[MicroWorker 0] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/12966266/12966266-hd_1...
+[MicroWorker 1] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6010753/6010753-hd_108...
+[MicroWorker 3] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/33171983/14137770_540_...
+[MicroWorker 2] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/39626904/16891930_540_...
+[MicroWorker 4] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/37894868/16078404_540_...
+[MicroWorker 5] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/18069863/18069863-uhd_...
+[MicroWorker 7] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6711443/6711443-uhd_21...
+[MicroWorker 6] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/39623398/16890111_540_...
+[MicroWorker 8] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6722183/6722183-uhd_21...
+[MicroWorker 9] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6120110/6120110-hd_720...
+[MicroWorker 10] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/7687749/7687749-hd_720...
+[MicroWorker 11] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/18623659/18623659-uhd_...
+[MicroWorker 12] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6198813/6198813-hd_108...
+[Modal] ⚡ Applied 30+ Cinematic XFade Transitions across 13 scenes with auto SFX sync!
+[Modal] 🎵 Auto-resolving BGM track 'Clover 3 Nostalgic Piano' for genre [PHILOSOPHY_LIFE_LESSON] from CDN...
+[Modal] 🔊 Smart SFX Sound Design: Injected 'heartbeat' sound effect at 26.9s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'ding_bell' sound effect at 43.3s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'sub_boom' sound effect at 49.0s!
+[Modal] ✅ Video render complete! Export path: D:/tmp/4b977220-7919-476e-bb1e-c723e1435a91/final_output.mp4
+[Modal Quality Gate] Evaluation Result: {'passed': True, 'score': 99, 'metrics': {'size_bytes': 99785785, 'actual_duration': 59.167, 'resolution': '1080x1920', 'fps': 60}}
+[Modal] ☁️ Uploading rendered video to R2 (vision-flow/visionflow/4b977220-7919-476e-bb1e-c723e1435a91/exports/final.mp4)...
+[Modal] ✅ R2 Upload complete: vision-flow/visionflow/4b977220-7919-476e-bb1e-c723e1435a91/exports/final.mp4
+[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 (https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev/workflows/4b977220-7919-476e-bb1e-c723e1435a91/cover.jpg)!
+[Modal] 💾 Successfully saved MediaAsset & registered APPROVAL_PENDING in DB for workflow 4b977220-7919-476e-bb1e-c723e1435a91!
+
+[SUCCESS] OFFICIAL RENDER COMPLETE FOR 4b977220-7919-476e-bb1e-c723e1435a91!
+  Output Object Key: visionflow/4b977220-7919-476e-bb1e-c723e1435a91/exports/final.mp4
+  Public Video URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/4b977220-7919-476e-bb1e-c723e1435a91/exports/final.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fd28f47a855e5f2097d5f8c24c50da70%2F20260922%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260922T095725Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=7a789407df41a0ce51c4919011821787e26593876d6efc485a193f5698cb4776
+[DB] Auto-Publish OFF: Workflow 4b977220-7919-476e-bb1e-c723e1435a91 -> APPROVAL_PENDING (Ready for Studio review)!
+
+
+=======================================================
+[WORKER] PROCESSING VIDEO: '25.000 năm trước: hạt cau và cơn đau răng' (ID: 25eb3cb9-9e17-4518-a36c-172a8dc41310)
+=======================================================
+  [Studio Sync] Voice: vi-VN-NamMinhNeural
+  [Studio Sync] Logo Handle: @VisionFlow (Pos: top_right)
+  [Studio Sync] Captions Preset: hormozi (Font: Montserrat, Color: #FFE600)
+  [Studio Sync] Title Banner: 25.000 năm trước: hạt cau và cơn đau răng (Style: neon)
+  [Studio Sync] BGM: Preset='Auto', Vol=0.12
+  [Studio Sync] Visual Engine: fal_ai
+  [Studio Sync] Scene Count: 15
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: 25eb3cb9-9e17-4518-a36c-172a8dc41310
+=================================================================
+[Modal] 📜 Normalized Vietnamese script (1030 chars): '25 000 năm trước, đau răng có thể đã dẫn con người tới một c...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=vi-VN-NamMinhNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 🎭 Emotion-Dynamic Voice Modulation active! [Emotion: suspenseful_warning] -> Rate: +6%, Pitch: -10Hz
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (1030 chars -> 1030 chars)
+[Modal] 🎯 Extracted 9 word-level timestamps from Edge TTS for Karaoke sync!
+[Modal] 📐 Canvas Format: Aspect=9:16 -> Resolution=1080x1920 @ 60 FPS (CRF 18 Broadcast Profile)
+[Modal] 🟨 Created Pixel-Perfect Title Banner Card (NEON)!
+[Modal] 🟢 Created Pixel-Perfect Logo Pill (@VisionFlow) at pos=top_right (18.0%, 6.0%)!
+[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!
+[Modal] 🎬 Created Frosted-Glass Outro Card Overlay for Video Outro!
+[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for 15 visual scenes...
+[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: 58.5s): [2.5, 3.3, 3.0, 3.0, 5.4, 5.4, 4.65, 4.65, 3.45, 3.45, 4.95, 4.95, 2.5, 3.75, 3.59]
+[MicroWorker 0] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/7299358/7299358-hd_108...
+[MicroWorker 2] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/15283135/15283135-hd_7...
+[MicroWorker 3] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6528789/6528789-hd_720...
+[MicroWorker 1] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/8516551/8516551-uhd_14...
+[MicroWorker 4] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6912201/6912201-hd_108...
+[MicroWorker 6] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6528789/6528789-hd_720...
+[MicroWorker 5] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/7677701/7677701-hd_720...
+[MicroWorker 7] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/4622773/4622773-uhd_14...
+[MicroWorker 8] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/36214078/15357117_540_...
+[MicroWorker 9] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/34837857/14767444_540_...
+[MicroWorker 10] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/15283210/15283210-hd_7...
+[MicroWorker 11] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6528790/6528790-uhd_21...
+[MicroWorker 13] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6192974/6192974-hd_108...
+[MicroWorker 14] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6192964/6192964-sd_540...
+[MicroWorker 12] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/8331695/8331695-uhd_21...
+[Modal] ⚡ Applied 30+ Cinematic XFade Transitions across 15 scenes with auto SFX sync!
+[Modal] 🎵 Auto-resolving BGM track 'Clover 3 Nostalgic Piano' for genre [PHILOSOPHY_LIFE_LESSON] from CDN...
+[Modal] 🔊 Smart SFX Sound Design: Injected 'heartbeat' sound effect at 28.4s!
+[Modal] ✅ Video render complete! Export path: D:/tmp/25eb3cb9-9e17-4518-a36c-172a8dc41310/final_output.mp4
+[Modal Quality Gate] Evaluation Result: {'passed': True, 'score': 99, 'metrics': {'size_bytes': 87502039, 'actual_duration': 59.034, 'resolution': '1080x1920', 'fps': 60}}
+[Modal] ☁️ Uploading rendered video to R2 (vision-flow/visionflow/25eb3cb9-9e17-4518-a36c-172a8dc41310/exports/final.mp4)...
+[Modal] ✅ R2 Upload complete: vision-flow/visionflow/25eb3cb9-9e17-4518-a36c-172a8dc41310/exports/final.mp4
+[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 (https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev/workflows/25eb3cb9-9e17-4518-a36c-172a8dc41310/cover.jpg)!
+[Modal] 💾 Successfully saved MediaAsset & registered APPROVAL_PENDING in DB for workflow 25eb3cb9-9e17-4518-a36c-172a8dc41310!
+
+[SUCCESS] OFFICIAL RENDER COMPLETE FOR 25eb3cb9-9e17-4518-a36c-172a8dc41310!
+  Output Object Key: visionflow/25eb3cb9-9e17-4518-a36c-172a8dc41310/exports/final.mp4
+  Public Video URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/25eb3cb9-9e17-4518-a36c-172a8dc41310/exports/final.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fd28f47a855e5f2097d5f8c24c50da70%2F20260922%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260922T100342Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=ec5d03b204233b5cc02617ef1da5a3d20e21f21823a946254408af01dd9f4384
+[DB] Auto-Publish OFF: Workflow 25eb3cb9-9e17-4518-a36c-172a8dc41310 -> APPROVAL_PENDING (Ready for Studio review)!
+
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'Một ly iced coffee và ấn tượng đầu tiên' (ID: f96f5e51-222f-4353-a78d-83fd4be52e57)
+=======================================================
+  [Studio Sync] Voice: vi-VN-NamMinhNeural
+  [Studio Sync] Logo Handle: @VisionFlow (Pos: top_right)
+  [Studio Sync] Captions Preset: hormozi (Font: Montserrat, Color: #FFE600)
+  [Studio Sync] Title Banner: Một ly iced coffee và ấn tượng đầu tiên (Style: neon)
+  [Studio Sync] BGM: Preset='Auto', Vol=0.12
+  [Studio Sync] Visual Engine: fal_ai
+  [Studio Sync] Scene Count: 13
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: f96f5e51-222f-4353-a78d-83fd4be52e57
+=================================================================
+[Modal] 📜 Normalized Vietnamese script (1046 chars): 'Một ly cà phê có thể khiến bạn bị đánh giá trước khi kịp nói...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=vi-VN-NamMinhNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 🎭 Emotion-Dynamic Voice Modulation active! [Emotion: suspenseful_warning] -> Rate: +6%, Pitch: -10Hz
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (1046 chars -> 1046 chars)
+[Modal] 🎯 Extracted 11 word-level timestamps from Edge TTS for Karaoke sync!
+[Modal] 📐 Canvas Format: Aspect=9:16 -> Resolution=1080x1920 @ 60 FPS (CRF 18 Broadcast Profile)
+[Modal] 🟨 Created Pixel-Perfect Title Banner Card (NEON)!
+[Modal] 🟢 Created Pixel-Perfect Logo Pill (@VisionFlow) at pos=top_right (18.0%, 6.0%)!
+[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!
+[Modal] 🎬 Created Frosted-Glass Outro Card Overlay for Video Outro!
+[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for 13 visual scenes...
+[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: 58.5s): [2.5, 5.55, 5.55, 3.61, 3.61, 5.42, 5.42, 4.3, 4.3, 5.14, 5.14, 4.17, 3.75]
+[MicroWorker 1] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/5439075/5439075-hd_720...
+[MicroWorker 0] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/7172716/7172716-hd_108...
+[MicroWorker 3] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6883833/6883833-hd_720...
+[MicroWorker 2] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/5439076/5439076-hd_108...
+[MicroWorker 4] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/6878205/6878205-sd_506...
+[MicroWorker 5] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/18069236/18069236-uhd_...
+[MicroWorker 6] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/18069831/18069831-uhd_...
+[MicroWorker 7] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/8558444/8558444-hd_720...
+[MicroWorker 8] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/7644024/7644024-sd_506...
+[MicroWorker 9] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/8676944/8676944-hd_720...
+[MicroWorker 10] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/10209562/10209562-uhd_...
+[MicroWorker 11] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/5438898/5438898-uhd_14...
+[MicroWorker 12] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/5438949/5438949-uhd_21...
+[Modal] ⚡ Applied 30+ Cinematic XFade Transitions across 13 scenes with auto SFX sync!
+[Modal] 🎵 Auto-resolving BGM track 'Clover 3 Nostalgic Piano' for genre [PHILOSOPHY_LIFE_LESSON] from CDN...
+[Modal] 🔊 Smart SFX Sound Design: Injected 'heartbeat' sound effect at 23.6s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'pop_accent' sound effect at 10.2s!
+[Modal] ✅ Video render complete! Export path: D:/tmp/f96f5e51-222f-4353-a78d-83fd4be52e57/final_output.mp4
+[Modal Quality Gate] Evaluation Result: {'passed': True, 'score': 99, 'metrics': {'size_bytes': 64408303, 'actual_duration': 58.967, 'resolution': '1080x1920', 'fps': 60}}
+[Modal] ☁️ Uploading rendered video to R2 (vision-flow/visionflow/f96f5e51-222f-4353-a78d-83fd4be52e57/exports/final.mp4)...
+[Modal] ✅ R2 Upload complete: vision-flow/visionflow/f96f5e51-222f-4353-a78d-83fd4be52e57/exports/final.mp4
+[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 (https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev/workflows/f96f5e51-222f-4353-a78d-83fd4be52e57/cover.jpg)!
+[Modal] 💾 Successfully saved MediaAsset & registered APPROVAL_PENDING in DB for workflow f96f5e51-222f-4353-a78d-83fd4be52e57!
+
+[SUCCESS] OFFICIAL RENDER COMPLETE FOR f96f5e51-222f-4353-a78d-83fd4be52e57!
+  Output Object Key: visionflow/f96f5e51-222f-4353-a78d-83fd4be52e57/exports/final.mp4
+  Public Video URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/f96f5e51-222f-4353-a78d-83fd4be52e57/exports/final.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fd28f47a855e5f2097d5f8c24c50da70%2F20260922%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260922T100924Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=24e2f8c6d6dc5ca369310fae4c3be0045dc2490a2dea94ab9ac960c4a17e3fe7
+[DB] Auto-Publish OFF: Workflow f96f5e51-222f-4353-a78d-83fd4be52e57 -> APPROVAL_PENDING (Ready for Studio review)!
+
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[Pass Notice] Auto Production DB queue query notice: (psycopg.errors.UndefinedTable) relation "render_jobs" does not exist
+LINE 2: FROM render_jobs 
+             ^
+[SQL: SELECT render_jobs.id AS render_jobs_id 
+FROM render_jobs 
+WHERE render_jobs.status IN (%(status_1_1)s::VARCHAR, %(status_1_2)s::VARCHAR) AND render_jobs.attempt < render_jobs.max_attempts ORDER BY render_jobs.priority ASC, render_jobs.created_at ASC]
+[parameters: {'status_1_1': 'WAITING_FOR_WORKER', 'status_1_2': 'QUEUED'}]
+(Background on this error at: https://sqlalche.me/e/20/f405)

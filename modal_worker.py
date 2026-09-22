@@ -886,6 +886,92 @@ def preprocess_script_for_tts(text: str) -> str:
         cleaned_segments.append(p_cap)
     return " ".join(cleaned_segments)
 
+async def _stream_tts_async(text_content: str, voice: str, rate: str, pitch: str, audio_path: str, vtt_path: str) -> int:
+    import edge_tts
+    comm = edge_tts.Communicate(text_content, voice=voice, rate=rate, pitch=pitch)
+    submaker = edge_tts.SubMaker()
+    total_audio = 0
+    with open(audio_path, "wb") as af:
+        async for chunk in comm.stream():
+            if chunk["type"] == "audio":
+                af.write(chunk["data"])
+                total_audio += len(chunk["data"])
+            elif chunk["type"] in ("WordBoundary", "SentenceBoundary"):
+                submaker.feed(chunk)
+    with open(vtt_path, "w", encoding="utf-8") as vf:
+        vf.write(submaker.get_srt())
+    return total_audio
+
+def synthesize_edge_tts_robust(text_content: str, voice: str, rate_str: str, pitch_str: str, audio_path: str, vtt_path: str) -> bool:
+    """
+    Rock-solid multi-tier Edge TTS speech synthesis engine:
+    1. Neutralizes pitch offsets for Vietnamese voices (vi-VN) to prevent Microsoft Azure Neural NoAudioReceived crash.
+    2. Directly streams chunks in Python (bypassing Windows subprocess/command line escaping limits).
+    3. Handles reconnection cooling (sleep 1.5s - 2.0s) between fallback tiers.
+    4. Sentence-chunk fallback for ultra-long scripts if needed.
+    """
+    import asyncio
+    import time
+    is_vi = str(voice).lower().startswith("vi")
+    safe_pitch = "+0Hz" if is_vi else pitch_str
+
+    # Attempt 1: Targeted Rate + Safe Pitch
+    try:
+        audio_bytes = asyncio.run(_stream_tts_async(text_content, voice, rate_str, safe_pitch, audio_path, vtt_path))
+        if audio_bytes > 0:
+            return True
+    except Exception as e1:
+        print(f"[Modal TTS Warning] Edge TTS tier 1 failed ({e1}). Cooling down & retrying with pitch=+0Hz...", flush=True)
+
+    time.sleep(1.5)
+    # Attempt 2: Targeted Rate + Pitch 0Hz
+    try:
+        audio_bytes = asyncio.run(_stream_tts_async(text_content, voice, rate_str, "+0Hz", audio_path, vtt_path))
+        if audio_bytes > 0:
+            return True
+    except Exception as e2:
+        print(f"[Modal TTS Warning] Edge TTS tier 2 failed ({e2}). Retrying with default rate...", flush=True)
+
+    time.sleep(2.0)
+    # Attempt 3: Default standard rate and pitch
+    try:
+        audio_bytes = asyncio.run(_stream_tts_async(text_content, voice, "+0%", "+0Hz", audio_path, vtt_path))
+        if audio_bytes > 0:
+            return True
+    except Exception as e3:
+        print(f"[Modal TTS Warning] Edge TTS tier 3 failed ({e3}). Falling back to sentence streaming...", flush=True)
+
+    time.sleep(2.0)
+    # Attempt 4: Sentence by sentence fallback
+    sentences = [s.strip() for s in text_content.replace("\n", " ").split(".") if s.strip()]
+    if not sentences:
+        raise RuntimeError("No speech text available for TTS")
+
+    print(f"[Modal TTS] Synthesizing {len(sentences)} sentence chunks sequentially...", flush=True)
+    import edge_tts
+    combined_audio = b""
+    master_submaker = edge_tts.SubMaker()
+    for s_idx, sentence in enumerate(sentences):
+        comm = edge_tts.Communicate(sentence, voice=voice, rate=rate_str, pitch="+0Hz")
+        async def _run_s():
+            nonlocal combined_audio
+            async for chunk in comm.stream():
+                if chunk["type"] == "audio":
+                    combined_audio += chunk["data"]
+                elif chunk["type"] in ("WordBoundary", "SentenceBoundary"):
+                    master_submaker.feed(chunk)
+        asyncio.run(_run_s())
+        time.sleep(0.3)
+
+    if not combined_audio:
+        raise RuntimeError("Sentence streaming failed to produce audio data")
+
+    with open(audio_path, "wb") as af:
+        af.write(combined_audio)
+    with open(vtt_path, "w", encoding="utf-8") as vf:
+        vf.write(master_submaker.get_srt())
+    return True
+
 def format_ass_time(seconds: float) -> str:
     hrs = int(seconds // 3600)
     mins = int((seconds % 3600) // 60)
@@ -1773,8 +1859,8 @@ def _render_scene_chunk_impl(scene_payload: dict) -> dict:
     
     r2_endpoint = os.environ.get("VISIONFLOW_OBJECT_STORE_ENDPOINT", "https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com")
     r2_bucket = os.environ.get("VISIONFLOW_OBJECT_STORE_BUCKET", "vision-flow")
-    r2_access_key = os.environ["VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID"]
-    r2_secret_key = os.environ["VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY"]
+    r2_access_key = os.environ.get("VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID", "")
+    r2_secret_key = os.environ.get("VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY", "")
     
     s3 = None
     try:
@@ -1869,10 +1955,15 @@ def _render_scene_chunk_impl(scene_payload: dict) -> dict:
             except Exception:
                 pass
 
+            # Inspect keyframe zoom parameters for WYSIWYG climax camera push-in
+            kf_list = scene_payload.get("keyframes") or []
+            max_scale = max([float(k.get("scale", 1.0)) for k in kf_list if isinstance(k, dict)] + [1.0])
+
             if is_image:
                 # Apply Dynamic Ken Burns Smooth Push-in Motion for static images
                 total_frames = max(1, int(round(scene_dur * target_fps)))
-                ken_burns_filter = f"zoompan=z='min(zoom+0.0015,1.25)':d={total_frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={res_w}x{res_h}:fps={target_fps},format=yuv420p"
+                ken_burns_zoom_target = max(1.25, round(max_scale, 2))
+                ken_burns_filter = f"zoompan=z='min(zoom+0.0015,{ken_burns_zoom_target})':d={total_frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={res_w}x{res_h}:fps={target_fps},format=yuv420p"
                 norm_cmd = [
                     FFMPEG_BIN, "-y",
                     "-loop", "1",
@@ -1885,7 +1976,12 @@ def _render_scene_chunk_impl(scene_payload: dict) -> dict:
                 ]
             else:
                 # Video normalization: -stream_loop MUST be before -i, and -t MUST be AFTER -i to loop seamlessly!
-                norm_filter = f"fps={target_fps},format=yuv420p,scale={res_w}:{res_h}:force_original_aspect_ratio=increase,crop={res_w}:{res_h},setsar=1"
+                if max_scale > 1.05:
+                    scaled_w = int(round(res_w * max_scale))
+                    scaled_h = int(round(res_h * max_scale))
+                    norm_filter = f"fps={target_fps},format=yuv420p,scale={scaled_w}:{scaled_h}:force_original_aspect_ratio=increase,crop={res_w}:{res_h},setsar=1"
+                else:
+                    norm_filter = f"fps={target_fps},format=yuv420p,scale={res_w}:{res_h}:force_original_aspect_ratio=increase,crop={res_w}:{res_h},setsar=1"
                 norm_cmd = [
                     FFMPEG_BIN, "-y",
                     "-stream_loop", "-1",
@@ -1936,8 +2032,8 @@ def render_scene_chunk_local(scene_payload: dict) -> dict:
     secrets=[modal.Secret.from_dict({
         "VISIONFLOW_OBJECT_STORE_ENDPOINT": "https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com",
         "VISIONFLOW_OBJECT_STORE_BUCKET": "vision-flow",
-        "VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID": os.environ["VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID"],
-        "VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY": os.environ["VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY"],
+        "VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID": os.environ.get("VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID", ""),
+        "VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY": os.environ.get("VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY", ""),
     })] if (modal is not None and hasattr(modal, "Secret")) else []
 )
 def render_scene_chunk(scene_payload: dict) -> dict:
@@ -2080,9 +2176,14 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
             voice_rate = 1.12
         voice_rate_str = format_rate(voice_rate)
 
+        is_vi_voice = str(voice_code).lower().startswith("vi")
         custom_voice_url = contract_payload.get("custom_voice_url") or contract_payload.get("customVoiceUrl")
-        voice_pitch = int(contract_payload.get("voicePitch") or contract_payload.get("voice_pitch") or 0)
-        pitch_arg = f"+{voice_pitch}Hz" if voice_pitch > 0 else (f"{voice_pitch}Hz" if voice_pitch < 0 else "+0Hz")
+        if is_vi_voice:
+            voice_pitch = 0
+            pitch_arg = "+0Hz"
+        else:
+            voice_pitch = int(contract_payload.get("voicePitch") or contract_payload.get("voice_pitch") or 0)
+            pitch_arg = f"+{voice_pitch}Hz" if voice_pitch > 0 else (f"{voice_pitch}Hz" if voice_pitch < 0 else "+0Hz")
         
         if custom_voice_url and is_safe_url(custom_voice_url):
             print(f"[Modal] 🎙️ AI Zero-Shot Voice Clone Mode active! Reference Voice Sample: {custom_voice_url[:50]}...", flush=True)
@@ -2098,7 +2199,10 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
             mod = EMOTION_PROSODY_MATRIX[first_emotion]
             calc_rate = int(round(voice_rate * 100 + mod["rate_offset"])) - 100
             voice_rate_str = f"+{calc_rate}%" if calc_rate >= 0 else f"{calc_rate}%"
-            calc_pitch = int(round(voice_pitch + mod["pitch_offset"]))
+            if is_vi_voice:
+                calc_pitch = 0
+            else:
+                calc_pitch = int(round(voice_pitch + mod["pitch_offset"]))
             pitch_arg = f"+{calc_pitch}Hz" if calc_pitch >= 0 else f"{calc_pitch}Hz"
             print(f"[Modal] 🎭 Emotion-Dynamic Voice Modulation active! [Emotion: {first_emotion}] -> Rate: {voice_rate_str}, Pitch: {pitch_arg}", flush=True)
 
@@ -2118,41 +2222,9 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
             print(f"[Modal] 🎵 Using pre-assembled master narration: {pre_assembled_audio} ({os.path.getsize(pre_assembled_audio)} bytes)", flush=True)
         elif is_canonical_voice(contract_payload):
             canonical_audio = render_narration(contract_payload, raw_script, audio_output, vtt_output)
-        tts_cmd = [
-            sys.executable, "-m", "edge_tts",
-            "--text", tts_script,
-            "--voice", voice_code,
-            f"--rate={voice_rate_str}",
-            f"--pitch={pitch_arg}",
-            "--write-media", audio_output,
-            "--write-subtitles", vtt_output
-        ]
-        try:
-            if canonical_audio is None and not (pre_assembled_audio and os.path.exists(pre_assembled_audio)):
-                subprocess.run(tts_cmd, check=True, capture_output=True)
-        except Exception as tts_err:
-            print(f"[Modal TTS Warning] TTS with rate={voice_rate_str}, pitch={pitch_arg} failed. Trying with pitch=+0Hz...", flush=True)
-            fallback_tts_cmd = [
-                sys.executable, "-m", "edge_tts",
-                "--text", tts_script,
-                "--voice", voice_code,
-                f"--rate={voice_rate_str}",
-                "--pitch=+0Hz",
-                "--write-media", audio_output,
-                "--write-subtitles", vtt_output
-            ]
-            try:
-                subprocess.run(fallback_tts_cmd, check=True, capture_output=True)
-            except Exception as tts_fb_err:
-                print(f"[Modal TTS Warning] Fallback with pitch=+0Hz failed. Trying standard default TTS...", flush=True)
-                standard_tts_cmd = [
-                    sys.executable, "-m", "edge_tts",
-                    "--text", tts_script,
-                    "--voice", voice_code,
-                    "--write-media", audio_output,
-                    "--write-subtitles", vtt_output
-                ]
-                subprocess.run(standard_tts_cmd, check=True)
+        
+        if canonical_audio is None and not (pre_assembled_audio and os.path.exists(pre_assembled_audio)):
+            synthesize_edge_tts_robust(tts_script, voice_code, voice_rate_str, pitch_arg, audio_output, vtt_output)
 
         vtt_cues = parse_webvtt_cues(vtt_output)
         print(f"[Modal] 🎯 Extracted {len(vtt_cues)} word-level timestamps from Edge TTS for Karaoke sync!", flush=True)
@@ -2211,7 +2283,7 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
             or contract_payload.get("channelName")
             or (contract_payload.get("watermarkMask") or {}).get("brandText")
             or contract_payload.get("brandText")
-            or "@GocChiemNghiem"
+            or "@VisionFlow"
         )
         logo_pos = str(contract_payload.get("logoPosition") or contract_payload.get("logo_position") or "top_left").lower()
         default_logo_x = 18 if "left" in logo_pos else 82
@@ -2468,7 +2540,8 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
                     "shots": norm_shots,
                     "res_w": res_w,
                     "res_h": res_h,
-                    "fps": target_fps
+                    "fps": target_fps,
+                    "keyframes": sc.get("keyframes") or []
                 })
                 
             from concurrent.futures import ThreadPoolExecutor
@@ -2503,6 +2576,8 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
                             for i in range(len(scene_files) - 1):
                                 dur_i = synced_scene_durations[i] if i < len(synced_scene_durations) else (float(scenes[i].get("duration_seconds", 5.0)) if i < len(scenes) else 5.0)
                                 raw_trans = scenes[i+1].get("transition") or scenes[i].get("transition") or contract_payload.get("transition_preset") or ""
+                                if isinstance(raw_trans, dict):
+                                    raw_trans = raw_trans.get("name") or raw_trans.get("type") or ""
                                 
                                 # AI Smart Director: Infer best transition from camera motion & emotion
                                 if not raw_trans or raw_trans == "auto":
@@ -2732,7 +2807,24 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
         # -------------------------------------------------------------------
         # Smart SFX Sound Design Track Extraction & Mixing
         # -------------------------------------------------------------------
-        auto_sfx_events = extract_sfx_cues(script, scenes_list, vtt_cues) if enable_sfx else []
+        # 1. Custom explicit SFX cues from Studio timeline
+        custom_sfx_cues = contract_payload.get("sfx_cues") or []
+        for custom_cue in custom_sfx_cues:
+            if isinstance(custom_cue, dict):
+                c_type = custom_cue.get("name") or custom_cue.get("type") or "whoosh"
+                c_url = custom_cue.get("url") or custom_cue.get("sourceUrl") or SFX_STEM_CATALOG.get("whoosh")
+                c_st = float(custom_cue.get("start_time") or custom_cue.get("startSec") or 0.0)
+                c_vol = float(custom_cue.get("volume") or 0.25)
+                if c_url and not any(abs(f.get("start_time", 0) - c_st) < 0.3 for f in sfx_events):
+                    sfx_events.append({
+                        "type": c_type,
+                        "start_time": c_st,
+                        "url": c_url,
+                        "volume": c_vol
+                    })
+
+        # 2. Heuristic extraction fallback if no custom SFX cues provided
+        auto_sfx_events = extract_sfx_cues(script, scenes, vtt_cues) if enable_sfx else []
         for cue in auto_sfx_events:
             if not any(abs(f.get("start_time", 0) - cue.get("start_time", 0)) < 0.5 for f in sfx_events):
                 sfx_events.append(cue)
@@ -3052,8 +3144,8 @@ def render_video_task_local(contract_payload: dict) -> dict:
     secrets=[modal.Secret.from_dict({
         "VISIONFLOW_OBJECT_STORE_ENDPOINT": "https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com",
         "VISIONFLOW_OBJECT_STORE_BUCKET": "vision-flow",
-        "VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID": os.environ["VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID"],
-        "VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY": os.environ["VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY"],
+        "VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID": os.environ.get("VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID", ""),
+        "VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY": os.environ.get("VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY", ""),
     })] if (modal is not None and hasattr(modal, "Secret")) else []
 )
 def render_video_task(contract_payload: dict) -> dict:
