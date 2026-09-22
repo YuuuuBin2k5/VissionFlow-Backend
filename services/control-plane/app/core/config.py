@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 
 class ConfigurationError(ValueError):
@@ -14,9 +15,11 @@ def _require_postgres_url(name: str, value: str | None) -> str:
     normalized = value.strip()
     if not normalized.startswith(("postgresql://", "postgresql+psycopg://")):
         raise ConfigurationError(f"{name} must use a PostgreSQL URL")
+    local_proxy_enabled = os.getenv("VISIONFLOW_TRUST_LOCAL_DB_PROXY") == "true"
+    local_proxy = local_proxy_enabled and urlsplit(normalized).hostname in {"127.0.0.1", "localhost", "::1"}
     if os.getenv("VISIONFLOW_ALLOW_INSECURE_DB") == "true":
         pass
-    elif "sslmode=require" not in normalized:
+    elif not local_proxy and "sslmode=require" not in normalized:
         raise ConfigurationError(f"{name} must require TLS with sslmode=require")
     # Neon presents standard PostgreSQL URLs. SQLAlchemy otherwise chooses the
     # unavailable psycopg2 dialect for that scheme, while this service ships

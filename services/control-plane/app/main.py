@@ -150,45 +150,16 @@ async def _seed_prompt_baselines() -> None:
     engine = get_engine()
     try:
         with engine.begin() as conn:
-            logger.info("startup seed: checking prompt registry tables...")
+            logger.info("startup seed: loading organizations from migrated prompt registry...")
 
-            # ── Step 1: Create tables if they don't exist ──────────────────
-            conn.execute(sa_text("""
-                CREATE TABLE IF NOT EXISTS prompt_templates (
-                    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-                    prompt_key      VARCHAR(100) NOT NULL,
-                    name            VARCHAR(160) NOT NULL,
-                    description     TEXT NOT NULL,
-                    production_version INTEGER,
-                    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-                    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-                    CONSTRAINT uq_prompt_template_key UNIQUE (organization_id, prompt_key)
-                )
-            """))
-
-            conn.execute(sa_text("""
-                CREATE TABLE IF NOT EXISTS prompt_versions (
-                    id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                    prompt_template_id UUID NOT NULL REFERENCES prompt_templates(id) ON DELETE CASCADE,
-                    version            INTEGER NOT NULL,
-                    content            TEXT NOT NULL,
-                    config             JSONB NOT NULL DEFAULT '{}',
-                    change_note        VARCHAR(500),
-                    created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
-                    CONSTRAINT uq_prompt_version UNIQUE (prompt_template_id, version)
-                )
-            """))
-
-            logger.info("startup seed: tables ready.")
-
-            # ── Step 2: Load orgs ──────────────────────────────────────────
+            # Alembic owns all DDL. Startup only performs idempotent data
+            # seeding for organizations created after migration 0017.
             orgs = conn.execute(sa_text("SELECT id FROM organizations")).fetchall()
             if not orgs:
                 logger.info("startup seed: no organizations found, nothing to seed.")
                 return
 
-            # ── Step 3: Early-exit if all baselines already present ────────
+            # Early-exit if all baselines are already present.
             expected = len(orgs) * len(_BASELINE_PROMPTS)
             existing = conn.execute(sa_text("""
                 SELECT COUNT(*) FROM prompt_templates
@@ -199,7 +170,7 @@ async def _seed_prompt_baselines() -> None:
                 logger.info("startup seed: all %d prompt baselines already present, skipping.", existing)
                 return
 
-            # ── Step 4: Seed missing baselines ────────────────────────────
+            # Seed missing baselines without mutating schema.
             seeded = 0
             for (org_id,) in orgs:
                 for p in _BASELINE_PROMPTS:

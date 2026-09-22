@@ -6,14 +6,14 @@ if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 
 os.environ["ENVIRONMENT"] = "development"
-os.environ["DATABASE_URL"] = "postgresql://neondb_owner:npg_Di3nJLmsh5cB@ep-green-salad-aoq7advi-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+assert os.environ.get("DATABASE_URL"), "DATABASE_URL is required"
 os.environ["VISIONFLOW_CONTROL_PLANE_URL"] = "https://visionflow-control-plane-free.onrender.com"
 os.environ["VISIONFLOW_ORGANIZATION_ID"] = "7b91598c-6c3e-4e5d-8247-d3efa203984a"
 os.environ["VISIONFLOW_WORKER_CLIENT_ID"] = "worker-service"
 os.environ["VISIONFLOW_WORKER_CLIENT_SECRET"] = "worker-secret"
 os.environ["VISIONFLOW_AUTH_AUDIENCE"] = "visionflow-control-plane"
 assert os.environ.get("GEMINI_API_KEY"), "GEMINI_API_KEY is required"
-os.environ["PEXELS_API_KEY"] = "j3CIlOLR1RdRejkZPi56CCmJALu9axEyFjik0U77W3semlJtXFpMqgVp"
+assert os.environ.get("PEXELS_API_KEY"), "PEXELS_API_KEY is required"
 
 python_exe = sys.executable
 

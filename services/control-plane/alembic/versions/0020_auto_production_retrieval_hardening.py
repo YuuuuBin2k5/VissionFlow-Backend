@@ -4,7 +4,7 @@ Revision ID: 0020_retrieval_hardening
 Revises: 0019_scene_library
 Create Date: 2026-09-06
 """
-from alembic import op
+from alembic import context, op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as pg
 
@@ -33,21 +33,25 @@ def upgrade():
         ['provider', 'model', 'dimensions', 'embedding_version']
     )
 
-    # 4. Native pgvector column if vector extension is enabled
-    conn = op.get_bind()
-    try:
-        conn.execute(sa.text("CREATE EXTENSION IF NOT EXISTS vector;"))
-        conn.execute(sa.text("ALTER TABLE scene_embeddings ADD COLUMN IF NOT EXISTS embedding_vec vector;"))
-    except Exception:
-        pass
+    # 4. Add the native pgvector column only when the server image actually
+    # provides the extension. Catching CREATE EXTENSION errors is unsafe in
+    # PostgreSQL because the surrounding Alembic transaction remains aborted.
+    # Offline SQL must remain portable to the stock PostgreSQL image, where
+    # pgvector is intentionally optional and server capabilities cannot be
+    # inspected. Online migrations add the column when the extension exists.
+    if not context.is_offline_mode():
+        conn = op.get_bind()
+        vector_available = conn.execute(
+            sa.text("SELECT EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'vector')")
+        ).scalar()
+        if vector_available:
+            conn.execute(sa.text("CREATE EXTENSION IF NOT EXISTS vector;"))
+            conn.execute(sa.text("ALTER TABLE scene_embeddings ADD COLUMN IF NOT EXISTS embedding_vec vector;"))
 
 
 def downgrade():
     conn = op.get_bind()
-    try:
-        conn.execute(sa.text("ALTER TABLE scene_embeddings DROP COLUMN IF EXISTS embedding_vec;"))
-    except Exception:
-        pass
+    conn.execute(sa.text("ALTER TABLE scene_embeddings DROP COLUMN IF EXISTS embedding_vec;"))
 
     op.drop_index('ix_scene_embeddings_version_lookup', table_name='scene_embeddings')
     op.drop_column('scene_embeddings', 'embedding_version')

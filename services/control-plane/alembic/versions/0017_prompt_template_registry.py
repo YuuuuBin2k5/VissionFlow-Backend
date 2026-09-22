@@ -4,7 +4,7 @@ Revision ID: 0017_prompt_template_registry
 Revises: 0016_creative_sessions
 """
 
-from alembic import op
+from alembic import context, op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
@@ -15,9 +15,15 @@ depends_on = None
 
 
 def upgrade() -> None:
-    bind = op.get_bind()
-    inspector = sa.inspect(bind)
-    tables = inspector.get_table_names()
+    if context.is_offline_mode():
+        # Revisions 0001-0016 already create these tables. Avoid inspecting the
+        # mock offline connection so `alembic upgrade head --sql` remains a
+        # valid, deterministic schema artifact.
+        tables = {"prompt_templates", "prompt_versions"}
+    else:
+        bind = op.get_bind()
+        inspector = sa.inspect(bind)
+        tables = set(inspector.get_table_names())
 
     # 1. Create prompt_templates table if not exists
     if "prompt_templates" not in tables:

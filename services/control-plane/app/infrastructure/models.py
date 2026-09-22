@@ -645,11 +645,11 @@ class ChannelLearningMetric(Timestamped, Base):
     channel_handle: Mapped[str] = mapped_column(String(120), nullable=False)
     publication_attempt_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("publication_attempts.id", ondelete="SET NULL"), nullable=True)
     
-    views_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    completion_rate: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
-    likes_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    shares_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    average_watch_time_sec: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    views_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    completion_rate: Mapped[float] = mapped_column(Float, nullable=False, default=0.0, server_default=text("0"))
+    likes_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    shares_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    average_watch_time_sec: Mapped[float] = mapped_column(Float, nullable=False, default=0.0, server_default=text("0"))
     
-    video_metadata_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
-    ai_winning_formula: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    video_metadata_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
+    ai_winning_formula: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))

@@ -2283,8 +2283,10 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
         # 0. Comprehensive Metadata Backfill from PostgreSQL Neon DB
         # -------------------------------------------------------------------
         if workflow_run_id and workflow_run_id != "modal_run_demo":
-            db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_TD8BYOyg6AVC@ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
+            db_url = os.environ.get("DATABASE_URL", "").strip()
             try:
+                if not db_url:
+                    raise RuntimeError("DATABASE_URL is not configured; skipping PostgreSQL metadata backfill")
                 import psycopg2
                 conn_s = psycopg2.connect(db_url)
                 cur_s = conn_s.cursor()
@@ -3258,8 +3260,10 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
         # -------------------------------------------------------------------
         # Update PostgreSQL Database (media_assets & workflow_runs)
         # -------------------------------------------------------------------
-        db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_TD8BYOyg6AVC@ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
+        db_url = os.environ.get("DATABASE_URL", "").strip()
         try:
+            if not db_url:
+                raise RuntimeError("DATABASE_URL is not configured; skipping PostgreSQL completion update")
             import psycopg2
             conn = psycopg2.connect(db_url)
             cur = conn.cursor()
@@ -3354,8 +3358,10 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
         traceback.print_exc()
 
         # Update Workflow Run State to FAILED in PostgreSQL so failure is accurately reported
-        db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_TD8BYOyg6AVC@ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
+        db_url = os.environ.get("DATABASE_URL", "").strip()
         try:
+            if not db_url:
+                raise RuntimeError("DATABASE_URL is not configured; skipping PostgreSQL failure update")
             import psycopg2
             conn = psycopg2.connect(db_url)
             cur = conn.cursor()

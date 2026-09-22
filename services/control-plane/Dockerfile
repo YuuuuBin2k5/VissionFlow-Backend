@@ -1,3 +1,5 @@
+FROM tailscale/tailscale:v1.102.4 AS tailscale
+
 FROM python:3.12-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -12,6 +14,9 @@ COPY services/control-plane/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 RUN python -c "from google import genai; from google.genai import types"
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
+
+COPY --from=tailscale /usr/local/bin/tailscale /usr/local/bin/tailscale
+COPY --from=tailscale /usr/local/bin/tailscaled /usr/local/bin/tailscaled
 
 COPY services/control-plane/alembic.ini ./alembic.ini
 COPY services/control-plane/alembic ./alembic
