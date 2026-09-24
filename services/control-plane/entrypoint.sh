@@ -44,7 +44,7 @@ if [ "${VISIONFLOW_TAILSCALE_ENABLED:-false}" = "true" ]; then
         --hostname="${TAILSCALE_HOSTNAME:-visionflow-render}" \
         --advertise-tags="${TAILSCALE_TAGS:-tag:visionflow-render}"
 
-    python scripts/tailscale_tcp_bridge.py &
+    LOG_LEVEL=DEBUG python scripts/tailscale_tcp_bridge.py &
     BRIDGE_PID=$!
     echo "==> Tailscale database tunnel process started."
 
@@ -54,19 +54,34 @@ if [ "${VISIONFLOW_TAILSCALE_ENABLED:-false}" = "true" ]; then
     bridge_ready=0
     bridge_attempts=0
     echo "==> Waiting for TCP bridge to bind on port ${BRIDGE_LISTEN_PORT}..."
-    while [ "$bridge_attempts" -lt 20 ]; do
+    while [ "$bridge_attempts" -lt 30 ]; do
         bridge_attempts=$((bridge_attempts + 1))
         if python -c "import socket, sys; s=socket.socket(); s.settimeout(1); r=s.connect_ex(('127.0.0.1', ${BRIDGE_LISTEN_PORT})); s.close(); sys.exit(0 if r==0 else 1)" 2>/dev/null; then
             bridge_ready=1
             break
         fi
+        # Log bridge crash if it already died
+        if ! kill -0 "$BRIDGE_PID" 2>/dev/null; then
+            echo "ERROR: TCP bridge process exited unexpectedly. Check logs above."
+            exit 1
+        fi
         sleep 1
     done
     if [ "$bridge_ready" -ne 1 ]; then
-        echo "ERROR: TCP bridge did not bind on port ${BRIDGE_LISTEN_PORT} within 20 seconds."
+        echo "ERROR: TCP bridge did not bind on port ${BRIDGE_LISTEN_PORT} within 30 seconds."
         exit 1
     fi
     echo "==> TCP bridge is ready on port ${BRIDGE_LISTEN_PORT}."
+
+    # Verify Tailscale can reach the database peer before waiting for PostgreSQL.
+    echo "==> Pinging Tailscale peer ${VISIONFLOW_TAILSCALE_DB_HOST}..."
+    if tailscale --socket="$TAILSCALE_SOCKET" ping --c=1 --timeout=15s \
+            "${VISIONFLOW_TAILSCALE_DB_HOST}" >/dev/null 2>&1; then
+        echo "==> Tailscale peer ${VISIONFLOW_TAILSCALE_DB_HOST} is reachable."
+    else
+        echo "WARN: tailscale ping to ${VISIONFLOW_TAILSCALE_DB_HOST} failed — peer may be offline or unreachable."
+        echo "WARN: Proceeding anyway; wait_for_database.py will time out if unreachable."
+    fi
 fi
 
 echo "==> Checking MIGRATION_DATABASE_URL..."
