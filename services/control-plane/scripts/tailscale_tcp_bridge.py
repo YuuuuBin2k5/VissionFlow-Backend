@@ -33,12 +33,33 @@ def _read_exact(sock: socket.socket, size: int) -> bytes:
     return b"".join(chunks)
 
 
+_SOCKS5_STATUS = {
+    0: "succeeded",
+    1: "general SOCKS server failure",
+    2: "connection not allowed by ruleset",
+    3: "network unreachable",
+    4: "host unreachable",
+    5: "connection refused",
+    6: "TTL expired",
+    7: "command not supported",
+    8: "address type not supported",
+}
+
+
 def _connect_socks5(proxy_host: str, proxy_port: int, target_host: str, target_port: int) -> socket.socket:
-    upstream = socket.create_connection((proxy_host, proxy_port), timeout=15)
+    logger.debug("SOCKS5: connecting to proxy %s:%s", proxy_host, proxy_port)
+    try:
+        upstream = socket.create_connection((proxy_host, proxy_port), timeout=15)
+    except OSError as exc:
+        raise ConnectionError(f"SOCKS5 proxy at {proxy_host}:{proxy_port} is unreachable: {exc}") from exc
+
     upstream.sendall(b"\x05\x01\x00")
-    if _read_exact(upstream, 2) != b"\x05\x00":
+    resp = _read_exact(upstream, 2)
+    if resp != b"\x05\x00":
         upstream.close()
-        raise ConnectionError("SOCKS5 proxy rejected unauthenticated negotiation")
+        raise ConnectionError(
+            f"SOCKS5 proxy rejected unauthenticated negotiation (got {resp.hex()!r}, expected 0500)"
+        )
 
     encoded_host = target_host.encode("idna")
     if len(encoded_host) > 255:
@@ -49,7 +70,10 @@ def _connect_socks5(proxy_host: str, proxy_port: int, target_host: str, target_p
     version, status, _reserved, address_type = _read_exact(upstream, 4)
     if version != 5 or status != 0:
         upstream.close()
-        raise ConnectionError(f"SOCKS5 proxy could not reach database target (status={status})")
+        status_msg = _SOCKS5_STATUS.get(status, f"unknown status {status}")
+        raise ConnectionError(
+            f"SOCKS5 proxy could not reach {target_host}:{target_port} (status={status}: {status_msg})"
+        )
     if address_type == 1:
         _read_exact(upstream, 4)
     elif address_type == 3:
@@ -61,6 +85,7 @@ def _connect_socks5(proxy_host: str, proxy_port: int, target_host: str, target_p
         raise ConnectionError(f"SOCKS5 proxy returned unknown address type {address_type}")
     _read_exact(upstream, 2)
     upstream.settimeout(None)
+    logger.debug("SOCKS5: tunnel to %s:%s established", target_host, target_port)
     return upstream
 
 
@@ -83,6 +108,7 @@ def _relay(left: socket.socket, right: socket.socket) -> None:
 class BridgeHandler(socketserver.BaseRequestHandler):
     def handle(self) -> None:
         server = self.server
+        client_addr = self.client_address
         try:
             with _connect_socks5(
                 server.proxy_host,
@@ -92,7 +118,12 @@ class BridgeHandler(socketserver.BaseRequestHandler):
             ) as upstream:
                 _relay(self.request, upstream)
         except (ConnectionError, OSError, ValueError) as exc:
-            logger.warning("Database tunnel connection failed: %s", exc)
+            logger.warning(
+                "Database tunnel connection failed [client=%s:%s target=%s:%s]: %s",
+                client_addr[0], client_addr[1],
+                server.target_host, server.target_port,
+                exc,
+            )
 
 
 class ThreadingBridge(socketserver.ThreadingTCPServer):

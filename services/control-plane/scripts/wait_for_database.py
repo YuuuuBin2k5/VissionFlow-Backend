@@ -42,15 +42,15 @@ def wait_for_database(
         try:
             connector(database_url)
             return attempt
-        except (OSError, psycopg.Error):
+        except (OSError, psycopg.Error) as exc:
             remaining = deadline - monotonic()
             if remaining <= 0:
                 raise TimeoutError(
-                    f"PostgreSQL did not become ready within {timeout_seconds:g} seconds"
+                    f"PostgreSQL did not become ready within {timeout_seconds:g} seconds (last error: {exc})"
                 ) from None
             delay = min(10.0, float(2 ** min(attempt - 1, 3)), remaining)
             print(
-                f"PostgreSQL is not ready (attempt {attempt}); retrying in {delay:g}s...",
+                f"PostgreSQL is not ready (attempt {attempt}, error: {exc}); retrying in {delay:g}s...",
                 flush=True,
             )
             sleeper(delay)

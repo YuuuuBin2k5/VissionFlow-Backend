@@ -17,9 +17,17 @@ services:
       - -c
       - password_encryption=scram-sha-256
       - -c
-      - max_connections=50
+      - max_connections=150
       - -c
       - shared_buffers=256MB
+      - -c
+      - idle_in_transaction_session_timeout=60000
+      - -c
+      - tcp_keepalives_idle=60
+      - -c
+      - tcp_keepalives_interval=10
+      - -c
+      - tcp_keepalives_count=3
     ports:
       # Do not forward this port on the home router. Windows Firewall and the
       # Tailscale grant must restrict it to the Render Tailscale node.
