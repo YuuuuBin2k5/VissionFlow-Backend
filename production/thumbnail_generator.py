@@ -1,10 +1,11 @@
 """
 AI Thumbnail Generation Service for VisionFlow Auto Production System.
-Generates 3 distinct high-CTR, dramatic, viral thumbnail candidates using Google GenAI (Gemini Image Generation).
-Uploads generated thumbnails to Cloudflare R2 / S3 or fallback storage, and returns public URLs.
+Generates 3 distinct high-CTR, dramatic, viral thumbnail candidates.
 
-NOTE: Legacy Imagen 3 models (imagen-3.0-generate-002, imagen-3.0-fast-generate-001) are deprecated.
-This module uses Gemini generate_content with response_modalities=["IMAGE"] instead.
+Default engine: Pollinations.ai (FLUX model) — completely free, no API key needed.
+Optional: Google Gemini image generation (requires paid API key with billing enabled).
+
+Set env var VISIONFLOW_THUMBNAIL_ENGINE=gemini to switch to Gemini.
 """
 
 from __future__ import annotations
@@ -13,6 +14,8 @@ import logging
 import os
 import tempfile
 import time
+import urllib.parse
+import urllib.request
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -146,6 +149,54 @@ class ThumbnailGenerator:
             return f"{api_base}/api/v1/production/runs/{run_id}/thumbnails/{file_name}"
         return f"/api/v1/production/runs/{run_id}/thumbnails/{file_name}"
 
+    def _generate_via_pollinations(
+        self,
+        prompts_to_use: List[Dict[str, str]],
+        active_run_id: str,
+        aspect_ratio: str,
+    ) -> List[str]:
+        """
+        Generates thumbnails using Pollinations.ai (FLUX model) — completely free, no API key.
+        API: https://image.pollinations.ai/prompt/{encoded_prompt}?width=W&height=H&model=flux&nologo=true
+        Returns list of uploaded URLs (empty list on complete failure).
+        """
+        is_vertical = aspect_ratio.startswith("9") or aspect_ratio == "9:16"
+        width, height = (720, 1280) if is_vertical else (1280, 720)
+
+        generated_urls: List[str] = []
+        base_url = os.getenv("VISIONFLOW_POLLINATIONS_BASE", "https://image.pollinations.ai")
+
+        for i, p_info in enumerate(prompts_to_use):
+            prompt_text = p_info["prompt"]
+            # Pollinations works best with concise prompts — trim to 500 chars
+            prompt_short = prompt_text[:500]
+            encoded = urllib.parse.quote(prompt_short)
+            seed = (hash(prompt_short) & 0xFFFFFF)  # deterministic seed per prompt
+            url = (
+                f"{base_url}/prompt/{encoded}"
+                f"?width={width}&height={height}&model=flux&nologo=true&seed={seed}&enhance=true"
+            )
+            try:
+                logger.info(
+                    "Generating thumbnail candidate %d/%d via Pollinations.ai (FLUX) — style: %s",
+                    i + 1, len(prompts_to_use), p_info["style_label"],
+                )
+                req = urllib.request.Request(url, headers={"User-Agent": "VisionFlow-ThumbnailBot/1.0"})
+                with urllib.request.urlopen(req, timeout=60) as resp:
+                    image_bytes = resp.read()
+
+                if image_bytes and len(image_bytes) > 1024:  # sanity: at least 1 KB
+                    uploaded_url = self._upload_thumbnail(image_bytes, active_run_id, i + 1)
+                    generated_urls.append(uploaded_url)
+                    logger.info("Thumbnail candidate %d uploaded: %s", i + 1, uploaded_url)
+                else:
+                    logger.warning("Pollinations returned empty/tiny response for candidate %d", i + 1)
+
+            except Exception as err:
+                logger.warning("Pollinations.ai failed for thumbnail candidate %d: %s", i + 1, err)
+
+        return generated_urls
+
     def generate_thumbnails(
         self,
         title: str,
@@ -158,12 +209,43 @@ class ThumbnailGenerator:
     ) -> List[str]:
         """
         Generates up to `count` (default 3) thumbnail options for a video.
-        Returns a list of accessible URLs.
+
+        Engine selection (env VISIONFLOW_THUMBNAIL_ENGINE):
+          - "pollinations" (default): Free, no API key, uses FLUX via Pollinations.ai
+          - "gemini": Requires paid Gemini API key with billing enabled
         """
         active_run_id = run_id or f"thumb_run_{uuid.uuid4().hex[:8]}"
         prompts = self._build_prompts(title=title, hook=hook, tone=tone, category=category)
         prompts_to_use = prompts[:count]
 
+        engine = os.getenv("VISIONFLOW_THUMBNAIL_ENGINE", "pollinations").lower()
+        generated_urls: List[str] = []
+
+        # ------------------------------------------------------------------ #
+        #  PRIMARY: Pollinations.ai (FLUX) — free, no key needed             #
+        # ------------------------------------------------------------------ #
+        if engine != "gemini":
+            generated_urls = self._generate_via_pollinations(
+                prompts_to_use=prompts_to_use,
+                active_run_id=active_run_id,
+                aspect_ratio=aspect_ratio,
+            )
+            if len(generated_urls) >= count:
+                return generated_urls
+            # Partial success — continue to fill remaining slots via fallback
+            logger.info(
+                "Pollinations generated %d/%d thumbnails, filling rest with fallback",
+                len(generated_urls), count,
+            )
+            needed = count - len(generated_urls)
+            generated_urls.extend(
+                self._create_fallback_thumbnails(active_run_id, title, needed, start_idx=len(generated_urls) + 1)
+            )
+            return generated_urls
+
+        # ------------------------------------------------------------------ #
+        #  OPTIONAL: Gemini image generation (requires paid key)             #
+        # ------------------------------------------------------------------ #
         api_key = self.api_key or get_gemini_api_key(organization_id=self.organization_id)
         if not api_key:
             if self.strict_credential:
@@ -171,7 +253,7 @@ class ThumbnailGenerator:
                     from app.core.credential_exceptions import MissingProviderCredentialError
                     raise MissingProviderCredentialError(
                         provider="gemini",
-                        feature_name="Sinh hình thu nhỏ AI (Imagen 3)",
+                        feature_name="Sinh hình thu nhỏ AI (Gemini Image Generation)",
                     )
                 except ImportError:
                     raise ValueError("Thiếu GEMINI_API_KEY để sinh hình thu nhỏ AI.")
