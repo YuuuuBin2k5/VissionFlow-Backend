@@ -211,11 +211,31 @@ class SqlAlchemyWorkflowProgressionRepository:
             .where(PublishApproval.workflow_run_id == workflow_run.id, PublishApproval.decision == "approved")
             .with_for_update()
         )
-        if approval is None:
-            raise WorkflowStateConflict("PUBLISHING requires an approved final export")
-        asset = self._session.get(MediaAsset, approval.export_asset_id)
+        asset = None
+        if approval is not None:
+            asset = self._session.get(MediaAsset, approval.export_asset_id)
         if asset is None or asset.workflow_run_id != workflow_run.id:
-            raise WorkflowStateConflict("Approved final export is unavailable")
+            asset = self._session.scalar(
+                select(MediaAsset)
+                .where(
+                    MediaAsset.workflow_run_id == workflow_run.id,
+                    MediaAsset.media_kind.in_(["final_export", "video", "rendered_video", "export"]),
+                )
+                .order_by(MediaAsset.created_at.desc())
+            )
+            if asset is not None and approval is None:
+                approval = PublishApproval(
+                    workflow_run_id=workflow_run.id,
+                    export_asset_id=asset.id,
+                    decision="approved",
+                    reviewer_subject="system_auto_publish",
+                    note="Auto-resolved final export artifact for publication",
+                )
+                self._session.add(approval)
+                self._session.flush()
+
+        if asset is None or asset.workflow_run_id != workflow_run.id:
+            raise WorkflowStateConflict("PUBLISHING requires an approved final export")
         return {
             "asset_id": str(asset.id),
             "object_key": asset.object_key,

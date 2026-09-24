@@ -23,6 +23,8 @@ services:
       - -c
       - idle_in_transaction_session_timeout=60000
       - -c
+      - idle_session_timeout=60000
+      - -c
       - tcp_keepalives_idle=60
       - -c
       - tcp_keepalives_interval=10
