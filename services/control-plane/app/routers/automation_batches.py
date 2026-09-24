@@ -405,10 +405,14 @@ async def retry_automation_job(
     ))
     if batch is None or job is None:
         raise HTTPException(status_code=404, detail="Automation job not found")
+    if job.production_run_id:
+        run = run_repository.get(job.production_run_id)
+        if run and run.status in FAILED_RUN_STATES:
+            job.state = "FAILED"
     if job.state not in {"FAILED", "CANCELLED"}:
-        raise HTTPException(status_code=409, detail="Only failed or cancelled jobs can be retried")
+        raise HTTPException(status_code=409, detail=f"Chỉ có thể thử lại video ở trạng thái thất bại hoặc đã hủy (hiện tại: {job.state})")
     if job.attempt >= job.max_attempts:
-        raise HTTPException(status_code=409, detail="Automation job reached its retry limit")
+        job.max_attempts = job.attempt + 3  # Allow operator manual override
     batch.state = "RUNNING"
     await _launch_job(session, batch, job)
     return _response(batch, _reconcile(session, batch))

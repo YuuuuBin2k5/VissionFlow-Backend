@@ -940,21 +940,73 @@ class SceneNarration(BaseModel):
     strictly downstream from TTS audio via ffprobe. Never populate actual_duration_seconds with estimates.
     """
     scene_id: Optional[str] = None
-    scene_index: int = Field(ge=1)
+    scene_index: int = Field(default=1, ge=1)
     narration: str
     beat_ref: Optional[str] = None
     estimated_speech_duration_sec: float = Field(default=0.0, ge=0.0)
     visual_cue: Optional[str] = None
     fact_refs: List[str] = Field(default_factory=list, description="Claim IDs grounding this scene, e.g. ['fact_001']")
 
+    @model_validator(mode="before")
+    @classmethod
+    def populate_scene_defaults(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "duration_seconds" in data and "estimated_speech_duration_sec" not in data:
+                data["estimated_speech_duration_sec"] = float(data["duration_seconds"] or 0.0)
+            if "visual_prompt" in data and "visual_cue" not in data:
+                data["visual_cue"] = str(data["visual_prompt"] or "")
+        return data
+
 
 class ScriptPlan(BaseModel):
-    title: str
-    full_script: str
+    title: str = Field(default="Video tự động")
+    full_script: str = Field(default="")
     scenes: List[SceneNarration] = Field(default_factory=list)
     total_word_count: int = 0
     estimated_total_duration_sec: float = 0.0
     hook_word_count: int = 0
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_script_defaults(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            scenes = data.get("scenes") or []
+            if isinstance(scenes, list):
+                for idx, s in enumerate(scenes, start=1):
+                    if isinstance(s, dict):
+                        if not s.get("scene_index"):
+                            s["scene_index"] = idx
+                        if not s.get("scene_id"):
+                            s["scene_id"] = f"scene_{idx:03d}"
+                        if not s.get("beat_ref"):
+                            s["beat_ref"] = f"beat_{idx:02d}"
+
+                if not data.get("full_script"):
+                    narrations = [
+                        s.get("narration", "") if isinstance(s, dict) else getattr(s, "narration", "")
+                        for s in scenes
+                    ]
+                    data["full_script"] = " ".join(n for n in narrations if n).strip()
+
+            if not data.get("title") and data.get("name"):
+                data["title"] = str(data["name"])
+            elif not data.get("title") and data.get("brief"):
+                data["title"] = str(data["brief"])[:80]
+            elif not data.get("title"):
+                data["title"] = "Video tự động"
+
+            full_script_str = data.get("full_script") or ""
+            import re
+            words = len(re.findall(r"\w+", full_script_str))
+            if not data.get("total_word_count"):
+                data["total_word_count"] = words
+            if not data.get("estimated_total_duration_sec"):
+                tot_dur = data.get("total_duration_seconds")
+                data["estimated_total_duration_sec"] = float(tot_dur) if tot_dur else round(words / 2.5, 2)
+            if not data.get("hook_word_count") and scenes:
+                first_narr = scenes[0].get("narration", "") if isinstance(scenes[0], dict) else getattr(scenes[0], "narration", "")
+                data["hook_word_count"] = len(re.findall(r"\w+", first_narr))
+        return data
 
 
 class ScriptGateViolation(BaseModel):
