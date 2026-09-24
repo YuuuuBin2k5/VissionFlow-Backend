@@ -1,6 +1,6 @@
 """Add AI thumbnails and scheduling fields to automation jobs.
 
-Revision ID: 0024_automation_thumbnails_and_scheduling
+Revision ID: 0024_thumbnails_scheduling
 Revises: 0023_automation_batches
 """
 
@@ -8,7 +8,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as pg
 
-revision = "0024_automation_thumbnails_and_scheduling"
+revision = "0024_thumbnails_scheduling"
 down_revision = "0023_automation_batches"
 branch_labels = None
 depends_on = None
