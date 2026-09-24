@@ -846,6 +846,15 @@ def _handle_observability_metrics() -> Dict[str, Any]:
     }
 
 
+def _handle_get_thumbnail(run_id: str, filename: str) -> FileResponse:
+    from production.thumbnail_generator import THUMBNAIL_LOCAL_DIR
+    thumb_path = THUMBNAIL_LOCAL_DIR / run_id / filename
+    if not thumb_path.exists() or not thumb_path.is_file():
+        raise HTTPException(status_code=404, detail="Thumbnail not found")
+    media_type = "image/svg+xml" if filename.endswith(".svg") else "image/jpeg"
+    return FileResponse(path=str(thumb_path), media_type=media_type)
+
+
 # Register Phase 7 Human Review, Publishing, Health & Observability + Pilot Learning API
 for r in [router, auto_production_router]:
     r.add_api_route("/sources/upload", _handle_upload_source, methods=["POST"])
@@ -864,3 +873,6 @@ for r in [router, auto_production_router]:
     r.add_api_route("/runs/{run_id}/publish", _handle_publish_run, methods=["POST"])
     r.add_api_route("/health", _handle_health_check, methods=["GET"])
     r.add_api_route("/observability", _handle_observability_metrics, methods=["GET"])
+    r.add_api_route("/runs/{run_id}/thumbnails/{filename}", _handle_get_thumbnail, methods=["GET"])
+
+

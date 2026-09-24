@@ -1170,6 +1170,11 @@ class ProductionRun(BaseModel):
     latency_telemetry: Optional[LatencyTelemetry] = None
     provider_execution: Dict[str, str] = Field(default_factory=dict)
     storage_tier: StorageTier = StorageTier.FINAL
+    thumbnail_urls: List[str] = Field(default_factory=list)
+    selected_thumbnail_url: Optional[str] = None
+    scheduled_publish_at: Optional[datetime] = None
+    schedule_platform: Optional[str] = None
+    auto_publish_policy: str = "MANUAL"
     idempotency_key: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

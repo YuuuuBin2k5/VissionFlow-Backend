@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+from datetime import datetime, timedelta, timezone
 import uuid
 from typing import Any, Literal
 
@@ -115,6 +117,10 @@ class CreateAutomationBatchRequest(BaseModel):
     language: str = Field(default="vi", min_length=2, max_length=12)
     run_environment: Literal["DEV", "PILOT", "PRODUCTION"] = "PRODUCTION"
     items: list[AutomationItemRequest] = Field(min_length=1, max_length=50)
+    auto_schedule: bool = Field(default=False)
+    schedule_platform: Literal["ALL", "TIKTOK", "YOUTUBE", "FACEBOOK"] = "ALL"
+    schedule_start_at: str | None = Field(default=None)
+    schedule_interval_minutes: int = Field(default=120, ge=15, le=1440)
 
 
 class AutomationJobResponse(BaseModel):
@@ -127,6 +133,11 @@ class AutomationJobResponse(BaseModel):
     current_stage: str | None = None
     error_code: str | None
     error_message: str | None
+    thumbnail_urls: list[str] = Field(default_factory=list)
+    selected_thumbnail_url: str | None = None
+    scheduled_publish_at: str | None = None
+    schedule_platform: str | None = None
+    auto_publish_policy: str = "MANUAL"
 
 
 class AutomationBatchResponse(BaseModel):
@@ -185,6 +196,13 @@ def _reconcile(session: Session, batch: AutomationBatch) -> list[tuple[Automatio
                 progress = run.progress_pct
                 stage = run.current_stage
                 mapped = _map_run_state(run.status)
+
+                # Sync generated thumbnails from run
+                if run.thumbnail_urls and not job.thumbnail_urls:
+                    job.thumbnail_urls = run.thumbnail_urls
+                if run.selected_thumbnail_url and not job.selected_thumbnail_url:
+                    job.selected_thumbnail_url = run.selected_thumbnail_url
+
                 if mapped == "REVIEW_PENDING" and batch.approval_policy == "AUTO_APPROVE":
                     try:
                         human_review_service.submit_review(
@@ -227,6 +245,11 @@ def _response(batch: AutomationBatch, projections: list[tuple[AutomationJob, int
             current_stage=stage,
             error_code=job.error_code,
             error_message=job.error_message,
+            thumbnail_urls=job.thumbnail_urls or [],
+            selected_thumbnail_url=job.selected_thumbnail_url,
+            scheduled_publish_at=job.scheduled_publish_at.isoformat() if job.scheduled_publish_at else None,
+            schedule_platform=job.schedule_platform,
+            auto_publish_policy=job.auto_publish_policy or "MANUAL",
         )
         for job, progress, stage in projections
     ]
@@ -272,14 +295,29 @@ async def create_automation_batch(
     session.add(batch)
     session.flush()
 
+    start_dt: datetime | None = None
+    if request.auto_schedule and request.schedule_start_at:
+        try:
+            start_dt = datetime.fromisoformat(request.schedule_start_at.replace("Z", "+00:00"))
+        except Exception:
+            start_dt = datetime.now(timezone.utc) + timedelta(hours=2)
+    elif request.auto_schedule:
+        start_dt = datetime.now(timezone.utc) + timedelta(hours=2)
+
     jobs: list[AutomationJob] = []
     for position, item in enumerate(request.items, start=1):
         payload = item.payload
+        job_sched = None
+        if start_dt:
+            job_sched = start_dt + timedelta(minutes=(position - 1) * request.schedule_interval_minutes)
         job = AutomationJob(
             batch_id=batch.id,
             position=position,
             title=str(payload.get("title") or f"Video {position}")[:240],
             source_payload=payload,
+            scheduled_publish_at=job_sched,
+            schedule_platform=request.schedule_platform if request.auto_schedule else None,
+            auto_publish_policy="AUTO_SCHEDULE" if request.auto_schedule else "MANUAL",
         )
         session.add(job)
         jobs.append(job)
@@ -373,4 +411,188 @@ async def retry_automation_job(
         raise HTTPException(status_code=409, detail="Automation job reached its retry limit")
     batch.state = "RUNNING"
     await _launch_job(session, batch, job)
+    return _response(batch, _reconcile(session, batch))
+
+
+class SelectThumbnailRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    thumbnail_url: str = Field(min_length=1, max_length=2048)
+
+
+@router.post("/organizations/{organization_id}/automation-batches/{batch_id}/jobs/{job_id}/thumbnail/select", response_model=AutomationBatchResponse)
+async def select_job_thumbnail(
+    organization_id: uuid.UUID,
+    batch_id: uuid.UUID,
+    job_id: uuid.UUID,
+    request: SelectThumbnailRequest,
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> AutomationBatchResponse:
+    _authorize(session, identity, organization_id, Permission.WORKFLOW_ADVANCE)
+    batch = session.scalar(select(AutomationBatch).where(
+        AutomationBatch.id == batch_id, AutomationBatch.organization_id == organization_id
+    ))
+    job = session.scalar(select(AutomationJob).where(
+        AutomationJob.id == job_id, AutomationJob.batch_id == batch_id
+    ))
+    if batch is None or job is None:
+        raise HTTPException(status_code=404, detail="Automation batch or job not found")
+
+    job.selected_thumbnail_url = request.thumbnail_url
+    if job.production_run_id:
+        run = run_repository.get(job.production_run_id)
+        if run:
+            run.selected_thumbnail_url = request.thumbnail_url
+            run_repository.update(run)
+    session.commit()
+    return _response(batch, _reconcile(session, batch))
+
+
+@router.post("/organizations/{organization_id}/automation-batches/{batch_id}/jobs/{job_id}/thumbnail/regenerate", response_model=AutomationBatchResponse)
+async def regenerate_job_thumbnails(
+    organization_id: uuid.UUID,
+    batch_id: uuid.UUID,
+    job_id: uuid.UUID,
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> AutomationBatchResponse:
+    _authorize(session, identity, organization_id, Permission.WORKFLOW_ADVANCE)
+    batch = session.scalar(select(AutomationBatch).where(
+        AutomationBatch.id == batch_id, AutomationBatch.organization_id == organization_id
+    ))
+    job = session.scalar(select(AutomationJob).where(
+        AutomationJob.id == job_id, AutomationJob.batch_id == batch_id
+    ))
+    if batch is None or job is None:
+        raise HTTPException(status_code=404, detail="Automation batch or job not found")
+
+    from production.thumbnail_generator import thumbnail_generator
+
+    hook_text = ""
+    scenes = job.source_payload.get("scenes", [])
+    if isinstance(scenes, list) and scenes:
+        hook_text = str(scenes[0].get("narration") or "")
+
+    cat = "general"
+    topic_str = (job.title + " " + hook_text).lower()
+    if any(k in topic_str for k in ["lịch sử", "chiến", "vua", "triều", "history", "cổ đại"]):
+        cat = "history"
+    elif any(k in topic_str for k in ["khoa học", "vũ trụ", "bí ẩn", "mystery", "science"]):
+        cat = "mystery" if "bí ẩn" in topic_str else "science"
+    elif any(k in topic_str for k in ["viral", "hot", "tin tức", "news", "trend"]):
+        cat = "viral"
+
+    run_id = job.production_run_id or f"job_{job.id.hex[:8]}"
+    new_urls = await asyncio.to_thread(
+        thumbnail_generator.generate_thumbnails,
+        title=job.title,
+        hook=hook_text,
+        category=cat,
+        run_id=run_id,
+    )
+    job.thumbnail_urls = new_urls
+    if new_urls:
+        job.selected_thumbnail_url = new_urls[0]
+    if job.production_run_id:
+        run = run_repository.get(job.production_run_id)
+        if run:
+            run.thumbnail_urls = new_urls
+            if new_urls:
+                run.selected_thumbnail_url = new_urls[0]
+            run_repository.update(run)
+    session.commit()
+    return _response(batch, _reconcile(session, batch))
+
+
+class ScheduleJobRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    scheduled_publish_at: str | None = None
+    schedule_platform: str | None = "ALL"
+    auto_publish_policy: Literal["MANUAL", "AUTO_SCHEDULE", "AUTO_APPROVE"] = "AUTO_SCHEDULE"
+
+
+@router.post("/organizations/{organization_id}/automation-batches/{batch_id}/jobs/{job_id}/schedule", response_model=AutomationBatchResponse)
+async def schedule_automation_job(
+    organization_id: uuid.UUID,
+    batch_id: uuid.UUID,
+    job_id: uuid.UUID,
+    request: ScheduleJobRequest,
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> AutomationBatchResponse:
+    _authorize(session, identity, organization_id, Permission.WORKFLOW_ADVANCE)
+    batch = session.scalar(select(AutomationBatch).where(
+        AutomationBatch.id == batch_id, AutomationBatch.organization_id == organization_id
+    ))
+    job = session.scalar(select(AutomationJob).where(
+        AutomationJob.id == job_id, AutomationJob.batch_id == batch_id
+    ))
+    if batch is None or job is None:
+        raise HTTPException(status_code=404, detail="Automation batch or job not found")
+
+    dt: datetime | None = None
+    if request.scheduled_publish_at:
+        try:
+            dt = datetime.fromisoformat(request.scheduled_publish_at.replace("Z", "+00:00"))
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid ISO datetime format: {exc}")
+
+    job.scheduled_publish_at = dt
+    job.schedule_platform = request.schedule_platform
+    job.auto_publish_policy = request.auto_publish_policy
+
+    if job.production_run_id:
+        run = run_repository.get(job.production_run_id)
+        if run:
+            run.scheduled_publish_at = dt
+            run.schedule_platform = request.schedule_platform
+            run.auto_publish_policy = request.auto_publish_policy
+            run_repository.update(run)
+
+    session.commit()
+    return _response(batch, _reconcile(session, batch))
+
+
+class BatchScheduleRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    start_at: str
+    interval_minutes: int = Field(default=120, ge=15, le=1440)
+    platform: Literal["ALL", "TIKTOK", "YOUTUBE", "FACEBOOK"] = "ALL"
+
+
+@router.post("/organizations/{organization_id}/automation-batches/{batch_id}/batch-schedule", response_model=AutomationBatchResponse)
+async def batch_schedule_jobs(
+    organization_id: uuid.UUID,
+    batch_id: uuid.UUID,
+    request: BatchScheduleRequest,
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> AutomationBatchResponse:
+    _authorize(session, identity, organization_id, Permission.WORKFLOW_ADVANCE)
+    batch = session.scalar(select(AutomationBatch).where(
+        AutomationBatch.id == batch_id, AutomationBatch.organization_id == organization_id
+    ))
+    if batch is None:
+        raise HTTPException(status_code=404, detail="Automation batch not found")
+
+    try:
+        base_dt = datetime.fromisoformat(request.start_at.replace("Z", "+00:00"))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid ISO datetime format: {exc}")
+
+    jobs = list(session.scalars(select(AutomationJob).where(AutomationJob.batch_id == batch.id).order_by(AutomationJob.position)))
+    for idx, job in enumerate(jobs):
+        sched_time = base_dt + timedelta(minutes=idx * request.interval_minutes)
+        job.scheduled_publish_at = sched_time
+        job.schedule_platform = request.platform
+        job.auto_publish_policy = "AUTO_SCHEDULE"
+        if job.production_run_id:
+            run = run_repository.get(job.production_run_id)
+            if run:
+                run.scheduled_publish_at = sched_time
+                run.schedule_platform = request.platform
+                run.auto_publish_policy = "AUTO_SCHEDULE"
+                run_repository.update(run)
+
+    session.commit()
     return _response(batch, _reconcile(session, batch))

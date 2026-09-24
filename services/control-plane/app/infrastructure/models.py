@@ -103,6 +103,11 @@ class AutomationJob(Timestamped, Base):
     max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
     error_code: Mapped[str | None] = mapped_column(String(96), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    thumbnail_urls: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    selected_thumbnail_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    scheduled_publish_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    schedule_platform: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    auto_publish_policy: Mapped[str] = mapped_column(String(32), nullable=False, default="MANUAL")
 
 
 class Organization(Timestamped, Base):

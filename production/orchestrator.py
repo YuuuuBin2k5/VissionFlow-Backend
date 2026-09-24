@@ -520,6 +520,35 @@ class ProductionOrchestrator:
             # Save updated run with Phase 3 artifacts
             run_repository.update(run)
 
+            # Auto-generate 3 AI Thumbnails grounded in ScriptPlan & Hook
+            if not run.thumbnail_urls and run.script_plan:
+                try:
+                    from production.thumbnail_generator import thumbnail_generator
+                    hook_text = run.script_plan.scenes[0].narration if run.script_plan.scenes else ""
+                    cat = "general"
+                    topic_str = (run.request.instruction or run.script_plan.title or "").lower()
+                    if any(k in topic_str for k in ["lịch sử", "chiến", "vua", "triều", "history", "cổ đại"]):
+                        cat = "history"
+                    elif any(k in topic_str for k in ["khoa học", "vũ trụ", "bí ẩn", "mystery", "science"]):
+                        cat = "mystery" if "bí ẩn" in topic_str else "science"
+                    elif any(k in topic_str for k in ["viral", "hot", "tin tức", "news", "trend"]):
+                        cat = "viral"
+
+                    thumb_urls = await asyncio.to_thread(
+                        thumbnail_generator.generate_thumbnails,
+                        title=run.script_plan.title,
+                        hook=hook_text,
+                        category=cat,
+                        run_id=run_id,
+                    )
+                    run.thumbnail_urls = thumb_urls
+                    if thumb_urls and not run.selected_thumbnail_url:
+                        run.selected_thumbnail_url = thumb_urls[0]
+                    run_repository.update(run)
+                    logger.info("Generated %d AI thumbnails for run %s", len(thumb_urls), run_id)
+                except Exception as th_err:
+                    logger.warning("Auto thumbnail generation failed for run %s: %s", run_id, th_err)
+
             # 10. Visual Planning (REAL)
             chan_prof = getattr(run.request, "channel_profile", None)
             visual_plan = visual_planner.generate_visual_plan(
