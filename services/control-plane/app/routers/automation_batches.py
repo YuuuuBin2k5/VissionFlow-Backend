@@ -18,7 +18,7 @@ from app.core.oidc import VerifiedIdentity
 from app.domain.authorization import Permission
 from app.infrastructure.database import get_session
 from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
-from app.infrastructure.models import AutomationBatch, AutomationJob, WorkflowRun
+from app.infrastructure.models import AutomationBatch, AutomationJob, VideoProject, WorkflowRun
 from app.routers.auth import require_identity
 from production.contracts import ProductionRunStatus, ReviewSource
 from production.human_review import HumanReviewError, human_review_service
@@ -479,6 +479,115 @@ async def cancel_automation_batch(
     session.commit()
     return _response(batch, [(job, 0, "Đã hủy") for job in jobs])
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Admin: Clean up orphaned WorkflowRun records
+# ─────────────────────────────────────────────────────────────────────────────
+_WORKFLOW_NON_TERMINAL = ("DRAFT", "READY", "QUEUED", "PLANNING", "RENDERING",
+                          "APPROVAL_PENDING", "APPROVED", "RETRY_SCHEDULED")
+
+
+class OrphanCleanupResponse(BaseModel):
+    cleaned_up: int
+    workflow_run_ids: list[str]
+    message: str
+
+
+@router.post(
+    "/organizations/{organization_id}/automation-batches/cleanup-orphaned-workflows",
+    response_model=OrphanCleanupResponse,
+    summary="Cancel WorkflowRun records left in active state by cancelled batches",
+)
+def cleanup_orphaned_workflow_runs(
+    organization_id: uuid.UUID,
+    include_all_queued: bool = Query(
+        default=True,
+        description="Also cancel all QUEUED WorkflowRuns for this organization",
+    ),
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> OrphanCleanupResponse:
+    """
+    Finds all WorkflowRun records that are stuck in a non-terminal state
+    (QUEUED, DRAFT, PLANNING, etc.) because their parent AutomationJob's batch
+    was cancelled before the fix that directly cancels WorkflowRun was applied.
+
+    Marks all such WorkflowRuns as CANCELED in the database.
+    """
+    _authorize(session, identity, organization_id, Permission.WORKFLOW_ADVANCE)
+
+    # 1. Find all AutomationJob rows for this org whose batch is CANCELLED
+    #    or whose job state is CANCELLED, with a production_run_id
+    cancelled_batch_ids_q = select(AutomationBatch.id).where(
+        AutomationBatch.organization_id == organization_id,
+        AutomationBatch.state == "CANCELLED",
+    )
+    all_org_batch_ids_q = select(AutomationBatch.id).where(
+        AutomationBatch.organization_id == organization_id,
+    )
+    orphan_jobs = list(session.scalars(
+        select(AutomationJob).where(
+            (AutomationJob.batch_id.in_(cancelled_batch_ids_q))
+            | (
+                AutomationJob.batch_id.in_(all_org_batch_ids_q)
+                & (AutomationJob.state == "CANCELLED")
+            ),
+            AutomationJob.production_run_id.isnot(None),
+        )
+    ))
+
+    cleaned_ids: list[str] = []
+
+    for job in orphan_jobs:
+        try:
+            wf_id = uuid.UUID(job.production_run_id)  # type: ignore[arg-type]
+        except (ValueError, TypeError):
+            continue  # not a UUID — skip (might be an auto_production run ID)
+
+        wf_run = session.get(WorkflowRun, wf_id)
+        if wf_run is None:
+            continue
+        if wf_run.state in ("CANCELED", "PUBLISHED", "FAILED"):
+            continue  # already terminal — nothing to do
+
+        wf_run.state = "CANCELED"
+        cleaned_ids.append(str(wf_id))
+        logger.info(
+            "cleanup_orphaned_workflow_runs: CANCELED WorkflowRun %s (was %s, job=%s, batch=%s)",
+            wf_id, wf_run.state, job.id, job.batch_id,
+        )
+
+    # 2. If include_all_queued is True, also cancel any remaining QUEUED runs for this org
+    if include_all_queued:
+        queued_runs = list(session.scalars(
+            select(WorkflowRun)
+            .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
+            .where(
+                VideoProject.organization_id == organization_id,
+                WorkflowRun.state == "QUEUED",
+            )
+        ))
+        for wf_run in queued_runs:
+            if str(wf_run.id) not in cleaned_ids:
+                wf_run.state = "CANCELED"
+                cleaned_ids.append(str(wf_run.id))
+                logger.info(
+                    "cleanup_orphaned_workflow_runs: CANCELED QUEUED WorkflowRun %s for org %s",
+                    wf_run.id, organization_id,
+                )
+
+    if cleaned_ids:
+        session.commit()
+
+    return OrphanCleanupResponse(
+        cleaned_up=len(cleaned_ids),
+        workflow_run_ids=cleaned_ids,
+        message=(
+            f"Đã hủy {len(cleaned_ids)} WorkflowRun còn sót lại."
+            if cleaned_ids
+            else "Không tìm thấy WorkflowRun nào cần dọn dẹp."
+        ),
+    )
 
 
 @router.post("/organizations/{organization_id}/automation-batches/{batch_id}/jobs/{job_id}/retry", response_model=AutomationBatchResponse)

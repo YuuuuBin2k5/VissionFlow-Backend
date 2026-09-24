@@ -2506,6 +2506,7 @@ def _get_deletable_workflow(
     *,
     organization_id: uuid.UUID,
     workflow_run_id: uuid.UUID,
+    force: bool = False,
 ) -> WorkflowRun:
     run = session.scalar(
         select(WorkflowRun)
@@ -2518,7 +2519,7 @@ def _get_deletable_workflow(
     )
     if run is None:
         raise LookupError("Workflow run not found")
-    if run.state in _ACTIVE_DELETE_STATES:
+    if not force and run.state in _ACTIVE_DELETE_STATES:
         raise ValueError(
             f"Cannot delete workflow in active state '{run.state}'. "
             "Cancel the workflow first before deleting."
@@ -2562,6 +2563,7 @@ def _delete_workflow_records(session: Session, run: WorkflowRun) -> None:
 def delete_workflow(
     workflow_run_id: uuid.UUID,
     organization_id: uuid.UUID = Query(...),
+    force: bool = Query(default=False),
     identity: VerifiedIdentity = Depends(require_identity),
     session: Session = Depends(get_session),
 ) -> DeleteWorkflowResponse:
@@ -2583,15 +2585,17 @@ def delete_workflow(
             session,
             organization_id=organization_id,
             workflow_run_id=workflow_run_id,
+            force=force,
         )
         _delete_workflow_records(session, run)
         session.commit()
 
         _bg_logger.info(
-            "[delete_workflow] Workflow %s deleted by %s for org %s",
+            "[delete_workflow] Workflow %s deleted by %s for org %s (force=%s)",
             workflow_run_id,
             identity.subject,
             organization_id,
+            force,
         )
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
@@ -2604,6 +2608,60 @@ def delete_workflow(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
     return DeleteWorkflowResponse(workflow_run_id=workflow_run_id, deleted=True)
+
+
+class CancelWorkflowResponse(BaseModel):
+    workflow_run_id: uuid.UUID
+    state: str
+    message: str
+
+
+@router.post(
+    "/workflows/{workflow_run_id}/cancel",
+    response_model=CancelWorkflowResponse,
+    summary="Cancel a single active workflow run",
+)
+def cancel_single_workflow(
+    workflow_run_id: uuid.UUID,
+    organization_id: uuid.UUID = Query(...),
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> CancelWorkflowResponse:
+    """
+    Cancel an active workflow run by setting its state to CANCELED.
+    """
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject, organization_id, Permission.WORKFLOW_ADVANCE
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+
+    run = session.scalar(
+        select(WorkflowRun)
+        .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
+        .where(
+            VideoProject.organization_id == organization_id,
+            WorkflowRun.id == workflow_run_id,
+        )
+    )
+    if run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow run not found")
+
+    if run.state not in ("CANCELED", "PUBLISHED"):
+        old_state = run.state
+        run.state = "CANCELED"
+        session.commit()
+        _bg_logger.info(
+            "[cancel_single_workflow] Workflow %s changed from %s to CANCELED by %s for org %s",
+            workflow_run_id, old_state, identity.subject, organization_id,
+        )
+
+    return CancelWorkflowResponse(
+        workflow_run_id=workflow_run_id,
+        state=run.state,
+        message=f"Đã hủy workflow {workflow_run_id} thành công.",
+    )
 
 
 @router.delete(
