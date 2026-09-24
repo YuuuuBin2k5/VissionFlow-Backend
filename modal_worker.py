@@ -53,6 +53,15 @@ def get_ffprobe_binary() -> str:
 FFMPEG_BIN = get_ffmpeg_binary()
 FFPROBE_BIN = get_ffprobe_binary()
 
+
+def normalize_psycopg_dsn(database_url: str) -> str:
+    """Convert a SQLAlchemy PostgreSQL URL into a libpq/psycopg DSN."""
+    value = (database_url or "").strip()
+    for sqlalchemy_scheme in ("postgresql+psycopg://", "postgresql+psycopg2://"):
+        if value.startswith(sqlalchemy_scheme):
+            return "postgresql://" + value[len(sqlalchemy_scheme):]
+    return value
+
 def get_audio_duration_seconds(audio_path: str, fallback_duration: float = 30.0) -> float:
     """
     [Phase 4] Measures exact audio duration in seconds from media file using ffprobe.
@@ -2288,7 +2297,7 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
                 if not db_url:
                     raise RuntimeError("DATABASE_URL is not configured; skipping PostgreSQL metadata backfill")
                 import psycopg2
-                conn_s = psycopg2.connect(db_url)
+                conn_s = psycopg2.connect(normalize_psycopg_dsn(db_url))
                 cur_s = conn_s.cursor()
                 def safe_uuid(val):
                     try:
@@ -2672,7 +2681,7 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
         if (not scenes or len(scenes) == 0) and workflow_run_id and workflow_run_id != "modal_run_demo":
             try:
                 import psycopg2
-                conn_sc = psycopg2.connect(db_url)
+                conn_sc = psycopg2.connect(normalize_psycopg_dsn(db_url))
                 cur_sc = conn_sc.cursor()
                 wf_u = safe_uuid(workflow_run_id)
                 cur_sc.execute(
@@ -3142,8 +3151,9 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
                 print(f"[Modal] ⚠️ Notice: SFX '{s_type}' could not be resolved, skipping cue.", flush=True)
 
         # Audio Filter Mixing: Clean Voice + EQ Sculpted Ducked BGM + SFX
+        voice_filter = "[2:a]highpass=f=80,equalizer=f=350:t=q:w=1.0:g=-3,equalizer=f=4000:t=q:w=1.0:g=2,acompressor=threshold=-18dB:ratio=3:attack=10:release=100:makeup=1"
         filter_steps.append(
-            "[2:a]highpass=f=80,equalizer=f=350:t=q:w=1.0:g=-3,equalizer=f=4000:t=q:w=1.0:g=2,acompressor=threshold=-18dB:ratio=3:attack=10:release=100:makeup=1[vclean]"
+            voice_filter + (",asplit=2[vclean][vsidechain]" if has_bgm else "[vclean]")
         )
         mix_inputs = ["[vclean]"]
         mix_weights = ["1.0"]
@@ -3151,7 +3161,7 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
         if has_bgm:
             filter_steps.append(
                 f"[3:a]equalizer=f=2500:t=q:w=1.5:g=-4,volume={bgm_volume_gain}[bgm_shaped];"
-                f"[bgm_shaped][vclean]sidechaincompress=threshold=0.12:ratio=6:attack=20:release=350[mducked]"
+                f"[bgm_shaped][vsidechain]sidechaincompress=threshold=0.12:ratio=6:attack=20:release=350[mducked]"
             )
             mix_inputs.append("[mducked]")
             mix_weights.append("1.0")
@@ -3265,7 +3275,7 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
             if not db_url:
                 raise RuntimeError("DATABASE_URL is not configured; skipping PostgreSQL completion update")
             import psycopg2
-            conn = psycopg2.connect(db_url)
+            conn = psycopg2.connect(normalize_psycopg_dsn(db_url))
             cur = conn.cursor()
             media_id = str(uuid.uuid4())
             meta = json.dumps({"title": contract_payload.get("title", "Rendered Video"), "workflow_run_id": str(workflow_run_id), "cover_url": cover_url})
@@ -3363,7 +3373,7 @@ def _render_video_task_impl(contract_payload: dict) -> dict:
             if not db_url:
                 raise RuntimeError("DATABASE_URL is not configured; skipping PostgreSQL failure update")
             import psycopg2
-            conn = psycopg2.connect(db_url)
+            conn = psycopg2.connect(normalize_psycopg_dsn(db_url))
             cur = conn.cursor()
             def safe_uuid(val):
                 try:

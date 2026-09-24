@@ -17,12 +17,12 @@ published to the public Internet.
 
 Get the PC's Tailscale IPv4 address with `tailscale ip -4`; this is the address
 Render targets. Keep `VISIONFLOW_POSTGRES_BIND_IP=127.0.0.1` and
-`VISIONFLOW_POSTGRES_PORT=55432` inside `deploy/postgres/.env`. Docker Desktop
+`VISIONFLOW_POSTGRES_PORT=15432` inside `deploy/postgres/.env`. Docker Desktop
 on Windows cannot reliably bind directly to the Tailscale adapter. After
 PostgreSQL starts, expose it only inside the tailnet with:
 
 ```powershell
-tailscale serve --bg --tcp=5432 tcp://127.0.0.1:55432
+tailscale serve --bg --tcp=5432 tcp://127.0.0.1:15432
 tailscale serve status
 ```
 

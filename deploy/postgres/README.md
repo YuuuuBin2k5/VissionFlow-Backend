@@ -20,9 +20,9 @@ instead of editing it by hand.
    node can reach this host on TCP 5432.
 5. Copy `.env.example` to `.env`, generate three distinct random passwords, and
    use absolute paths on an SSD for data and backups. Set
-   `VISIONFLOW_POSTGRES_BIND_IP=127.0.0.1` and local port `55432`. On Windows,
+   `VISIONFLOW_POSTGRES_BIND_IP=127.0.0.1` and local port `15432`. On Windows,
    expose tailnet TCP 5432 with `tailscale serve --bg --tcp=5432
-   tcp://127.0.0.1:55432`. Never use `0.0.0.0`.
+   tcp://127.0.0.1:15432`. Never use `0.0.0.0`.
 
 ## Start and inspect
 

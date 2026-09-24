@@ -496,12 +496,16 @@ def run_unified_render_pass() -> int:
     except Exception as db_err:
         print(f"[Pass Notice] Short-form DB queue query notice: {db_err}")
 
-    # 3. Pipeline Auto Production Video (render_jobs + R2)
-    try:
-        auto_count = process_auto_production_jobs()
-        processed_total += auto_count
-    except Exception as auto_err:
-        print(f"[Pass Notice] Auto Production queue step notice: {auto_err}")
+    # 3. Pipeline Auto Production Video (render_jobs + R2).
+    # In the two-process local stack, the outbound-only remote worker is the
+    # sole owner of this queue. This prevents two local processes from racing
+    # to claim/render the same durable job.
+    if os.getenv("VISIONFLOW_SKIP_DIRECT_RENDER_JOBS", "").strip() != "1":
+        try:
+            auto_count = process_auto_production_jobs()
+            processed_total += auto_count
+        except Exception as auto_err:
+            print(f"[Pass Notice] Auto Production queue step notice: {auto_err}")
 
     return processed_total
 

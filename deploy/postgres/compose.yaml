@@ -25,8 +25,9 @@ services:
       # Tailscale grant must restrict it to the Render Tailscale node.
       # Docker Desktop on Windows cannot reliably bind a published port to the
       # Tailscale adapter. Keep PostgreSQL on loopback and use `tailscale serve`
-      # to forward tailnet TCP 5432 to local TCP 55432.
-      - "${VISIONFLOW_POSTGRES_BIND_IP:-127.0.0.1}:${VISIONFLOW_POSTGRES_PORT:-55432}:5432"
+      # to forward tailnet TCP 5432 to local TCP 15432. Port 15432 stays
+      # outside Windows/Hyper-V's frequently reassigned high-port exclusions.
+      - "${VISIONFLOW_POSTGRES_BIND_IP:-127.0.0.1}:${VISIONFLOW_POSTGRES_PORT:-15432}:5432"
     volumes:
       - ${VISIONFLOW_POSTGRES_DATA:?set VISIONFLOW_POSTGRES_DATA in deploy/postgres/.env}:/var/lib/postgresql/18/docker
       - ${VISIONFLOW_POSTGRES_BACKUPS:?set VISIONFLOW_POSTGRES_BACKUPS in deploy/postgres/.env}:/backups

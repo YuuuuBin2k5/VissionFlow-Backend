@@ -57,7 +57,12 @@ def build_portable_manifest(spec, job_id, storage) -> PortableRenderManifest:
             if not path.is_file() or path.stat().st_size == 0:
                 logger.error("REMOTE_RENDER_INPUT_NOT_PORTABLE: file not found or empty: %s (role: %s)", path, role)
                 raise ValueError(f"REMOTE_RENDER_INPUT_NOT_PORTABLE: {role} asset {path} not found or empty")
-            mime = {".wav": "audio/wav", ".ass": "text/x-ssa", ".m4a": "audio/mp4"}.get(path.suffix.lower()) or mimetypes.guess_type(path.name)[0]
+            mime = {
+                ".wav": "audio/wav",
+                ".mp3": "audio/mpeg",
+                ".ass": "text/x-ssa",
+                ".m4a": "audio/mp4",
+            }.get(path.suffix.lower()) or mimetypes.guess_type(path.name)[0]
             digest = sha256_file(path)
             aid = f"asset_{len(artifacts)}_{digest[:12]}"
             ref = f"visionflow/production/inputs/{digest}{path.suffix.lower()}"
