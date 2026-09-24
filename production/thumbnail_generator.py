@@ -253,6 +253,24 @@ class ThumbnailGenerator:
                                 ) from model_err
                             except ImportError:
                                 raise model_err from model_err
+
+                        # 429 with limit=0 means billing not enabled — fail fast, no retry
+                        is_quota_exhausted = "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg.upper()
+                        is_zero_limit = "limit: 0" in err_msg or '"limit":0' in err_msg or "limit_: 0" in err_msg
+                        if is_quota_exhausted and is_zero_limit:
+                            logger.error(
+                                "Gemini API key has no billing enabled (free tier limit=0). "
+                                "Skipping all remaining thumbnail candidates."
+                            )
+                            try:
+                                from app.core.credential_exceptions import MissingProviderCredentialError
+                                raise MissingProviderCredentialError(
+                                    provider="gemini",
+                                    feature_name="Sinh hình thu nhỏ AI (Gemini Image Generation)",
+                                ) from model_err
+                            except ImportError:
+                                raise model_err from model_err
+
                         last_err = model_err
 
                 if image_bytes:
