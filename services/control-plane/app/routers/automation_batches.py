@@ -448,18 +448,37 @@ async def cancel_automation_batch(
     jobs = list(session.scalars(select(AutomationJob).where(AutomationJob.batch_id == batch.id)))
     for job in jobs:
         if job.production_run_id and job.state not in TERMINAL_STATES:
+            cancelled_via_orchestrator = False
             try:
                 await orchestrator.cancel_run(job.production_run_id)
+                cancelled_via_orchestrator = True
             except Exception as exc:  # noqa: BLE001
                 # cancel_run may fail for Studio WorkflowRun IDs — log and continue
                 logger.warning(
                     "cancel_run failed for job %s (run_id=%s): %s",
                     job.id, job.production_run_id, exc,
                 )
+
+            if not cancelled_via_orchestrator:
+                # Fallback: production_run_id may be a Studio WorkflowRun UUID.
+                # Directly update its state in the DB so it no longer appears QUEUED.
+                try:
+                    wf_id = uuid.UUID(job.production_run_id)
+                    wf_run = session.get(WorkflowRun, wf_id)
+                    if wf_run and wf_run.state not in ("CANCELED", "PUBLISHED", "FAILED"):
+                        wf_run.state = "CANCELED"
+                        logger.info(
+                            "Directly cancelled WorkflowRun %s (was %s) for batch job %s",
+                            wf_id, wf_run.state, job.id,
+                        )
+                except (ValueError, Exception) as wf_err:
+                    logger.warning("Could not cancel WorkflowRun for job %s: %s", job.id, wf_err)
+
             job.state = "CANCELLED"
     batch.state = "CANCELLED"
     session.commit()
     return _response(batch, [(job, 0, "Đã hủy") for job in jobs])
+
 
 
 @router.post("/organizations/{organization_id}/automation-batches/{batch_id}/jobs/{job_id}/retry", response_model=AutomationBatchResponse)
