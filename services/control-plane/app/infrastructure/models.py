@@ -58,6 +58,53 @@ class RenderJob(Timestamped, Base):
     idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
 
 
+class AutomationBatch(Timestamped, Base):
+    """Durable, organization-scoped request to process multiple VisionFlow JSON documents."""
+
+    __tablename__ = "automation_batches"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "idempotency_key", name="uq_automation_batches_org_idempotency"),
+        Index("ix_automation_batches_org_created", "organization_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False, default="QUEUED")
+    approval_policy: Mapped[str] = mapped_column(String(32), nullable=False, default="REVIEW_REQUIRED")
+    channel_profile_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    settings: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    requested_by_subject: Mapped[str] = mapped_column(String(512), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+
+
+class AutomationJob(Timestamped, Base):
+    """One independently retryable JSON document inside an automation batch."""
+
+    __tablename__ = "automation_jobs"
+    __table_args__ = (
+        UniqueConstraint("batch_id", "position", name="uq_automation_jobs_batch_position"),
+        Index("ix_automation_jobs_batch_state", "batch_id", "state"),
+        Index("ix_automation_jobs_run_id", "production_run_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    batch_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("automation_batches.id", ondelete="CASCADE"), nullable=False
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    state: Mapped[str] = mapped_column(String(40), nullable=False, default="QUEUED")
+    source_payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    production_run_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    error_code: Mapped[str | None] = mapped_column(String(96), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
 class Organization(Timestamped, Base):
     __tablename__ = "organizations"
 

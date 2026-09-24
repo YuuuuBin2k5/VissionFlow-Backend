@@ -14,6 +14,7 @@ from app.core.config import Settings
 from app.routers import (
     ai_video,
     analytics,
+    automation_batches,
     auth,
     creative_sessions,
     credentials,
@@ -61,6 +62,7 @@ app.include_router(dubbing.router, prefix=settings.api_prefix)
 app.include_router(video_vault.router, prefix=settings.api_prefix)
 app.include_router(analytics.router, prefix=settings.api_prefix)
 app.include_router(voices.router, prefix=settings.api_prefix)
+app.include_router(automation_batches.router, prefix=settings.api_prefix)
 
 try:
     from production.production_controller import router as production_router, auto_production_router
@@ -219,6 +221,16 @@ async def _seed_prompt_baselines() -> None:
     except Exception as exc:
         # Never block server startup due to seed failure
         logger.error("startup seed failed (non-fatal): %s", exc, exc_info=True)
+
+
+@app.on_event("startup")
+async def _resume_automation_batches() -> None:
+    """Resume durable automation work after Render or the local backend restarts."""
+    try:
+        await automation_batches.resume_pending_automation_jobs()
+    except Exception as exc:
+        # Alembic may intentionally run after app import in maintenance jobs.
+        logger.error("automation batch recovery failed (non-fatal): %s", exc, exc_info=True)
 
 
 def _normalize_trace_id(request_id: str | None) -> str:

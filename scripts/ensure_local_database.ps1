@@ -23,10 +23,27 @@ $portText = $values['VISIONFLOW_POSTGRES_PORT']
 if ($portText -notmatch '^\d{1,5}$') { throw 'VISIONFLOW_POSTGRES_PORT must be numeric.' }
 $postgresPort = [int]$portText
 
+function Invoke-NativeQuiet([string]$Command, [string[]]$Arguments) {
+    # Windows PowerShell 5.1 promotes any native stderr output to a
+    # NativeCommandError when ErrorActionPreference is Stop. Docker Desktop
+    # legitimately writes capability warnings (for example missing blkio
+    # throttling support) to stderr even when `docker info` exits with 0.
+    # Suppress probe output and decide success exclusively from the native
+    # process exit code; PowerShell/cmdlet errors remain terminating elsewhere.
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        & $Command @Arguments *> $null
+        return $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+}
+
 $deadline = [DateTime]::UtcNow.AddSeconds($DockerWaitSeconds)
 do {
-    & docker info *> $null
-    if ($LASTEXITCODE -eq 0) { break }
+    $dockerInfoExitCode = Invoke-NativeQuiet 'docker' @('info')
+    if ($dockerInfoExitCode -eq 0) { break }
     if ([DateTime]::UtcNow -ge $deadline) { throw 'Docker Desktop did not become ready before timeout.' }
     Start-Sleep -Seconds 3
 } while ($true)
