@@ -4,6 +4,7 @@ set -eu
 TAILSCALE_SOCKET=/tmp/visionflow-tailscaled.sock
 TAILSCALE_HOME=${TAILSCALE_HOME:-/tmp/visionflow-tailscale}
 TAILSCALE_STATE=${TAILSCALE_STATE_PATH:-mem:}
+PORT="${PORT:-8000}"
 
 mkdir -p "$TAILSCALE_HOME"
 export HOME="$TAILSCALE_HOME"
@@ -12,11 +13,31 @@ if [ "$TAILSCALE_STATE" != "mem:" ]; then
 fi
 
 cleanup() {
+    [ -n "${UVICORN_PID:-}" ] && kill "$UVICORN_PID" 2>/dev/null || true
     [ -n "${BRIDGE_PID:-}" ] && kill "$BRIDGE_PID" 2>/dev/null || true
     [ -n "${TAILSCALED_PID:-}" ] && kill "$TAILSCALED_PID" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 1: Start uvicorn IMMEDIATELY so Render health checks pass right away.
+# The /health endpoint is pure in-memory — no DB needed.
+# ─────────────────────────────────────────────────────────────────────────────
+echo "==> Starting control-plane server (pre-migration)..."
+uvicorn app.main:app --host 0.0.0.0 --port "$PORT" &
+UVICORN_PID=$!
+
+# Give uvicorn 3 seconds to bind the port
+sleep 3
+if ! kill -0 "$UVICORN_PID" 2>/dev/null; then
+    echo "ERROR: uvicorn failed to start."
+    exit 1
+fi
+echo "==> uvicorn is up on port $PORT (PID $UVICORN_PID). Health checks will pass."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 2: Tailscale + DB tunnel (if enabled)
+# ─────────────────────────────────────────────────────────────────────────────
 if [ "${VISIONFLOW_TAILSCALE_ENABLED:-false}" = "true" ]; then
     : "${TAILSCALE_AUTHKEY:?TAILSCALE_AUTHKEY is required when VISIONFLOW_TAILSCALE_ENABLED=true}"
     : "${VISIONFLOW_TAILSCALE_DB_HOST:?VISIONFLOW_TAILSCALE_DB_HOST is required when Tailscale is enabled}"
@@ -72,8 +93,11 @@ if [ "${VISIONFLOW_TAILSCALE_ENABLED:-false}" = "true" ]; then
     echo "==> TCP bridge is ready on port ${BRIDGE_LISTEN_PORT}."
 fi
 
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 3: Database migrations
+# ─────────────────────────────────────────────────────────────────────────────
 echo "==> Checking MIGRATION_DATABASE_URL..."
-if [ -z "$MIGRATION_DATABASE_URL" ]; then
+if [ -z "${MIGRATION_DATABASE_URL:-}" ]; then
     echo "WARN: MIGRATION_DATABASE_URL is not set — skipping alembic migration."
     echo "     Set MIGRATION_DATABASE_URL on Render to enable automatic migrations."
 else
@@ -101,6 +125,9 @@ else
     echo "==> Migrations complete."
 fi
 
-echo "==> Starting control-plane server..."
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 4: Wait for uvicorn to exit (it's the main process now)
+# ─────────────────────────────────────────────────────────────────────────────
+echo "==> Startup complete. uvicorn PID $UVICORN_PID is serving traffic."
 trap - EXIT INT TERM
-exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"
+wait "$UVICORN_PID"
