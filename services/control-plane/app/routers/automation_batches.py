@@ -865,11 +865,38 @@ async def generate_batch_thumbnails(
         )
 
     generator = ThumbnailGenerator(api_key=db_gemini_key, organization_id=str(organization_id), strict_credential=True)
-    urls = generator.generate_thumbnails(
-        title=request.title,
-        hook=request.hook,
-        category=request.category,
-        aspect_ratio=request.aspect_ratio,
-        count=request.count,
-    )
+
+    # 2. Chạy generate_thumbnails trong thread pool với timeout tổng 25 giây.
+    #    Render Free có gateway timeout 30 giây. Nếu Pollinations.ai chậm hơn 25s,
+    #    trả về SVG fallback ngay đẳ response luôn về trong 30s (tránh 502 giả CORS).
+    import os as _os
+    _THUMBNAIL_TIMEOUT = float(_os.getenv("VISIONFLOW_THUMBNAIL_TIMEOUT_SECONDS", "25"))
+
+    def _run_blocking() -> list[str]:
+        return generator.generate_thumbnails(
+            title=request.title,
+            hook=request.hook,
+            category=request.category,
+            aspect_ratio=request.aspect_ratio,
+            count=request.count,
+        )
+
+    _loop = asyncio.get_event_loop()
+    try:
+        urls = await asyncio.wait_for(
+            _loop.run_in_executor(None, _run_blocking),
+            timeout=_THUMBNAIL_TIMEOUT,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(
+            "generate_batch_thumbnails: Pollinations timed out after %.0fs — "
+            "returning SVG fallbacks to keep response under Render's 30s gateway limit.",
+            _THUMBNAIL_TIMEOUT,
+        )
+        urls = generator._create_fallback_thumbnails(
+            run_id=f"timeout_{uuid.uuid4().hex[:8]}",
+            title=request.title,
+            count=request.count,
+        )
+
     return GenerateThumbnailsResponse(thumbnails=urls)
