@@ -49366,3 +49366,429 @@ subprocess.CalledProcessError: Command '['D:\\VisionFlow\\VisionFlow_Bakend\\ven
   Public Video URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/03ee2c14-fd8a-469c-882e-29d8e487f476/exports/final.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fd28f47a855e5f2097d5f8c24c50da70%2F20260924%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260924T164412Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=56c9bb9a3e2ba4e22485534269f35ddbac984c48fb1cc23475a4cd58ce07afcd
 [DB] Auto-Publish OFF: Workflow 03ee2c14-fd8a-469c-882e-29d8e487f476 -> APPROVAL_PENDING (Ready for Studio review)!
 
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'Göbeklitepe's First Burials May Explain 928 Scattered Human Bones' (ID: a2e087a5-e194-4936-bf4c-92e2b4616244)
+=======================================================
+  [Studio Sync] Voice: edge-nam-minh
+  [Studio Sync] Logo Handle: @GocChiemNghiemYuuBin (Pos: top_left)
+  [Studio Sync] Captions Preset: hormozi (Font: Montserrat, Color: #FFFF00)
+  [Studio Sync] Title Banner: Göbeklitepe's First Burials May Explain 928 Scattered Human Bones (Style: neon)
+  [Studio Sync] BGM: Preset='Auto', Vol=0.12
+  [Studio Sync] Visual Engine: fal_ai
+  [Studio Sync] Scene Count: 8
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: a2e087a5-e194-4936-bf4c-92e2b4616244
+=================================================================
+[Modal] 📜 Normalized Vietnamese script (1345 chars): 'Göbeklitepe had 928 scattered human bone fragments, but almo...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=vi-VN-NamMinhNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (1345 chars -> 1345 chars)
+[Modal] 🎯 Extracted 12 word-level timestamps from Edge TTS for Karaoke sync!
+[Modal] 📐 Canvas Format: Aspect=9:16 -> Resolution=1080x1920 @ 60 FPS (CRF 18 Broadcast Profile)
+[Modal] 🟨 Created Pixel-Perfect Title Banner Card (NEON)!
+[Modal] 🟢 Created Pixel-Perfect Logo Pill (@GocChiemNghiemYuuBin) at pos=top_left (18.0%, 6.0%)!
+[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!
+[Modal] 🎬 Created Frosted-Glass Outro Card Overlay for Video Outro!
+[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for 8 visual scenes...
+[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: 76.3s): [4.24, 8.12, 8.12, 9.53, 11.3, 13.07, 10.24, 11.65]
+[MicroWorker 1] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/30503895/13069325_540_...
+[MicroWorker 3] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/15283135/15283135-hd_7...
+[MicroWorker 0] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/12091432/12091432-hd_7...
+[MicroWorker 2] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/9464698/9464698-hd_720...
+[MicroWorker 4] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/18069863/18069863-uhd_...
+[MicroWorker 5] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/19049398/19049398-hd_1...
+[MicroWorker 6] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/8322283/8322283-uhd_14...
+[MicroWorker 7] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/4837453/4837453-hd_720...
+[Modal] ⚡ Applied 30+ Cinematic XFade Transitions across 8 scenes with auto SFX sync!
+[Modal] 🎵 Auto-resolving BGM track 'Clean Soul' (ref: bgm_philosophy_clean_soul.mp3) for genre [PHILOSOPHY_LIFE_LESSON]...
+[Modal] ✅ Multi-Tier BGM Active: 'Clean Soul' (12271405 bytes, gain: 0.12)!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'whoosh_fast' (whoosh_fast.mp3) at 3.8s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'swoosh_quick_air' (swoosh_quick_air.mp3) at 11.5s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'whoosh_fast' (whoosh_fast.mp3) at 19.2s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'whoosh_cinematic_deep' (whoosh_cinematic_deep.mp3) at 28.4s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'whoosh_fast' (whoosh_fast.mp3) at 39.2s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'swoosh_quick_air' (swoosh_quick_air.mp3) at 51.9s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'cinematic_hit' (cinematic_hit.mp3) at 61.6s!
+[Modal] ✅ Video render complete! Export path: D:/tmp/a2e087a5-e194-4936-bf4c-92e2b4616244/final_output.mp4
+[Modal Quality Gate] Evaluation Result: {'passed': True, 'score': 99, 'metrics': {'size_bytes': 97300546, 'actual_duration': 76.767, 'resolution': '1080x1920', 'fps': 60}}
+[Modal] ☁️ Uploading rendered video to R2 (vision-flow/visionflow/a2e087a5-e194-4936-bf4c-92e2b4616244/exports/final.mp4)...
+[Modal] ✅ R2 Upload complete: vision-flow/visionflow/a2e087a5-e194-4936-bf4c-92e2b4616244/exports/final.mp4
+[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 (https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev/workflows/a2e087a5-e194-4936-bf4c-92e2b4616244/cover.jpg)!
+[Modal] 💾 Successfully saved MediaAsset & registered APPROVAL_PENDING in DB for workflow a2e087a5-e194-4936-bf4c-92e2b4616244!
+
+[SUCCESS] OFFICIAL RENDER COMPLETE FOR a2e087a5-e194-4936-bf4c-92e2b4616244!
+  Output Object Key: visionflow/a2e087a5-e194-4936-bf4c-92e2b4616244/exports/final.mp4
+  Public Video URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/a2e087a5-e194-4936-bf4c-92e2b4616244/exports/final.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fd28f47a855e5f2097d5f8c24c50da70%2F20260924%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260924T175647Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=9f2e0ac717ec910bf7517d74a24df5b3c56c86862f3a25cca6d50f63f49380aa
+[DB] Auto-Publish OFF: Workflow a2e087a5-e194-4936-bf4c-92e2b4616244 -> APPROVAL_PENDING (Ready for Studio review)!
+

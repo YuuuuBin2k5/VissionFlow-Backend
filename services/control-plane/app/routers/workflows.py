@@ -1943,6 +1943,61 @@ def _process_publication_attempt_in_background(
                 except Exception as _dt_err:
                     _bg_logger.warning("Could not parse scheduled_at_iso %r: %s", scheduled_at_iso, _dt_err)
 
+            # ---- 7b. Resolve high-quality thumbnail (JPG) --------------------
+            thumb_path = Path(tmpdir) / "thumbnail.jpg"
+            has_thumbnail = False
+
+            # Priority 1: Check AutomationJob.selected_thumbnail_url (JPEG/PNG only)
+            try:
+                from app.infrastructure.models import AutomationJob
+                auto_job = session.scalar(
+                    select(AutomationJob).where(AutomationJob.production_run_id == workflow_run_id)
+                )
+                if auto_job and auto_job.selected_thumbnail_url:
+                    sel_url = auto_job.selected_thumbnail_url
+                    if not sel_url.lower().endswith(".svg"):
+                        if sel_url.startswith("http://") or sel_url.startswith("https://"):
+                            thumb_resp = http_session.get(sel_url, timeout=(5, 30))
+                            if thumb_resp.status_code == 200 and len(thumb_resp.content) > 1000:
+                                with open(thumb_path, "wb") as tf:
+                                    tf.write(thumb_resp.content)
+                                has_thumbnail = True
+                                _bg_logger.info("Using AI thumbnail from URL: %s", sel_url)
+            except Exception as _thumb_fetch_err:
+                _bg_logger.warning("Could not fetch selected thumbnail: %s", _thumb_fetch_err)
+
+            # Priority 2: Extract pristine golden frame at 1.5s from MP4 via FFmpeg
+            if not has_thumbnail:
+                try:
+                    import subprocess
+                    import shutil
+
+                    ffmpeg_bin = shutil.which("ffmpeg")
+                    if not ffmpeg_bin:
+                        try:
+                            import imageio_ffmpeg
+                            ffmpeg_bin = imageio_ffmpeg.get_ffmpeg_exe()
+                        except Exception:
+                            ffmpeg_bin = None
+
+                    if ffmpeg_bin and mp4_path.exists():
+                        cmd = [
+                            ffmpeg_bin, "-y",
+                            "-ss", "00:00:01.500",
+                            "-i", str(mp4_path),
+                            "-vframes", "1",
+                            "-q:v", "2",
+                            str(thumb_path),
+                        ]
+                        sub_res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20)
+                        if sub_res.returncode == 0 and thumb_path.exists() and thumb_path.stat().st_size > 1000:
+                            has_thumbnail = True
+                            _bg_logger.info("Extracted crisp frame thumbnail via FFmpeg: %d bytes", thumb_path.stat().st_size)
+                        else:
+                            _bg_logger.warning("FFmpeg frame extraction returned code %s", sub_res.returncode)
+                except Exception as _ff_err:
+                    _bg_logger.warning("FFmpeg frame extraction failed: %s", _ff_err)
+
             uploader = YouTubeResumableUploader(http_session)
             result = uploader.upload(
                 access_token=token.value,
@@ -1959,6 +2014,7 @@ def _process_publication_attempt_in_background(
                     embeddable=True,
                     license="youtube",
                 ),
+                thumbnail_path=thumb_path if has_thumbnail else None,
             )
             _bg_logger.info(
                 "YouTube upload succeeded: video_id=%s url=%s",
@@ -2065,6 +2121,151 @@ def _process_publication_attempt_in_background(
                 session.close()
             except Exception:
                 pass
+
+
+class SetYouTubeThumbnailRequest(BaseModel):
+    organization_id: uuid.UUID
+    thumbnail_url: str | None = None
+
+
+@router.post(
+    "/workflows/{workflow_run_id}/publication/youtube-set-thumbnail",
+    summary="Update or set custom thumbnail for an already published YouTube video",
+)
+def set_youtube_thumbnail_endpoint(
+    workflow_run_id: uuid.UUID,
+    request: SetYouTubeThumbnailRequest,
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> dict:
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject, request.organization_id, Permission.PUBLISH_EXECUTE
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+
+    # 1. Resolve external_video_id and publisher_connection_id
+    attempt = session.scalar(
+        select(PublicationAttempt)
+        .where(PublicationAttempt.workflow_run_id == workflow_run_id)
+        .order_by(PublicationAttempt.attempt_number.desc())
+    )
+    external_video_id = attempt.external_video_id if attempt else None
+    conn_id = attempt.publisher_connection_id if attempt else None
+
+    if not external_video_id:
+        publish_step = session.scalar(
+            select(WorkflowStep).where(
+                WorkflowStep.workflow_run_id == workflow_run_id,
+                WorkflowStep.step_key == "publish",
+            )
+        )
+        if publish_step and isinstance(publish_step.output_payload, dict):
+            external_video_id = publish_step.output_payload.get("external_video_id")
+            c_str = publish_step.output_payload.get("publisher_connection_id")
+            if c_str:
+                conn_id = uuid.UUID(str(c_str))
+
+    if not external_video_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No YouTube video found for this workflow")
+
+    connection = None
+    if conn_id:
+        connection = session.get(PublisherConnection, conn_id)
+    if not connection or not connection.encrypted_refresh_token:
+        connection = session.scalar(
+            select(PublisherConnection).where(
+                PublisherConnection.organization_id == request.organization_id,
+                PublisherConnection.provider == "youtube",
+                PublisherConnection.status == "active",
+            )
+        )
+    if not connection or not connection.encrypted_refresh_token:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No active YouTube connection found")
+
+    import requests as _requests_mod
+    from app.application.youtube_access_token import YouTubeAccessTokenRefresher
+    from app.core.publisher_token_cipher import PublisherTokenCipher
+    from app.core.youtube_publisher import YouTubePublisherSettings
+    from app.core.youtube_resumable_uploader import YouTubeResumableUploader
+    from app.infrastructure.overlay_uploads import PrivateObjectPreviewIssuer
+
+    http_session = _requests_mod.Session()
+    cipher = PublisherTokenCipher.from_env()
+    settings = YouTubePublisherSettings.from_env()
+    refresher = YouTubeAccessTokenRefresher(http_session, cipher, settings)
+    token = refresher.refresh(connection.encrypted_refresh_token)
+
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmpdir:
+        thumb_path = Path(tmpdir) / "thumbnail.jpg"
+        has_thumb = False
+
+        # Priority 1: request.thumbnail_url if provided and not .svg
+        if request.thumbnail_url and not request.thumbnail_url.lower().endswith(".svg"):
+            try:
+                r = http_session.get(request.thumbnail_url, timeout=(5, 30))
+                if r.status_code == 200 and len(r.content) > 1000:
+                    with open(thumb_path, "wb") as f:
+                        f.write(r.content)
+                    has_thumb = True
+            except Exception as _e:
+                _bg_logger.warning("Download custom thumbnail url failed: %s", _e)
+
+        # Priority 2: Extract frame from final.mp4 in R2
+        if not has_thumb:
+            export_asset = session.scalar(
+                select(MediaAsset).where(
+                    MediaAsset.workflow_run_id == workflow_run_id,
+                    MediaAsset.media_kind.in_(["final_export", "video", "rendered_video", "export"]),
+                )
+            )
+            if export_asset:
+                mp4_path = Path(tmpdir) / "final.mp4"
+                _preview_issuer = PrivateObjectPreviewIssuer.from_env()
+                r2_key = _preview_issuer.resolve_r2_key(workflow_run_id, export_asset.object_key)
+                try:
+                    if r2_key.startswith("http://") or r2_key.startswith("https://"):
+                        dl = http_session.get(r2_key, stream=True, timeout=(10, 120))
+                        dl.raise_for_status()
+                        with open(mp4_path, "wb") as fh:
+                            for chunk in dl.iter_content(chunk_size=1024 * 1024):
+                                fh.write(chunk)
+                    else:
+                        _preview_issuer._client.download_file(_preview_issuer._bucket, r2_key, str(mp4_path))
+                    
+                    import subprocess
+                    import shutil
+                    ffmpeg_bin = shutil.which("ffmpeg")
+                    if not ffmpeg_bin:
+                        try:
+                            import imageio_ffmpeg
+                            ffmpeg_bin = imageio_ffmpeg.get_ffmpeg_exe()
+                        except Exception:
+                            ffmpeg_bin = None
+                    if ffmpeg_bin and mp4_path.exists():
+                        cmd = [ffmpeg_bin, "-y", "-ss", "00:00:01.500", "-i", str(mp4_path), "-vframes", "1", "-q:v", "2", str(thumb_path)]
+                        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20)
+                        if res.returncode == 0 and thumb_path.exists() and thumb_path.stat().st_size > 1000:
+                            has_thumb = True
+                except Exception as _mp4_err:
+                    _bg_logger.warning("Download or ffmpeg extract failed: %s", _mp4_err)
+
+        if not has_thumb or not thumb_path.exists():
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Could not extract or download a valid thumbnail image")
+
+        uploader = YouTubeResumableUploader(http_session)
+        success = uploader.set_thumbnail(token.value, external_video_id, thumb_path)
+        if not success:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="YouTube rejected thumbnail upload (check if channel has phone verification for custom thumbnails)")
+
+    return {
+        "success": True,
+        "video_id": external_video_id,
+        "video_url": f"https://www.youtube.com/watch?v={external_video_id}",
+        "message": "Thumbnail đã được gắn thành công lên video YouTube!",
+    }
 
 
 @router.post(

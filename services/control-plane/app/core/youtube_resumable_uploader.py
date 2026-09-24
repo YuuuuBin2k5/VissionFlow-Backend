@@ -52,11 +52,69 @@ class YouTubeResumableUploader:
         access_token: str,
         video_path: Path,
         metadata: YouTubeUploadMetadata,
+        thumbnail_path: Optional[Path] = None,
     ) -> YouTubeUploadResult:
         uri = self._initiate_resumable_upload(access_token, video_path, metadata)
         video_id = self._stream_file(uri, access_token, video_path)
         url = f"https://www.youtube.com/watch?v={video_id}"
+        if thumbnail_path and thumbnail_path.exists():
+            try:
+                self.set_thumbnail(access_token, video_id, thumbnail_path)
+            except Exception as thumb_err:
+                logger.warning("Failed to set thumbnail for %s: %s", video_id, thumb_err)
         return YouTubeUploadResult(video_id=video_id, url=url)
+
+    def set_thumbnail(
+        self,
+        access_token: str,
+        video_id: str,
+        image_path: Path,
+    ) -> bool:
+        """
+        Upload and set a custom thumbnail for an existing YouTube video.
+        
+        Reference: https://developers.google.com/youtube/v3/docs/thumbnails/set
+        Endpoint: POST https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId={videoId}
+        Supported formats: image/jpeg, image/png (max 2MB)
+        """
+        if not image_path.exists():
+            logger.warning("Thumbnail file does not exist: %s", image_path)
+            return False
+
+        content_type = "image/jpeg"
+        if image_path.suffix.lower() == ".png":
+            content_type = "image/png"
+
+        url = f"https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId={video_id}"
+        file_size = image_path.stat().st_size
+        logger.info(
+            "Uploading custom thumbnail for YouTube video %s (%d bytes, %s)",
+            video_id, file_size, content_type
+        )
+
+        with open(image_path, "rb") as fh:
+            image_data = fh.read()
+
+        resp = self._session.post(
+            url,
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": content_type,
+            },
+            data=image_data,
+            timeout=(15, 60),
+        )
+
+        if resp.status_code in (200, 201):
+            logger.info("Successfully set custom thumbnail for YouTube video %s!", video_id)
+            return True
+        else:
+            logger.warning(
+                "YouTube set_thumbnail returned %s: %s (Note: channel may need phone verification for custom thumbnails)",
+                resp.status_code,
+                resp.text[:300],
+            )
+            return False
 
     def _build_resource(self, metadata: YouTubeUploadMetadata) -> dict:
         status: dict = {"privacyStatus": metadata.privacy_status}
