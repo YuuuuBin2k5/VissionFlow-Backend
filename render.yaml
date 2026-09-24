@@ -8,7 +8,7 @@ services:
     region: singapore
     plan: free
     dockerfilePath: services/control-plane/Dockerfile
-    dockerCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    dockerCommand: sh entrypoint.sh
     healthCheckPath: /api/v1/health
     # Render Free does not support preDeployCommand. Run the one-time Alembic
     # migration from a trusted local machine before registering the first user.
@@ -21,6 +21,20 @@ services:
         sync: false
       - key: MIGRATION_DATABASE_URL
         sync: false
+      - key: VISIONFLOW_TAILSCALE_ENABLED
+        value: "false"
+      - key: VISIONFLOW_TRUST_LOCAL_DB_PROXY
+        value: "false"
+      - key: TAILSCALE_AUTHKEY
+        sync: false
+      - key: TAILSCALE_HOSTNAME
+        value: visionflow-render
+      - key: TAILSCALE_TAGS
+        value: tag:visionflow-render
+      - key: VISIONFLOW_TAILSCALE_DB_HOST
+        value: visionflow-db
+      - key: VISIONFLOW_TAILSCALE_DB_PORT
+        value: "5432"
       - key: REDIS_URL
         sync: false
       - key: VISIONFLOW_WEB_ORIGINS

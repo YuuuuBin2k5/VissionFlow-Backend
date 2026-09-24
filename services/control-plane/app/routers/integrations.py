@@ -22,6 +22,8 @@ from app.core.oidc import VerifiedIdentity
 from app.core.publisher_oauth_state import issue_state, verify_state
 from app.core.publisher_token_cipher import PublisherTokenCipher
 from app.core.youtube_publisher import YouTubePublisherSettings
+from app.core.tiktok_publisher import TikTokPublisherSettings
+from app.services.tiktok_api_client import TikTokApiClient, TikTokApiException
 from app.domain.authorization import Permission
 from app.domain.workflow import WorkflowState
 from app.infrastructure.database import get_session
@@ -47,7 +49,13 @@ from app.routers.auth import require_identity
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 
 class OAuthStartResponse(BaseModel): authorization_url: str
-class PublisherConnectionResponse(BaseModel): id: uuid.UUID; provider: str; provider_account_id: str; display_name: str; status: str
+class PublisherConnectionResponse(BaseModel):
+    id: uuid.UUID
+    provider: str
+    provider_account_id: str
+    display_name: str
+    status: str
+    scopes: dict | None = None
 class YouTubePublishManifest(BaseModel): workflow_run_id: uuid.UUID; publisher_connection_id: uuid.UUID; title: str; description: str; tags: list[str] = []; hashtags: list[str] = []; pinned_comment: str | None = None; metadata_sources: dict[str, str] = {}; artifact_download_url: str; artifact_expires_in_seconds: int; artifact_byte_size: int; artifact_checksum_sha256: str; access_token: str; access_token_expires_in_seconds: int; scheduled_at_iso: str | None = None; publish_at_iso: str | None = None
 class CompleteYouTubePublishRequest(BaseModel): organization_id: uuid.UUID; publisher_connection_id: uuid.UUID; video_id: str; video_url: str
 class FailYouTubePublishRequest(BaseModel): organization_id: uuid.UUID; publisher_connection_id: uuid.UUID; failure_code: str
@@ -58,6 +66,39 @@ class CompletePublicationAttemptRequest(BaseModel): organization_id: uuid.UUID; 
 class FailPublicationAttemptRequest(BaseModel): organization_id: uuid.UUID; publisher_connection_id: uuid.UUID; lease_token: str; failure_code: str
 class FailPublicationAttemptTerminalRequest(BaseModel): organization_id: uuid.UUID; failure_code: str
 
+class MultiPublishTarget(BaseModel):
+    publisher_connection_id: uuid.UUID
+    platform: str = "tiktok"  # "tiktok" | "youtube"
+    post_mode: str = "DIRECT_POST"  # "DIRECT_POST" | "SHARE_TO_DRAFT"
+    privacy_level: str = "PUBLIC_TO_EVERYONE"  # "PUBLIC_TO_EVERYONE" | "MUTUAL_FOLLOW_FRIENDS" | "SELF_ONLY"
+    title: str | None = None
+    description: str | None = None
+    hashtags: list[str] = []
+    disable_comment: bool = False
+    disable_duet: bool = False
+    disable_stitch: bool = False
+    is_aigc: bool = True
+
+class MultiPublishRequest(BaseModel):
+    organization_id: uuid.UUID
+    workflow_run_id: uuid.UUID
+    targets: list[MultiPublishTarget]
+    note: str | None = None
+
+class MultiPublishTargetResult(BaseModel):
+    publisher_connection_id: uuid.UUID
+    platform: str
+    display_name: str
+    status: str  # "success" | "publishing" | "failed"
+    external_video_id: str | None = None
+    external_url: str | None = None
+    error_message: str | None = None
+
+class MultiPublishResponse(BaseModel):
+    workflow_run_id: uuid.UUID
+    results: list[MultiPublishTargetResult]
+
+
 @router.get("/publisher-connections", response_model=list[PublisherConnectionResponse])
 def list_publisher_connections(organization_id: uuid.UUID, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> list[PublisherConnectionResponse]:
     try:
@@ -65,7 +106,17 @@ def list_publisher_connections(organization_id: uuid.UUID, identity: VerifiedIde
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail="Organization permission denied") from exc
     rows = session.scalars(select(PublisherConnection).where(PublisherConnection.organization_id == organization_id).order_by(PublisherConnection.created_at.desc())).all()
-    return [PublisherConnectionResponse(id=row.id, provider=row.provider, provider_account_id=row.provider_account_id, display_name=row.display_name, status=row.status) for row in rows]
+    return [
+        PublisherConnectionResponse(
+            id=row.id,
+            provider=row.provider,
+            provider_account_id=row.provider_account_id,
+            display_name=row.display_name,
+            status=row.status,
+            scopes=row.scopes if isinstance(row.scopes, dict) else None,
+        )
+        for row in rows
+    ]
 
 @router.post("/youtube/oauth/start", response_model=OAuthStartResponse)
 def start_youtube_oauth(organization_id: uuid.UUID, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> OAuthStartResponse:
@@ -80,6 +131,59 @@ def start_youtube_oauth(organization_id: uuid.UUID, identity: VerifiedIdentity =
         raise HTTPException(status_code=503, detail="YouTube integration is unavailable") from exc
     query = urlencode({"client_id":settings.client_id,"redirect_uri":settings.redirect_uri,"response_type":"code","scope":"https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly","access_type":"offline","prompt":"consent","state":state})
     return OAuthStartResponse(authorization_url=f"https://accounts.google.com/o/oauth2/v2/auth?{query}")
+
+
+@router.post("/tiktok/oauth/start", response_model=OAuthStartResponse)
+def start_tiktok_oauth(organization_id: uuid.UUID, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> OAuthStartResponse:
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.PUBLISH_EXECUTE, identity.email)
+        settings = TikTokPublisherSettings.from_env()
+        state, digest, expires = issue_state(organization_id, identity.subject)
+        PublisherOAuthAttemptRepository(session).create(organization_id=organization_id, provider="tiktok", state_digest=digest, requested_by_subject=identity.subject, expires_at=datetime.fromtimestamp(expires, UTC))
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail="Organization permission denied") from exc
+    except (ConfigurationError, ValueError) as exc:
+        raise HTTPException(status_code=503, detail="TikTok integration is unavailable") from exc
+    query = urlencode({"client_key": settings.client_key, "scope": "user.info.basic,video.publish,video.upload", "response_type": "code", "redirect_uri": settings.redirect_uri, "state": state})
+    return OAuthStartResponse(authorization_url=f"https://www.tiktok.com/v2/auth/authorize/?{query}")
+
+
+@router.get("/tiktok/oauth/callback")
+def complete_tiktok_oauth(code: str, state: str, session: Session = Depends(get_session)) -> RedirectResponse:
+    try:
+        payload = verify_state(state)
+        organization_id = uuid.UUID(str(payload["o"]))
+        subject = str(payload["s"])
+        nonce_digest = __import__("hashlib").sha256(str(payload["n"]).encode()).hexdigest()
+        PublisherOAuthAttemptRepository(session).consume(organization_id=organization_id, provider="tiktok", state_digest=nonce_digest, requested_by_subject=subject)
+        settings = TikTokPublisherSettings.from_env()
+        client = TikTokApiClient()
+        tokens = client.exchange_authorization_code(code=code, client_key=settings.client_key, client_secret=settings.client_secret, redirect_uri=settings.redirect_uri)
+        refresh_token = tokens.get("refresh_token")
+        access_token = tokens.get("access_token")
+        open_id = tokens.get("open_id") or "unknown_tiktok_user"
+        if not isinstance(refresh_token, str) or not isinstance(access_token, str):
+            raise ValueError("TikTok did not return valid OAuth tokens.")
+
+        try:
+            user_info = client.get_user_info(access_token)
+        except Exception:
+            user_info = {}
+
+        display_name = user_info.get("display_name") or user_info.get("username") or f"TikTok Creator (@{open_id[:8]})"
+        scopes = {"granted": tokens.get("scope", "user.info.basic,video.publish,video.upload"), "avatar_url": user_info.get("avatar_url", ""), "username": user_info.get("username", "")}
+
+        connection = session.scalar(select(PublisherConnection).where(PublisherConnection.organization_id == organization_id, PublisherConnection.provider == "tiktok", PublisherConnection.provider_account_id == open_id))
+        encrypted = PublisherTokenCipher.from_env().encrypt(refresh_token)
+        if connection is None:
+            session.add(PublisherConnection(organization_id=organization_id, provider="tiktok", provider_account_id=open_id, display_name=display_name, encrypted_refresh_token=encrypted, scopes=scopes, status="active", connected_by_subject=subject))
+        else:
+            connection.display_name, connection.encrypted_refresh_token, connection.scopes, connection.status, connection.connected_by_subject = display_name, encrypted, scopes, "active", subject
+        session.commit()
+    except Exception as exc:
+        session.rollback()
+        raise HTTPException(status_code=400, detail=f"TikTok connection could not be completed: {exc!s}") from exc
+    return RedirectResponse(_console_callback_url("tiktok_oauth=connected"), status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.get("/youtube/oauth/callback")
@@ -117,12 +221,211 @@ def complete_youtube_oauth(code: str, state: str, session: Session = Depends(get
     return RedirectResponse(_console_callback_url(), status_code=status.HTTP_303_SEE_OTHER)
 
 
-def _console_callback_url() -> str:
+def _console_callback_url(param: str = "youtube_oauth=connected") -> str:
     """Return a configured console origin only; never trust a browser redirect parameter."""
     origins = [value.strip().rstrip("/") for value in (getenv("VISIONFLOW_WEB_ORIGINS") or "").split(",") if value.strip()]
-    if not origins or not origins[0].startswith("https://"):
-        raise ConfigurationError("VISIONFLOW_WEB_ORIGINS must contain an HTTPS console origin")
-    return f"{origins[0]}/?youtube_oauth=connected"
+    if origins and (origins[0].startswith("https://") or origins[0].startswith("http://")):
+        return f"{origins[0]}/?{param}"
+    return f"http://localhost:5173/?{param}"
+
+
+@router.post("/multi-publish", response_model=MultiPublishResponse)
+def dispatch_multi_publish(
+    request: MultiPublishRequest,
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session)
+) -> MultiPublishResponse:
+    """
+    Điều phối xuất bản đa nền tảng (TikTok + YouTube) cho một video đã duyệt.
+    Hỗ trợ tích chọn đồng thời nhiều kênh và các chế độ Direct Post / Share to Draft.
+    """
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject, request.organization_id, Permission.PUBLISH_EXECUTE, identity.email
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail="Organization permission denied") from exc
+
+    workflow = session.scalar(
+        select(WorkflowRun)
+        .join(VideoProject)
+        .where(VideoProject.organization_id == request.organization_id, WorkflowRun.id == request.workflow_run_id)
+    )
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow run not found")
+
+    project = session.get(VideoProject, workflow.project_id)
+    video_title = (project.title if project else "Video")
+
+    # Lấy video URL
+    artifact = session.scalar(
+        select(MediaAsset).where(
+            MediaAsset.organization_id == request.organization_id,
+            MediaAsset.workflow_run_id == workflow.id,
+            MediaAsset.media_kind == "final_export",
+        )
+    )
+    download_url = None
+    if artifact:
+        try:
+            preview = PrivateObjectPreviewIssuer.from_env().issue_final_export(workflow_run_id=workflow.id, object_key=artifact.object_key)
+            download_url = preview.download_url
+        except Exception:
+            download_url = artifact.object_key if str(artifact.object_key).startswith("http") else None
+
+    # Fallback to output_payload of render/publish steps if not found in MediaAsset
+    if not download_url:
+        render_step = session.scalar(
+            select(WorkflowStep).where(
+                WorkflowStep.workflow_run_id == workflow.id,
+                WorkflowStep.step_key.in_(["render", "dubbing", "publish", "composition"])
+            ).order_by(WorkflowStep.created_at.desc())
+        )
+        if render_step and isinstance(render_step.output_payload, dict):
+            download_url = (
+                render_step.output_payload.get("download_url")
+                or render_step.output_payload.get("video_url")
+                or render_step.output_payload.get("output_url")
+                or render_step.output_payload.get("artifact_url")
+            )
+
+    results: list[MultiPublishTargetResult] = []
+
+    for target in request.targets:
+        connection = session.scalar(
+            select(PublisherConnection).where(
+                PublisherConnection.id == target.publisher_connection_id,
+                PublisherConnection.organization_id == request.organization_id,
+                PublisherConnection.status == "active",
+            )
+        )
+        if not connection:
+            results.append(
+                MultiPublishTargetResult(
+                    publisher_connection_id=target.publisher_connection_id,
+                    platform=target.platform,
+                    display_name=f"Channel {str(target.publisher_connection_id)[:8]}",
+                    status="failed",
+                    error_message="Kênh chưa được kết nối hoặc đã bị vô hiệu hóa.",
+                )
+            )
+            continue
+
+        target_title = target.title or video_title
+        if target.hashtags:
+            hashtag_str = " ".join([h if h.startswith("#") else f"#{h}" for h in target.hashtags])
+            target_caption = f"{target_title} {hashtag_str}".strip()
+        else:
+            target_caption = target_title
+
+        # Xử lý theo Platform
+        if connection.provider.lower() == "tiktok":
+            # Cách 1: TikTok Content Posting API
+            try:
+                cipher = PublisherTokenCipher.from_env()
+                refresh_tok = cipher.decrypt(connection.encrypted_refresh_token)
+                settings = TikTokPublisherSettings.from_env()
+                client = TikTokApiClient()
+
+                # Làm mới token
+                tokens = client.refresh_access_token(
+                    refresh_token=refresh_tok,
+                    client_key=settings.client_key,
+                    client_secret=settings.client_secret,
+                )
+                act = tokens.get("access_token")
+
+                if not download_url:
+                    raise ValueError("Không tìm thấy URL video công khai để gửi cho TikTok.")
+
+                # Gọi API init video
+                res = client.init_video_publish(
+                    access_token=act,
+                    video_url=download_url,
+                    title=target_caption,
+                    post_mode=target.post_mode,
+                    privacy_level=target.privacy_level,
+                    disable_comment=target.disable_comment,
+                    disable_duet=target.disable_duet,
+                    disable_stitch=target.disable_stitch,
+                    is_aigc=target.is_aigc,
+                )
+                publish_id = res.get("publish_id")
+
+                results.append(
+                    MultiPublishTargetResult(
+                        publisher_connection_id=connection.id,
+                        platform="tiktok",
+                        display_name=connection.display_name,
+                        status="success",
+                        external_video_id=publish_id,
+                        external_url="https://www.tiktok.com" if target.post_mode == "DIRECT_POST" else "tiktok://inbox",
+                    )
+                )
+            except Exception as exc:
+                results.append(
+                    MultiPublishTargetResult(
+                        publisher_connection_id=connection.id,
+                        platform="tiktok",
+                        display_name=connection.display_name,
+                        status="failed",
+                        error_message=str(exc),
+                    )
+                )
+        elif connection.provider.lower() == "youtube":
+            try:
+                workflow.state = WorkflowState.PUBLISHING.value
+                pub_step = session.scalar(
+                    select(WorkflowStep).where(
+                        WorkflowStep.workflow_run_id == workflow.id,
+                        WorkflowStep.step_key == "publish",
+                    )
+                )
+                payload = {
+                    "provider": "youtube",
+                    "publisher_connection_id": str(connection.id),
+                    "note": request.note,
+                    "title": target_title,
+                    "description": target.description or "",
+                    "hashtags": target.hashtags,
+                }
+                if pub_step:
+                    pub_step.output_payload = payload
+                    pub_step.state = "publishing"
+                else:
+                    session.add(
+                        WorkflowStep(
+                            workflow_run_id=workflow.id,
+                            step_key="publish",
+                            state="publishing",
+                            input_payload=payload,
+                            output_payload=payload,
+                        )
+                    )
+                session.commit()
+
+                results.append(
+                    MultiPublishTargetResult(
+                        publisher_connection_id=connection.id,
+                        platform="youtube",
+                        display_name=connection.display_name,
+                        status="publishing",
+                        external_url="https://studio.youtube.com",
+                    )
+                )
+            except Exception as exc:
+                results.append(
+                    MultiPublishTargetResult(
+                        publisher_connection_id=connection.id,
+                        platform="youtube",
+                        display_name=connection.display_name,
+                        status="failed",
+                        error_message=str(exc),
+                    )
+                )
+
+    return MultiPublishResponse(workflow_run_id=request.workflow_run_id, results=results)
+
 
 
 @router.get("/youtube/publish-manifests/{workflow_run_id}", response_model=YouTubePublishManifest)
@@ -454,10 +757,18 @@ def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organizatio
 
     try:
         from app.domain.caption_policy import build_high_converting_description, build_topic_hashtags
-        from app.domain.publish_metadata import append_required_attribution, resolve_publish_metadata
+        from app.domain.publish_metadata import (
+            append_required_attribution,
+            legacy_seo_to_publish_metadata,
+            resolve_publish_metadata,
+        )
     except ImportError:
         from worker.domain.caption_policy import build_high_converting_description, build_topic_hashtags
-        from worker.domain.publish_metadata import append_required_attribution, resolve_publish_metadata
+        from worker.domain.publish_metadata import (
+            append_required_attribution,
+            legacy_seo_to_publish_metadata,
+            resolve_publish_metadata,
+        )
     prompt_manifest = workflow.prompt_manifest or {} if workflow else {}
     seo_data = prompt_manifest.get("seo_tags_metadata") or {}
     if not isinstance(seo_data, dict):
@@ -471,16 +782,35 @@ def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organizatio
 
     content_metadata = workflow.input_payload.get("publish_metadata") if isinstance(workflow.input_payload, dict) else None
     if not isinstance(content_metadata, dict):
-        content_metadata = prompt_manifest.get("publish_metadata")
-    user_metadata = prompt_manifest.get("publish_metadata_user")
+        content_metadata = prompt_manifest.get("publish_metadata") if isinstance(prompt_manifest, dict) else None
+    if not isinstance(content_metadata, dict) and seo_data:
+        content_metadata = legacy_seo_to_publish_metadata(seo_data)
+
+    user_metadata = (
+        (prompt_manifest.get("publish_metadata_user") if isinstance(prompt_manifest, dict) else None)
+        or (workflow.input_payload.get("publish_metadata_user") if isinstance(workflow.input_payload, dict) else None)
+    )
     resolved = resolve_publish_metadata(
         content_metadata=content_metadata,
         user_metadata=user_metadata,
         fallback={"youtube": {"title": project.title}},
     )
     if resolved.description is None:
+        scenes_manifest = (
+            (intel_step.output_payload.get("scenes") if intel_step and isinstance(intel_step.output_payload, dict) else None)
+            or prompt_manifest.get("scenes")
+        )
+        brief_val = getattr(project, "brief", None) or prompt_manifest.get("brief")
+        channel_handle_val = prompt_manifest.get("channel_handle") or seo_data.get("channel_handle") or "@GocChiemNghiem"
+
         fallback_description = build_high_converting_description(
-            title=project.title, script=script, seo_data=seo_data, language=lang
+            title=project.title,
+            script=script,
+            seo_data=seo_data,
+            language=lang,
+            scenes=scenes_manifest if isinstance(scenes_manifest, list) else None,
+            brief=brief_val,
+            channel_handle=channel_handle_val,
         )
         resolved = resolve_publish_metadata(
             content_metadata=content_metadata,
@@ -491,8 +821,19 @@ def _issue_youtube_manifest(session: Session, workflow: WorkflowRun, organizatio
                 "hashtags": build_topic_hashtags(project.title, script, seo_data, lang),
             }},
         )
+
+    base_desc = resolved.description.value if resolved.description else ""
+    if resolved.hashtags and resolved.hashtags.value:
+        tags_to_append = [
+            tag for tag in resolved.hashtags.value
+            if tag.lower() not in base_desc.lower()
+        ]
+        if tags_to_append:
+            tags_suffix = " ".join(tags_to_append)
+            base_desc = f"{base_desc.rstrip()}\n\n{tags_suffix}" if base_desc else tags_suffix
+
     music = prompt_manifest.get("music_attribution") or seo_data.get("music_attribution") or seo_data.get("bgm_info") or seo_data.get("selected_music")
-    rich_description, attribution_issues = append_required_attribution(resolved.description.value if resolved.description else "", music)
+    rich_description, attribution_issues = append_required_attribution(base_desc, music)
     for issue in [*resolved.issues, *attribution_issues]:
         _bg_logger.warning("publish metadata %s (%s): %s", issue.code, issue.field, issue.message)
 

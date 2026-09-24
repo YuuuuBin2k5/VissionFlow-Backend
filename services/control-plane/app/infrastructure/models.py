@@ -19,12 +19,119 @@ class Timestamped:
     )
 
 
+class RenderWorker(Timestamped, Base):
+    __tablename__ = "render_workers"
+
+    worker_id: Mapped[str] = mapped_column(String(120), primary_key=True)
+    worker_type: Mapped[str] = mapped_column(String(48), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="OFFLINE")
+    platform: Mapped[str] = mapped_column(String(32), nullable=False)
+    renderer_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    ffmpeg_version: Mapped[str] = mapped_column(String(160), nullable=False)
+    capabilities: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    max_concurrent_jobs: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class RenderJob(Timestamped, Base):
+    __tablename__ = "render_jobs"
+    __table_args__ = (UniqueConstraint("idempotency_key", name="uq_render_jobs_idempotency_key"), Index("ix_render_jobs_claimable", "status", "priority", "created_at"))
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    run_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="QUEUED")
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    render_spec_version: Mapped[str] = mapped_column(String(48), nullable=False)
+    render_spec_json: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    render_input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    claimed_by_worker_id: Mapped[str | None] = mapped_column(ForeignKey("render_workers.worker_id"), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retryable: Mapped[bool] = mapped_column(nullable=False, default=True)
+    output_artifact_ref: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+
+
+class AutomationBatch(Timestamped, Base):
+    """Durable, organization-scoped request to process multiple VisionFlow JSON documents."""
+
+    __tablename__ = "automation_batches"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "idempotency_key", name="uq_automation_batches_org_idempotency"),
+        Index("ix_automation_batches_org_created", "organization_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False, default="QUEUED")
+    approval_policy: Mapped[str] = mapped_column(String(32), nullable=False, default="REVIEW_REQUIRED")
+    channel_profile_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    settings: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    requested_by_subject: Mapped[str] = mapped_column(String(512), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+
+
+class AutomationJob(Timestamped, Base):
+    """One independently retryable JSON document inside an automation batch."""
+
+    __tablename__ = "automation_jobs"
+    __table_args__ = (
+        UniqueConstraint("batch_id", "position", name="uq_automation_jobs_batch_position"),
+        Index("ix_automation_jobs_batch_state", "batch_id", "state"),
+        Index("ix_automation_jobs_run_id", "production_run_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    batch_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("automation_batches.id", ondelete="CASCADE"), nullable=False
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    state: Mapped[str] = mapped_column(String(40), nullable=False, default="QUEUED")
+    source_payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    production_run_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    error_code: Mapped[str | None] = mapped_column(String(96), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    thumbnail_urls: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    selected_thumbnail_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    scheduled_publish_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    schedule_platform: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    auto_publish_policy: Mapped[str] = mapped_column(String(32), nullable=False, default="MANUAL")
+
+
 class Organization(Timestamped, Base):
     __tablename__ = "organizations"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     slug: Mapped[str] = mapped_column(String(80), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(160), nullable=False)
+
+
+class VoiceSettings(Timestamped, Base):
+    __tablename__ = 'voice_settings'
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('organizations.id', ondelete='CASCADE'), primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    config: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+
+
+class VoiceLabSample(Timestamped, Base):
+    __tablename__ = 'voice_lab_samples'
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('organizations.id', ondelete='CASCADE'), nullable=False, index=True)
+    state: Mapped[str] = mapped_column(String(20), nullable=False, default='QUEUED')
+    request: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    result: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
 
 class User(Timestamped, Base):
@@ -590,11 +697,11 @@ class ChannelLearningMetric(Timestamped, Base):
     channel_handle: Mapped[str] = mapped_column(String(120), nullable=False)
     publication_attempt_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("publication_attempts.id", ondelete="SET NULL"), nullable=True)
     
-    views_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    completion_rate: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
-    likes_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    shares_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    average_watch_time_sec: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    views_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    completion_rate: Mapped[float] = mapped_column(Float, nullable=False, default=0.0, server_default=text("0"))
+    likes_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    shares_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    average_watch_time_sec: Mapped[float] = mapped_column(Float, nullable=False, default=0.0, server_default=text("0"))
     
-    video_metadata_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
-    ai_winning_formula: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    video_metadata_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
+    ai_winning_formula: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))

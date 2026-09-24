@@ -14,6 +14,7 @@ from app.core.config import Settings
 from app.routers import (
     ai_video,
     analytics,
+    automation_batches,
     auth,
     creative_sessions,
     credentials,
@@ -23,6 +24,7 @@ from app.routers import (
     system,
     video_vault,
     workflows,
+    voices,
 )
 
 logger = logging.getLogger(__name__)
@@ -59,6 +61,35 @@ app.include_router(ai_video.router, prefix=settings.api_prefix)
 app.include_router(dubbing.router, prefix=settings.api_prefix)
 app.include_router(video_vault.router, prefix=settings.api_prefix)
 app.include_router(analytics.router, prefix=settings.api_prefix)
+app.include_router(voices.router, prefix=settings.api_prefix)
+app.include_router(automation_batches.router, prefix=settings.api_prefix)
+
+try:
+    from production.production_controller import router as production_router, auto_production_router
+    app.include_router(production_router, prefix=settings.api_prefix)
+    app.include_router(auto_production_router, prefix=settings.api_prefix)
+except ImportError:
+    import sys
+    from pathlib import Path
+    backend_root = Path(__file__).resolve().parents[3]
+    if str(backend_root) not in sys.path:
+        sys.path.insert(0, str(backend_root))
+    from production.production_controller import router as production_router, auto_production_router
+    app.include_router(production_router, prefix=settings.api_prefix)
+    app.include_router(auto_production_router, prefix=settings.api_prefix)
+
+
+from worker.voice_system.contracts import VoiceError
+from app.routers import render_workers
+from production.remote_worker_auth import worker_scope_middleware
+
+app.include_router(render_workers.router, prefix=settings.api_prefix)
+app.middleware("http")(worker_scope_middleware)
+
+
+@app.exception_handler(VoiceError)
+async def voice_error_handler(request, exc: VoiceError):
+    return JSONResponse(status_code=422, content={'detail': str(exc)})
 
 
 # ---------------------------------------------------------------------------
@@ -121,45 +152,16 @@ async def _seed_prompt_baselines() -> None:
     engine = get_engine()
     try:
         with engine.begin() as conn:
-            logger.info("startup seed: checking prompt registry tables...")
+            logger.info("startup seed: loading organizations from migrated prompt registry...")
 
-            # ── Step 1: Create tables if they don't exist ──────────────────
-            conn.execute(sa_text("""
-                CREATE TABLE IF NOT EXISTS prompt_templates (
-                    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-                    prompt_key      VARCHAR(100) NOT NULL,
-                    name            VARCHAR(160) NOT NULL,
-                    description     TEXT NOT NULL,
-                    production_version INTEGER,
-                    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-                    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-                    CONSTRAINT uq_prompt_template_key UNIQUE (organization_id, prompt_key)
-                )
-            """))
-
-            conn.execute(sa_text("""
-                CREATE TABLE IF NOT EXISTS prompt_versions (
-                    id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                    prompt_template_id UUID NOT NULL REFERENCES prompt_templates(id) ON DELETE CASCADE,
-                    version            INTEGER NOT NULL,
-                    content            TEXT NOT NULL,
-                    config             JSONB NOT NULL DEFAULT '{}',
-                    change_note        VARCHAR(500),
-                    created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
-                    CONSTRAINT uq_prompt_version UNIQUE (prompt_template_id, version)
-                )
-            """))
-
-            logger.info("startup seed: tables ready.")
-
-            # ── Step 2: Load orgs ──────────────────────────────────────────
+            # Alembic owns all DDL. Startup only performs idempotent data
+            # seeding for organizations created after migration 0017.
             orgs = conn.execute(sa_text("SELECT id FROM organizations")).fetchall()
             if not orgs:
                 logger.info("startup seed: no organizations found, nothing to seed.")
                 return
 
-            # ── Step 3: Early-exit if all baselines already present ────────
+            # Early-exit if all baselines are already present.
             expected = len(orgs) * len(_BASELINE_PROMPTS)
             existing = conn.execute(sa_text("""
                 SELECT COUNT(*) FROM prompt_templates
@@ -170,7 +172,7 @@ async def _seed_prompt_baselines() -> None:
                 logger.info("startup seed: all %d prompt baselines already present, skipping.", existing)
                 return
 
-            # ── Step 4: Seed missing baselines ────────────────────────────
+            # Seed missing baselines without mutating schema.
             seeded = 0
             for (org_id,) in orgs:
                 for p in _BASELINE_PROMPTS:
@@ -221,11 +223,73 @@ async def _seed_prompt_baselines() -> None:
         logger.error("startup seed failed (non-fatal): %s", exc, exc_info=True)
 
 
+@app.on_event("startup")
+async def _resume_automation_batches() -> None:
+    """Resume durable automation work after Render or the local backend restarts."""
+    try:
+        await automation_batches.resume_pending_automation_jobs()
+    except Exception as exc:
+        # Alembic may intentionally run after app import in maintenance jobs.
+        logger.error("automation batch recovery failed (non-fatal): %s", exc, exc_info=True)
+
+
 def _normalize_trace_id(request_id: str | None) -> str:
     normalized = (request_id or "").replace("-", "")
     if len(normalized) == 32 and all(character in "0123456789abcdefABCDEF" for character in normalized):
         return normalized.lower()
     return uuid.uuid4().hex
+
+
+from app.core.credential_exceptions import (
+    MissingProviderCredentialError,
+    InvalidProviderCredentialError,
+)
+
+
+@app.exception_handler(MissingProviderCredentialError)
+async def missing_provider_credential_handler(request, exc: MissingProviderCredentialError):
+    request_id = request.headers.get("X-Request-ID") or request.headers.get("x-request-id")
+    trace_id = _normalize_trace_id(request_id) if request_id else uuid.uuid4().hex
+
+    return JSONResponse(
+        status_code=422,
+        content={
+            "type": "MISSING_PROVIDER_CREDENTIAL",
+            "code": "MISSING_PROVIDER_CREDENTIAL",
+            "title": "Thiếu cấu hình API Key",
+            "detail": exc.detail,
+            "message": exc.detail,
+            "provider": exc.provider,
+            "provider_display_name": exc.provider_display_name,
+            "feature_name": exc.feature_name,
+            "docs_url": exc.docs_url,
+            "action_required": "CONFIGURE_KEY",
+            "trace_id": trace_id,
+        },
+    )
+
+
+@app.exception_handler(InvalidProviderCredentialError)
+async def invalid_provider_credential_handler(request, exc: InvalidProviderCredentialError):
+    request_id = request.headers.get("X-Request-ID") or request.headers.get("x-request-id")
+    trace_id = _normalize_trace_id(request_id) if request_id else uuid.uuid4().hex
+
+    return JSONResponse(
+        status_code=422,
+        content={
+            "type": "INVALID_PROVIDER_CREDENTIAL",
+            "code": "INVALID_PROVIDER_CREDENTIAL",
+            "title": "API Key không hợp lệ hoặc bị khóa",
+            "detail": exc.detail,
+            "message": exc.detail,
+            "provider": exc.provider,
+            "provider_display_name": exc.provider_display_name,
+            "feature_name": exc.feature_name,
+            "docs_url": exc.docs_url,
+            "action_required": "UPDATE_KEY",
+            "trace_id": trace_id,
+        },
+    )
 
 
 @app.exception_handler(HTTPException)

@@ -4,7 +4,8 @@ import { encryptSecret } from './security/secretCipher';
 
 dotenv.config();
 
-const NEW_REFRESH_TOKEN = "1//0gU-SXCjyXVyDCgYIARAAGBASNwF-L9IrCAPLR7IGNBtpyoLB3HvL7AKi7C7GPIf2jsuLcO2iBD5pXq7q9zXfyORWVcFuPKh_Dio";
+const NEW_REFRESH_TOKEN = process.env.YOUTUBE_REFRESH_TOKEN || '';
+if (!NEW_REFRESH_TOKEN) throw new Error('YOUTUBE_REFRESH_TOKEN is required');
 
 async function main() {
   console.log('Testing refresh token against Google APIs...');

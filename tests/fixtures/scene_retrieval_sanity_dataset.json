@@ -1,0 +1,746 @@
+{
+  "scenes": [
+    {
+      "id": "scn_01_craftsman",
+      "source_id": "src_fixture_craftsman",
+      "start_sec": 0.0,
+      "end_sec": 4.5,
+      "duration_sec": 4.5,
+      "fingerprint": "scn_craftsman_bamboo",
+      "keyframes": [
+        "/tmp/kf_craftsman_01.jpg"
+      ],
+      "description": "An elderly Japanese artisan craftsman carefully cutting and splitting green bamboo stalks using a sharp traditional knife in a sunlit wooden workshop.",
+      "entities": [
+        {
+          "value": "craftsman",
+          "confidence": 0.95
+        },
+        {
+          "value": "bamboo",
+          "confidence": 0.98
+        },
+        {
+          "value": "knife",
+          "confidence": 0.9
+        },
+        {
+          "value": "wood workshop",
+          "confidence": 0.85
+        }
+      ],
+      "actions": [
+        {
+          "value": "cutting bamboo",
+          "confidence": 0.95
+        },
+        {
+          "value": "splitting wood",
+          "confidence": 0.9
+        },
+        {
+          "value": "crafting",
+          "confidence": 0.88
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_motion": "slow_pan",
+      "lighting": "sunlit_natural",
+      "mood": "focused",
+      "location_context": "indoor_workshop",
+      "transcript": "Selecting aged bamboo requires decades of patient observation.",
+      "technical_quality_score": 0.92
+    },
+    {
+      "id": "scn_02_tea_ceremony",
+      "source_id": "src_fixture_tea",
+      "start_sec": 0.0,
+      "end_sec": 5.0,
+      "duration_sec": 5.0,
+      "fingerprint": "scn_tea_ceremony_matcha",
+      "keyframes": [
+        "/tmp/kf_tea_01.jpg"
+      ],
+      "description": "A serene tea master pouring steaming hot green matcha tea from an iron kettle into an earthen ceramic cup.",
+      "entities": [
+        {
+          "value": "tea master",
+          "confidence": 0.92
+        },
+        {
+          "value": "kettle",
+          "confidence": 0.95
+        },
+        {
+          "value": "ceramic cup",
+          "confidence": 0.94
+        },
+        {
+          "value": "green tea",
+          "confidence": 0.96
+        }
+      ],
+      "actions": [
+        {
+          "value": "pouring tea",
+          "confidence": 0.98
+        },
+        {
+          "value": "serving beverage",
+          "confidence": 0.85
+        },
+        {
+          "value": "steaming",
+          "confidence": 0.8
+        }
+      ],
+      "shot_type": "medium_close_up",
+      "camera_motion": "static",
+      "lighting": "soft_diffused",
+      "mood": "peaceful",
+      "location_context": "traditional_tea_room",
+      "transcript": "Water at eighty degrees brings out the sweetest notes.",
+      "technical_quality_score": 0.9
+    },
+    {
+      "id": "scn_03_cyberpunk",
+      "source_id": "src_fixture_cyberpunk",
+      "start_sec": 0.0,
+      "end_sec": 6.0,
+      "duration_sec": 6.0,
+      "fingerprint": "scn_cyberpunk_neon_city",
+      "keyframes": [
+        "/tmp/kf_cyber_01.jpg"
+      ],
+      "description": "A futuristic cyberpunk metropolis with towering glowing holographic skyscrapers, flying vehicles, and neon lights reflecting on wet asphalt during heavy rain.",
+      "entities": [
+        {
+          "value": "cyberpunk city",
+          "confidence": 0.98
+        },
+        {
+          "value": "neon sign",
+          "confidence": 0.96
+        },
+        {
+          "value": "flying vehicle",
+          "confidence": 0.92
+        },
+        {
+          "value": "rain",
+          "confidence": 0.89
+        }
+      ],
+      "actions": [
+        {
+          "value": "flying through skyscrapers",
+          "confidence": 0.9
+        },
+        {
+          "value": "illuminating street",
+          "confidence": 0.85
+        },
+        {
+          "value": "raining",
+          "confidence": 0.92
+        }
+      ],
+      "shot_type": "wide_drone",
+      "camera_motion": "forward_tracking",
+      "lighting": "vibrant_neon",
+      "mood": "dark_sci_fi",
+      "location_context": "futuristic_city",
+      "transcript": "Sector seven surveillance is operating at maximum capacity.",
+      "technical_quality_score": 0.95
+    },
+    {
+      "id": "scn_04_drone_nature",
+      "source_id": "src_fixture_nature",
+      "start_sec": 0.0,
+      "end_sec": 7.0,
+      "duration_sec": 7.0,
+      "fingerprint": "scn_drone_alpine_lake",
+      "keyframes": [
+        "/tmp/kf_nature_01.jpg"
+      ],
+      "description": "A breathtaking high altitude drone shot sweeping over a misty alpine pine forest and emerald glacial mountain lake at early morning sunrise.",
+      "entities": [
+        {
+          "value": "pine forest",
+          "confidence": 0.97
+        },
+        {
+          "value": "glacial lake",
+          "confidence": 0.95
+        },
+        {
+          "value": "mountains",
+          "confidence": 0.96
+        },
+        {
+          "value": "morning mist",
+          "confidence": 0.9
+        }
+      ],
+      "actions": [
+        {
+          "value": "sweeping aerial flyover",
+          "confidence": 0.94
+        },
+        {
+          "value": "sun rising over peaks",
+          "confidence": 0.91
+        }
+      ],
+      "shot_type": "extreme_wide",
+      "camera_motion": "high_drone_sweep",
+      "lighting": "golden_hour_sunrise",
+      "mood": "majestic",
+      "location_context": "mountain_wilderness",
+      "transcript": "The valley remains untouched by modern industrial civilization.",
+      "technical_quality_score": 0.96
+    },
+    {
+      "id": "scn_05_tech_lab",
+      "source_id": "src_fixture_tech",
+      "start_sec": 0.0,
+      "end_sec": 4.0,
+      "duration_sec": 4.0,
+      "fingerprint": "scn_tech_robotic_arm",
+      "keyframes": [
+        "/tmp/kf_tech_01.jpg"
+      ],
+      "description": "A sterile semiconductor cleanroom where a high-precision robotic arm solders microchips onto a silicon motherboard wafer under blue LED illumination.",
+      "entities": [
+        {
+          "value": "robotic arm",
+          "confidence": 0.98
+        },
+        {
+          "value": "silicon wafer",
+          "confidence": 0.95
+        },
+        {
+          "value": "microchip",
+          "confidence": 0.96
+        },
+        {
+          "value": "circuit board",
+          "confidence": 0.94
+        }
+      ],
+      "actions": [
+        {
+          "value": "soldering circuit",
+          "confidence": 0.96
+        },
+        {
+          "value": "assembling hardware",
+          "confidence": 0.93
+        },
+        {
+          "value": "automated manufacturing",
+          "confidence": 0.89
+        }
+      ],
+      "shot_type": "macro",
+      "camera_motion": "slow_zoom",
+      "lighting": "cleanroom_blue_led",
+      "mood": "precise",
+      "location_context": "cleanroom_laboratory",
+      "transcript": "Nanometer alignment ensures zero defect tolerance.",
+      "technical_quality_score": 0.94
+    },
+    {
+      "id": "scn_06_corporate",
+      "source_id": "src_fixture_corporate",
+      "start_sec": 0.0,
+      "end_sec": 5.5,
+      "duration_sec": 5.5,
+      "fingerprint": "scn_corp_strategy_meeting",
+      "keyframes": [
+        "/tmp/kf_corp_01.jpg"
+      ],
+      "description": "Two business executives in tailored suits discussing quarterly financial growth metrics while pointing at an interactive glass data presentation board in a high-rise office.",
+      "entities": [
+        {
+          "value": "business executives",
+          "confidence": 0.94
+        },
+        {
+          "value": "interactive board",
+          "confidence": 0.92
+        },
+        {
+          "value": "financial chart",
+          "confidence": 0.95
+        },
+        {
+          "value": "conference room",
+          "confidence": 0.9
+        }
+      ],
+      "actions": [
+        {
+          "value": "presenting data",
+          "confidence": 0.95
+        },
+        {
+          "value": "discussing strategy",
+          "confidence": 0.91
+        },
+        {
+          "value": "analyzing metrics",
+          "confidence": 0.88
+        }
+      ],
+      "shot_type": "medium_shot",
+      "camera_motion": "subtle_drift",
+      "lighting": "bright_daylight",
+      "mood": "professional",
+      "location_context": "corporate_boardroom",
+      "transcript": "Our enterprise recurring revenue grew thirty four percent year over year.",
+      "technical_quality_score": 0.88
+    },
+    {
+      "id": "scn_07_fitness",
+      "source_id": "src_fixture_fitness",
+      "start_sec": 0.0,
+      "end_sec": 5.0,
+      "duration_sec": 5.0,
+      "fingerprint": "scn_fitness_kettlebell",
+      "keyframes": [
+        "/tmp/kf_fit_01.jpg"
+      ],
+      "description": "An energetic female athlete performing intense kettlebell swings and squats on rubber mats inside an industrial crossfit gym with chalk dust in the air.",
+      "entities": [
+        {
+          "value": "athlete",
+          "confidence": 0.96
+        },
+        {
+          "value": "kettlebell",
+          "confidence": 0.97
+        },
+        {
+          "value": "gym equipment",
+          "confidence": 0.91
+        },
+        {
+          "value": "chalk dust",
+          "confidence": 0.82
+        }
+      ],
+      "actions": [
+        {
+          "value": "kettlebell swinging",
+          "confidence": 0.97
+        },
+        {
+          "value": "squatting",
+          "confidence": 0.92
+        },
+        {
+          "value": "exercising intensely",
+          "confidence": 0.94
+        }
+      ],
+      "shot_type": "tracking_shot",
+      "camera_motion": "dynamic_lateral",
+      "lighting": "high_contrast_gym",
+      "mood": "energetic",
+      "location_context": "crossfit_gym",
+      "transcript": "Push through the final three repetitions with explosive hip drive.",
+      "technical_quality_score": 0.91
+    },
+    {
+      "id": "scn_08_temple",
+      "source_id": "src_fixture_temple",
+      "start_sec": 0.0,
+      "end_sec": 6.5,
+      "duration_sec": 6.5,
+      "fingerprint": "scn_temple_monk_walk",
+      "keyframes": [
+        "/tmp/kf_temple_01.jpg"
+      ],
+      "description": "A Buddhist monk in orange robes walking barefoot along an ancient weathered stone colonnade at sunset surrounded by burning incense and golden statues.",
+      "entities": [
+        {
+          "value": "Buddhist monk",
+          "confidence": 0.96
+        },
+        {
+          "value": "stone colonnade",
+          "confidence": 0.92
+        },
+        {
+          "value": "golden statue",
+          "confidence": 0.94
+        },
+        {
+          "value": "incense",
+          "confidence": 0.88
+        }
+      ],
+      "actions": [
+        {
+          "value": "walking mindfully",
+          "confidence": 0.94
+        },
+        {
+          "value": "praying",
+          "confidence": 0.85
+        },
+        {
+          "value": "burning incense",
+          "confidence": 0.9
+        }
+      ],
+      "shot_type": "low_angle_slow_pan",
+      "camera_motion": "slow_dolly_back",
+      "lighting": "warm_sunset_glow",
+      "mood": "spiritual",
+      "location_context": "ancient_monastery",
+      "transcript": "Inner stillness arrives when the rushing mind ceases to grasp.",
+      "technical_quality_score": 0.93
+    },
+    {
+      "id": "scn_09_underwater",
+      "source_id": "src_fixture_underwater",
+      "start_sec": 0.0,
+      "end_sec": 5.5,
+      "duration_sec": 5.5,
+      "fingerprint": "scn_underwater_sea_turtle",
+      "keyframes": [
+        "/tmp/kf_underwater_01.jpg"
+      ],
+      "description": "A majestic sea turtle gracefully swimming through turquoise ocean waters over a vibrant barrier coral reef filled with schools of tropical yellow tang fish.",
+      "entities": [
+        {
+          "value": "sea turtle",
+          "confidence": 0.98
+        },
+        {
+          "value": "coral reef",
+          "confidence": 0.97
+        },
+        {
+          "value": "tropical fish",
+          "confidence": 0.94
+        },
+        {
+          "value": "turquoise ocean",
+          "confidence": 0.95
+        }
+      ],
+      "actions": [
+        {
+          "value": "turtle swimming",
+          "confidence": 0.98
+        },
+        {
+          "value": "schooling fish",
+          "confidence": 0.9
+        },
+        {
+          "value": "floating underwater",
+          "confidence": 0.92
+        }
+      ],
+      "shot_type": "underwater_wide",
+      "camera_motion": "smooth_underwater_follow",
+      "lighting": "sun_rays_through_water",
+      "mood": "serene",
+      "location_context": "coral_ocean_reef",
+      "transcript": "Marine biodiversity flourishes along these protected barrier reefs.",
+      "technical_quality_score": 0.97
+    },
+    {
+      "id": "scn_10_hospital",
+      "source_id": "src_fixture_hospital",
+      "start_sec": 0.0,
+      "end_sec": 4.8,
+      "duration_sec": 4.8,
+      "fingerprint": "scn_hospital_surgeon_mri",
+      "keyframes": [
+        "/tmp/kf_med_01.jpg"
+      ],
+      "description": "A compassionate surgeon in blue scrubs reviewing detailed MRI brain scan slices on high-contrast medical monitors before an operation.",
+      "entities": [
+        {
+          "value": "surgeon doctor",
+          "confidence": 0.96
+        },
+        {
+          "value": "MRI scan",
+          "confidence": 0.97
+        },
+        {
+          "value": "medical monitor",
+          "confidence": 0.93
+        },
+        {
+          "value": "hospital scrubs",
+          "confidence": 0.91
+        }
+      ],
+      "actions": [
+        {
+          "value": "reviewing MRI scan",
+          "confidence": 0.97
+        },
+        {
+          "value": "diagnosing patient",
+          "confidence": 0.92
+        },
+        {
+          "value": "preparing surgery",
+          "confidence": 0.89
+        }
+      ],
+      "shot_type": "close_up_over_shoulder",
+      "camera_motion": "slow_pan_right",
+      "lighting": "clinical_fluorescent",
+      "mood": "serious",
+      "location_context": "hospital_operating_suite",
+      "transcript": "The vascular margin is clear of any arterial obstruction.",
+      "technical_quality_score": 0.89
+    },
+    {
+      "id": "scn_11_art_studio",
+      "source_id": "src_fixture_art",
+      "start_sec": 0.0,
+      "end_sec": 5.2,
+      "duration_sec": 5.2,
+      "fingerprint": "scn_art_painter_easel",
+      "keyframes": [
+        "/tmp/kf_art_01.jpg"
+      ],
+      "description": "An expressive painter blending vivid oil pigments on an oval wooden palette and applying thick textured brushstrokes onto a large canvas easel.",
+      "entities": [
+        {
+          "value": "artist painter",
+          "confidence": 0.95
+        },
+        {
+          "value": "oil palette",
+          "confidence": 0.96
+        },
+        {
+          "value": "canvas easel",
+          "confidence": 0.94
+        },
+        {
+          "value": "paint brush",
+          "confidence": 0.95
+        }
+      ],
+      "actions": [
+        {
+          "value": "mixing oil paint",
+          "confidence": 0.96
+        },
+        {
+          "value": "brushing canvas",
+          "confidence": 0.94
+        },
+        {
+          "value": "painting artwork",
+          "confidence": 0.95
+        }
+      ],
+      "shot_type": "tight_insert_shot",
+      "camera_motion": "handheld_organic",
+      "lighting": "soft_north_skylight",
+      "mood": "creative",
+      "location_context": "loft_art_studio",
+      "transcript": "Cobalt blue layered over ochre creates dramatic atmospheric depth.",
+      "technical_quality_score": 0.93
+    },
+    {
+      "id": "scn_12_night_cafe",
+      "source_id": "src_fixture_cafe",
+      "start_sec": 0.0,
+      "end_sec": 5.0,
+      "duration_sec": 5.0,
+      "fingerprint": "scn_cafe_vintage_jazz",
+      "keyframes": [
+        "/tmp/kf_cafe_01.jpg"
+      ],
+      "description": "Customers sipping cappuccino and reading books under warm amber pendant lamps in a cozy vintage brick coffeehouse with jazz music in the background.",
+      "entities": [
+        {
+          "value": "cafe patrons",
+          "confidence": 0.92
+        },
+        {
+          "value": "cappuccino coffee",
+          "confidence": 0.96
+        },
+        {
+          "value": "amber lamp",
+          "confidence": 0.91
+        },
+        {
+          "value": "brick cafe",
+          "confidence": 0.94
+        }
+      ],
+      "actions": [
+        {
+          "value": "sipping cappuccino",
+          "confidence": 0.95
+        },
+        {
+          "value": "reading book",
+          "confidence": 0.92
+        },
+        {
+          "value": "relaxing in cafe",
+          "confidence": 0.89
+        }
+      ],
+      "shot_type": "atmospheric_medium",
+      "camera_motion": "gentle_slow_pan",
+      "lighting": "warm_dim_amber",
+      "mood": "cozy",
+      "location_context": "vintage_coffeehouse",
+      "transcript": "Freshly roasted Ethiopian beans ground to medium fine.",
+      "technical_quality_score": 0.9
+    }
+  ],
+  "queries": [
+    {
+      "id": "q01",
+      "category": "entity",
+      "query": "craftsman cutting bamboo",
+      "target_scene_id": "scn_01_craftsman"
+    },
+    {
+      "id": "q02",
+      "category": "entity",
+      "query": "sea turtle swimming coral reef",
+      "target_scene_id": "scn_09_underwater"
+    },
+    {
+      "id": "q03",
+      "category": "entity",
+      "query": "robotic arm silicon circuit board",
+      "target_scene_id": "scn_05_tech_lab"
+    },
+    {
+      "id": "q04",
+      "category": "entity",
+      "query": "doctor surgeon reviewing MRI scan",
+      "target_scene_id": "scn_10_hospital"
+    },
+    {
+      "id": "q05",
+      "category": "action",
+      "query": "pouring hot green tea into ceramic cup",
+      "target_scene_id": "scn_02_tea_ceremony"
+    },
+    {
+      "id": "q06",
+      "category": "action",
+      "query": "performing intense kettlebell swings",
+      "target_scene_id": "scn_07_fitness"
+    },
+    {
+      "id": "q07",
+      "category": "action",
+      "query": "mixing oil paint on wooden palette",
+      "target_scene_id": "scn_11_art_studio"
+    },
+    {
+      "id": "q08",
+      "category": "action",
+      "query": "presenting financial growth data",
+      "target_scene_id": "scn_06_corporate"
+    },
+    {
+      "id": "q09",
+      "category": "mood_style",
+      "query": "cyberpunk neon illuminated rainy city",
+      "target_scene_id": "scn_03_cyberpunk"
+    },
+    {
+      "id": "q10",
+      "category": "mood_style",
+      "query": "peaceful misty alpine pine forest lake",
+      "target_scene_id": "scn_04_drone_nature"
+    },
+    {
+      "id": "q11",
+      "category": "mood_style",
+      "query": "spiritual buddhist monk golden temple",
+      "target_scene_id": "scn_08_temple"
+    },
+    {
+      "id": "q12",
+      "category": "mood_style",
+      "query": "warm cozy amber vintage coffeehouse cafe",
+      "target_scene_id": "scn_12_night_cafe"
+    },
+    {
+      "id": "q13",
+      "category": "multi_concept",
+      "query": "artisan splitting bamboo stalks in wooden workshop",
+      "target_scene_id": "scn_01_craftsman"
+    },
+    {
+      "id": "q14",
+      "category": "multi_concept",
+      "query": "two business executives in suits discussing revenue metrics",
+      "target_scene_id": "scn_06_corporate"
+    },
+    {
+      "id": "q15",
+      "category": "multi_concept",
+      "query": "female athlete exercising with weights in crossfit gym",
+      "target_scene_id": "scn_07_fitness"
+    },
+    {
+      "id": "q16",
+      "category": "multi_concept",
+      "query": "monk walking along ancient stone colonnade at sunset",
+      "target_scene_id": "scn_08_temple"
+    },
+    {
+      "id": "q17",
+      "category": "multi_concept",
+      "query": "colorful tropical yellow fish swimming near barrier reef",
+      "target_scene_id": "scn_09_underwater"
+    },
+    {
+      "id": "q18",
+      "category": "multi_concept",
+      "query": "artist applying textured brushstrokes on canvas easel",
+      "target_scene_id": "scn_11_art_studio"
+    },
+    {
+      "id": "q19",
+      "category": "negative_distractor",
+      "query": "astronaut walking on dusty red surface of mars",
+      "target_scene_id": null
+    },
+    {
+      "id": "q20",
+      "category": "negative_distractor",
+      "query": "medieval knight battling fire breathing dragon",
+      "target_scene_id": null
+    },
+    {
+      "id": "q21",
+      "category": "negative_distractor",
+      "query": "deep space alien starship entering hyperspace",
+      "target_scene_id": null
+    },
+    {
+      "id": "q22",
+      "category": "negative_distractor",
+      "query": "polar bear hunting seals across arctic sea ice pack",
+      "target_scene_id": null
+    }
+  ]
+}

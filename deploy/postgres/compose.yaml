@@ -1,0 +1,51 @@
+name: visionflow-postgres
+
+services:
+  postgres:
+    image: postgres:18-bookworm
+    container_name: visionflow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: visionflow
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?set POSTGRES_ADMIN_PASSWORD in deploy/postgres/.env}
+      VISIONFLOW_APP_PASSWORD: ${VISIONFLOW_APP_PASSWORD:?set VISIONFLOW_APP_PASSWORD in deploy/postgres/.env}
+      VISIONFLOW_MIGRATOR_PASSWORD: ${VISIONFLOW_MIGRATOR_PASSWORD:?set VISIONFLOW_MIGRATOR_PASSWORD in deploy/postgres/.env}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
+    command:
+      - postgres
+      - -c
+      - password_encryption=scram-sha-256
+      - -c
+      - max_connections=150
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - idle_in_transaction_session_timeout=60000
+      - -c
+      - tcp_keepalives_idle=60
+      - -c
+      - tcp_keepalives_interval=10
+      - -c
+      - tcp_keepalives_count=3
+    ports:
+      # Do not forward this port on the home router. Windows Firewall and the
+      # Tailscale grant must restrict it to the Render Tailscale node.
+      # Docker Desktop on Windows cannot reliably bind a published port to the
+      # Tailscale adapter. Keep PostgreSQL on loopback and use `tailscale serve`
+      # to forward tailnet TCP 5432 to local TCP 15432. Port 15432 stays
+      # outside Windows/Hyper-V's frequently reassigned high-port exclusions.
+      - "${VISIONFLOW_POSTGRES_BIND_IP:-127.0.0.1}:${VISIONFLOW_POSTGRES_PORT:-15432}:5432"
+    volumes:
+      - ${VISIONFLOW_POSTGRES_DATA:?set VISIONFLOW_POSTGRES_DATA in deploy/postgres/.env}:/var/lib/postgresql/18/docker
+      - ${VISIONFLOW_POSTGRES_BACKUPS:?set VISIONFLOW_POSTGRES_BACKUPS in deploy/postgres/.env}:/backups
+      - ./init/010-visionflow-roles.sh:/docker-entrypoint-initdb.d/010-visionflow-roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d visionflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 60s

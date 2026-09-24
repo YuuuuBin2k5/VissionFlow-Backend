@@ -1,0 +1,343 @@
+{
+  "ScriptPlan": [],
+  "SceneNarration": [],
+  "StoryPlan": [],
+  "VisualIntent": [],
+  "assetMatcher": [
+    {
+      "id": 11815,
+      "label": "Function",
+      "name": "resolveDynamicVideoForScene",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts"
+    },
+    {
+      "id": 11816,
+      "label": "Function",
+      "name": "resolveSmartVideoForScene",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts"
+    },
+    {
+      "id": 11817,
+      "label": "Function",
+      "name": "anonymous_109_24",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts"
+    },
+    {
+      "id": 11818,
+      "label": "Function",
+      "name": "anonymous_111_34",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts"
+    },
+    {
+      "id": 11819,
+      "label": "Function",
+      "name": "anonymous_226_32",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts"
+    },
+    {
+      "id": 11859,
+      "label": "Class",
+      "name": "PexelsLiveSearchProvider",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts"
+    },
+    {
+      "id": 11860,
+      "label": "Class",
+      "name": "AssetMatcherOrchestrator",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts"
+    },
+    {
+      "id": 11871,
+      "label": "File",
+      "name": "assetMatcher.ts",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts"
+    },
+    {
+      "id": 11883,
+      "label": "Module",
+      "name": "assetMatcher.ts",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts"
+    },
+    {
+      "id": 11897,
+      "label": "Interface",
+      "name": "SceneScriptInput",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts"
+    },
+    {
+      "id": 11898,
+      "label": "Interface",
+      "name": "VideoSearchResult",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts"
+    },
+    {
+      "id": 11909,
+      "label": "Method",
+      "name": "searchVideos",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts"
+    },
+    {
+      "id": 11910,
+      "label": "Method",
+      "name": "matchAssetsForScript",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts"
+    }
+  ],
+  "opencutBridge": [
+    {
+      "id": 11297,
+      "label": "Function",
+      "name": "resolveThematicVideoUrl",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts"
+    },
+    {
+      "id": 11298,
+      "label": "Function",
+      "name": "anonymous_131_11",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts"
+    },
+    {
+      "id": 11299,
+      "label": "Function",
+      "name": "anonymous_132_14",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts"
+    },
+    {
+      "id": 11300,
+      "label": "Function",
+      "name": "anonymous_135_23",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts"
+    },
+    {
+      "id": 11301,
+      "label": "Function",
+      "name": "anonymous_160_43",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts"
+    },
+    {
+      "id": 11302,
+      "label": "Function",
+      "name": "anonymous_163_28",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts"
+    },
+    {
+      "id": 11303,
+      "label": "Function",
+      "name": "anonymous_198_43",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts"
+    },
+    {
+      "id": 11304,
+      "label": "Function",
+      "name": "anonymous_210_26",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts"
+    },
+    {
+      "id": 11305,
+      "label": "Function",
+      "name": "anonymous_292_26",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts"
+    },
+    {
+      "id": 11306,
+      "label": "Function",
+      "name": "anonymous_301_23",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts"
+    },
+    {
+      "id": 11307,
+      "label": "Function",
+      "name": "anonymous_326_21",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts"
+    },
+    {
+      "id": 11308,
+      "label": "Function",
+      "name": "anonymous_398_42",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts"
+    },
+    {
+      "id": 11309,
+      "label": "Function",
+      "name": "anonymous_399_43",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts"
+    },
+    {
+      "id": 11310,
+      "label": "Function",
+      "name": "anonymous_400_43",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts"
+    },
+    {
+      "id": 11311,
+      "label": "Function",
+      "name": "anonymous_403_45",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts"
+    },
+    {
+      "id": 11312,
+      "label": "Function",
+      "name": "anonymous_406_14",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts"
+    },
+    {
+      "id": 11313,
+      "label": "Function",
+      "name": "anonymous_407_12",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts"
+    },
+    {
+      "id": 11314,
+      "label": "Function",
+      "name": "anonymous_408_11",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts"
+    },
+    {
+      "id": 11315,
+      "label": "Function",
+      "name": "anonymous_418_37",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts"
+    },
+    {
+      "id": 11316,
+      "label": "Function",
+      "name": "anonymous_434_29",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts"
+    }
+  ],
+  "source_repository": [],
+  "scene_repository": [],
+  "embedding_service": [],
+  "pexels": [
+    {
+      "id": 6417,
+      "label": "Function",
+      "name": "fetch_pexels_video_for_keyword",
+      "path": "VisionFlow_Bakend/modal_worker.py"
+    },
+    {
+      "id": 9503,
+      "label": "Method",
+      "name": "_search_pexels_video",
+      "path": "VisionFlow_Bakend/worker/services/asset_service.py"
+    },
+    {
+      "id": 9504,
+      "label": "Method",
+      "name": "_search_pexels_videos",
+      "path": "VisionFlow_Bakend/worker/services/asset_service.py"
+    },
+    {
+      "id": 9507,
+      "label": "Method",
+      "name": "_search_pexels_candidates",
+      "path": "VisionFlow_Bakend/worker/services/asset_service.py"
+    },
+    {
+      "id": 9511,
+      "label": "Method",
+      "name": "_choose_best_pexels_file",
+      "path": "VisionFlow_Bakend/worker/services/asset_service.py"
+    },
+    {
+      "id": 9515,
+      "label": "Method",
+      "name": "_search_pexels_image",
+      "path": "VisionFlow_Bakend/worker/services/asset_service.py"
+    },
+    {
+      "id": 9833,
+      "label": "Function",
+      "name": "test_pexels_scanned_search",
+      "path": "VisionFlow_Bakend/worker/scratch/test_splitscreen_mode.py"
+    },
+    {
+      "id": 11859,
+      "label": "Class",
+      "name": "PexelsLiveSearchProvider",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts"
+    }
+  ],
+  "asset_library": [
+    {
+      "id": 3585,
+      "label": "File",
+      "name": "local_asset_library_service.py",
+      "path": "VisionFlow_Bakend/worker/services/local_asset_library_service.py"
+    },
+    {
+      "id": 9428,
+      "label": "Module",
+      "name": "local_asset_library_service.py",
+      "path": "VisionFlow_Bakend/worker/services/local_asset_library_service.py"
+    },
+    {
+      "id": 9472,
+      "label": "Class",
+      "name": "LocalAssetLibraryService",
+      "path": "VisionFlow_Bakend/worker/services/local_asset_library_service.py"
+    },
+    {
+      "id": 9610,
+      "label": "Method",
+      "name": "__init__",
+      "path": "VisionFlow_Bakend/worker/services/local_asset_library_service.py"
+    },
+    {
+      "id": 9611,
+      "label": "Method",
+      "name": "find_video",
+      "path": "VisionFlow_Bakend/worker/services/local_asset_library_service.py"
+    },
+    {
+      "id": 9612,
+      "label": "Method",
+      "name": "reset_rotation_cache",
+      "path": "VisionFlow_Bakend/worker/services/local_asset_library_service.py"
+    },
+    {
+      "id": 9613,
+      "label": "Method",
+      "name": "_probe_video",
+      "path": "VisionFlow_Bakend/worker/services/local_asset_library_service.py"
+    },
+    {
+      "id": 9614,
+      "label": "Method",
+      "name": "_score",
+      "path": "VisionFlow_Bakend/worker/services/local_asset_library_service.py"
+    },
+    {
+      "id": 9615,
+      "label": "Method",
+      "name": "_tokens",
+      "path": "VisionFlow_Bakend/worker/services/local_asset_library_service.py"
+    },
+    {
+      "id": 9616,
+      "label": "Method",
+      "name": "_read_cache",
+      "path": "VisionFlow_Bakend/worker/services/local_asset_library_service.py"
+    },
+    {
+      "id": 9617,
+      "label": "Method",
+      "name": "_write_cache",
+      "path": "VisionFlow_Bakend/worker/services/local_asset_library_service.py"
+    },
+    {
+      "id": 9810,
+      "label": "File",
+      "name": "local_asset_library_service.py",
+      "path": "VisionFlow_Bakend/worker/services/local_asset_library_service.py"
+    }
+  ],
+  "media_storage": [],
+  "storage_adapter": [],
+  "rights": [],
+  "EditorPlan": [],
+  "ScenePlan": [],
+  "ShotPlan": [],
+  "SourceSceneRecord": [],
+  "SourceAssetRecord": []
+}

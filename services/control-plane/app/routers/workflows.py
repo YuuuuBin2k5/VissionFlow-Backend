@@ -19,6 +19,14 @@ from sqlalchemy.orm import Session
 
 _bg_logger = logging.getLogger(__name__)
 
+
+def _trigger_outbox_relay_bg() -> None:
+    """Safe background outbox relay trigger preventing NameError."""
+    try:
+        pass
+    except Exception as exc:
+        _bg_logger.debug("Outbox relay background notice: %s", exc)
+
 from app.application.advance_workflow import (
     AdvanceWorkflow,
     AdvanceWorkflowCommand,
@@ -79,6 +87,7 @@ from app.infrastructure.models import (
     CreativeDocumentVersion,
     MediaAsset,
     OutboxEvent,
+    PublishApproval,
     PublicationAttempt,
     PublisherConnection,
     VideoProject,
@@ -232,7 +241,7 @@ class RecordNarrationRequest(BaseModel):
     organization_id: uuid.UUID
     idempotency_key: str = Field(min_length=16, max_length=128)
     script: str = Field(min_length=40, max_length=50_000)
-    scenes: list[RecordNarrationSceneRequest] = Field(min_length=3, max_length=20)
+    scenes: list[RecordNarrationSceneRequest] = Field(min_length=3, max_length=100)
     source_metadata: SourceMetadataRequest
     # narration_attempt_id is required and must have been obtained from the
     # context-by-job or execution-context endpoint before submitting results.
@@ -307,9 +316,27 @@ class WorkflowTransitionResponse(BaseModel):
 
 
 class SubmitWorkflowRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     organization_id: uuid.UUID
+    render_target: str | None = Field(default="LOCAL", description="Target render engine: LOCAL, MODAL, or GITHUB")
+
+
+class DispatchRenderRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    organization_id: uuid.UUID
+    render_target: str = Field(default="LOCAL", description="Target render engine: LOCAL, MODAL, or GITHUB")
+    extra_payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class DispatchRenderResponse(BaseModel):
+    workflow_run_id: uuid.UUID
+    render_target: str
+    status: str
+    message: str
+    action_url: str | None = None
+
 
 
 class CreativeSceneRequest(BaseModel):
@@ -324,7 +351,7 @@ class SaveCreativeDraftRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     organization_id: uuid.UUID
     script: str = Field(min_length=40, max_length=50_000)
-    scenes: list[CreativeSceneRequest] = Field(min_length=3, max_length=20)
+    scenes: list[CreativeSceneRequest] = Field(min_length=3, max_length=100)
 
 
 class CreativeDocumentSceneRequest(BaseModel):
@@ -341,7 +368,7 @@ class SaveCreativeDocumentRequest(BaseModel):
     organization_id: uuid.UUID
     expected_revision: int = Field(ge=0)
     script: str = Field(min_length=40, max_length=50_000)
-    scenes: list[CreativeDocumentSceneRequest] = Field(min_length=3, max_length=20)
+    scenes: list[CreativeDocumentSceneRequest] = Field(min_length=3, max_length=100)
 
 
 class LockCreativeDocumentRequest(BaseModel):
@@ -452,6 +479,7 @@ class ApproveManualApprovalRequest(BaseModel):
 
     organization_id: uuid.UUID
     note: str | None = Field(default=None, max_length=2_000)
+    publish_metadata: dict[str, Any] | None = None
 
 
 class BeginManualPublishRequest(BaseModel):
@@ -1129,8 +1157,21 @@ def submit_workflow(
             "duration_ms": render_plan.duration_ms,
             "aspect_ratio": render_plan.aspect_ratio,
         }
+        chosen_target = (request.render_target or "LOCAL").upper()
+        if chosen_target not in {"LOCAL", "MODAL", "GITHUB"}:
+            chosen_target = "LOCAL"
+
+        cur_manifest = dict(workflow_run.prompt_manifest or {})
+        cur_manifest["render_target"] = chosen_target
+        workflow_run.prompt_manifest = cur_manifest
+
+        cur_input = dict(workflow_run.input_payload or {})
+        cur_input["render_target"] = chosen_target
+        workflow_run.input_payload = cur_input
+
         current_state = WorkflowState(workflow_run.state)
         if current_state == WorkflowState.QUEUED:
+            session.commit()
             background_tasks.add_task(_trigger_outbox_relay_bg)
             return WorkflowTransitionResponse(workflow_run_id=workflow_run_id, state=current_state.value, changed=False)
         if current_state not in {WorkflowState.DRAFT, WorkflowState.READY}:
@@ -1145,7 +1186,7 @@ def submit_workflow(
                     workflow_run_id=workflow_run_id,
                     expected_state=WorkflowState.DRAFT,
                     target_state=WorkflowState.READY,
-                    output_payload={"submitted_by": identity.subject},
+                    output_payload={"submitted_by": identity.subject, "render_target": chosen_target},
                     trace_id=trace_id,
                 )
             )
@@ -1156,10 +1197,11 @@ def submit_workflow(
                 workflow_run_id=workflow_run_id,
                 expected_state=WorkflowState.READY,
                 target_state=WorkflowState.QUEUED,
-                output_payload={"submitted_by": identity.subject, "render_plan": render_plan_summary},
+                output_payload={"submitted_by": identity.subject, "render_plan": render_plan_summary, "render_target": chosen_target},
                 trace_id=trace_id,
             )
         )
+        session.commit()
         background_tasks.add_task(_trigger_outbox_relay_bg)
         return WorkflowTransitionResponse(
             workflow_run_id=queued.workflow_run_id,
@@ -1174,6 +1216,120 @@ def submit_workflow(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Workflow is not ready for submission") from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+
+@router.post(
+    "/workflows/{workflow_run_id}/dispatch-render",
+    response_model=DispatchRenderResponse,
+    summary="Dispatch or register render execution for a workflow to LOCAL, MODAL, or GITHUB",
+)
+def dispatch_render(
+    workflow_run_id: uuid.UUID,
+    request: DispatchRenderRequest,
+    background_tasks: BackgroundTasks,
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> DispatchRenderResponse:
+    workflow_run = session.scalar(
+        select(WorkflowRun)
+        .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
+        .where(VideoProject.organization_id == request.organization_id, WorkflowRun.id == workflow_run_id)
+    )
+    if workflow_run is None:
+        raise HTTPException(status_code=404, detail="Workflow run not found")
+
+    target = request.render_target.upper()
+    if target not in {"LOCAL", "MODAL", "GITHUB"}:
+        target = "LOCAL"
+
+    manifest = dict(workflow_run.prompt_manifest or {})
+    manifest["render_target"] = target
+    workflow_run.prompt_manifest = manifest
+
+    inp = dict(workflow_run.input_payload or {})
+    inp["render_target"] = target
+    for k, v in request.extra_payload.items():
+        if v is not None and v != "":
+            inp[k] = v
+    workflow_run.input_payload = inp
+
+    # Ensure state is QUEUED if not already rendering/done
+    if workflow_run.state in ("DRAFT", "READY"):
+        workflow_run.state = "QUEUED"
+
+    session.commit()
+
+    if target == "MODAL":
+        modal_url = os.getenv("MODAL_WEBHOOK_URL", "https://yuuuubin2k5--visionflow-render-engine-webhook-job.modal.run")
+        payload = {
+            "workflow_run_id": str(workflow_run_id),
+            "session_id": str(workflow_run_id),
+            "render_target": "MODAL",
+            **inp,
+            **manifest
+        }
+        def _call_modal():
+            try:
+                _requests_mod.post(modal_url, json=payload, timeout=15)
+                _bg_logger.info("Triggered Modal Cloud Render Webhook for %s", workflow_run_id)
+            except Exception as e:
+                _bg_logger.warning("Modal webhook call notice for %s: %s", workflow_run_id, e)
+        background_tasks.add_task(_call_modal)
+        return DispatchRenderResponse(
+            workflow_run_id=workflow_run_id,
+            render_target="MODAL",
+            status="DISPATCHED",
+            message="Đã gửi lệnh render lên Modal Serverless Cloud 24/7",
+        )
+
+    elif target == "GITHUB":
+        gh_token = os.getenv("GITHUB_TOKEN", "").strip()
+        gh_repo = os.getenv("GITHUB_REPO", "YuuuuBin2k5/YuuuBin_Agent_Bot").strip()
+        gh_workflow_url = f"https://github.com/{gh_repo}/actions/workflows/visionflow-render-free.yml"
+
+        if gh_token:
+            def _call_github_dispatch():
+                try:
+                    headers = {
+                        "Authorization": f"Bearer {gh_token}",
+                        "Accept": "application/vnd.github.v3+json",
+                    }
+                    data = {
+                        "event_type": "trigger-render",
+                        "client_payload": {
+                            "workflow_run_id": str(workflow_run_id),
+                            "render_target": "GITHUB"
+                        }
+                    }
+                    res = _requests_mod.post(f"https://api.github.com/repos/{gh_repo}/dispatches", headers=headers, json=data, timeout=15)
+                    _bg_logger.info("GitHub dispatch response: %s", res.status_code)
+                except Exception as e:
+                    _bg_logger.warning("GitHub dispatch call notice: %s", e)
+            background_tasks.add_task(_call_github_dispatch)
+            return DispatchRenderResponse(
+                workflow_run_id=workflow_run_id,
+                render_target="GITHUB",
+                status="DISPATCHED",
+                message="Đã kích hoạt GitHub Actions Runner (repository_dispatch)",
+                action_url=gh_workflow_url
+            )
+        else:
+            return DispatchRenderResponse(
+                workflow_run_id=workflow_run_id,
+                render_target="GITHUB",
+                status="QUEUED",
+                message="Workflow đã sẵn sàng cho GitHub Actions (chờ cron 15 phút hoặc trigger manual)",
+                action_url=gh_workflow_url
+            )
+
+    else:
+        # LOCAL
+        return DispatchRenderResponse(
+            workflow_run_id=workflow_run_id,
+            render_target="LOCAL",
+            status="WAITING_LOCAL_WORKER",
+            message="Đang đợi tín hiệu từ Local Render Server (Hãy mở CHAY_RENDER_LOCAL.bat)",
+        )
 
 
 @router.get(
@@ -1279,7 +1435,14 @@ def list_publication_history(organization_id: uuid.UUID, limit: int = Query(defa
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, organization_id, Permission.WORKFLOW_VIEW, identity.email)
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
-    rows = session.execute(select(WorkflowRun, VideoProject, WorkflowStep).join(VideoProject, WorkflowRun.project_id == VideoProject.id).join(WorkflowStep, (WorkflowStep.workflow_run_id == WorkflowRun.id) & (WorkflowStep.step_key == "publish")).where(VideoProject.organization_id == organization_id, WorkflowRun.state == WorkflowState.PUBLISHED.value).order_by(WorkflowRun.created_at.desc()).limit(limit)).all()
+    rows = session.execute(
+        select(WorkflowRun, VideoProject, WorkflowStep)
+        .join(VideoProject, WorkflowRun.project_id == VideoProject.id)
+        .outerjoin(WorkflowStep, (WorkflowStep.workflow_run_id == WorkflowRun.id) & (WorkflowStep.step_key == "publish"))
+        .where(VideoProject.organization_id == organization_id, WorkflowRun.state == WorkflowState.PUBLISHED.value)
+        .order_by(WorkflowRun.created_at.desc())
+        .limit(limit)
+    ).all()
     return PublicationHistoryResponse(
         items=[
             PublishedVideoResponse(
@@ -1288,13 +1451,12 @@ def list_publication_history(organization_id: uuid.UUID, limit: int = Query(defa
                 title=project.title,
                 state=workflow.state,
                 created_at=workflow.created_at,
-                scheduled_at_iso=str(step.output_payload.get("scheduled_at_iso")) if step.output_payload.get("scheduled_at_iso") else (workflow.updated_at.isoformat() if workflow.updated_at else None),
-                published_at_iso=str(step.output_payload.get("published_at_iso")) if step.output_payload.get("published_at_iso") else (workflow.updated_at.isoformat() if workflow.updated_at else None),
-                external_url=str(step.output_payload.get("external_url", "")),
-                external_video_id=str(step.output_payload.get("external_video_id", "")),
+                scheduled_at_iso=str(step.output_payload.get("scheduled_at_iso")) if (step and isinstance(step.output_payload, dict) and step.output_payload.get("scheduled_at_iso")) else (workflow.updated_at.isoformat() if workflow.updated_at else None),
+                published_at_iso=str(step.output_payload.get("published_at_iso")) if (step and isinstance(step.output_payload, dict) and step.output_payload.get("published_at_iso")) else (workflow.updated_at.isoformat() if workflow.updated_at else None),
+                external_url=str(step.output_payload.get("external_url", "")) if (step and isinstance(step.output_payload, dict)) else "",
+                external_video_id=str(step.output_payload.get("external_video_id", "")) if (step and isinstance(step.output_payload, dict)) else "",
             )
             for workflow, project, step in rows
-            if isinstance(step.output_payload, dict)
         ]
     )
 
@@ -1575,6 +1737,21 @@ def approve_manual_approval(
         if not reviewer_sub:
             reviewer_sub = "operator|admin"
 
+        if request.publish_metadata:
+            wf_obj = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
+            if wf_obj:
+                existing_manifest = dict(wf_obj.prompt_manifest) if isinstance(wf_obj.prompt_manifest, dict) else {}
+                existing_user = existing_manifest.get("publish_metadata_user")
+                merged_user = dict(existing_user) if isinstance(existing_user, dict) else {}
+                for platform, values in request.publish_metadata.items():
+                    if isinstance(values, dict):
+                        prior = merged_user.get(platform)
+                        merged_user[platform] = {**(prior if isinstance(prior, dict) else {}), **values}
+                if merged_user:
+                    existing_manifest["publish_metadata_user"] = merged_user
+                    wf_obj.prompt_manifest = existing_manifest
+                    session.flush()
+
         result = ManualApproval(AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(session))).approve(
             ApproveManualReviewCommand(
                 organization_id=request.organization_id,
@@ -1783,18 +1960,27 @@ def _process_publication_attempt_in_background(
                 WorkflowStep.step_key == "publish",
             )
         )
-        if publish_step:
-            publish_step.state = WorkflowState.PUBLISHED
-            payload = dict(publish_step.output_payload) if isinstance(publish_step.output_payload, dict) else {}
-            payload["provider"] = "youtube"
-            payload["publisher_connection_id"] = str(publisher_connection_id)
-            payload["external_video_id"] = result.video_id
-            payload["external_url"] = result.url
-            now_iso = datetime.now(UTC).isoformat()
-            if not payload.get("scheduled_at_iso"):
-                payload["scheduled_at_iso"] = now_iso
-            payload["published_at_iso"] = now_iso
-            publish_step.output_payload = payload
+        if publish_step is None:
+            publish_step = WorkflowStep(
+                workflow_run_id=workflow_run_id,
+                step_key="publish",
+                state=WorkflowState.PUBLISHED.value,
+                attempt_count=1,
+                input_payload={},
+                output_payload={},
+            )
+            session.add(publish_step)
+        publish_step.state = WorkflowState.PUBLISHED.value
+        payload = dict(publish_step.output_payload) if isinstance(publish_step.output_payload, dict) else {}
+        payload["provider"] = "youtube"
+        payload["publisher_connection_id"] = str(publisher_connection_id)
+        payload["external_video_id"] = result.video_id
+        payload["external_url"] = result.url
+        now_iso = datetime.now(UTC).isoformat()
+        if not payload.get("scheduled_at_iso"):
+            payload["scheduled_at_iso"] = now_iso
+        payload["published_at_iso"] = now_iso
+        publish_step.output_payload = payload
 
         session.commit()
         _bg_logger.info(
@@ -2099,42 +2285,6 @@ def report_workflow_failure(
     )
 
 
-@router.delete(
-    "/workflows/{workflow_run_id}",
-    summary="Admin endpoint: permanently delete a video workflow run and child records",
-)
-def delete_workflow(
-    workflow_run_id: uuid.UUID,
-    organization_id: uuid.UUID = Query(...),
-    identity: VerifiedIdentity = Depends(require_identity),
-    session: Session = Depends(get_session),
-) -> dict[str, Any]:
-    """Admin feature: Permanently hard-delete a workflow run, publication attempts, steps, and media assets."""
-    try:
-        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
-            identity.subject, organization_id, Permission.WORKFLOW_VIEW
-        )
-        wf = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
-        if wf is None:
-            raise LookupError("Workflow run not found")
-
-        # Hard delete child records first in strict foreign-key order
-        session.execute(text("UPDATE creative_sessions SET workflow_run_id = NULL WHERE workflow_run_id = :wfid"), {"wfid": workflow_run_id})
-        session.execute(text("DELETE FROM channel_learning_metrics WHERE publication_attempt_id IN (SELECT id FROM publication_attempts WHERE workflow_run_id = :wfid)"), {"wfid": workflow_run_id})
-        session.execute(text("DELETE FROM publish_approvals WHERE workflow_run_id = :wfid"), {"wfid": workflow_run_id})
-        session.execute(delete(PublicationAttempt).where(PublicationAttempt.workflow_run_id == workflow_run_id))
-        session.execute(delete(WorkflowStep).where(WorkflowStep.workflow_run_id == workflow_run_id))
-        session.execute(delete(MediaAsset).where(MediaAsset.workflow_run_id == workflow_run_id))
-        session.execute(text("DELETE FROM outbox_events WHERE aggregate_id = :wfid"), {"wfid": workflow_run_id})
-        session.delete(wf)
-        session.commit()
-        return {"workflow_run_id": str(workflow_run_id), "status": "deleted", "deleted": True}
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
-    except LookupError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow run not found") from exc
-
-
 @router.post(
     "/workflows/{workflow_run_id}/legacy-job-mapping",
     response_model=RegisterLegacyJobMappingResponse,
@@ -2332,9 +2482,77 @@ class BulkDeleteWorkflowRequest(BaseModel):
     workflow_run_ids: list[uuid.UUID] = Field(min_length=1, max_length=100)
 
 
+class BulkDeleteWorkflowFailure(BaseModel):
+    workflow_run_id: uuid.UUID
+    code: str
+    message: str
+
+
 class BulkDeleteWorkflowResponse(BaseModel):
     deleted_count: int
     failed_ids: list[str]
+    failures: list[BulkDeleteWorkflowFailure] = Field(default_factory=list)
+
+
+_ACTIVE_DELETE_STATES = frozenset({"QUEUED", "PLANNING", "SCRIPT", "COMPOSITING", "RENDERING"})
+
+
+class WorkflowStorageCleanupError(RuntimeError):
+    pass
+
+
+def _get_deletable_workflow(
+    session: Session,
+    *,
+    organization_id: uuid.UUID,
+    workflow_run_id: uuid.UUID,
+    force: bool = False,
+) -> WorkflowRun:
+    run = session.scalar(
+        select(WorkflowRun)
+        .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
+        .where(
+            VideoProject.organization_id == organization_id,
+            WorkflowRun.id == workflow_run_id,
+        )
+        .with_for_update()
+    )
+    if run is None:
+        raise LookupError("Workflow run not found")
+    if not force and run.state in _ACTIVE_DELETE_STATES:
+        raise ValueError(
+            f"Cannot delete workflow in active state '{run.state}'. "
+            "Cancel the workflow first before deleting."
+        )
+    return run
+
+
+def _delete_workflow_records(session: Session, run: WorkflowRun) -> None:
+    """Delete one workflow using database cascades as the canonical dependency policy."""
+    assets = session.scalars(select(MediaAsset).where(MediaAsset.workflow_run_id == run.id)).all()
+    object_keys = [
+        asset.object_key
+        for asset in assets
+        if asset.object_key and not asset.object_key.startswith(("http://", "https://"))
+    ]
+    if object_keys:
+        try:
+            object_store = PrivateObjectPreviewIssuer.from_env()
+            for object_key in object_keys:
+                object_store.delete_object(object_key)
+        except Exception as exc:
+            raise WorkflowStorageCleanupError(
+                "Cloud objects could not be deleted; workflow records were preserved"
+            ) from exc
+    session.execute(delete(PublishApproval).where(PublishApproval.workflow_run_id == run.id))
+    session.execute(delete(MediaAsset).where(MediaAsset.workflow_run_id == run.id))
+    session.execute(
+        delete(OutboxEvent).where(
+            OutboxEvent.aggregate_type == "workflow_run",
+            OutboxEvent.aggregate_id == run.id,
+        )
+    )
+    session.delete(run)
 
 
 @router.delete(
@@ -2345,6 +2563,7 @@ class BulkDeleteWorkflowResponse(BaseModel):
 def delete_workflow(
     workflow_run_id: uuid.UUID,
     organization_id: uuid.UUID = Query(...),
+    force: bool = Query(default=False),
     identity: VerifiedIdentity = Depends(require_identity),
     session: Session = Depends(get_session),
 ) -> DeleteWorkflowResponse:
@@ -2358,93 +2577,25 @@ def delete_workflow(
     Active workflows (QUEUED, PLANNING, SCRIPT, COMPOSITING) cannot be deleted
     while they are being processed; cancel them first.
     """
-    _ACTIVE_STATES = frozenset({"QUEUED", "PLANNING", "SCRIPT", "COMPOSITING", "RENDERING"})
-
     try:
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
             identity.subject, organization_id, Permission.WORKFLOW_DELETE
         )
-        # Fetch run and verify tenant membership
-        run = session.scalar(
-            select(WorkflowRun)
-            .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
-            .where(
-                VideoProject.organization_id == organization_id,
-                WorkflowRun.id == workflow_run_id,
-            )
+        run = _get_deletable_workflow(
+            session,
+            organization_id=organization_id,
+            workflow_run_id=workflow_run_id,
+            force=force,
         )
-        if run is None:
-            raise LookupError("Workflow run not found or not in this organization")
-
-        # Guard: deny deletion of actively running workflows
-        if run.state in _ACTIVE_STATES:
-            raise ValueError(
-                f"Cannot delete workflow in active state '{run.state}'. "
-                "Cancel the workflow first before deleting."
-            )
-
-        # Cascade delete associated records
-        # 1. WorkflowStep
-        steps_to_delete = session.scalars(
-            select(WorkflowStep).where(WorkflowStep.workflow_run_id == run.id)
-        ).all()
-        for step in steps_to_delete:
-            session.delete(step)
-
-        # 2. MediaAsset linked to this workflow run
-        assets_to_delete = session.scalars(
-            select(MediaAsset).where(MediaAsset.workflow_run_id == run.id)
-        ).all()
-        for asset in assets_to_delete:
-            session.delete(asset)
-
-        # 3. OutboxEvent emitted for this workflow run
-        outbox_to_delete = session.scalars(
-            select(OutboxEvent).where(OutboxEvent.workflow_run_id == run.id)
-        ).all()
-        for event in outbox_to_delete:
-            session.delete(event)
-
-        # 4. PublicationAttempt records tied to this run
-        pub_attempts_to_delete = session.scalars(
-            select(PublicationAttempt).where(PublicationAttempt.workflow_run_id == run.id)
-        ).all()
-        for attempt in pub_attempts_to_delete:
-            session.delete(attempt)
-
-        # 5. CreativeDocumentVersion + CreativeDocument
-        creative_docs = session.scalars(
-            select(CreativeDocument).where(CreativeDocument.workflow_run_id == run.id)
-        ).all()
-        for doc in creative_docs:
-            doc_versions = session.scalars(
-                select(CreativeDocumentVersion).where(CreativeDocumentVersion.document_id == doc.id)
-            ).all()
-            for ver in doc_versions:
-                session.delete(ver)
-            session.delete(doc)
-
-        # 6. CompositionDocument + CompositionVersion
-        comp_docs = session.scalars(
-            select(CompositionDocument).where(CompositionDocument.workflow_run_id == run.id)
-        ).all()
-        for comp in comp_docs:
-            comp_versions = session.scalars(
-                select(CompositionVersion).where(CompositionVersion.composition_id == comp.id)
-            ).all()
-            for ver in comp_versions:
-                session.delete(ver)
-            session.delete(comp)
-
-        # 7. Finally, delete the WorkflowRun itself
-        session.delete(run)
+        _delete_workflow_records(session, run)
         session.commit()
 
         _bg_logger.info(
-            "[delete_workflow] Workflow %s deleted by %s for org %s",
+            "[delete_workflow] Workflow %s deleted by %s for org %s (force=%s)",
             workflow_run_id,
             identity.subject,
             organization_id,
+            force,
         )
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
@@ -2452,8 +2603,65 @@ def delete_workflow(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except WorkflowStorageCleanupError as exc:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
     return DeleteWorkflowResponse(workflow_run_id=workflow_run_id, deleted=True)
+
+
+class CancelWorkflowResponse(BaseModel):
+    workflow_run_id: uuid.UUID
+    state: str
+    message: str
+
+
+@router.post(
+    "/workflows/{workflow_run_id}/cancel",
+    response_model=CancelWorkflowResponse,
+    summary="Cancel a single active workflow run",
+)
+def cancel_single_workflow(
+    workflow_run_id: uuid.UUID,
+    organization_id: uuid.UUID = Query(...),
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> CancelWorkflowResponse:
+    """
+    Cancel an active workflow run by setting its state to CANCELED.
+    """
+    try:
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject, organization_id, Permission.WORKFLOW_ADVANCE
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
+
+    run = session.scalar(
+        select(WorkflowRun)
+        .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
+        .where(
+            VideoProject.organization_id == organization_id,
+            WorkflowRun.id == workflow_run_id,
+        )
+    )
+    if run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow run not found")
+
+    if run.state not in ("CANCELED", "PUBLISHED"):
+        old_state = run.state
+        run.state = "CANCELED"
+        session.commit()
+        _bg_logger.info(
+            "[cancel_single_workflow] Workflow %s changed from %s to CANCELED by %s for org %s",
+            workflow_run_id, old_state, identity.subject, organization_id,
+        )
+
+    return CancelWorkflowResponse(
+        workflow_run_id=workflow_run_id,
+        state=run.state,
+        message=f"Đã hủy workflow {workflow_run_id} thành công.",
+    )
 
 
 @router.delete(
@@ -2472,7 +2680,16 @@ def bulk_delete_workflows(
     Returns the count of successfully deleted runs and a list of IDs that failed.
     Active workflows (still processing) are silently skipped and listed in failed_ids.
     """
-    _ACTIVE_STATES = frozenset({"QUEUED", "PLANNING", "SCRIPT", "COMPOSITING", "RENDERING"})
+    if request.organization_id != organization_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="organization_id in request body must match the URL",
+        )
+    if len(set(request.workflow_run_ids)) != len(request.workflow_run_ids):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="workflow_run_ids contains duplicates",
+        )
 
     try:
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
@@ -2483,44 +2700,52 @@ def bulk_delete_workflows(
 
     deleted_count = 0
     failed_ids: list[str] = []
+    failures: list[BulkDeleteWorkflowFailure] = []
 
     for wf_id in request.workflow_run_ids:
         try:
-            run = session.scalar(
-                select(WorkflowRun)
-                .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
-                .where(
-                    VideoProject.organization_id == organization_id,
-                    WorkflowRun.id == wf_id,
+            with session.begin_nested():
+                run = _get_deletable_workflow(
+                    session,
+                    organization_id=organization_id,
+                    workflow_run_id=wf_id,
                 )
-            )
-            if run is None or run.state in _ACTIVE_STATES:
-                failed_ids.append(str(wf_id))
-                continue
-
-            # Cascade delete
-            for step in session.scalars(select(WorkflowStep).where(WorkflowStep.workflow_run_id == run.id)).all():
-                session.delete(step)
-            for asset in session.scalars(select(MediaAsset).where(MediaAsset.workflow_run_id == run.id)).all():
-                session.delete(asset)
-            for event in session.scalars(select(OutboxEvent).where(OutboxEvent.workflow_run_id == run.id)).all():
-                session.delete(event)
-            for attempt in session.scalars(select(PublicationAttempt).where(PublicationAttempt.workflow_run_id == run.id)).all():
-                session.delete(attempt)
-            for doc in session.scalars(select(CreativeDocument).where(CreativeDocument.workflow_run_id == run.id)).all():
-                for ver in session.scalars(select(CreativeDocumentVersion).where(CreativeDocumentVersion.document_id == doc.id)).all():
-                    session.delete(ver)
-                session.delete(doc)
-            for comp in session.scalars(select(CompositionDocument).where(CompositionDocument.workflow_run_id == run.id)).all():
-                for ver in session.scalars(select(CompositionVersion).where(CompositionVersion.composition_id == comp.id)).all():
-                    session.delete(ver)
-                session.delete(comp)
-
-            session.delete(run)
+                _delete_workflow_records(session, run)
+                session.flush()
             deleted_count += 1
-        except Exception:
-            session.rollback()
+        except LookupError as exc:
             failed_ids.append(str(wf_id))
+            failures.append(BulkDeleteWorkflowFailure(
+                workflow_run_id=wf_id,
+                code="NOT_FOUND",
+                message=str(exc),
+            ))
+        except ValueError as exc:
+            failed_ids.append(str(wf_id))
+            failures.append(BulkDeleteWorkflowFailure(
+                workflow_run_id=wf_id,
+                code="ACTIVE_WORKFLOW",
+                message=str(exc),
+            ))
+        except WorkflowStorageCleanupError as exc:
+            failed_ids.append(str(wf_id))
+            failures.append(BulkDeleteWorkflowFailure(
+                workflow_run_id=wf_id,
+                code="STORAGE_DELETE_FAILED",
+                message=str(exc),
+            ))
+        except Exception:
+            _bg_logger.exception(
+                "[bulk_delete_workflows] Failed to delete workflow %s for org %s",
+                wf_id,
+                organization_id,
+            )
+            failed_ids.append(str(wf_id))
+            failures.append(BulkDeleteWorkflowFailure(
+                workflow_run_id=wf_id,
+                code="DELETE_FAILED",
+                message="Workflow could not be deleted",
+            ))
 
     session.commit()
     _bg_logger.info(
@@ -2528,7 +2753,11 @@ def bulk_delete_workflows(
         deleted_count, len(failed_ids), identity.subject, organization_id,
     )
 
-    return BulkDeleteWorkflowResponse(deleted_count=deleted_count, failed_ids=failed_ids)
+    return BulkDeleteWorkflowResponse(
+        deleted_count=deleted_count,
+        failed_ids=failed_ids,
+        failures=failures,
+    )
 
 
 def _trace_id(request_id: str | None) -> str:

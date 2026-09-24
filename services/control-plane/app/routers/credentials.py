@@ -24,10 +24,10 @@ from app.routers.auth import require_identity
 router = APIRouter(tags=["provider-credentials"])
 
 SUPPORTED_PROVIDERS = frozenset({
-    "gemini", "groq", "openrouter",
+    "gemini", "google", "groq", "openrouter",
     "fal", "together", "deepinfra", "huggingface", "segmind",
     "replicate", "kling", "runway", "luma", "minimax",
-    "pexels", "pixabay", "coverr"
+    "pexels", "pixabay", "coverr", "elevenlabs"
 })
 MUTABLE_STATUSES = frozenset({"active", "disabled"})
 

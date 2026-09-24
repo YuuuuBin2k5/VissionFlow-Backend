@@ -50,6 +50,8 @@ class CreationSpecSchema(BaseModel):
     # Voice & Audio
     voice: str = Field(default="edge-nam-minh", min_length=1, max_length=100)
     voice_code: str = Field(default="edge-nam-minh", min_length=1, max_length=100)
+    voice_selection: dict | None = None
+    channel_id: str | None = Field(default=None, max_length=160)
     voice_rate: float = Field(default=1.12, ge=0.5, le=2.0)
     enable_sfx: bool = Field(default=True)
 
@@ -85,6 +87,9 @@ class CreationSpecSchema(BaseModel):
     # Duration
     duration_seconds: int = Field(default=30, ge=5, le=300)
 
+    # Publish Metadata
+    publish_metadata: dict[str, Any] | None = Field(default=None)
+
     @model_validator(mode="before")
     @classmethod
     def sanitize_spec(cls, data: Any) -> Any:
@@ -103,6 +108,8 @@ class CreationSpecSchema(BaseModel):
 
         # Duration
         raw_dur = d.get("duration_seconds")
+        # Duration: support both duration_seconds and estimated_duration_seconds
+        raw_dur = d.get("duration_seconds") if d.get("duration_seconds") is not None else d.get("estimated_duration_seconds")
         try:
             dur = int(round(float(raw_dur))) if raw_dur is not None else 30
             d["duration_seconds"] = max(5, min(300, dur))
@@ -117,7 +124,33 @@ class CreationSpecSchema(BaseModel):
         except (ValueError, TypeError):
             d["voice_rate"] = 1.12
 
+        # Voice & voice_code (extract if dict or sanitize if string)
+        raw_voice = d.get("voice")
+        if isinstance(raw_voice, dict):
+            if raw_voice.get('profile_id') or raw_voice.get('use_channel_default'):
+                d['voice_selection'] = raw_voice
+            voice_str = str(raw_voice.get("voice_code") or raw_voice.get("voice") or "edge-nam-minh").strip()
+            d["voice"] = voice_str or "edge-nam-minh"
+            if "voice_rate" in raw_voice and raw_rate is None:
+                try:
+                    d["voice_rate"] = max(0.5, min(2.0, float(raw_voice["voice_rate"])))
+                except (ValueError, TypeError):
+                    pass
+        elif isinstance(raw_voice, str) and raw_voice.strip():
+            d["voice"] = raw_voice.strip()
+        else:
+            d["voice"] = "edge-nam-minh"
+
+        raw_vc = d.get("voice_code")
+        if isinstance(raw_vc, str) and raw_vc.strip():
+            d["voice_code"] = raw_vc.strip()
+        else:
+            d["voice_code"] = d["voice"]
+
         # Language
+        if d.get('voice_selection') is not None:
+            from worker.voice_system.contracts import validate_selection
+            d['voice_selection'] = validate_selection(d['voice_selection'])
         raw_lang = str(d.get("language") or "vi").lower()
         d["language"] = "vi" if "vi" in raw_lang else "en"
 
@@ -127,6 +160,10 @@ class CreationSpecSchema(BaseModel):
         # Timezone
         if not d.get("timezone"):
             d["timezone"] = "Asia/Bangkok"
+
+        # Publish metadata
+        if "publish_metadata" in d and isinstance(d["publish_metadata"], dict):
+            d["publish_metadata"] = d["publish_metadata"]
 
         return d
 
@@ -355,17 +392,19 @@ class ManageCreativeSession:
         brief: str,
         script: str,
         scenes: list[dict],
+        publish_metadata: dict[str, Any] | None = None,
     ) -> uuid.UUID:
         if len(script) < 40:
             raise CreativeSessionError("Script must be at least 40 characters long.")
-        if not (3 <= len(scenes) <= 20):
-            raise CreativeSessionError("Scenes count must be between 3 and 20.")
+        if not (3 <= len(scenes) <= 100):
+            raise CreativeSessionError("Scenes count must be between 3 and 100.")
 
         fingerprint_payload = {
             "title": title,
             "brief": brief,
             "script": script,
             "scenes": scenes,
+            "publish_metadata": publish_metadata,
         }
         fingerprint = hashlib.sha256(json_dump_canonical(fingerprint_payload).encode()).hexdigest()
 
@@ -408,6 +447,7 @@ class ManageCreativeSession:
                 "prompt_templates": {},
                 "schema_version": 1,
                 "trace_id": str(uuid.uuid4()),
+                "publish_metadata": publish_metadata,
             }
             proposal = repo.save_proposal(
                 session_id=session_id,
@@ -451,11 +491,12 @@ class ManageCreativeSession:
         brief: str,
         script: str,
         scenes: list[dict],
+        publish_metadata: dict[str, Any] | None = None,
     ) -> uuid.UUID:
         if len(script) < 40:
             raise CreativeSessionError("Script must be at least 40 characters long.")
-        if not (3 <= len(scenes) <= 20):
-            raise CreativeSessionError("Scenes count must be between 3 and 20.")
+        if not (3 <= len(scenes) <= 100):
+            raise CreativeSessionError("Scenes count must be between 3 and 100.")
 
         fingerprint_payload = {
             "parent_proposal_id": str(parent_proposal_id),
@@ -463,6 +504,7 @@ class ManageCreativeSession:
             "brief": brief,
             "script": script,
             "scenes": scenes,
+            "publish_metadata": publish_metadata,
         }
         fingerprint = hashlib.sha256(json_dump_canonical(fingerprint_payload).encode()).hexdigest()
 
@@ -495,6 +537,9 @@ class ManageCreativeSession:
             ) or 0
             next_version = prop_count + 1
 
+            parent_meta = parent.generation_manifest.get("publish_metadata") if (parent.generation_manifest and isinstance(parent.generation_manifest, dict)) else None
+            effective_publish_metadata = publish_metadata if publish_metadata is not None else parent_meta
+
             # Revision inherits the parent's message_id to maintain connection to original turn conversation
             manifest = {
                 "source": "operator_edit",
@@ -504,6 +549,7 @@ class ManageCreativeSession:
                 "prompt_templates": {},
                 "schema_version": 1,
                 "trace_id": parent.trace_id,
+                "publish_metadata": effective_publish_metadata,
             }
             proposal = repo.save_proposal(
                 session_id=session_id,
@@ -830,6 +876,7 @@ class ManageCreativeSession:
                 },
                 "schema_version": 1,
                 "trace_id": str(uuid.uuid4()),
+                "publish_metadata": proposal_dict.get("publish_metadata"),
             }
 
             # Save Proposal
@@ -950,6 +997,59 @@ class ManageCreativeSession:
             proposal_total_duration = sum(int(sc.get("duration_seconds", 5)) for sc in proposal.scenes) if proposal.scenes else 0
             actual_duration = max(15, min(90, proposal_total_duration)) if proposal_total_duration > 0 else int(creation_spec.get("duration_seconds", 45))
 
+            # Extract canonical publish_metadata from proposal generation_manifest or session creation_spec
+            prop_gen_manifest = proposal.generation_manifest if isinstance(proposal.generation_manifest, dict) else {}
+            pub_meta = prop_gen_manifest.get("publish_metadata") or creation_spec.get("publish_metadata")
+            if not isinstance(pub_meta, dict) or not pub_meta.get("youtube"):
+                try:
+                    from app.domain.caption_policy import (
+                        build_high_converting_description,
+                        build_high_converting_tiktok_caption,
+                        build_topic_hashtags,
+                    )
+                    prop_title = proposal.title or creation_spec.get("title") or creation_spec.get("brief") or "Untitled"
+                    prop_script = proposal.script or creation_spec.get("script") or ""
+                    prop_scenes = proposal.scenes or []
+                    prop_genre = creation_spec.get("video_genre") or creation_spec.get("genre") or "triết lý - chiêm nghiệm cuộc sống"
+                    prop_handle = creation_spec.get("logo_handle") or "@GocChiemNghiem"
+                    prop_brief = proposal.brief or creation_spec.get("brief") or ""
+                    prop_lang = "vi" if not str(creation_spec.get("language") or "vi").lower().startswith("en") else "en"
+
+                    yt_desc = build_high_converting_description(
+                        title=prop_title,
+                        script=prop_script,
+                        scenes=prop_scenes,
+                        brief=prop_brief,
+                        channel_handle=prop_handle,
+                        language=prop_lang,
+                    )
+                    yt_tags = build_topic_hashtags(prop_title, prop_script, {}, prop_lang)
+                    tt_capt = build_high_converting_tiktok_caption(
+                        title=prop_title,
+                        script=prop_script,
+                        language=prop_lang,
+                    )
+                    tt_tags = yt_tags
+                    generated_meta = {
+                        "youtube": {
+                            "title": prop_title[:100],
+                            "description": yt_desc,
+                            "hashtags": yt_tags,
+                        },
+                        "tiktok": {
+                            "caption": tt_capt,
+                            "hashtags": tt_tags,
+                        },
+                    }
+                    if isinstance(pub_meta, dict):
+                        for plt, vals in generated_meta.items():
+                            if plt not in pub_meta:
+                                pub_meta[plt] = vals
+                    else:
+                        pub_meta = generated_meta
+                except Exception as meta_err:
+                    logger.warning("Auto-generating publish metadata in draft creation failed: %s", meta_err)
+
             # Map input payload
             input_payload = {
                 "format_profile": creation_spec.get("format_profile", "short_vertical"),
@@ -996,7 +1096,16 @@ class ManageCreativeSession:
                 "scenes": proposal.scenes or [],
                 "session_id": str(session_id),
                 "accepted_proposal_id": str(accepted_proposal_id),
+                "publish_metadata": pub_meta,
             }
+
+            final_prompt_manifest = dict(prop_gen_manifest)
+            if creation_spec.get('voice_selection'):
+                input_payload['voice'] = creation_spec['voice_selection']
+            if creation_spec.get('channel_id'):
+                input_payload['channel_id'] = creation_spec['channel_id']
+            if pub_meta:
+                final_prompt_manifest["publish_metadata"] = pub_meta
 
             command = CreateShortFormCommand(
                 organization_id=organization_id,
@@ -1005,7 +1114,7 @@ class ManageCreativeSession:
                 idempotency_key=derived_wf_run_key,
                 format_profile=creation_spec["format_profile"],
                 timezone=creation_spec["timezone"],
-                prompt_manifest=proposal.generation_manifest,
+                prompt_manifest=final_prompt_manifest,
                 input_payload=input_payload,
                 trace_id=proposal.trace_id,
             )
@@ -1032,6 +1141,7 @@ class ManageCreativeSession:
                     "transition": _normalize_transition(sc.get("transition", "cut")),
                     "caption": sc.get("caption"),
                     "asset_source": scene_asset_source,
+                    "visual_engine": scene_asset_source,
                     "visual_search_keywords": sc.get("visual_search_keywords") or sc.get("visual_prompt", ""),
                     "mascot_profile": sc.get("mascot_profile"),
                     "style_preset": sc.get("style_preset", creation_spec.get("visual_preset", "cozy_anime_3d")),

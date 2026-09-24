@@ -1,0 +1,676 @@
+{
+  "benchmark_version": "v1_phase2",
+  "dataset_path": "D:\\VisionFlow\\VisionFlow_Bakend\\tests\\fixtures\\scene_retrieval_sanity_dataset.json",
+  "metrics": {
+    "total_queries": 22,
+    "positive_queries": 18,
+    "distractor_queries": 4,
+    "recall_at_1": 0.9444,
+    "recall_at_3": 0.9444,
+    "recall_at_5": 0.9444,
+    "mrr": 0.9444,
+    "distractor_rejection_rate": 1.0
+  },
+  "positive_queries": [
+    {
+      "query_id": "q01",
+      "category": "entity",
+      "query": "craftsman cutting bamboo",
+      "target_scene_id": "scn_01_craftsman",
+      "found_rank": 1,
+      "top_result_id": "scn_01_craftsman",
+      "top_result_score": 0.696,
+      "reciprocal_rank": 1.0,
+      "match_evidence": {
+        "semantic_score": 0.507,
+        "overlap_score": 1.0,
+        "entity_matches": [
+          "craftsman",
+          "bamboo"
+        ],
+        "action_matches": [
+          "cutting bamboo"
+        ],
+        "technical_quality": 0.92,
+        "vector_search_ms": 2.77,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "craftsman cutting bamboo",
+        "query_normalized": "craftsman cutting bamboo",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.61,
+        "total_ms": 3.68
+      }
+    },
+    {
+      "query_id": "q02",
+      "category": "entity",
+      "query": "sea turtle swimming coral reef",
+      "target_scene_id": "scn_09_underwater",
+      "found_rank": 1,
+      "top_result_id": "scn_09_underwater",
+      "top_result_score": 0.636,
+      "reciprocal_rank": 1.0,
+      "match_evidence": {
+        "semantic_score": 0.398,
+        "overlap_score": 1.0,
+        "entity_matches": [
+          "sea turtle",
+          "coral reef"
+        ],
+        "action_matches": [
+          "turtle swimming"
+        ],
+        "technical_quality": 0.97,
+        "vector_search_ms": 2.42,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "sea turtle swimming coral reef",
+        "query_normalized": "sea turtle swimming coral reef",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.52,
+        "total_ms": 3.07
+      }
+    },
+    {
+      "query_id": "q03",
+      "category": "entity",
+      "query": "robotic arm silicon circuit board",
+      "target_scene_id": "scn_05_tech_lab",
+      "found_rank": 1,
+      "top_result_id": "scn_05_tech_lab",
+      "top_result_score": 0.521,
+      "reciprocal_rank": 1.0,
+      "match_evidence": {
+        "semantic_score": 0.362,
+        "overlap_score": 0.7,
+        "entity_matches": [
+          "robotic arm",
+          "circuit board"
+        ],
+        "action_matches": [],
+        "technical_quality": 0.94,
+        "vector_search_ms": 2.61,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "robotic arm silicon circuit board",
+        "query_normalized": "robotic arm silicon circuit board",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.64,
+        "total_ms": 3.35
+      }
+    },
+    {
+      "query_id": "q04",
+      "category": "entity",
+      "query": "doctor surgeon reviewing MRI scan",
+      "target_scene_id": "scn_10_hospital",
+      "found_rank": 1,
+      "top_result_id": "scn_10_hospital",
+      "top_result_score": 0.652,
+      "reciprocal_rank": 1.0,
+      "match_evidence": {
+        "semantic_score": 0.439,
+        "overlap_score": 1.0,
+        "entity_matches": [
+          "surgeon doctor",
+          "MRI scan"
+        ],
+        "action_matches": [
+          "reviewing MRI scan"
+        ],
+        "technical_quality": 0.89,
+        "vector_search_ms": 2.35,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "doctor surgeon reviewing MRI scan",
+        "query_normalized": "doctor surgeon reviewing MRI scan",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.61,
+        "total_ms": 3.1
+      }
+    },
+    {
+      "query_id": "q05",
+      "category": "action",
+      "query": "pouring hot green tea into ceramic cup",
+      "target_scene_id": "scn_02_tea_ceremony",
+      "found_rank": 1,
+      "top_result_id": "scn_02_tea_ceremony",
+      "top_result_score": 0.638,
+      "reciprocal_rank": 1.0,
+      "match_evidence": {
+        "semantic_score": 0.413,
+        "overlap_score": 1.0,
+        "entity_matches": [
+          "ceramic cup",
+          "green tea"
+        ],
+        "action_matches": [
+          "pouring tea"
+        ],
+        "technical_quality": 0.9,
+        "vector_search_ms": 2.45,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "pouring hot green tea into ceramic cup",
+        "query_normalized": "pouring hot green tea into ceramic cup",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.81,
+        "total_ms": 3.38
+      }
+    },
+    {
+      "query_id": "q06",
+      "category": "action",
+      "query": "performing intense kettlebell swings",
+      "target_scene_id": "scn_07_fitness",
+      "found_rank": 1,
+      "top_result_id": "scn_07_fitness",
+      "top_result_score": 0.37,
+      "reciprocal_rank": 1.0,
+      "match_evidence": {
+        "semantic_score": 0.289,
+        "overlap_score": 0.35,
+        "entity_matches": [
+          "kettlebell"
+        ],
+        "action_matches": [],
+        "technical_quality": 0.91,
+        "vector_search_ms": 2.7,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "performing intense kettlebell swings",
+        "query_normalized": "performing intense kettlebell swings",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.65,
+        "total_ms": 3.6
+      }
+    },
+    {
+      "query_id": "q07",
+      "category": "action",
+      "query": "mixing oil paint on wooden palette",
+      "target_scene_id": "scn_11_art_studio",
+      "found_rank": 1,
+      "top_result_id": "scn_11_art_studio",
+      "top_result_score": 0.508,
+      "reciprocal_rank": 1.0,
+      "match_evidence": {
+        "semantic_score": 0.341,
+        "overlap_score": 0.7,
+        "entity_matches": [
+          "oil palette"
+        ],
+        "action_matches": [
+          "mixing oil paint"
+        ],
+        "technical_quality": 0.93,
+        "vector_search_ms": 2.73,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "mixing oil paint on wooden palette",
+        "query_normalized": "mixing oil paint on wooden palette",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.6,
+        "total_ms": 3.49
+      }
+    },
+    {
+      "query_id": "q08",
+      "category": "action",
+      "query": "presenting financial growth data",
+      "target_scene_id": "scn_06_corporate",
+      "found_rank": 1,
+      "top_result_id": "scn_06_corporate",
+      "top_result_score": 0.337,
+      "reciprocal_rank": 1.0,
+      "match_evidence": {
+        "semantic_score": 0.24,
+        "overlap_score": 0.35,
+        "entity_matches": [],
+        "action_matches": [
+          "presenting data"
+        ],
+        "technical_quality": 0.88,
+        "vector_search_ms": 2.58,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "presenting financial growth data",
+        "query_normalized": "presenting financial growth data",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.68,
+        "total_ms": 3.38
+      }
+    },
+    {
+      "query_id": "q09",
+      "category": "mood_style",
+      "query": "cyberpunk neon illuminated rainy city",
+      "target_scene_id": "scn_03_cyberpunk",
+      "found_rank": 1,
+      "top_result_id": "scn_03_cyberpunk",
+      "top_result_score": 0.447,
+      "reciprocal_rank": 1.0,
+      "match_evidence": {
+        "semantic_score": 0.237,
+        "overlap_score": 0.7,
+        "entity_matches": [
+          "cyberpunk city",
+          "rain"
+        ],
+        "action_matches": [],
+        "technical_quality": 0.95,
+        "vector_search_ms": 2.29,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "cyberpunk neon illuminated rainy city",
+        "query_normalized": "cyberpunk neon illuminated rainy city",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.56,
+        "total_ms": 2.98
+      }
+    },
+    {
+      "query_id": "q10",
+      "category": "mood_style",
+      "query": "peaceful misty alpine pine forest lake",
+      "target_scene_id": "scn_04_drone_nature",
+      "found_rank": 1,
+      "top_result_id": "scn_04_drone_nature",
+      "top_result_score": 0.438,
+      "reciprocal_rank": 1.0,
+      "match_evidence": {
+        "semantic_score": 0.395,
+        "overlap_score": 0.35,
+        "entity_matches": [
+          "pine forest"
+        ],
+        "action_matches": [],
+        "technical_quality": 0.96,
+        "vector_search_ms": 2.29,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "peaceful misty alpine pine forest lake",
+        "query_normalized": "peaceful misty alpine pine forest lake",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.78,
+        "total_ms": 3.17
+      }
+    },
+    {
+      "query_id": "q11",
+      "category": "mood_style",
+      "query": "spiritual buddhist monk golden temple",
+      "target_scene_id": "scn_08_temple",
+      "found_rank": 1,
+      "top_result_id": "scn_08_temple",
+      "top_result_score": 0.384,
+      "reciprocal_rank": 1.0,
+      "match_evidence": {
+        "semantic_score": 0.309,
+        "overlap_score": 0.35,
+        "entity_matches": [
+          "Buddhist monk"
+        ],
+        "action_matches": [],
+        "technical_quality": 0.93,
+        "vector_search_ms": 2.38,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "spiritual buddhist monk golden temple",
+        "query_normalized": "spiritual buddhist monk golden temple",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.54,
+        "total_ms": 3.05
+      }
+    },
+    {
+      "query_id": "q12",
+      "category": "mood_style",
+      "query": "warm cozy amber vintage coffeehouse cafe",
+      "target_scene_id": "scn_12_night_cafe",
+      "found_rank": null,
+      "top_result_id": "scn_real_075",
+      "top_result_score": 0.26,
+      "reciprocal_rank": 0.0,
+      "match_evidence": {
+        "semantic_score": 0.273,
+        "overlap_score": 0.0,
+        "entity_matches": [],
+        "action_matches": [],
+        "technical_quality": 0.96,
+        "vector_search_ms": 2.33,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "warm cozy amber vintage coffeehouse cafe",
+        "query_normalized": "warm cozy amber vintage coffeehouse cafe",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.58,
+        "total_ms": 3.08
+      }
+    },
+    {
+      "query_id": "q13",
+      "category": "multi_concept",
+      "query": "artisan splitting bamboo stalks in wooden workshop",
+      "target_scene_id": "scn_01_craftsman",
+      "found_rank": 1,
+      "top_result_id": "scn_01_craftsman",
+      "top_result_score": 0.417,
+      "reciprocal_rank": 1.0,
+      "match_evidence": {
+        "semantic_score": 0.366,
+        "overlap_score": 0.35,
+        "entity_matches": [
+          "bamboo"
+        ],
+        "action_matches": [],
+        "technical_quality": 0.92,
+        "vector_search_ms": 2.45,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "artisan splitting bamboo stalks in wooden workshop",
+        "query_normalized": "artisan splitting bamboo stalks in wooden workshop",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.74,
+        "total_ms": 3.29
+      }
+    },
+    {
+      "query_id": "q14",
+      "category": "multi_concept",
+      "query": "two business executives in suits discussing revenue metrics",
+      "target_scene_id": "scn_06_corporate",
+      "found_rank": 1,
+      "top_result_id": "scn_06_corporate",
+      "top_result_score": 0.483,
+      "reciprocal_rank": 1.0,
+      "match_evidence": {
+        "semantic_score": 0.484,
+        "overlap_score": 0.35,
+        "entity_matches": [
+          "business executives"
+        ],
+        "action_matches": [],
+        "technical_quality": 0.88,
+        "vector_search_ms": 2.28,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "two business executives in suits discussing revenue metrics",
+        "query_normalized": "two business executives in suits discussing revenue metrics",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.57,
+        "total_ms": 3.04
+      }
+    },
+    {
+      "query_id": "q15",
+      "category": "multi_concept",
+      "query": "female athlete exercising with weights in crossfit gym",
+      "target_scene_id": "scn_07_fitness",
+      "found_rank": 1,
+      "top_result_id": "scn_07_fitness",
+      "top_result_score": 0.429,
+      "reciprocal_rank": 1.0,
+      "match_evidence": {
+        "semantic_score": 0.389,
+        "overlap_score": 0.35,
+        "entity_matches": [
+          "athlete"
+        ],
+        "action_matches": [],
+        "technical_quality": 0.91,
+        "vector_search_ms": 2.26,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "female athlete exercising with weights in crossfit gym",
+        "query_normalized": "female athlete exercising with weights in crossfit gym",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.56,
+        "total_ms": 2.92
+      }
+    },
+    {
+      "query_id": "q16",
+      "category": "multi_concept",
+      "query": "monk walking along ancient stone colonnade at sunset",
+      "target_scene_id": "scn_08_temple",
+      "found_rank": 1,
+      "top_result_id": "scn_08_temple",
+      "top_result_score": 0.396,
+      "reciprocal_rank": 1.0,
+      "match_evidence": {
+        "semantic_score": 0.33,
+        "overlap_score": 0.35,
+        "entity_matches": [
+          "stone colonnade"
+        ],
+        "action_matches": [],
+        "technical_quality": 0.93,
+        "vector_search_ms": 2.52,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "monk walking along ancient stone colonnade at sunset",
+        "query_normalized": "monk walking along ancient stone colonnade at sunset",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.68,
+        "total_ms": 3.31
+      }
+    },
+    {
+      "query_id": "q17",
+      "category": "multi_concept",
+      "query": "colorful tropical yellow fish swimming near barrier reef",
+      "target_scene_id": "scn_09_underwater",
+      "found_rank": 1,
+      "top_result_id": "scn_09_underwater",
+      "top_result_score": 0.353,
+      "reciprocal_rank": 1.0,
+      "match_evidence": {
+        "semantic_score": 0.252,
+        "overlap_score": 0.35,
+        "entity_matches": [
+          "tropical fish"
+        ],
+        "action_matches": [],
+        "technical_quality": 0.97,
+        "vector_search_ms": 2.29,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "colorful tropical yellow fish swimming near barrier reef",
+        "query_normalized": "colorful tropical yellow fish swimming near barrier reef",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.56,
+        "total_ms": 2.99
+      }
+    },
+    {
+      "query_id": "q18",
+      "category": "multi_concept",
+      "query": "artist applying textured brushstrokes on canvas easel",
+      "target_scene_id": "scn_11_art_studio",
+      "found_rank": 1,
+      "top_result_id": "scn_11_art_studio",
+      "top_result_score": 0.413,
+      "reciprocal_rank": 1.0,
+      "match_evidence": {
+        "semantic_score": 0.359,
+        "overlap_score": 0.35,
+        "entity_matches": [
+          "canvas easel"
+        ],
+        "action_matches": [],
+        "technical_quality": 0.93,
+        "vector_search_ms": 2.49,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "artist applying textured brushstrokes on canvas easel",
+        "query_normalized": "artist applying textured brushstrokes on canvas easel",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.64,
+        "total_ms": 3.22
+      }
+    }
+  ],
+  "negative_queries": [
+    {
+      "query_id": "q19",
+      "category": "negative_distractor",
+      "query": "astronaut walking on dusty red surface of mars",
+      "top_result_id": "scn_real_099",
+      "top_result_score": 0.243,
+      "rejected": true,
+      "match_evidence": {
+        "semantic_score": 0.251,
+        "overlap_score": 0.0,
+        "entity_matches": [],
+        "action_matches": [],
+        "technical_quality": 0.92,
+        "vector_search_ms": 2.3,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "astronaut walking on dusty red surface of mars",
+        "query_normalized": "astronaut walking on dusty red surface of mars",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.57,
+        "total_ms": 3.02
+      }
+    },
+    {
+      "query_id": "q20",
+      "category": "negative_distractor",
+      "query": "medieval knight battling fire breathing dragon",
+      "top_result_id": "scn_real_049",
+      "top_result_score": 0.255,
+      "rejected": true,
+      "match_evidence": {
+        "semantic_score": 0.273,
+        "overlap_score": 0.0,
+        "entity_matches": [],
+        "action_matches": [],
+        "technical_quality": 0.91,
+        "vector_search_ms": 2.73,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "medieval knight battling fire breathing dragon",
+        "query_normalized": "medieval knight battling fire breathing dragon",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.99,
+        "total_ms": 3.81
+      }
+    },
+    {
+      "query_id": "q21",
+      "category": "negative_distractor",
+      "query": "deep space alien starship entering hyperspace",
+      "top_result_id": "scn_real_059",
+      "top_result_score": 0.276,
+      "rejected": true,
+      "match_evidence": {
+        "semantic_score": 0.305,
+        "overlap_score": 0.0,
+        "entity_matches": [],
+        "action_matches": [],
+        "technical_quality": 0.93,
+        "vector_search_ms": 2.8,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "deep space alien starship entering hyperspace",
+        "query_normalized": "deep space alien starship entering hyperspace",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.58,
+        "total_ms": 3.52
+      }
+    },
+    {
+      "query_id": "q22",
+      "category": "negative_distractor",
+      "query": "polar bear hunting seals across arctic sea ice pack",
+      "top_result_id": "scn_03_cyberpunk",
+      "top_result_score": 0.246,
+      "rejected": true,
+      "match_evidence": {
+        "semantic_score": 0.251,
+        "overlap_score": 0.0,
+        "entity_matches": [],
+        "action_matches": [],
+        "technical_quality": 0.95,
+        "vector_search_ms": 2.26,
+        "embedding_model": "hashed-lexical-v1",
+        "embedding_dimensions": 256,
+        "embedding_version": "v1",
+        "query_original": "polar bear hunting seals across arctic sea ice pack",
+        "query_normalized": "polar bear hunting seals across arctic sea ice pack",
+        "translation_used": false,
+        "translated_query": null,
+        "retrieval_mode": "LEXICAL_FALLBACK",
+        "rerank_ms": 0.5,
+        "total_ms": 2.89
+      }
+    }
+  ]
+}

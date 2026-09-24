@@ -8,11 +8,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import subprocess
 
 import edge_tts
 
 from worker.services.tts_providers.base import TTSProvider
+
+logger = logging.getLogger("visionflow.edge_tts_provider")
 
 
 class EdgeTTSProvider(TTSProvider):
@@ -71,7 +74,7 @@ class EdgeTTSProvider(TTSProvider):
                 if audio_data and len(audio_data) > 1000:
                     with open(output_path, "wb") as f:
                         f.write(audio_data)
-                    print(f"[EdgeTTSProvider] ✅ Success. Saved to {output_path} (Rate: {current_rate})")
+                    logger.info("[EdgeTTSProvider] Success. Saved to %s (Rate: %s)", output_path, current_rate)
                     return word_timestamps
 
             except Exception as e:

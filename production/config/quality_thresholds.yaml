@@ -1,0 +1,44 @@
+version: 1
+
+short:
+  visual_coverage_min: 0.90
+  avg_visual_match_min: 0.78
+  min_visual_match_floor: 0.58
+  exact_asset_duplicate_max: 0
+  same_source_consecutive_target_max: 2
+  subtitle_overflow_max: 0
+  black_frame_ms_max: 120
+  timeline_drift_ms_max: 100
+  unresolved_rights_blocker_max: 0
+
+long:
+  visual_coverage_min: 0.92
+  avg_visual_match_min: 0.75
+  min_visual_match_floor: 0.55
+  exact_asset_duplicate_max: 0
+  timeline_drift_ms_max: 100
+  unresolved_rights_blocker_max: 0
+
+quality_weights:
+  content: 0.25
+  story: 0.15
+  visual: 0.25
+  edit: 0.15
+  technical: 0.10
+  rights: 0.10
+
+asset_scoring:
+  semantic_similarity: 0.30
+  entity_action_match: 0.15
+  visual_role_match: 0.10
+  shot_type_match: 0.07
+  technical_quality: 0.10
+  duration_trim_fit: 0.08
+  source_diversity_bonus: 0.05
+  rights_confidence: 0.15
+
+penalties:
+  repeated_scene: 0.35
+  same_source_3_consecutive: 0.15
+  visible_watermark: 0.25
+  entity_conflict: 1.0

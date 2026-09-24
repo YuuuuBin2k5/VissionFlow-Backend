@@ -1,45 +1,44 @@
 @echo off
+setlocal
 chcp 65001 >nul
-color 0B
-title VisionFlow 24/7 Local Render Daemon
-
-echo ==============================================================================
-echo        [*] VISIONFLOW AUTONOMOUS LOCAL RENDER WORKER (FFMPEG 7.1)
-echo ==============================================================================
-echo.
-echo   [*] Dang khoi dong Local Render Daemon...
-echo   [*] Ket noi Database Neon PostgreSQL de lang nghe job render 24/7.
-echo   [*] Nhan Ctrl+C de dung tien trinh bat ky luc nao.
-echo.
-echo ==============================================================================
-echo.
+title VisionFlow Local Render Stack
+color 0A
 
 cd /d "%~dp0"
 
-set PYTHONIOENCODING=utf-8
-set PYTHONUTF8=1
-set "DATABASE_URL=postgresql://neondb_owner:npg_TD8BYOyg6AVC@ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+echo =======================================================================
+echo   VISIONFLOW LOCAL PIPELINE + REMOTE RENDER STACK
+echo   PostgreSQL Docker local + Backend Render qua HTTPS - KHONG dung Neon
+echo =======================================================================
+echo.
 
-if exist ".\venv\Scripts\python.exe" (
-    set "PY_EXE=.\venv\Scripts\python.exe"
-) else (
-    where python >nul 2>nul
-    if %ERRORLEVEL% NEQ 0 (
-        echo [LOI] Khong tim thay Python trong PATH hoac virtualenv tren may tinh cua ban!
-        echo Vui long kiem tra lai cai dat Python.
-        pause
-        exit /b 1
-    )
-    set "PY_EXE=python"
+set "WORKER_LAUNCHER=%~dp0scripts\start_local_render_stack.ps1"
+if not exist "%WORKER_LAUNCHER%" (
+  echo [LOI] Khong tim thay launcher: "%WORKER_LAUNCHER%"
+  pause
+  exit /b 1
 )
 
-echo   [*] Su dung Python: %PY_EXE%
-%PY_EXE% local_render_daemon.py
-
-if %ERRORLEVEL% NEQ 0 (
-    echo.
-    echo ==============================================================================
-    echo [CANH BAO] Tien trinh Render Daemon da dung lai (Exit code: %ERRORLEVEL%).
-    echo ==============================================================================
-    pause
+if not defined VISIONFLOW_API_BASE_URL (
+  set "VISIONFLOW_API_BASE_URL=https://visionflow-control-plane-free.onrender.com"
 )
+
+echo [*] Backend: %VISIONFLOW_API_BASE_URL%
+echo [*] Pipeline worker dung PostgreSQL Docker local.
+echo [*] Final render worker claim job qua HTTPS; khong ket noi Neon.
+echo.
+
+rem Prevent a parent PowerShell 7 session from leaking an incompatible module
+rem search path into Windows PowerShell 5.1, which decrypts the DPAPI token.
+set "PSModulePath="
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%WORKER_LAUNCHER%" -ApiBaseUrl "%VISIONFLOW_API_BASE_URL%" %*
+set "WORKER_EXIT_CODE=%ERRORLEVEL%"
+
+if not "%WORKER_EXIT_CODE%"=="0" (
+  echo.
+  echo [LOI] Remote Render Worker da dung voi ma loi %WORKER_EXIT_CODE%.
+  echo Kiem tra worker token DPAPI va cau hinh tren Render.
+  pause
+)
+
+exit /b %WORKER_EXIT_CODE%

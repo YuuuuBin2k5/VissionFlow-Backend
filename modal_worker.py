@@ -53,6 +53,15 @@ def get_ffprobe_binary() -> str:
 FFMPEG_BIN = get_ffmpeg_binary()
 FFPROBE_BIN = get_ffprobe_binary()
 
+
+def normalize_psycopg_dsn(database_url: str) -> str:
+    """Convert a SQLAlchemy PostgreSQL URL into a libpq/psycopg DSN."""
+    value = (database_url or "").strip()
+    for sqlalchemy_scheme in ("postgresql+psycopg://", "postgresql+psycopg2://"):
+        if value.startswith(sqlalchemy_scheme):
+            return "postgresql://" + value[len(sqlalchemy_scheme):]
+    return value
+
 def get_audio_duration_seconds(audio_path: str, fallback_duration: float = 30.0) -> float:
     """
     [Phase 4] Measures exact audio duration in seconds from media file using ffprobe.
@@ -141,38 +150,59 @@ EMOTION_PROSODY_MATRIX = {
 
 SFX_STEM_CATALOG = {
     # ── 1. TRANSITIONS, WHOOSHES & SWEEPERS ──
-    "whoosh_fast": "https://assets.mixkit.co/active_storage/sfx/2872/2872-preview.mp3",
-    "whoosh_cinematic": "https://assets.mixkit.co/active_storage/sfx/2873/2873-preview.mp3",
-    "whoosh_air": "https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3",
-    "sub_boom": "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3",
-    "camera_shutter": "https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3",
-    "swish": "https://assets.mixkit.co/active_storage/sfx/2872/2872-preview.mp3",
-    "whoosh": "https://assets.mixkit.co/active_storage/sfx/2872/2872-preview.mp3",
+    "whoosh_cinematic_deep": "whoosh_cinematic_deep.mp3",
+    "whoosh_cinematic": "whoosh_cinematic_deep.mp3",
+    "swoosh_quick_air": "swoosh_quick_air.mp3",
+    "whoosh_air": "swoosh_quick_air.mp3",
+    "whoosh_fast": "whoosh_fast.mp3",
+    "whoosh": "whoosh_fast.mp3",
+    "swish": "swoosh_quick_air.mp3",
+    "whoosh_sub_boom": "whoosh_sub_boom.mp3",
+    "sub_boom": "whoosh_sub_boom.mp3",
 
-    # ── 2. IMPACTS, RISERS & THRILLERS ──
-    "cinematic_hit": "https://assets.mixkit.co/active_storage/sfx/2868/2868-preview.mp3",
-    "horror_riser": "https://assets.mixkit.co/active_storage/sfx/2875/2875-preview.mp3",
-    "heartbeat": "https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3",
-    "glitch_static": "https://assets.mixkit.co/active_storage/sfx/2575/2575-preview.mp3",
-    "glass_shatter": "https://assets.mixkit.co/active_storage/sfx/2580/2580-preview.mp3",
-    "metal_impact": "https://assets.mixkit.co/active_storage/sfx/2867/2867-preview.mp3",
-    "explosion_distant": "https://assets.mixkit.co/active_storage/sfx/2585/2585-preview.mp3",
+    # ── 2. IMPACTS, GLITCHES & RISERS ──
+    "cinematic_hit": "cinematic_hit.mp3",
+    "cyber_glitch_switch": "cyber_glitch_switch.mp3",
+    "glitch_static": "cyber_glitch_switch.mp3",
+    "glass_shatter": "cyber_glitch_switch.mp3",
+    "horror_riser": "whoosh_sub_boom.mp3",
+    "heartbeat": "whoosh_cinematic_deep.mp3",
+    "metal_impact": "cinematic_hit.mp3",
+    "explosion_distant": "whoosh_sub_boom.mp3",
 
-    # ── 3. FOLEY & MYSTERY AMBIENCE ──
-    "door_knock": "https://assets.mixkit.co/active_storage/sfx/2874/2874-preview.mp3",
-    "creaking_door": "https://assets.mixkit.co/active_storage/sfx/2876/2876-preview.mp3",
-    "clock_tick": "https://assets.mixkit.co/active_storage/sfx/2871/2871-preview.mp3",
-    "morse_code": "https://assets.mixkit.co/active_storage/sfx/2583/2583-preview.mp3",
-    "rain_thunder": "https://assets.mixkit.co/active_storage/sfx/1253/1253-preview.mp3",
-    "footsteps_wood": "https://assets.mixkit.co/active_storage/sfx/2878/2878-preview.mp3",
-    "whisper_ghost": "https://assets.mixkit.co/active_storage/sfx/2877/2877-preview.mp3",
-    "ocean_waves_deep": "https://assets.mixkit.co/active_storage/sfx/1240/1240-preview.mp3",
+    # ── 3. FOLEY, RETENTION & ACCENTS ──
+    "camera_shutter_click": "camera_shutter_click.mp3",
+    "camera_shutter": "camera_shutter_click.mp3",
+    "tape_rewind_stop": "tape_rewind_stop.mp3",
+    "record_scratch": "tape_rewind_stop.mp3",
+    "retro_pop_bubble": "retro_pop_bubble.mp3",
+    "pop_accent": "retro_pop_bubble.mp3",
+    "accent_bell_ting": "accent_bell_ting.mp3",
+    "ding_bell": "accent_bell_ting.mp3",
+    "magic_sparkle": "magic_sparkle.mp3",
+    "cash_register": "magic_sparkle.mp3",
+    "clock_tick": "retro_pop_bubble.mp3",
+    "door_knock": "cinematic_hit.mp3",
+    "creaking_door": "whoosh_cinematic_deep.mp3",
+    "morse_code": "accent_bell_ting.mp3",
+    "rain_thunder": "whoosh_cinematic_deep.mp3",
+    "footsteps_wood": "retro_pop_bubble.mp3",
+    "whisper_ghost": "whoosh_cinematic_deep.mp3",
+    "ocean_waves_deep": "whoosh_cinematic_deep.mp3",
+}
 
-    # ── 4. VIRAL RETENTION, ACCENTS & UI ──
-    "pop_accent": "https://assets.mixkit.co/active_storage/sfx/2574/2574-preview.mp3",
-    "ding_bell": "https://assets.mixkit.co/active_storage/sfx/2865/2865-preview.mp3",
-    "cash_register": "https://assets.mixkit.co/active_storage/sfx/2582/2582-preview.mp3",
-    "record_scratch": "https://assets.mixkit.co/active_storage/sfx/2576/2576-preview.mp3",
+SFX_STEM_FALLBACK_URLS = {
+    "whoosh_cinematic_deep.mp3": "https://assets.mixkit.co/active_storage/sfx/2873/2873-preview.mp3",
+    "swoosh_quick_air.mp3": "https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3",
+    "whoosh_fast.mp3": "https://assets.mixkit.co/active_storage/sfx/2872/2872-preview.mp3",
+    "whoosh_sub_boom.mp3": "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3",
+    "cinematic_hit.mp3": "https://assets.mixkit.co/active_storage/sfx/2868/2868-preview.mp3",
+    "cyber_glitch_switch.mp3": "https://assets.mixkit.co/active_storage/sfx/2575/2575-preview.mp3",
+    "camera_shutter_click.mp3": "https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3",
+    "tape_rewind_stop.mp3": "https://assets.mixkit.co/active_storage/sfx/2579/2579-preview.mp3",
+    "retro_pop_bubble.mp3": "https://assets.mixkit.co/active_storage/sfx/2574/2574-preview.mp3",
+    "accent_bell_ting.mp3": "https://assets.mixkit.co/active_storage/sfx/2865/2865-preview.mp3",
+    "magic_sparkle.mp3": "https://assets.mixkit.co/active_storage/sfx/2582/2582-preview.mp3",
 }
 
 TRANSITION_MAP = {
@@ -276,22 +306,114 @@ TRANSITION_DURATION_MAP = {
 }
 
 TRANSITION_SFX_MAP = {
-    "smoothleft": ("whoosh", 0.45),
-    "smoothright": ("whoosh", 0.45),
-    "slideleft": ("whoosh", 0.40),
-    "slideright": ("whoosh", 0.40),
-    "zoomin": ("whoosh", 0.45),
-    "distance": ("whoosh", 0.50),
-    "pixelize": ("horror_riser", 0.35),
-    "fadeblack": ("heartbeat", 0.30),
-    "fadewhite": ("horror_riser", 0.40),
-    "radial": ("clock_tick", 0.40),
+    "smoothleft": ("swoosh_quick_air", 0.28),
+    "smoothright": ("swoosh_quick_air", 0.28),
+    "smoothup": ("swoosh_quick_air", 0.28),
+    "smoothdown": ("swoosh_quick_air", 0.28),
+    "slideleft": ("whoosh_fast", 0.28),
+    "slideright": ("whoosh_fast", 0.28),
+    "slideup": ("whoosh_fast", 0.28),
+    "slidedown": ("whoosh_fast", 0.28),
+    "zoomin": ("whoosh_cinematic_deep", 0.30),
+    "distance": ("whoosh_sub_boom", 0.30),
+    "pixelize": ("cyber_glitch_switch", 0.28),
+    "fadeblack": ("cinematic_hit", 0.26),
+    "fadewhite": ("tape_rewind_stop", 0.25),
+    "radial": ("accent_bell_ting", 0.26),
+    "circlecrop": ("magic_sparkle", 0.25),
+    "dissolve": ("whoosh_fast", 0.24),
+    "fade": ("swoosh_quick_air", 0.24),
+    "hlslice": ("cyber_glitch_switch", 0.28),
+    "diagtl": ("retro_pop_bubble", 0.26),
+    "horzopen": ("camera_shutter_click", 0.28),
 }
+
+def resolve_audio_asset_file(asset_ref: str, category: str = "bgm", work_dir: str = "/tmp") -> str | None:
+    """
+    Robust Multi-Tier Audio Asset Resolver:
+    Tier 1: Direct Local File path (if exists).
+    Tier 2: Bundled local assets in VisionFlow_Bakend/assets/audio and VisionFlow_Client/public/audio.
+    Tier 3: Cloudflare R2 bucket download via boto3 S3 SDK.
+    Tier 4: Public HTTP mirror download via requests.
+    Tier 5: Fallback to bundled default asset (zero-silence guarantee).
+    """
+    if not asset_ref or not isinstance(asset_ref, str):
+        asset_ref = ""
+    
+    asset_clean = asset_ref.strip()
+    if os.path.exists(asset_clean) and os.path.getsize(asset_clean) > 1000:
+        return asset_clean
+
+    base_name = os.path.basename(asset_clean.split("?")[0])
+    if not base_name.endswith(".mp3"):
+        if category == "bgm":
+            base_name = "bgm_philosophy_clean_soul.mp3"
+        else:
+            base_name = "whoosh_fast.mp3"
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(script_dir, "assets", "audio", category, base_name),
+        os.path.join(script_dir, "..", "VisionFlow_Client", "public", "audio", category, base_name),
+        os.path.join(os.getcwd(), "assets", "audio", category, base_name),
+        os.path.join(os.getcwd(), "VisionFlow_Client", "public", "audio", category, base_name),
+    ]
+    for c_path in candidates:
+        if os.path.exists(c_path) and os.path.getsize(c_path) > 1000:
+            return c_path
+
+    # Tier 3: Cloudflare R2 via boto3
+    try:
+        import boto3
+        s3 = boto3.client(
+            "s3",
+            endpoint_url="https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com",
+            aws_access_key_id=os.environ.get("R2_ACCESS_KEY_ID", "fd28f47a855e5f2097d5f8c24c50da70"),
+            aws_secret_access_key=os.environ.get("R2_SECRET_ACCESS_KEY", "c329293210d831c0bdba01f2434d86dab3eb23ab0a73f9b67819b7c3069cc9c6"),
+        )
+        r2_key = f"audio/{category}/{base_name}"
+        dl_dest = os.path.join(work_dir, f"r2_{base_name}")
+        s3.download_file("vision-flow", r2_key, dl_dest)
+        if os.path.exists(dl_dest) and os.path.getsize(dl_dest) > 1000:
+            return dl_dest
+    except Exception:
+        pass
+
+    # Tier 4: Direct HTTP download
+    target_http_url = asset_clean if asset_clean.startswith("http") else SFX_STEM_FALLBACK_URLS.get(base_name)
+    if target_http_url and target_http_url.startswith("http"):
+        try:
+            import requests
+            dl_dest = os.path.join(work_dir, f"http_{base_name}")
+            r = requests.get(target_http_url, timeout=15)
+            if r.status_code == 200 and len(r.content) > 1000:
+                with open(dl_dest, "wb") as f:
+                    f.write(r.content)
+                return dl_dest
+        except Exception:
+            pass
+
+    # Tier 5: Fallback to any local file in the folder
+    for c_dir in [
+        os.path.join(script_dir, "assets", "audio", category),
+        os.path.join(script_dir, "..", "VisionFlow_Client", "public", "audio", category)
+    ]:
+        if os.path.exists(c_dir):
+            for f_name in os.listdir(c_dir):
+                if f_name.endswith(".mp3"):
+                    full_p = os.path.join(c_dir, f_name)
+                    if os.path.getsize(full_p) > 1000:
+                        return full_p
+
+    return None
 
 
 from urllib.parse import urlparse
 import ipaddress
-import modal
+try:
+    import modal
+except Exception:
+    modal = None
 
 def is_safe_url(url: str | None) -> bool:
     """Security Guardrail: Prevents SSRF attacks to localhost or private subnet IPs."""
@@ -360,38 +482,46 @@ def format_rate(rate: float | str | None) -> str:
     except Exception:
         return "+0%"
 
-# 1. Define Debian Linux Image with FFmpeg, OpenCV, Google Fonts, Playwright & Python Libraries
-visionflow_image = (
-    modal.Image.debian_slim(python_version="3.11")
-    .apt_install(
-        "ffmpeg", "git", "curl", "wget", "fonts-dejavu-core", "fonts-liberation",
-        "fonts-roboto", "fonts-noto-color-emoji", "fontconfig", "libgl1", "libglib2.0-0"
-    )
-    .run_commands(
-        "mkdir -p /usr/share/fonts/truetype/googlefonts",
-        "wget -q -O /usr/share/fonts/truetype/googlefonts/Outfit-Bold.ttf https://github.com/google/fonts/raw/main/ofl/outfit/Outfit%5Bwght%5D.ttf || true",
-        "wget -q -O /usr/share/fonts/truetype/googlefonts/Montserrat-Bold.ttf https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Bold.ttf || true",
-        "wget -q -O /usr/share/fonts/truetype/googlefonts/BebasNeue-Regular.ttf https://github.com/google/fonts/raw/main/ofl/bebasneue/BebasNeue-Regular.ttf || true",
-        "wget -q -O /usr/share/fonts/truetype/googlefonts/Anton-Regular.ttf https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf || true",
-        "fc-cache -fv"
-    )
-    .pip_install(
-        "fastapi[standard]",
-        "moviepy>=1.0.3",
-        "edge-tts>=6.1.9",
-        "google-generativeai>=0.8.0",
-        "opencv-python-headless>=4.8.0",
-        "pillow>=10.0.0",
-        "numpy>=1.24.0",
-        "requests>=2.31.0",
-        "playwright>=1.40.0",
-        "pydantic>=2.0.0",
-        "boto3>=1.34.0",
-        "sqlalchemy>=2.0.0",
-        "psycopg2-binary>=2.9.0"
-    )
-    .run_commands("playwright install chromium --with-deps")
-)
+# 1. Define Debian Linux Image with FFmpeg, OpenCV, Google Fonts, Playwright & Python Libraries (Optional for Cloud Modal deployment)
+try:
+    if modal is not None and hasattr(modal, "Image"):
+        visionflow_image = (
+            modal.Image.debian_slim(python_version="3.11")
+            .apt_install(
+                "ffmpeg", "git", "curl", "wget", "fonts-dejavu-core", "fonts-liberation",
+                "fonts-roboto", "fonts-noto-color-emoji", "fontconfig", "libgl1", "libglib2.0-0"
+            )
+            .run_commands(
+                "mkdir -p /usr/share/fonts/truetype/googlefonts",
+                "wget -q -O /usr/share/fonts/truetype/googlefonts/Outfit-Bold.ttf https://github.com/google/fonts/raw/main/ofl/outfit/Outfit%5Bwght%5D.ttf || true",
+                "wget -q -O /usr/share/fonts/truetype/googlefonts/Montserrat-Bold.ttf https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Bold.ttf || true",
+                "wget -q -O /usr/share/fonts/truetype/googlefonts/BebasNeue-Regular.ttf https://github.com/google/fonts/raw/main/ofl/bebasneue/BebasNeue-Regular.ttf || true",
+                "wget -q -O /usr/share/fonts/truetype/googlefonts/Anton-Regular.ttf https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf || true",
+                "fc-cache -fv"
+            )
+            .pip_install(
+                "fastapi[standard]",
+                "moviepy>=1.0.3",
+                "edge-tts>=6.1.9",
+                "google-generativeai>=0.8.0",
+                "opencv-python-headless>=4.8.0",
+                "pillow>=10.0.0",
+                "numpy>=1.24.0",
+                "requests>=2.31.0",
+                "playwright>=1.40.0",
+                "pydantic>=2.0.0",
+                "boto3>=1.34.0",
+                "sqlalchemy>=2.0.0",
+                "psycopg2-binary>=2.9.0"
+            )
+            .run_commands("playwright install chromium --with-deps")
+            .add_local_dir("worker/voice_system", remote_path="/root/worker/voice_system")
+        )
+    else:
+        visionflow_image = None
+except Exception:
+    visionflow_image = None
+
 
 def normalize_vietnamese_script(raw_text: str) -> str:
     """
@@ -448,135 +578,215 @@ def normalize_vietnamese_script(raw_text: str) -> str:
 R2_AUDIO_BASE = "https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev/audio/bgm"
 
 SOUNDBANK_REGISTRY = {
-    "MYSTERY_PARANORMAL_HISTORY": [
+    "PHILOSOPHY_LIFE_LESSON": [
         {
-            "id": "bgm_mystery_blackout",
-            "name": "Blackout Dark Ambiance",
-            "artist": "Myuu (The Dark Piano)",
-            "url": f"{R2_AUDIO_BASE}/mystery_blackout.mp3",
-            "volume_gain": 0.12,
+            "id": "bgm_philosophy_clean_soul",
+            "name": "Clean Soul",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_philosophy_clean_soul.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Clean%20Soul.mp3",
+            "volume_gain": 0.20,
             "license": "CC-BY 4.0",
-            "credit": "Music: Blackout by Myuu (thedarkpiano.com)",
-            "mood": "ominous_creepy"
+            "credit": "Music: Clean Soul by Kevin MacLeod (incompetech.com)",
+            "mood": "peaceful_wisdom"
         },
         {
-            "id": "bgm_mystery_escalation",
-            "name": "The Escalation",
+            "id": "bgm_chiem_nghiem_clean_soul",
+            "name": "Clean Soul",
             "artist": "Kevin MacLeod",
-            "url": f"{R2_AUDIO_BASE}/mystery_escalation.mp3",
-            "volume_gain": 0.11,
+            "file_name": "bgm_philosophy_clean_soul.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Clean%20Soul.mp3",
+            "volume_gain": 0.20,
             "license": "CC-BY 4.0",
-            "credit": "Music: The Escalation by Kevin MacLeod (incompetech.com)",
+            "credit": "Music: Clean Soul by Kevin MacLeod",
+            "mood": "peaceful_wisdom"
+        },
+        {
+            "id": "bgm_chiem_nghiem_clover",
+            "name": "Clean Soul (Acoustic)",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_philosophy_clean_soul.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Clean%20Soul.mp3",
+            "volume_gain": 0.20,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Clean Soul by Kevin MacLeod",
+            "mood": "healing_nostalgic"
+        },
+        {
+            "id": "bgm_chiem_nghiem_acoustic",
+            "name": "Clean Soul",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_philosophy_clean_soul.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Clean%20Soul.mp3",
+            "volume_gain": 0.20,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Clean Soul by Kevin MacLeod",
+            "mood": "warm_guitar"
+        }
+    ],
+    "SCIENCE_TECH_FUTURE": [
+        {
+            "id": "bgm_science_equatorial",
+            "name": "Equatorial Complex",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_science_equatorial.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Equatorial%20Complex.mp3",
+            "volume_gain": 0.20,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Equatorial Complex by Kevin MacLeod (incompetech.com)",
+            "mood": "futuristic_cosmic"
+        },
+        {
+            "id": "bgm_tech_space_ambient",
+            "name": "Equatorial Complex",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_science_equatorial.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Equatorial%20Complex.mp3",
+            "volume_gain": 0.20,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Equatorial Complex by Kevin MacLeod",
+            "mood": "futuristic_cosmic"
+        }
+    ],
+    "MYSTERY_PARANORMAL_HISTORY": [
+        {
+            "id": "bgm_mystery_gathering_darkness",
+            "name": "Gathering Darkness",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_mystery_gathering_darkness.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Gathering%20Darkness.mp3",
+            "volume_gain": 0.18,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Gathering Darkness by Kevin MacLeod (incompetech.com)",
             "mood": "suspense_investigation"
         },
         {
             "id": "bgm_mystery_gathering",
             "name": "Gathering Darkness",
             "artist": "Kevin MacLeod",
-            "url": f"{R2_AUDIO_BASE}/mystery_gathering_darkness.mp3",
-            "volume_gain": 0.10,
+            "file_name": "bgm_mystery_gathering_darkness.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Gathering%20Darkness.mp3",
+            "volume_gain": 0.18,
             "license": "CC-BY 4.0",
-            "credit": "Music: Gathering Darkness by Kevin MacLeod (incompetech.com)",
+            "credit": "Music: Gathering Darkness by Kevin MacLeod",
             "mood": "eerie_drone"
-        }
-    ],
-    "PHILOSOPHY_LIFE_LESSON": [
-        {
-            "id": "bgm_chiem_nghiem_clover",
-            "name": "Clover 3 Nostalgic Piano",
-            "artist": "YouTube Audio Library",
-            "url": f"{R2_AUDIO_BASE}/chiem_nghiem_clover3.mp3",
-            "volume_gain": 0.14,
-            "license": "Royalty Free (No Attribution Required)",
-            "credit": "Music: YouTube Audio Library",
-            "mood": "healing_nostalgic"
         },
         {
-            "id": "bgm_chiem_nghiem_acoustic",
-            "name": "Acoustic Breeze",
-            "artist": "Bensound",
-            "url": f"{R2_AUDIO_BASE}/chiem_nghiem_acoustic_breeze.mp3",
-            "volume_gain": 0.13,
-            "license": "Royalty Free",
-            "credit": "Music: Bensound.com",
-            "mood": "warm_guitar"
-        },
-        {
-            "id": "bgm_chiem_nghiem_clean_soul",
-            "name": "Clean Soul",
+            "id": "bgm_mystery_blackout",
+            "name": "Gathering Darkness (Ambient)",
             "artist": "Kevin MacLeod",
-            "url": f"{R2_AUDIO_BASE}/chiem_nghiem_clean_soul.mp3",
-            "volume_gain": 0.12,
+            "file_name": "bgm_mystery_gathering_darkness.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Gathering%20Darkness.mp3",
+            "volume_gain": 0.18,
             "license": "CC-BY 4.0",
-            "credit": "Music: Clean Soul by Kevin MacLeod (incompetech.com)",
-            "mood": "peaceful_wisdom"
+            "credit": "Music: Gathering Darkness by Kevin MacLeod",
+            "mood": "ominous_creepy"
+        },
+        {
+            "id": "bgm_mystery_escalation",
+            "name": "Gathering Darkness",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_mystery_gathering_darkness.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Gathering%20Darkness.mp3",
+            "volume_gain": 0.18,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Gathering Darkness by Kevin MacLeod",
+            "mood": "suspense_investigation"
         }
     ],
     "WEALTH_FINANCE_MINDSET": [
         {
+            "id": "bgm_wealth_long_road",
+            "name": "Long Road Ahead",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_wealth_long_road.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Long%20Road%20Ahead.mp3",
+            "volume_gain": 0.20,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Long Road Ahead by Kevin MacLeod (incompetech.com)",
+            "mood": "modern_inspiring"
+        },
+        {
             "id": "bgm_wealth_better_days",
-            "name": "Better Days",
-            "artist": "LAKEY INSPIRED",
-            "url": f"{R2_AUDIO_BASE}/wealth_better_days.mp3",
-            "volume_gain": 0.13,
-            "license": "CC-BY 3.0",
-            "credit": "Music: Better Days by LAKEY INSPIRED",
+            "name": "Long Road Ahead",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_wealth_long_road.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Long%20Road%20Ahead.mp3",
+            "volume_gain": 0.20,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Long Road Ahead by Kevin MacLeod",
             "mood": "modern_inspiring"
         },
         {
             "id": "bgm_wealth_chill_day",
-            "name": "Chill Day",
-            "artist": "LAKEY INSPIRED",
-            "url": f"{R2_AUDIO_BASE}/wealth_chill_day.mp3",
-            "volume_gain": 0.13,
-            "license": "CC-BY 3.0",
-            "credit": "Music: Chill Day by LAKEY INSPIRED",
+            "name": "Long Road Ahead (Focus)",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_wealth_long_road.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Long%20Road%20Ahead.mp3",
+            "volume_gain": 0.20,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Long Road Ahead by Kevin MacLeod",
             "mood": "upbeat_focus"
         }
     ],
     "ANCIENT_STRATEGY_WAR": [
         {
+            "id": "bgm_strategy_virtutes",
+            "name": "Virtutes Instrumenti",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_strategy_virtutes.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Virtutes%20Instrumenti.mp3",
+            "volume_gain": 0.20,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Virtutes Instrumenti by Kevin MacLeod (incompetech.com)",
+            "mood": "heroic_tactical"
+        },
+        {
             "id": "bgm_strategy_taiko",
-            "name": "Ancient Battle Drums",
-            "artist": "YouTube Audio Library",
-            "url": f"{R2_AUDIO_BASE}/strategy_battle_drums.mp3",
-            "volume_gain": 0.12,
-            "license": "Royalty Free",
-            "credit": "Music: YouTube Audio Library",
+            "name": "Virtutes Instrumenti",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_strategy_virtutes.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Virtutes%20Instrumenti.mp3",
+            "volume_gain": 0.20,
+            "license": "CC-BY 4.0",
+            "credit": "Music: Virtutes Instrumenti by Kevin MacLeod",
             "mood": "heroic_tactical"
         },
         {
             "id": "bgm_strategy_epic_hero",
-            "name": "The Epic Hero",
-            "artist": "Keys of Moon",
-            "url": f"{R2_AUDIO_BASE}/strategy_epic_hero.mp3",
-            "volume_gain": 0.11,
+            "name": "Virtutes Instrumenti",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_strategy_virtutes.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Virtutes%20Instrumenti.mp3",
+            "volume_gain": 0.20,
             "license": "CC-BY 4.0",
-            "credit": "Music: The Epic Hero by Keys of Moon",
+            "credit": "Music: Virtutes Instrumenti by Kevin MacLeod",
             "mood": "cinematic_grand"
         }
     ],
-    "SCIENCE_TECH_FUTURE": [
+    "CHILL_LIFESTYLE": [
         {
-            "id": "bgm_tech_space_ambient",
-            "name": "Deep Space Pulse",
-            "artist": "YouTube Audio Library",
-            "url": f"{R2_AUDIO_BASE}/tech_deep_space.mp3",
-            "volume_gain": 0.12,
-            "license": "Royalty Free",
-            "credit": "Music: YouTube Audio Library",
-            "mood": "futuristic_cosmic"
+            "id": "bgm_chill_zen_moment",
+            "name": "That Zen Moment",
+            "artist": "Kevin MacLeod",
+            "file_name": "bgm_chill_zen_moment.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/That%20Zen%20Moment.mp3",
+            "volume_gain": 0.20,
+            "license": "CC-BY 4.0",
+            "credit": "Music: That Zen Moment by Kevin MacLeod (incompetech.com)",
+            "mood": "lofi_relaxing"
         }
     ],
     "GENERAL_DISCOVERY": [
         {
             "id": "bgm_general_carefree",
-            "name": "Carefree",
+            "name": "Clean Soul",
             "artist": "Kevin MacLeod",
-            "url": f"{R2_AUDIO_BASE}/general_carefree.mp3",
-            "volume_gain": 0.13,
+            "file_name": "bgm_philosophy_clean_soul.mp3",
+            "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Clean%20Soul.mp3",
+            "volume_gain": 0.20,
             "license": "CC-BY 4.0",
-            "credit": "Music: Carefree by Kevin MacLeod (incompetech.com)",
+            "credit": "Music: Clean Soul by Kevin MacLeod",
             "mood": "curious_light"
         }
     ]
@@ -584,19 +794,36 @@ SOUNDBANK_REGISTRY = {
 
 def detect_video_genre_modal(title: str, script: str = "", explicit_genre: str = "") -> str:
     if isinstance(explicit_genre, str) and explicit_genre.strip():
-        return explicit_genre.strip()
+        eg = explicit_genre.strip().lower()
+        if any(k in eg for k in ["documentary", "tài liệu", "triết lý", "chiêm nghiệm", "nhân sinh", "life", "wisdom", "philosophy", "lifestyle", "cuộc sống"]):
+            return "PHILOSOPHY_LIFE_LESSON"
+        if any(k in eg for k in ["mystery", "bí ẩn", "rùng rợn", "horror", "paranormal", "vụ án"]):
+            return "MYSTERY_PARANORMAL_HISTORY"
+        if any(k in eg for k in ["wealth", "tài chính", "tiền", "finance", "kinh doanh", "money", "làm giàu"]):
+            return "WEALTH_FINANCE_MINDSET"
+        if any(k in eg for k in ["strategy", "chiến thuật", "binh pháp", "war", "lịch sử", "ancient"]):
+            return "ANCIENT_STRATEGY_WAR"
+        if any(k in eg for k in ["tech", "công nghệ", "vũ trụ", "khoa học", "science", "future", "ai", "robot"]):
+            return "SCIENCE_TECH_FUTURE"
+        if any(k in eg for k in ["chill", "thư giãn", "cà phê", "podcast", "lofi", "lifestyle"]):
+            return "CHILL_LIFESTYLE"
+        if eg.upper() in SOUNDBANK_REGISTRY:
+            return eg.upper()
+
     combined = f"{title} {script}".lower()
-    if any(k in combined for k in ["mary celeste", "flannan", "bí ẩn", "mất tích", "hải đăng", "tàu ma", "bốc hơi", "rùng rợn", "hồ sơ", "vụ án", "đại dương", "paranormal", "mystery", "unsolved", "ghost ship", "horror"]):
+    if any(k in combined for k in ["cà phê", "thư giãn", "podcast", "lofi", "thói quen", "bữa sáng", "cuộc sống chậm", "chill"]):
+        return "CHILL_LIFESTYLE"
+    if any(k in combined for k in ["khảo cổ", "cổ vật", "sắt gỉ", "lăng mộ", "xác ướp", "mary celeste", "flannan", "bí ẩn", "mất tích", "hải đăng", "tàu ma", "bốc hơi", "rùng rợn", "hồ sơ", "vụ án", "đại dương", "paranormal", "mystery", "unsolved", "ghost ship", "horror", "tutankhamun"]):
         return "MYSTERY_PARANORMAL_HISTORY"
-    if any(k in combined for k in ["làm giàu", "tài chính", "tiền bạc", "đầu tư", "kinh doanh", "tư duy triệu phú", "thành công", "wealth", "finance", "money"]):
+    if any(k in combined for k in ["làm giàu", "tài chính", "tiền bạc", "đầu tư", "kinh doanh", "tư duy triệu phú", "thành công", "wealth", "finance", "money", "thương mại"]):
         return "WEALTH_FINANCE_MINDSET"
-    if any(k in combined for k in ["sun bin", "tôn tẫn", "bàng quyên", "tam quốc", "tào tháo", "khổng minh", "binh pháp", "chiến thuật", "mã lăng", "ancient tactics", "war"]):
+    if any(k in combined for k in ["thanh kiếm", "vũ khí", "chiến tranh", "sun bin", "tôn tẫn", "bàng quyên", "tam quốc", "tào tháo", "khổng minh", "binh pháp", "chiến thuật", "mã lăng", "ancient tactics", "war", "quân sự"]):
         return "ANCIENT_STRATEGY_WAR"
-    if any(k in combined for k in ["khoa học", "vũ trụ", "công nghệ", "ai", "trí tuệ nhân tạo", "robot", "hố đen", "tương lai", "science", "universe"]):
+    if any(k in combined for k in ["não", "khoa học", "vũ trụ", "công nghệ", "ai", "trí tuệ nhân tạo", "robot", "hố đen", "tương lai", "science", "universe", "tế bào", "sinh học"]):
         return "SCIENCE_TECH_FUTURE"
-    if any(k in combined for k in ["bài học", "triết lý", "nhân sinh", "kinh nghiệm sống", "thức tỉnh", "tâm hồn", "lời người xưa", "thời xưa", "đạo làm người", "goc chiem nghiem", "cuộc sống", "wisdom", "life lesson"]):
+    if any(k in combined for k in ["bài học", "triết lý", "nhân sinh", "kinh nghiệm sống", "thức tỉnh", "tâm hồn", "lời người xưa", "thời xưa", "đạo làm người", "goc chiem nghiem", "cuộc sống", "wisdom", "life lesson", "dunning-kruger", "tâm lý"]):
         return "PHILOSOPHY_LIFE_LESSON"
-    return "GENERAL_DISCOVERY"
+    return "PHILOSOPHY_LIFE_LESSON"
 
 def resolve_genre_bgm_modal(genre: str, mood_override: str = "", custom_url: str = "", track_index: int = 0) -> dict:
     if custom_url and custom_url.startswith("http"):
@@ -610,9 +837,18 @@ def resolve_genre_bgm_modal(genre: str, mood_override: str = "", custom_url: str
             "credit": "",
             "mood": mood_override or "custom"
         }
-    genre_key = genre.upper() if genre else "GENERAL_DISCOVERY"
-    tracks = SOUNDBANK_REGISTRY.get(genre_key, SOUNDBANK_REGISTRY["GENERAL_DISCOVERY"])
-    if mood_override:
+
+    # 1. Tra cứu trực tiếp theo BGM Preset ID hoặc Tên bài trên toàn bộ Soundbank
+    if mood_override and mood_override.strip() and mood_override.strip().lower() != "auto":
+        clean_override = mood_override.strip().lower()
+        for g_tracks in SOUNDBANK_REGISTRY.values():
+            for t in g_tracks:
+                if clean_override == t.get("id", "").lower() or clean_override in t.get("id", "").lower() or clean_override in t.get("name", "").lower():
+                    return t
+
+    genre_key = genre.upper() if genre else "PHILOSOPHY_LIFE_LESSON"
+    tracks = SOUNDBANK_REGISTRY.get(genre_key, SOUNDBANK_REGISTRY["PHILOSOPHY_LIFE_LESSON"])
+    if mood_override and mood_override.strip() and mood_override.strip().lower() != "auto":
         for t in tracks:
             if mood_override.lower() in t.get("mood", "").lower():
                 return t
@@ -852,6 +1088,92 @@ def preprocess_script_for_tts(text: str) -> str:
             p_cap += "."
         cleaned_segments.append(p_cap)
     return " ".join(cleaned_segments)
+
+async def _stream_tts_async(text_content: str, voice: str, rate: str, pitch: str, audio_path: str, vtt_path: str) -> int:
+    import edge_tts
+    comm = edge_tts.Communicate(text_content, voice=voice, rate=rate, pitch=pitch)
+    submaker = edge_tts.SubMaker()
+    total_audio = 0
+    with open(audio_path, "wb") as af:
+        async for chunk in comm.stream():
+            if chunk["type"] == "audio":
+                af.write(chunk["data"])
+                total_audio += len(chunk["data"])
+            elif chunk["type"] in ("WordBoundary", "SentenceBoundary"):
+                submaker.feed(chunk)
+    with open(vtt_path, "w", encoding="utf-8") as vf:
+        vf.write(submaker.get_srt())
+    return total_audio
+
+def synthesize_edge_tts_robust(text_content: str, voice: str, rate_str: str, pitch_str: str, audio_path: str, vtt_path: str) -> bool:
+    """
+    Rock-solid multi-tier Edge TTS speech synthesis engine:
+    1. Neutralizes pitch offsets for Vietnamese voices (vi-VN) to prevent Microsoft Azure Neural NoAudioReceived crash.
+    2. Directly streams chunks in Python (bypassing Windows subprocess/command line escaping limits).
+    3. Handles reconnection cooling (sleep 1.5s - 2.0s) between fallback tiers.
+    4. Sentence-chunk fallback for ultra-long scripts if needed.
+    """
+    import asyncio
+    import time
+    is_vi = str(voice).lower().startswith("vi")
+    safe_pitch = "+0Hz" if is_vi else pitch_str
+
+    # Attempt 1: Targeted Rate + Safe Pitch
+    try:
+        audio_bytes = asyncio.run(_stream_tts_async(text_content, voice, rate_str, safe_pitch, audio_path, vtt_path))
+        if audio_bytes > 0:
+            return True
+    except Exception as e1:
+        print(f"[Modal TTS Warning] Edge TTS tier 1 failed ({e1}). Cooling down & retrying with pitch=+0Hz...", flush=True)
+
+    time.sleep(1.5)
+    # Attempt 2: Targeted Rate + Pitch 0Hz
+    try:
+        audio_bytes = asyncio.run(_stream_tts_async(text_content, voice, rate_str, "+0Hz", audio_path, vtt_path))
+        if audio_bytes > 0:
+            return True
+    except Exception as e2:
+        print(f"[Modal TTS Warning] Edge TTS tier 2 failed ({e2}). Retrying with default rate...", flush=True)
+
+    time.sleep(2.0)
+    # Attempt 3: Default standard rate and pitch
+    try:
+        audio_bytes = asyncio.run(_stream_tts_async(text_content, voice, "+0%", "+0Hz", audio_path, vtt_path))
+        if audio_bytes > 0:
+            return True
+    except Exception as e3:
+        print(f"[Modal TTS Warning] Edge TTS tier 3 failed ({e3}). Falling back to sentence streaming...", flush=True)
+
+    time.sleep(2.0)
+    # Attempt 4: Sentence by sentence fallback
+    sentences = [s.strip() for s in text_content.replace("\n", " ").split(".") if s.strip()]
+    if not sentences:
+        raise RuntimeError("No speech text available for TTS")
+
+    print(f"[Modal TTS] Synthesizing {len(sentences)} sentence chunks sequentially...", flush=True)
+    import edge_tts
+    combined_audio = b""
+    master_submaker = edge_tts.SubMaker()
+    for s_idx, sentence in enumerate(sentences):
+        comm = edge_tts.Communicate(sentence, voice=voice, rate=rate_str, pitch="+0Hz")
+        async def _run_s():
+            nonlocal combined_audio
+            async for chunk in comm.stream():
+                if chunk["type"] == "audio":
+                    combined_audio += chunk["data"]
+                elif chunk["type"] in ("WordBoundary", "SentenceBoundary"):
+                    master_submaker.feed(chunk)
+        asyncio.run(_run_s())
+        time.sleep(0.3)
+
+    if not combined_audio:
+        raise RuntimeError("Sentence streaming failed to produce audio data")
+
+    with open(audio_path, "wb") as af:
+        af.write(combined_audio)
+    with open(vtt_path, "w", encoding="utf-8") as vf:
+        vf.write(master_submaker.get_srt())
+    return True
 
 def format_ass_time(seconds: float) -> str:
     hrs = int(seconds // 3600)
@@ -1344,19 +1666,35 @@ def create_logo_pill_overlay(
     canvas_h: int = 1920,
     x_percent: float = 18.0,
     y_percent: float = 6.0,
-    output_path: str = "/tmp/logo_pill_overlay.png"
+    output_path: str = "/tmp/logo_pill_overlay.png",
+    logo_url: str = ""
 ) -> str:
-    """Generates pixel-perfect Glassmorphic Channel Logo Pill matching Studio Preview."""
+    """Generates pixel-perfect Glassmorphic Channel Logo Pill supporting real image logo & handle matching Studio Preview."""
     img = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
-    if not logo_handle:
+    clean_handle = (logo_handle or "").split("||")[0].strip()
+    if clean_handle and not clean_handle.startswith("@"):
+        clean_handle = f"@{clean_handle}"
+
+    # 1. Tải và xử lý file ảnh logo thương hiệu (nếu được cung cấp)
+    logo_img = None
+    if logo_url and (logo_url.startswith("http://") or logo_url.startswith("https://") or os.path.exists(logo_url)):
+        try:
+            if logo_url.startswith("http"):
+                import requests
+                from io import BytesIO
+                r_logo = requests.get(logo_url, timeout=10)
+                if r_logo.status_code == 200 and len(r_logo.content) > 500:
+                    logo_img = Image.open(BytesIO(r_logo.content)).convert("RGBA")
+            elif os.path.exists(logo_url) and os.path.getsize(logo_url) > 500:
+                logo_img = Image.open(logo_url).convert("RGBA")
+        except Exception as l_img_err:
+            print(f"[Modal] Notice: Could not load logo image ({l_img_err})", flush=True)
+
+    if not clean_handle and not logo_img:
         img.save(output_path, "PNG")
         return output_path
-        
+
     draw = ImageDraw.Draw(img)
-    clean_handle = logo_handle.split("||")[0].strip()
-    if not clean_handle.startswith("@"):
-        clean_handle = f"@{clean_handle}"
-        
     font_size = 28
     font = None
     for font_name in [
@@ -1373,43 +1711,130 @@ def create_logo_pill_overlay(
                 pass
     if not font:
         font = ImageFont.load_default()
-        
-    bbox = draw.textbbox((0, 0), clean_handle, font=font)
+
+    bbox = draw.textbbox((0, 0), clean_handle, font=font) if clean_handle else (0, 0, 0, 0)
     text_w = bbox[2] - bbox[0]
-    text_h = bbox[3] - bbox[1]
-    
-    dot_radius = 6
-    pad_l = 22
-    pad_r = 22
+    text_h = bbox[3] - bbox[1] if clean_handle else 28
+
+    icon_size = 32 if logo_img else 12
+    pad_l = 18
+    pad_r = 22 if clean_handle else 18
     pad_y = 12
-    dot_spacing = 14
-    
-    pill_w = pad_l + (dot_radius * 2) + dot_spacing + text_w + pad_r
-    pill_h = max(text_h + pad_y * 2, 50)
-    
+    dot_spacing = 12 if clean_handle else 0
+
+    pill_w = pad_l + icon_size + dot_spacing + text_w + pad_r
+    pill_h = max(text_h + pad_y * 2, icon_size + 16, 50)
+
     center_x = int(canvas_w * (x_percent / 100.0))
     center_y = int(canvas_h * (y_percent / 100.0))
-    
+
     x0 = center_x - pill_w // 2
     y0 = center_y - pill_h // 2
     x1 = center_x + pill_w // 2
     y1 = center_y + pill_h // 2
-    
+
+    # Screen boundary safety padding (prevents pill clipping on video edge)
+    margin_px = 24
+    if x1 > canvas_w - margin_px:
+        shift_x = x1 - (canvas_w - margin_px)
+        x0 -= shift_x
+        x1 -= shift_x
+    if x0 < margin_px:
+        shift_x = margin_px - x0
+        x0 += shift_x
+        x1 += shift_x
+
+    if y1 > canvas_h - margin_px:
+        shift_y = y1 - (canvas_h - margin_px)
+        y0 -= shift_y
+        y1 -= shift_y
+    if y0 < margin_px:
+        shift_y = margin_px - y0
+        y0 += shift_y
+        y1 += shift_y
+
+    actual_center_y = (y0 + y1) // 2
+
     bg_color = (2, 6, 23, 215)          # Dark Slate 85%
     border_color = (52, 211, 153, 110)  # Emerald border
     dot_color = (52, 211, 153, 255)     # Glowing green dot
     text_color = (110, 231, 183, 255)   # Mint Emerald text
-    
+
     draw.rounded_rectangle((x0, y0, x1, y1), radius=pill_h // 2, fill=bg_color, outline=border_color, width=2)
-    
-    dot_cx = x0 + pad_l + dot_radius
-    dot_cy = center_y
-    draw.ellipse((dot_cx - dot_radius, dot_cy - dot_radius, dot_cx + dot_radius, dot_cy + dot_radius), fill=dot_color)
-    
-    text_x = dot_cx + dot_radius + dot_spacing
-    text_y = center_y
-    draw.text((text_x, text_y), clean_handle, font=font, fill=text_color, anchor="lm")
-    
+
+    icon_x = x0 + pad_l
+    icon_y = actual_center_y - icon_size // 2
+
+    if logo_img:
+        try:
+            # Resize logo maintaining aspect ratio
+            logo_img.thumbnail((icon_size, icon_size), Image.Resampling.LANCZOS)
+            img.alpha_composite(logo_img, (icon_x, actual_center_y - logo_img.height // 2))
+        except Exception:
+            draw.ellipse((icon_x, actual_center_y - 6, icon_x + 12, actual_center_y + 6), fill=dot_color)
+    else:
+        draw.ellipse((icon_x, actual_center_y - 6, icon_x + 12, actual_center_y + 6), fill=dot_color)
+
+    if clean_handle:
+        text_x = icon_x + icon_size + dot_spacing
+        text_y = actual_center_y
+        draw.text((text_x, text_y), clean_handle, font=font, fill=text_color, anchor="lm")
+
+    img.save(output_path, "PNG")
+    return output_path
+
+def create_outro_card_overlay(
+    title: str = "",
+    logo_handle: str = "@GocChiemNghiem",
+    canvas_w: int = 1080,
+    canvas_h: int = 1920,
+    output_path: str = "/tmp/outro_card_overlay.png"
+) -> str:
+    """Generates an aesthetic, frosted-glass Outro Brand Card for the final seconds of the video."""
+    img = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+    clean_handle = str(logo_handle or "@GocChiemNghiem").split("||")[0].strip()
+    if not clean_handle.startswith("@"):
+        clean_handle = f"@{clean_handle}"
+
+    font_title = None
+    font_sub = None
+    for font_name in [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "C:/Windows/Fonts/arialbd.ttf",
+        "C:/Windows/Fonts/tahoma.ttf"
+    ]:
+        if os.path.exists(font_name):
+            try:
+                font_title = ImageFont.truetype(font_name, 38)
+                font_sub = ImageFont.truetype(font_name, 26)
+                break
+            except Exception:
+                pass
+    if not font_title:
+        font_title = ImageFont.load_default()
+        font_sub = ImageFont.load_default()
+
+    card_w = 720
+    card_h = 220
+    center_x = canvas_w // 2
+    center_y = int(canvas_h * 0.50)
+    x0, y0 = center_x - card_w // 2, center_y - card_h // 2
+    x1, y1 = center_x + card_w // 2, center_y + card_h // 2
+
+    # Cyan Glow Halo
+    glow_img = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+    glow_draw = ImageDraw.Draw(glow_img)
+    glow_draw.rounded_rectangle((x0 - 18, y0 - 18, x1 + 18, y1 + 18), radius=36, fill=(6, 182, 212, 110))
+    glow_img = glow_img.filter(ImageFilter.GaussianBlur(18))
+    img = Image.alpha_composite(img, glow_img)
+
+    # Frosted Slate Card
+    draw = ImageDraw.Draw(img)
+    draw.rounded_rectangle((x0, y0, x1, y1), radius=28, fill=(15, 23, 42, 238), outline=(56, 189, 248, 220), width=3)
+    display_title = title[:42] + "..." if len(title) > 42 else title
+    draw.text((center_x, center_y - 50), clean_handle, font=font_title, fill=(56, 189, 248, 255), anchor="mm")
+    draw.text((center_x, center_y), f"« {display_title} »" if display_title else "Cảm Ơn Bạn Đã Lắng Nghe", font=font_sub, fill=(255, 255, 255, 240), anchor="mm")
+    draw.text((center_x, center_y + 50), "Lưu lại & Chia sẻ nếu thấy hữu ích ✨", font=font_sub, fill=(245, 158, 11, 255), anchor="mm")
     img.save(output_path, "PNG")
     return output_path
 
@@ -1584,21 +2009,40 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
 
 # 2. Initialize Modal App
-app = modal.App("visionflow-render-engine")
+try:
+    if modal is not None and hasattr(modal, "App"):
+        app = modal.App("visionflow-render-engine")
+    else:
+        app = None
+except Exception:
+    app = None
 
-@app.function(
-    image=visionflow_image,
-    timeout=120,
-    cpu=1.5,
-    memory=2048,
-    secrets=[modal.Secret.from_dict({
-        "VISIONFLOW_OBJECT_STORE_ENDPOINT": "https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com",
-        "VISIONFLOW_OBJECT_STORE_BUCKET": "vision-flow",
-        "VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID": "fd28f47a855e5f2097d5f8c24c50da70",
-        "VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY": "c329293210d831c0bdba01f2434d86dab3eb23ab0a73f9b67819b7c3069cc9c6",
-    })]
-)
-def render_scene_chunk(scene_payload: dict) -> dict:
+def modal_function(**kwargs):
+    voice_env_names = ('AZURE_SPEECH_KEY', 'AZURE_SPEECH_REGION', 'ELEVENLABS_API_KEY',
+                       'GOOGLE_TTS_API_KEY', 'VISIONFLOW_VOICE_DISPATCH_SECRET')
+    voice_env = {key: os.environ[key] for key in voice_env_names if os.environ.get(key)}
+    if voice_env and modal is not None:
+        kwargs['secrets'] = [*kwargs.get('secrets', []), modal.Secret.from_dict(voice_env)]
+    def decorator(fn):
+        if app is not None and hasattr(app, "function"):
+            try:
+                return app.function(**kwargs)(fn)
+            except Exception:
+                return fn
+        return fn
+    return decorator
+
+def modal_fastapi_endpoint(**kwargs):
+    def decorator(fn):
+        if modal is not None and hasattr(modal, "fastapi_endpoint"):
+            try:
+                return modal.fastapi_endpoint(**kwargs)(fn)
+            except Exception:
+                return fn
+        return fn
+    return decorator
+
+def _render_scene_chunk_impl(scene_payload: dict) -> dict:
     """
     Distributed Micro-Worker for Parallel Scene Rendering with R2 Pre-Normalized Proxy Cache.
     Normalizes video clips to exact resolution, 60 FPS, CRF 18 H.264 profile for 0.2s direct stream concatenation.
@@ -1640,8 +2084,8 @@ def render_scene_chunk(scene_payload: dict) -> dict:
     
     r2_endpoint = os.environ.get("VISIONFLOW_OBJECT_STORE_ENDPOINT", "https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com")
     r2_bucket = os.environ.get("VISIONFLOW_OBJECT_STORE_BUCKET", "vision-flow")
-    r2_access_key = os.environ.get("VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID", "fd28f47a855e5f2097d5f8c24c50da70")
-    r2_secret_key = os.environ.get("VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY", "c329293210d831c0bdba01f2434d86dab3eb23ab0a73f9b67819b7c3069cc9c6")
+    r2_access_key = os.environ.get("VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID", "")
+    r2_secret_key = os.environ.get("VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY", "")
     
     s3 = None
     try:
@@ -1691,19 +2135,38 @@ def render_scene_chunk(scene_payload: dict) -> dict:
                     print(f"[MicroWorker {scene_idx}] Notice: Media URL download error: {dl_err}", flush=True)
                 
         if not downloaded:
-            pexels_key = os.environ.get("PEXELS_API_KEY", "j3CIlOLR1RdRejkZPi56CCmJALu9axEyFjik0U77W3semlJtXFpMqgVp")
-            pex_url = fetch_pexels_video_for_keyword(keyword, pexels_key, scene_idx=scene_idx)
-            if pex_url and is_safe_url(pex_url):
-                try:
-                    r_pex = requests.get(pex_url, timeout=25, stream=True)
-                    if r_pex.status_code == 200:
-                        with open(raw_media_path, "wb") as f_raw:
-                            for chunk in r_pex.iter_content(chunk_size=8192):
-                                f_raw.write(chunk)
-                        downloaded = True
-                        print(f"[MicroWorker {scene_idx}] 🎯 Downloaded Stock HD video for query: '{keyword}' ({pex_url[:60]}...)", flush=True)
-                except Exception as pex_err:
-                    print(f"[MicroWorker {scene_idx}] Notice: Stock video download error: {pex_err}", flush=True)
+            visual_engine = str(scene_payload.get("visual_engine") or scene_payload.get("asset_source") or "fal_ai").lower()
+            visual_prompt = str(scene_payload.get("visual_prompt") or scene_payload.get("prompt") or scene_payload.get("narration") or keyword).strip()
+
+            if visual_engine in ["fal_ai", "ai", "fal"]:
+                # 1. Ưu tiên sinh ảnh AI nghệ thuật bám sát visual prompt của phân cảnh
+                print(f"[MicroWorker {scene_idx}] 🎨 Visual Engine 'fal_ai' active: Generating AI scene visuals for prompt: '{visual_prompt[:40]}...'...", flush=True)
+                ai_ok = fetch_ai_image_fallback(visual_prompt, raw_media_path)
+                if ai_ok and os.path.exists(raw_media_path) and os.path.getsize(raw_media_path) > 10000:
+                    downloaded = True
+                    print(f"[MicroWorker {scene_idx}] ✨ AI Visual successfully created ({os.path.getsize(raw_media_path)} bytes)!", flush=True)
+
+            if not downloaded:
+                # 2. Tìm kiếm Stock Video chân thực trên Pexels HD API
+                pexels_key = os.environ.get("PEXELS_API_KEY", "")
+                pex_url = fetch_pexels_video_for_keyword(keyword, pexels_key, scene_idx=scene_idx)
+                if pex_url and is_safe_url(pex_url):
+                    try:
+                        r_pex = requests.get(pex_url, timeout=25, stream=True)
+                        if r_pex.status_code == 200:
+                            with open(raw_media_path, "wb") as f_raw:
+                                for chunk in r_pex.iter_content(chunk_size=8192):
+                                    f_raw.write(chunk)
+                            downloaded = True
+                            print(f"[MicroWorker {scene_idx}] 🎯 Downloaded Stock HD video for query: '{keyword}' ({pex_url[:60]}...)", flush=True)
+                    except Exception as pex_err:
+                        print(f"[MicroWorker {scene_idx}] Notice: Stock video download error: {pex_err}", flush=True)
+
+            if not downloaded and visual_engine not in ["fal_ai", "ai", "fal"]:
+                # Fallback sang AI generator nếu Pexels cũng không tìm ra video
+                ai_ok = fetch_ai_image_fallback(visual_prompt, raw_media_path)
+                if ai_ok and os.path.exists(raw_media_path) and os.path.getsize(raw_media_path) > 10000:
+                    downloaded = True
                     
         # Normalize and trim to exact duration, resolution, 60fps CRF 18
         if downloaded and os.path.exists(raw_media_path) and os.path.getsize(raw_media_path) > 10000:
@@ -1717,10 +2180,15 @@ def render_scene_chunk(scene_payload: dict) -> dict:
             except Exception:
                 pass
 
+            # Inspect keyframe zoom parameters for WYSIWYG climax camera push-in
+            kf_list = scene_payload.get("keyframes") or []
+            max_scale = max([float(k.get("scale", 1.0)) for k in kf_list if isinstance(k, dict)] + [1.0])
+
             if is_image:
                 # Apply Dynamic Ken Burns Smooth Push-in Motion for static images
                 total_frames = max(1, int(round(scene_dur * target_fps)))
-                ken_burns_filter = f"zoompan=z='min(zoom+0.0015,1.25)':d={total_frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={res_w}x{res_h}:fps={target_fps},format=yuv420p"
+                ken_burns_zoom_target = max(1.25, round(max_scale, 2))
+                ken_burns_filter = f"zoompan=z='min(zoom+0.0015,{ken_burns_zoom_target})':d={total_frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={res_w}x{res_h}:fps={target_fps},format=yuv420p"
                 norm_cmd = [
                     FFMPEG_BIN, "-y",
                     "-loop", "1",
@@ -1733,7 +2201,12 @@ def render_scene_chunk(scene_payload: dict) -> dict:
                 ]
             else:
                 # Video normalization: -stream_loop MUST be before -i, and -t MUST be AFTER -i to loop seamlessly!
-                norm_filter = f"fps={target_fps},format=yuv420p,scale={res_w}:{res_h}:force_original_aspect_ratio=increase,crop={res_w}:{res_h},setsar=1"
+                if max_scale > 1.05:
+                    scaled_w = int(round(res_w * max_scale))
+                    scaled_h = int(round(res_h * max_scale))
+                    norm_filter = f"fps={target_fps},format=yuv420p,scale={scaled_w}:{scaled_h}:force_original_aspect_ratio=increase,crop={res_w}:{res_h},setsar=1"
+                else:
+                    norm_filter = f"fps={target_fps},format=yuv420p,scale={res_w}:{res_h}:force_original_aspect_ratio=increase,crop={res_w}:{res_h},setsar=1"
                 norm_cmd = [
                     FFMPEG_BIN, "-y",
                     "-stream_loop", "-1",
@@ -1773,19 +2246,28 @@ def render_scene_chunk(scene_payload: dict) -> dict:
         "duration": scene_dur
     }
 
-@app.function(
+def render_scene_chunk_local(scene_payload: dict) -> dict:
+    return _render_scene_chunk_impl(scene_payload)
+
+@modal_function(
     image=visionflow_image,
-    timeout=600,
-    cpu=2.0,
-    memory=4096,
+    timeout=120,
+    cpu=1.5,
+    memory=2048,
     secrets=[modal.Secret.from_dict({
         "VISIONFLOW_OBJECT_STORE_ENDPOINT": "https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com",
         "VISIONFLOW_OBJECT_STORE_BUCKET": "vision-flow",
-        "VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID": "fd28f47a855e5f2097d5f8c24c50da70",
-        "VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY": "c329293210d831c0bdba01f2434d86dab3eb23ab0a73f9b67819b7c3069cc9c6",
-    })]
+        "VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID": os.environ.get("VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID", ""),
+        "VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY": os.environ.get("VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY", ""),
+    })] if (modal is not None and hasattr(modal, "Secret")) else []
 )
-def render_video_task(contract_payload: dict) -> dict:
+def render_scene_chunk(scene_payload: dict) -> dict:
+    return _render_scene_chunk_impl(scene_payload)
+
+def _render_video_task_impl(contract_payload: dict) -> dict:
+    from worker.voice_system.dispatch import verify_dispatch
+    voice_dispatch_verified = verify_dispatch(contract_payload)
+    contract_payload = {key: value for key, value in contract_payload.items() if key not in ('_voice_signature', '_voice_expires_at')}
     """
     1-Pass Serverless Execution Pipeline on Modal.com
     Receives CreationSpec / Contract Payload from Frontend or Webhook,
@@ -1810,10 +2292,12 @@ def render_video_task(contract_payload: dict) -> dict:
         # 0. Comprehensive Metadata Backfill from PostgreSQL Neon DB
         # -------------------------------------------------------------------
         if workflow_run_id and workflow_run_id != "modal_run_demo":
-            db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_TD8BYOyg6AVC@ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
+            db_url = os.environ.get("DATABASE_URL", "").strip()
             try:
+                if not db_url:
+                    raise RuntimeError("DATABASE_URL is not configured; skipping PostgreSQL metadata backfill")
                 import psycopg2
-                conn_s = psycopg2.connect(db_url)
+                conn_s = psycopg2.connect(normalize_psycopg_dsn(db_url))
                 cur_s = conn_s.cursor()
                 def safe_uuid(val):
                     try:
@@ -1907,6 +2391,9 @@ def render_video_task(contract_payload: dict) -> dict:
         # -------------------------------------------------------------------
         # Voice & Speech Synthesis Parameters
         # -------------------------------------------------------------------
+        from worker.voice_system.render import is_canonical_voice
+        if is_canonical_voice(contract_payload) and not voice_dispatch_verified:
+            raise ValueError('Canonical voice render requires authenticated Control Plane dispatch')
         raw_voice_code = contract_payload.get("voice_code") or contract_payload.get("voiceCode") or contract_payload.get("voice") or "vi-VN-NamMinhNeural"
         voice_code = resolve_voice(raw_voice_code)
         raw_voice_rate = contract_payload.get("voice_rate") or contract_payload.get("voiceRate") or 1.12
@@ -1916,9 +2403,14 @@ def render_video_task(contract_payload: dict) -> dict:
             voice_rate = 1.12
         voice_rate_str = format_rate(voice_rate)
 
+        is_vi_voice = str(voice_code).lower().startswith("vi")
         custom_voice_url = contract_payload.get("custom_voice_url") or contract_payload.get("customVoiceUrl")
-        voice_pitch = int(contract_payload.get("voicePitch") or contract_payload.get("voice_pitch") or 0)
-        pitch_arg = f"+{voice_pitch}Hz" if voice_pitch > 0 else (f"{voice_pitch}Hz" if voice_pitch < 0 else "+0Hz")
+        if is_vi_voice:
+            voice_pitch = 0
+            pitch_arg = "+0Hz"
+        else:
+            voice_pitch = int(contract_payload.get("voicePitch") or contract_payload.get("voice_pitch") or 0)
+            pitch_arg = f"+{voice_pitch}Hz" if voice_pitch > 0 else (f"{voice_pitch}Hz" if voice_pitch < 0 else "+0Hz")
         
         if custom_voice_url and is_safe_url(custom_voice_url):
             print(f"[Modal] 🎙️ AI Zero-Shot Voice Clone Mode active! Reference Voice Sample: {custom_voice_url[:50]}...", flush=True)
@@ -1934,53 +2426,43 @@ def render_video_task(contract_payload: dict) -> dict:
             mod = EMOTION_PROSODY_MATRIX[first_emotion]
             calc_rate = int(round(voice_rate * 100 + mod["rate_offset"])) - 100
             voice_rate_str = f"+{calc_rate}%" if calc_rate >= 0 else f"{calc_rate}%"
-            calc_pitch = int(round(voice_pitch + mod["pitch_offset"]))
+            if is_vi_voice:
+                calc_pitch = 0
+            else:
+                calc_pitch = int(round(voice_pitch + mod["pitch_offset"]))
             pitch_arg = f"+{calc_pitch}Hz" if calc_pitch >= 0 else f"{calc_pitch}Hz"
             print(f"[Modal] 🎭 Emotion-Dynamic Voice Modulation active! [Emotion: {first_emotion}] -> Rate: {voice_rate_str}, Pitch: {pitch_arg}", flush=True)
 
         tts_script = preprocess_script_for_tts(script)
         print(f"[Modal] 📝 Script preprocessed for Neural TTS breath pauses ({len(script)} chars -> {len(tts_script)} chars)", flush=True)
 
-        tts_cmd = [
-            sys.executable, "-m", "edge_tts",
-            "--text", tts_script,
-            "--voice", voice_code,
-            f"--rate={voice_rate_str}",
-            f"--pitch={pitch_arg}",
-            "--write-media", audio_output,
-            "--write-subtitles", vtt_output
-        ]
-        try:
-            subprocess.run(tts_cmd, check=True)
-        except Exception as tts_err:
-            print(f"[Modal TTS Warning] TTS with rate={voice_rate_str}, pitch={pitch_arg} failed: {tts_err}. Trying with pitch=+0Hz...", flush=True)
-            fallback_tts_cmd = [
-                sys.executable, "-m", "edge_tts",
-                "--text", tts_script,
-                "--voice", voice_code,
-                f"--rate={voice_rate_str}",
-                "--pitch=+0Hz",
-                "--write-media", audio_output,
-                "--write-subtitles", vtt_output
-            ]
-            try:
-                subprocess.run(fallback_tts_cmd, check=True)
-            except Exception as tts_fb_err:
-                print(f"[Modal TTS Warning] Fallback with pitch=+0Hz failed: {tts_fb_err}. Trying default TTS...", flush=True)
-                standard_tts_cmd = [
-                    sys.executable, "-m", "edge_tts",
-                    "--text", tts_script,
-                    "--voice", voice_code,
-                    "--write-media", audio_output,
-                    "--write-subtitles", vtt_output
-                ]
-                subprocess.run(standard_tts_cmd, check=True)
+        from worker.voice_system.render import is_canonical_voice, render_narration
+        canonical_audio = None
+        pre_assembled_audio = contract_payload.get("pre_assembled_audio_path")
+        pre_assembled_vtt = contract_payload.get("pre_assembled_vtt_path")
+        if pre_assembled_audio and os.path.exists(pre_assembled_audio):
+            import shutil
+            shutil.copyfile(pre_assembled_audio, audio_output)
+            if pre_assembled_vtt and os.path.exists(pre_assembled_vtt):
+                shutil.copyfile(pre_assembled_vtt, vtt_output)
+            canonical_audio = contract_payload.get("canonical_audio_meta")
+            print(f"[Modal] 🎵 Using pre-assembled master narration: {pre_assembled_audio} ({os.path.getsize(pre_assembled_audio)} bytes)", flush=True)
+        elif is_canonical_voice(contract_payload):
+            canonical_audio = render_narration(contract_payload, raw_script, audio_output, vtt_output)
+        
+        if canonical_audio is None and not (pre_assembled_audio and os.path.exists(pre_assembled_audio)):
+            synthesize_edge_tts_robust(tts_script, voice_code, voice_rate_str, pitch_arg, audio_output, vtt_output)
 
         vtt_cues = parse_webvtt_cues(vtt_output)
         print(f"[Modal] 🎯 Extracted {len(vtt_cues)} word-level timestamps from Edge TTS for Karaoke sync!", flush=True)
 
-        audio_duration = get_audio_duration_seconds(audio_output, fallback_duration=30.0)
-        video_duration = max(3.0, round(audio_duration + 0.5, 2))
+        from worker.voice_system.service import measure_audio
+        audio_duration = measure_audio(audio_output) / 1000.0
+        exact_dur_req = contract_payload.get("exact_duration") or contract_payload.get("target_duration")
+        if exact_dur_req:
+            video_duration = float(exact_dur_req)
+        else:
+            video_duration = max(3.0, round(audio_duration + 0.5, 2))
 
         # -------------------------------------------------------------------
         # 1. Resolve Dynamic Canvas Resolution & Broadcast Frame Rate
@@ -2028,13 +2510,35 @@ def render_video_task(contract_payload: dict) -> dict:
             or contract_payload.get("channelName")
             or (contract_payload.get("watermarkMask") or {}).get("brandText")
             or contract_payload.get("brandText")
-            or "@GocChiemNghiem"
+            or "@VisionFlow"
         )
-        logo_pos = str(contract_payload.get("logoPosition") or contract_payload.get("logo_position") or "top_left").lower()
-        default_logo_x = 18 if "left" in logo_pos else 82
-        default_logo_y = 92 if "bottom" in logo_pos else 6
-        watermark_x_percent = float(contract_payload.get("logoXPercent") or contract_payload.get("logo_x_percent") or default_logo_x)
-        watermark_y_percent = float(contract_payload.get("logoYPercent") or contract_payload.get("logo_y_percent") or default_logo_y)
+        logo_pos = str(contract_payload.get("logoPosition") or contract_payload.get("logo_position") or "top_right").lower()
+        default_logo_x = 18.0 if "left" in logo_pos else 82.0
+        default_logo_y = 92.0 if "bottom" in logo_pos else 6.0
+
+        raw_logo_x = contract_payload.get("logoXPercent") if contract_payload.get("logoXPercent") is not None else contract_payload.get("logo_x_percent")
+        raw_logo_y = contract_payload.get("logoYPercent") if contract_payload.get("logoYPercent") is not None else contract_payload.get("logo_y_percent")
+
+        try:
+            watermark_x_percent = float(raw_logo_x) if raw_logo_x is not None else default_logo_x
+        except (ValueError, TypeError):
+            watermark_x_percent = default_logo_x
+
+        try:
+            watermark_y_percent = float(raw_logo_y) if raw_logo_y is not None else default_logo_y
+        except (ValueError, TypeError):
+            watermark_y_percent = default_logo_y
+
+        # Auto-reconcile coordinate conflicts (e.g. if position is top_right but x_percent was defaulted to 18%)
+        if "right" in logo_pos and watermark_x_percent <= 30.0:
+            watermark_x_percent = 82.0
+        elif "left" in logo_pos and watermark_x_percent >= 70.0:
+            watermark_x_percent = 18.0
+
+        if "bottom" in logo_pos and watermark_y_percent <= 30.0:
+            watermark_y_percent = 92.0
+        elif "top" in logo_pos and watermark_y_percent >= 70.0:
+            watermark_y_percent = 6.0
 
         color_grading = str(contract_payload.get("colorGrading") or contract_payload.get("color_grading") or "cyber_teal").lower()
         enable_vignette = bool(contract_payload.get("enableVignette", contract_payload.get("enable_vignette", True)))
@@ -2063,7 +2567,8 @@ def render_video_task(contract_payload: dict) -> dict:
 
         logo_png_path = f"{work_dir}/logo_overlay.png"
         has_logo = False
-        if watermark_text:
+        logo_url_input = str(contract_payload.get("logoUrl") or contract_payload.get("logo_url") or "").strip()
+        if watermark_text or logo_url_input:
             try:
                 create_logo_pill_overlay(
                     logo_handle=watermark_text,
@@ -2071,7 +2576,8 @@ def render_video_task(contract_payload: dict) -> dict:
                     canvas_h=res_h,
                     x_percent=watermark_x_percent,
                     y_percent=watermark_y_percent,
-                    output_path=logo_png_path
+                    output_path=logo_png_path,
+                    logo_url=logo_url_input
                 )
                 has_logo = os.path.exists(logo_png_path) and os.path.getsize(logo_png_path) > 1000
                 if has_logo:
@@ -2094,6 +2600,24 @@ def render_video_task(contract_payload: dict) -> dict:
                     print(f"[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!", flush=True)
             except Exception as cta_err:
                 print(f"[Modal] Notice: Follow CTA generation fallback: {cta_err}", flush=True)
+
+        outro_png_path = f"{work_dir}/outro_card_overlay.png"
+        has_outro = False
+        enable_outro_card = bool(contract_payload.get("enableOutroCard", contract_payload.get("enable_outro_card", False)))
+        if enable_outro_card:
+            try:
+                create_outro_card_overlay(
+                    title=title_banner_text or contract_payload.get("title", ""),
+                    logo_handle=watermark_text,
+                    canvas_w=res_w,
+                    canvas_h=res_h,
+                    output_path=outro_png_path
+                )
+                has_outro = os.path.exists(outro_png_path) and os.path.getsize(outro_png_path) > 1000
+                if has_outro:
+                    print(f"[Modal] 🎬 Created Frosted-Glass Outro Card Overlay for Video Outro!", flush=True)
+            except Exception as outro_err:
+                print(f"[Modal] Notice: Outro Card generation fallback: {outro_err}", flush=True)
 
         # 2. Generate ASS Subtitles with Kinetic Karaoke highlight
         ass_path = f"{work_dir}/subtitles.ass"
@@ -2136,7 +2660,7 @@ def render_video_task(contract_payload: dict) -> dict:
             or contract_payload.get("background_url")
             or contract_payload.get("media_url")
         )
-        pexels_key = os.environ.get("PEXELS_API_KEY", "j3CIlOLR1RdRejkZPi56CCmJALu9axEyFjik0U77W3semlJtXFpMqgVp")
+        pexels_key = os.environ.get("PEXELS_API_KEY", "")
 
         # 0. FOR AUTO DUBBING MODE: Download Source Video & Skip Pexels B-Roll
         if is_dubbing_mode and bg_url and is_safe_url(bg_url):
@@ -2157,7 +2681,7 @@ def render_video_task(contract_payload: dict) -> dict:
         if (not scenes or len(scenes) == 0) and workflow_run_id and workflow_run_id != "modal_run_demo":
             try:
                 import psycopg2
-                conn_sc = psycopg2.connect(db_url)
+                conn_sc = psycopg2.connect(normalize_psycopg_dsn(db_url))
                 cur_sc = conn_sc.cursor()
                 wf_u = safe_uuid(workflow_run_id)
                 cur_sc.execute(
@@ -2196,7 +2720,7 @@ def render_video_task(contract_payload: dict) -> dict:
             if not sentences:
                 sentences = [script]
             scene_chunks = sentences[:4] if len(sentences) >= 4 else sentences
-            gemini_key = os.environ.get("GEMINI_API_KEY", "AIzaSyCNu2LQSzyBW6ACixl1D6SLy07_vdeu0ho")
+            gemini_key = os.environ.get("GEMINI_API_KEY", "")
             scenes = []
             for s_idx, s_text in enumerate(scene_chunks):
                 kw_list = extract_visual_keywords(s_text, gemini_api_key=gemini_key)
@@ -2225,7 +2749,11 @@ def render_video_task(contract_payload: dict) -> dict:
             cum_scene_time = 0.0
             for idx, cnt in enumerate(word_counts):
                 is_last_scene = (idx == len(word_counts) - 1)
-                if is_last_scene:
+                if canonical_audio is not None:
+                    if len(canonical_audio['scenes']) != len(scenes):
+                        raise ValueError('Canonical narration and visual scene counts differ')
+                    prop_dur = canonical_audio['scenes'][idx]['measured_duration_ms'] / 1000.0
+                elif is_last_scene:
                     prop_dur = max(2.5, round(audio_duration - cum_scene_time, 2))
                 else:
                     prop_dur = round(max(2.5, (cnt / total_words) * audio_duration), 2)
@@ -2233,11 +2761,12 @@ def render_video_task(contract_payload: dict) -> dict:
                 synced_scene_durations.append(prop_dur)
                 # Overwrite any untrusted external actual_duration_seconds with authoritative backend measurement
                 scenes[idx]["actual_duration_seconds"] = prop_dur
+                scenes[idx]['timing_source'] = 'ffprobe' if canonical_audio is not None else 'word_weight_estimate'
                 
             print(f"[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: {audio_duration:.1f}s): {synced_scene_durations}", flush=True)
 
             scene_payloads = []
-            gemini_key = os.environ.get("GEMINI_API_KEY", "AIzaSyCNu2LQSzyBW6ACixl1D6SLy07_vdeu0ho")
+            gemini_key = os.environ.get("GEMINI_API_KEY", "")
             for idx, sc in enumerate(scenes):
                 # Build rich scene text combining prompt, narration, keywords
                 sc_text = f"{sc.get('visual_prompt') or ''} {sc.get('prompt') or ''} {sc.get('narration') or ''} {sc.get('keyword') or ''} {sc.get('text') or ''}".strip()
@@ -2260,7 +2789,8 @@ def render_video_task(contract_payload: dict) -> dict:
                     "shots": norm_shots,
                     "res_w": res_w,
                     "res_h": res_h,
-                    "fps": target_fps
+                    "fps": target_fps,
+                    "keyframes": sc.get("keyframes") or []
                 })
                 
             from concurrent.futures import ThreadPoolExecutor
@@ -2295,6 +2825,8 @@ def render_video_task(contract_payload: dict) -> dict:
                             for i in range(len(scene_files) - 1):
                                 dur_i = synced_scene_durations[i] if i < len(synced_scene_durations) else (float(scenes[i].get("duration_seconds", 5.0)) if i < len(scenes) else 5.0)
                                 raw_trans = scenes[i+1].get("transition") or scenes[i].get("transition") or contract_payload.get("transition_preset") or ""
+                                if isinstance(raw_trans, dict):
+                                    raw_trans = raw_trans.get("name") or raw_trans.get("type") or ""
                                 
                                 # AI Smart Director: Infer best transition from camera motion & emotion
                                 if not raw_trans or raw_trans == "auto":
@@ -2328,15 +2860,29 @@ def render_video_task(contract_payload: dict) -> dict:
                                 last_v = f"[v{i+1}]"
                                 
                                 # Register dynamic Transition SFX sound design cue
-                                if xfade_effect in TRANSITION_SFX_MAP:
-                                    sfx_name, sfx_vol = TRANSITION_SFX_MAP[xfade_effect]
-                                    if not any(f.get("start_time") == current_offset for f in sfx_events):
-                                        sfx_events.append({
-                                            "type": sfx_name,
-                                            "start_time": max(0.2, current_offset),
-                                            "url": SFX_STEM_CATALOG.get(sfx_name, SFX_STEM_CATALOG["whoosh"]),
-                                            "volume": sfx_vol
-                                        })
+                                sfx_info = TRANSITION_SFX_MAP.get(xfade_effect)
+                                if not sfx_info:
+                                    alt_stems = ["swoosh_quick_air", "whoosh_fast", "whoosh_cinematic_deep", "cyber_glitch_switch"]
+                                    sfx_name = alt_stems[i % len(alt_stems)]
+                                    sfx_vol = 0.28
+                                else:
+                                    sfx_name, sfx_vol = sfx_info
+                                
+                                # Avoid consecutive identical sounds
+                                if sfx_events and sfx_events[-1].get("type") == sfx_name:
+                                    alt_pool = ["swoosh_quick_air", "whoosh_fast", "cyber_glitch_switch", "whoosh_cinematic_deep"]
+                                    for alt in alt_pool:
+                                        if alt != sfx_name:
+                                            sfx_name = alt
+                                            break
+
+                                if not any(abs(f.get("start_time", 0) - current_offset) < 0.3 for f in sfx_events):
+                                    sfx_events.append({
+                                        "type": sfx_name,
+                                        "start_time": max(0.2, current_offset),
+                                        "url": SFX_STEM_CATALOG.get(sfx_name, "whoosh_fast.mp3"),
+                                        "volume": sfx_vol
+                                    })
                                 
                             filter_graph = ";".join(filter_parts)
                             xfade_cmd = [
@@ -2408,7 +2954,7 @@ def render_video_task(contract_payload: dict) -> dict:
 
         # 3. Try Pexels HD Stock API Search
         if not custom_bg_downloaded:
-            pexels_key = os.environ.get("PEXELS_API_KEY", "j3CIlOLR1RdRejkZPi56CCmJALu9axEyFjik0U77W3semlJtXFpMqgVp")
+            pexels_key = os.environ.get("PEXELS_API_KEY", "")
             search_query = contract_payload.get("topic") or contract_payload.get("title") or "nature cinematic 4k"
             try:
                 print(f"[Modal] 🔍 Searching Pexels Stock API for visual background ('{search_query[:30]}')...", flush=True)
@@ -2502,29 +3048,48 @@ def render_video_task(contract_payload: dict) -> dict:
         
         user_bgm_vol = contract_payload.get("bgm_volume") or contract_payload.get("bgmVolume") or contract_payload.get("music_volume")
         try:
-            bgm_volume_gain = float(user_bgm_vol) if user_bgm_vol is not None else float(bgm_meta.get("volume_gain", 0.12))
+            bgm_volume_gain = float(user_bgm_vol) if user_bgm_vol is not None else float(bgm_meta.get("volume_gain", 0.20))
         except Exception:
-            bgm_volume_gain = 0.12
+            bgm_volume_gain = 0.20
 
-        if enable_bgm and target_bgm_url and is_safe_url(target_bgm_url):
-            try:
-                import requests
-                print(f"[Modal] 🎵 Auto-resolving BGM track '{bgm_meta.get('name')}' for genre [{detected_genre}] from CDN...", flush=True)
-                r_m = requests.get(target_bgm_url, timeout=20, stream=True)
-                if r_m.status_code == 200:
-                    with open(bgm_file_path, "wb") as f_m:
-                        for chunk in r_m.iter_content(chunk_size=8192):
-                            f_m.write(chunk)
-                    if os.path.exists(bgm_file_path) and os.path.getsize(bgm_file_path) > 1000:
-                        has_bgm = True
-                        print(f"[Modal] ✅ Downloaded BGM track '{bgm_meta.get('name')}' ({os.path.getsize(bgm_file_path)} bytes) [Artist: {bgm_meta.get('artist')}]!", flush=True)
-            except Exception as m_err:
-                print(f"[Modal] ⚠️ Notice: BGM download fallback ({m_err})", flush=True)
+        if enable_bgm:
+            candidate_ref = (
+                custom_bgm_url
+                or bgm_meta.get("file_name")
+                or target_bgm_url
+                or bgm_mood
+                or "bgm_philosophy_clean_soul.mp3"
+            )
+            print(f"[Modal] 🎵 Auto-resolving BGM track '{bgm_meta.get('name')}' (ref: {candidate_ref}) for genre [{detected_genre}]...", flush=True)
+            resolved_bgm = resolve_audio_asset_file(candidate_ref, category="bgm", work_dir=work_dir)
+            if resolved_bgm and os.path.exists(resolved_bgm) and os.path.getsize(resolved_bgm) > 1000:
+                bgm_file_path = resolved_bgm
+                has_bgm = True
+                print(f"[Modal] ✅ Multi-Tier BGM Active: '{bgm_meta.get('name')}' ({os.path.getsize(bgm_file_path)} bytes, gain: {bgm_volume_gain})!", flush=True)
+            else:
+                print(f"[Modal] ⚠️ Notice: BGM download fallback, skipping BGM.", flush=True)
 
         # -------------------------------------------------------------------
         # Smart SFX Sound Design Track Extraction & Mixing
         # -------------------------------------------------------------------
-        auto_sfx_events = extract_sfx_cues(script, scenes_list, vtt_cues) if enable_sfx else []
+        # 1. Custom explicit SFX cues from Studio timeline
+        custom_sfx_cues = contract_payload.get("sfx_cues") or []
+        for custom_cue in custom_sfx_cues:
+            if isinstance(custom_cue, dict):
+                c_type = custom_cue.get("name") or custom_cue.get("type") or "whoosh"
+                c_url = custom_cue.get("url") or custom_cue.get("sourceUrl") or SFX_STEM_CATALOG.get("whoosh")
+                c_st = float(custom_cue.get("start_time") or custom_cue.get("startSec") or 0.0)
+                c_vol = float(custom_cue.get("volume") or 0.25)
+                if c_url and not any(abs(f.get("start_time", 0) - c_st) < 0.3 for f in sfx_events):
+                    sfx_events.append({
+                        "type": c_type,
+                        "start_time": c_st,
+                        "url": c_url,
+                        "volume": c_vol
+                    })
+
+        # 2. Heuristic extraction fallback if no custom SFX cues provided
+        auto_sfx_events = extract_sfx_cues(script, scenes, vtt_cues) if enable_sfx else []
         for cue in auto_sfx_events:
             if not any(abs(f.get("start_time", 0) - cue.get("start_time", 0)) < 0.5 for f in sfx_events):
                 sfx_events.append(cue)
@@ -2556,34 +3121,39 @@ def render_video_task(contract_payload: dict) -> dict:
             curr_v = "[vcta]"
             next_input_idx += 1
 
+        if has_outro:
+            extra_inputs.extend(["-loop", "1", "-i", outro_png_path])
+            outro_start = max(0.5, video_duration - 3.0)
+            filter_steps.append(f"{curr_v}[{next_input_idx}:v]overlay=0:0:enable='between(t,{outro_start:.2f},{video_duration:.2f})'[voutro]")
+            curr_v = "[voutro]"
+            next_input_idx += 1
+
         filter_steps.append(f"{curr_v}subtitles=filename='{ass_path_escaped}'[vout]")
 
-        # Download and inject SFX sound effects
+        # Multi-Tier SFX Sound Design Injection
         for sfx_idx, sfx_item in enumerate(sfx_events):
             s_type = sfx_item["type"]
-            s_url = sfx_item["url"]
-            s_st = sfx_item["start_time"]
-            s_vol = sfx_item["volume"]
-            s_path = f"{work_dir}/sfx_{sfx_idx}_{s_type}.mp3"
-            try:
-                import requests
-                r_s = requests.get(s_url, timeout=10)
-                if r_s.status_code == 200:
-                    with open(s_path, "wb") as f_s:
-                        f_s.write(r_s.content)
-                    sfx_extra_inputs.extend(["-i", s_path])
-                    delay_ms = int(s_st * 1000)
-                    lbl = f"sfx_{sfx_idx}"
-                    filter_steps.append(f"[{next_input_idx}:a]adelay={delay_ms}|{delay_ms},volume={s_vol}[{lbl}]")
-                    sfx_audio_labels.append(f"[{lbl}]")
-                    next_input_idx += 1
-                    print(f"[Modal] 🔊 Smart SFX Sound Design: Injected '{s_type}' sound effect at {s_st:.1f}s!", flush=True)
-            except Exception as s_err:
-                print(f"[Modal] ⚠️ Notice: SFX download fallback: {s_err}", flush=True)
+            s_url = sfx_item.get("url") or ""
+            s_st = float(sfx_item.get("start_time", 0.0))
+            s_vol = float(sfx_item.get("volume", 0.28))
+            
+            candidate_sfx_ref = s_url or SFX_STEM_CATALOG.get(s_type) or s_type
+            resolved_sfx = resolve_audio_asset_file(candidate_sfx_ref, category="sfx", work_dir=work_dir)
+            if resolved_sfx and os.path.exists(resolved_sfx) and os.path.getsize(resolved_sfx) > 500:
+                sfx_extra_inputs.extend(["-i", resolved_sfx])
+                delay_ms = int(s_st * 1000)
+                lbl = f"sfx_{sfx_idx}"
+                filter_steps.append(f"[{next_input_idx}:a]adelay={delay_ms}|{delay_ms},volume={s_vol}[{lbl}]")
+                sfx_audio_labels.append(f"[{lbl}]")
+                next_input_idx += 1
+                print(f"[Modal] 🔊 Smart SFX Sound Design: Injected '{s_type}' ({os.path.basename(resolved_sfx)}) at {s_st:.1f}s!", flush=True)
+            else:
+                print(f"[Modal] ⚠️ Notice: SFX '{s_type}' could not be resolved, skipping cue.", flush=True)
 
         # Audio Filter Mixing: Clean Voice + EQ Sculpted Ducked BGM + SFX
+        voice_filter = "[2:a]highpass=f=80,equalizer=f=350:t=q:w=1.0:g=-3,equalizer=f=4000:t=q:w=1.0:g=2,acompressor=threshold=-18dB:ratio=3:attack=10:release=100:makeup=1"
         filter_steps.append(
-            "[2:a]highpass=f=80,equalizer=f=350:t=q:w=1.0:g=-3,equalizer=f=4000:t=q:w=1.0:g=2,acompressor=threshold=-18dB:ratio=3:attack=10:release=100:makeup=1[vclean]"
+            voice_filter + (",asplit=2[vclean][vsidechain]" if has_bgm else "[vclean]")
         )
         mix_inputs = ["[vclean]"]
         mix_weights = ["1.0"]
@@ -2591,14 +3161,14 @@ def render_video_task(contract_payload: dict) -> dict:
         if has_bgm:
             filter_steps.append(
                 f"[3:a]equalizer=f=2500:t=q:w=1.5:g=-4,volume={bgm_volume_gain}[bgm_shaped];"
-                f"[bgm_shaped][vclean]sidechaincompress=threshold=0.08:ratio=12:attack=15:release=250[mducked]"
+                f"[bgm_shaped][vsidechain]sidechaincompress=threshold=0.12:ratio=6:attack=20:release=350[mducked]"
             )
             mix_inputs.append("[mducked]")
             mix_weights.append("1.0")
 
         for s_lbl in sfx_audio_labels:
             mix_inputs.append(s_lbl)
-            mix_weights.append("0.35")
+            mix_weights.append("0.45")
 
         if len(mix_inputs) > 1:
             amix_str = "".join(mix_inputs) + f"amix=inputs={len(mix_inputs)}:duration=first:weights='{' '.join(mix_weights)}',loudnorm=I=-14:TP=-1.5:LRA=11[aout]"
@@ -2639,8 +3209,8 @@ def render_video_task(contract_payload: dict) -> dict:
         # -------------------------------------------------------------------
         r2_endpoint = os.environ.get("VISIONFLOW_OBJECT_STORE_ENDPOINT", "https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com")
         r2_bucket = os.environ.get("VISIONFLOW_OBJECT_STORE_BUCKET", "vision-flow")
-        r2_access_key = os.environ.get("VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID", "fd28f47a855e5f2097d5f8c24c50da70")
-        r2_secret_key = os.environ.get("VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY", "c329293210d831c0bdba01f2434d86dab3eb23ab0a73f9b67819b7c3069cc9c6")
+        r2_access_key = os.environ["VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID"]
+        r2_secret_key = os.environ["VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY"]
         r2_public = os.environ.get("VISIONFLOW_OBJECT_STORE_PUBLIC_BASE", "https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev")
         
         object_key = f"visionflow/{workflow_run_id}/exports/final.mp4"
@@ -2700,10 +3270,12 @@ def render_video_task(contract_payload: dict) -> dict:
         # -------------------------------------------------------------------
         # Update PostgreSQL Database (media_assets & workflow_runs)
         # -------------------------------------------------------------------
-        db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_TD8BYOyg6AVC@ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
+        db_url = os.environ.get("DATABASE_URL", "").strip()
         try:
+            if not db_url:
+                raise RuntimeError("DATABASE_URL is not configured; skipping PostgreSQL completion update")
             import psycopg2
-            conn = psycopg2.connect(db_url)
+            conn = psycopg2.connect(normalize_psycopg_dsn(db_url))
             cur = conn.cursor()
             media_id = str(uuid.uuid4())
             meta = json.dumps({"title": contract_payload.get("title", "Rendered Video"), "workflow_run_id": str(workflow_run_id), "cover_url": cover_url})
@@ -2760,10 +3332,20 @@ def render_video_task(contract_payload: dict) -> dict:
                     (object_key, byte_size, meta, wf_uuid)
                 )
 
-            # Update Workflow Run State to APPROVAL_PENDING
+            # Update Workflow Run State to APPROVAL_PENDING and register render WorkflowStep
             cur.execute(
                 "UPDATE workflow_runs SET state = 'APPROVAL_PENDING', updated_at = NOW() WHERE id = %s::uuid",
                 (wf_uuid,)
+            )
+            render_payload = json.dumps({"object_key": object_key, "duration": video_duration, "media_asset_id": media_id})
+            cur.execute(
+                """
+                INSERT INTO workflow_steps (id, workflow_run_id, step_key, state, attempt_count, input_payload, output_payload, created_at, updated_at)
+                VALUES (gen_random_uuid(), %s::uuid, 'render', 'completed', 1, '{}'::jsonb, %s::jsonb, NOW(), NOW())
+                ON CONFLICT (workflow_run_id, step_key) DO UPDATE
+                SET state = 'completed', output_payload = EXCLUDED.output_payload, updated_at = NOW()
+                """,
+                (wf_uuid, render_payload)
             )
             conn.commit()
             cur.close()
@@ -2786,10 +3368,12 @@ def render_video_task(contract_payload: dict) -> dict:
         traceback.print_exc()
 
         # Update Workflow Run State to FAILED in PostgreSQL so failure is accurately reported
-        db_url = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_TD8BYOyg6AVC@ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
+        db_url = os.environ.get("DATABASE_URL", "").strip()
         try:
+            if not db_url:
+                raise RuntimeError("DATABASE_URL is not configured; skipping PostgreSQL failure update")
             import psycopg2
-            conn = psycopg2.connect(db_url)
+            conn = psycopg2.connect(normalize_psycopg_dsn(db_url))
             cur = conn.cursor()
             def safe_uuid(val):
                 try:
@@ -2816,11 +3400,32 @@ def render_video_task(contract_payload: dict) -> dict:
             "error": str(exc)
         }
 
-@app.function(image=visionflow_image)
-@modal.fastapi_endpoint(method="POST")
+def render_video_task_local(contract_payload: dict) -> dict:
+    return _render_video_task_impl(contract_payload)
+
+@modal_function(
+    image=visionflow_image,
+    timeout=600,
+    cpu=2.0,
+    memory=4096,
+    secrets=[modal.Secret.from_dict({
+        "VISIONFLOW_OBJECT_STORE_ENDPOINT": "https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com",
+        "VISIONFLOW_OBJECT_STORE_BUCKET": "vision-flow",
+        "VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID": os.environ.get("VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID", ""),
+        "VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY": os.environ.get("VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY", ""),
+    })] if (modal is not None and hasattr(modal, "Secret")) else []
+)
+def render_video_task(contract_payload: dict) -> dict:
+    return _render_video_task_impl(contract_payload)
+
+@modal_function(image=visionflow_image)
+@modal_fastapi_endpoint(method="POST")
 def webhook_job(request_body: dict):
     """Public HTTPS Endpoint triggered by Control Plane API or Frontend."""
-    render_video_task.spawn(request_body)
+    if hasattr(render_video_task, "spawn"):
+        render_video_task.spawn(request_body)
+    else:
+        render_video_task_local(request_body)
     return {
         "status": "QUEUED",
         "message": "VisionFlow Video Render Job triggered on Modal Cloud 24/7!"

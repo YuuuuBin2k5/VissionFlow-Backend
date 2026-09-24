@@ -1,0 +1,758 @@
+{
+  "FastAPI application startup": [
+    {
+      "id": 70,
+      "label": "Folder",
+      "name": "ports",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/ports",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 71,
+      "label": "Folder",
+      "name": "adapters",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/adapters",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 927,
+      "label": "File",
+      "name": "trigger_approve.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/trigger_approve.ts",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 1128,
+      "label": "File",
+      "name": "controlPlaneLegacyMappingClient.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/visionflow/controlPlaneLegacyMappingClient.ts",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 1341,
+      "label": "File",
+      "name": "legacyMappingOutboxProcessor.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/visionflow/legacyMappingOutboxProcessor.ts",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 1342,
+      "label": "File",
+      "name": "legacyMappingOutboxRepository.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/visionflow/legacyMappingOutboxRepository.ts",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 1397,
+      "label": "File",
+      "name": "__init__.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/__init__.py",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 1398,
+      "label": "File",
+      "name": "main.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/main.py",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 1399,
+      "label": "File",
+      "name": "__init__.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/__init__.py",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 1400,
+      "label": "File",
+      "name": "advance_workflow.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/advance_workflow.py",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    }
+  ],
+  "Existing API/router architecture": [
+    {
+      "id": 20,
+      "label": "Folder",
+      "name": "workflows",
+      "path": "VisionFlow_Bakend/.github/workflows",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 867,
+      "label": "File",
+      "name": "visionflow-cleanup-dubbing.yml",
+      "path": "VisionFlow_Bakend/.github/workflows/visionflow-cleanup-dubbing.yml",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 868,
+      "label": "File",
+      "name": "visionflow-control-plane-ci.yml",
+      "path": "VisionFlow_Bakend/.github/workflows/visionflow-control-plane-ci.yml",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 869,
+      "label": "File",
+      "name": "visionflow-migrate.yml",
+      "path": "VisionFlow_Bakend/.github/workflows/visionflow-migrate.yml",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 870,
+      "label": "File",
+      "name": "visionflow-publisher-ci.yml",
+      "path": "VisionFlow_Bakend/.github/workflows/visionflow-publisher-ci.yml",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 871,
+      "label": "File",
+      "name": "visionflow-publisher-free.yml",
+      "path": "VisionFlow_Bakend/.github/workflows/visionflow-publisher-free.yml",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 872,
+      "label": "File",
+      "name": "visionflow-render-ci.yml",
+      "path": "VisionFlow_Bakend/.github/workflows/visionflow-render-ci.yml",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 873,
+      "label": "File",
+      "name": "visionflow-render-free.yml",
+      "path": "VisionFlow_Bakend/.github/workflows/visionflow-render-free.yml",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 874,
+      "label": "File",
+      "name": "visionflow-stream-b-ci.yml",
+      "path": "VisionFlow_Bakend/.github/workflows/visionflow-stream-b-ci.yml",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 1361,
+      "label": "File",
+      "name": "test_sync_dubbing.py",
+      "path": "VisionFlow_Bakend/scratch/test_sync_dubbing.py",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    }
+  ],
+  "Database / repository layer": [
+    {
+      "id": 32,
+      "label": "Folder",
+      "name": "prisma",
+      "path": "VisionFlow_Bakend/orchestrator/prisma",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 33,
+      "label": "Folder",
+      "name": "migrations",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 34,
+      "label": "Folder",
+      "name": "20260521061540_init",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260521061540_init",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 35,
+      "label": "Folder",
+      "name": "20260522090000_add_publish_targets",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260522090000_add_publish_targets",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 36,
+      "label": "Folder",
+      "name": "20260522110000_add_multi_user_connections",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260522110000_add_multi_user_connections",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 37,
+      "label": "Folder",
+      "name": "20260715090000_add_agent_prompt_registry",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715090000_add_agent_prompt_registry",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 38,
+      "label": "Folder",
+      "name": "20260715093000_seed_music_visual_prompt",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715093000_seed_music_visual_prompt",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 39,
+      "label": "Folder",
+      "name": "20260715100000_add_prompt_audit_log",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715100000_add_prompt_audit_log",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 40,
+      "label": "Folder",
+      "name": "20260715101000_seed_music_song_prompts",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715101000_seed_music_song_prompts",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 41,
+      "label": "Folder",
+      "name": "20260715102000_seed_short_video_scene_planner",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715102000_seed_short_video_scene_planner",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    }
+  ],
+  "Workflow / orchestration hi\u1ec7n t\u1ea1i": [
+    {
+      "id": 31,
+      "label": "Folder",
+      "name": "orchestrator",
+      "path": "VisionFlow_Bakend/orchestrator",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 32,
+      "label": "Folder",
+      "name": "prisma",
+      "path": "VisionFlow_Bakend/orchestrator/prisma",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 33,
+      "label": "Folder",
+      "name": "migrations",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 34,
+      "label": "Folder",
+      "name": "20260521061540_init",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260521061540_init",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 35,
+      "label": "Folder",
+      "name": "20260522090000_add_publish_targets",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260522090000_add_publish_targets",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 36,
+      "label": "Folder",
+      "name": "20260522110000_add_multi_user_connections",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260522110000_add_multi_user_connections",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 37,
+      "label": "Folder",
+      "name": "20260715090000_add_agent_prompt_registry",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715090000_add_agent_prompt_registry",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 38,
+      "label": "Folder",
+      "name": "20260715093000_seed_music_visual_prompt",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715093000_seed_music_visual_prompt",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 39,
+      "label": "Folder",
+      "name": "20260715100000_add_prompt_audit_log",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715100000_add_prompt_audit_log",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 40,
+      "label": "Folder",
+      "name": "20260715101000_seed_music_song_prompts",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715101000_seed_music_song_prompts",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    }
+  ],
+  "CreativeAgentCenter": [
+    {
+      "id": 4985,
+      "label": "File",
+      "name": "CreativeAgentCenter.tsx",
+      "path": "VisionFlow_Client/src/components/CreativeAgentCenter.tsx",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 7934,
+      "label": "Class",
+      "name": "CreativeProposal",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/models.py",
+      "outgoing_calls": [],
+      "incoming_callers": [
+        "INSTANTIATES <- save_proposal",
+        "INSTANTIATES <- test_one_session_one_workflow_run_invariant_and_accept_proposal",
+        "INSTANTIATES <- test_migration_and_models_inserted_successfully"
+      ]
+    },
+    {
+      "id": 10436,
+      "label": "File",
+      "name": "CreativeAgentCenter.tsx",
+      "path": "VisionFlow_Client/src/components/CreativeAgentCenter.tsx",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 10449,
+      "label": "Module",
+      "name": "CreativeAgentCenter.tsx",
+      "path": "VisionFlow_Client/src/components/CreativeAgentCenter.tsx",
+      "outgoing_calls": [
+        "DEFINES -> GeminiScene",
+        "DEFINES -> GeminiMascotProfile",
+        "DEFINES -> GeminiPlan",
+        "DEFINES -> PromptStep",
+        "DEFINES -> PromptFormPreset",
+        "DEFINES -> ChannelProfile",
+        "DEFINES -> TitleAngleGroup",
+        "DEFINES -> CreativeAgentCenterProps"
+      ],
+      "incoming_callers": [
+        "IMPORTS <- App.tsx"
+      ]
+    },
+    {
+      "id": 10629,
+      "label": "Function",
+      "name": "loadChannelProfiles",
+      "path": "VisionFlow_Client/src/components/CreativeAgentCenter.tsx",
+      "outgoing_calls": [
+        "DEFINES -> anonymous_1118_57",
+        "DEFINES -> anonymous_1119_38",
+        "CALLS -> anonymous_1118_57",
+        "CALLS -> anonymous_1119_38"
+      ],
+      "incoming_callers": [
+        "CALLS <- CreativeAgentCenter"
+      ]
+    },
+    {
+      "id": 10630,
+      "label": "Function",
+      "name": "saveCustomChannelProfiles",
+      "path": "VisionFlow_Client/src/components/CreativeAgentCenter.tsx",
+      "outgoing_calls": [
+        "DEFINES -> anonymous_1128_34",
+        "CALLS -> anonymous_1128_34",
+        "CALLS -> anonymous_1128_72"
+      ],
+      "incoming_callers": [
+        "CALLS <- CreativeAgentCenter",
+        "CALLS <- handleSaveChannel",
+        "CALLS <- handleDeleteChannel"
+      ]
+    },
+    {
+      "id": 10631,
+      "label": "Function",
+      "name": "generateChannelDescription",
+      "path": "VisionFlow_Client/src/components/CreativeAgentCenter.tsx",
+      "outgoing_calls": [],
+      "incoming_callers": [
+        "CALLS <- generateAsinMochiiDescription",
+        "CALLS <- CreativeAgentCenter",
+        "CALLS <- handleParseJSON"
+      ]
+    },
+    {
+      "id": 10632,
+      "label": "Function",
+      "name": "generateAsinMochiiDescription",
+      "path": "VisionFlow_Client/src/components/CreativeAgentCenter.tsx",
+      "outgoing_calls": [
+        "CALLS -> generateChannelDescription"
+      ],
+      "incoming_callers": []
+    },
+    {
+      "id": 10633,
+      "label": "Function",
+      "name": "generateChannelTitles",
+      "path": "VisionFlow_Client/src/components/CreativeAgentCenter.tsx",
+      "outgoing_calls": [],
+      "incoming_callers": [
+        "CALLS <- generateAsinMochiiTitles",
+        "CALLS <- CreativeAgentCenter",
+        "CALLS <- handleParseJSON"
+      ]
+    },
+    {
+      "id": 10634,
+      "label": "Function",
+      "name": "generateAsinMochiiTitles",
+      "path": "VisionFlow_Client/src/components/CreativeAgentCenter.tsx",
+      "outgoing_calls": [
+        "CALLS -> generateChannelTitles"
+      ],
+      "incoming_callers": []
+    }
+  ],
+  "App / Sidebar routing": [
+    {
+      "id": 70,
+      "label": "Folder",
+      "name": "ports",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/ports",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 71,
+      "label": "Folder",
+      "name": "adapters",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/adapters",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 927,
+      "label": "File",
+      "name": "trigger_approve.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/trigger_approve.ts",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 1128,
+      "label": "File",
+      "name": "controlPlaneLegacyMappingClient.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/visionflow/controlPlaneLegacyMappingClient.ts",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 1341,
+      "label": "File",
+      "name": "legacyMappingOutboxProcessor.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/visionflow/legacyMappingOutboxProcessor.ts",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 1342,
+      "label": "File",
+      "name": "legacyMappingOutboxRepository.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/visionflow/legacyMappingOutboxRepository.ts",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 1397,
+      "label": "File",
+      "name": "__init__.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/__init__.py",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 1398,
+      "label": "File",
+      "name": "main.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/main.py",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 1399,
+      "label": "File",
+      "name": "__init__.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/__init__.py",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 1400,
+      "label": "File",
+      "name": "advance_workflow.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/advance_workflow.py",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    }
+  ],
+  "OpenCutBridge": [
+    {
+      "id": 11297,
+      "label": "Function",
+      "name": "resolveThematicVideoUrl",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 11298,
+      "label": "Function",
+      "name": "anonymous_131_11",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "outgoing_calls": [],
+      "incoming_callers": [
+        "CALLS <- chunkNarrationIntoPhrases"
+      ]
+    },
+    {
+      "id": 11299,
+      "label": "Function",
+      "name": "anonymous_132_14",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "outgoing_calls": [],
+      "incoming_callers": [
+        "CALLS <- chunkNarrationIntoPhrases"
+      ]
+    },
+    {
+      "id": 11300,
+      "label": "Function",
+      "name": "anonymous_135_23",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "outgoing_calls": [],
+      "incoming_callers": [
+        "CALLS <- chunkNarrationIntoPhrases"
+      ]
+    },
+    {
+      "id": 11301,
+      "label": "Function",
+      "name": "anonymous_160_43",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "outgoing_calls": [],
+      "incoming_callers": [
+        "CALLS <- chunkNarrationIntoPhrases"
+      ]
+    },
+    {
+      "id": 11302,
+      "label": "Function",
+      "name": "anonymous_163_28",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "outgoing_calls": [],
+      "incoming_callers": [
+        "CALLS <- chunkNarrationIntoPhrases"
+      ]
+    },
+    {
+      "id": 11303,
+      "label": "Function",
+      "name": "anonymous_198_43",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "outgoing_calls": [],
+      "incoming_callers": [
+        "CALLS <- convertVisionFlowToOpenCut"
+      ]
+    },
+    {
+      "id": 11304,
+      "label": "Function",
+      "name": "anonymous_210_26",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "outgoing_calls": [],
+      "incoming_callers": [
+        "CALLS <- convertVisionFlowToOpenCut"
+      ]
+    },
+    {
+      "id": 11305,
+      "label": "Function",
+      "name": "anonymous_292_26",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "outgoing_calls": [
+        "DEFINES -> anonymous_301_23"
+      ],
+      "incoming_callers": [
+        "CALLS <- convertVisionFlowToOpenCut"
+      ]
+    },
+    {
+      "id": 11306,
+      "label": "Function",
+      "name": "anonymous_301_23",
+      "path": "VisionFlow_Client/src/lib/opencutBridge.ts",
+      "outgoing_calls": [],
+      "incoming_callers": [
+        "CALLS <- convertVisionFlowToOpenCut"
+      ]
+    }
+  ],
+  "Render worker": [
+    {
+      "id": 849,
+      "label": "File",
+      "name": "start_render_worker.py",
+      "path": "VisionFlow_Bakend/start_render_worker.py",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 6265,
+      "label": "File",
+      "name": "local_render_daemon.py",
+      "path": "VisionFlow_Bakend/local_render_daemon.py",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 6266,
+      "label": "File",
+      "name": "modal_worker.py",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 6272,
+      "label": "File",
+      "name": "start_render_worker.py",
+      "path": "VisionFlow_Bakend/start_render_worker.py",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 6273,
+      "label": "File",
+      "name": "test_modal_worker_features.py",
+      "path": "VisionFlow_Bakend/test_modal_worker_features.py",
+      "outgoing_calls": [],
+      "incoming_callers": []
+    },
+    {
+      "id": 6365,
+      "label": "Module",
+      "name": "local_render_daemon.py",
+      "path": "VisionFlow_Bakend/local_render_daemon.py",
+      "outgoing_calls": [
+        "DEFINES -> get_db_connection",
+        "DEFINES -> poll_and_render_one_job",
+        "DEFINES -> run_daemon",
+        "IMPORTS -> os",
+        "IMPORTS -> sys",
+        "IMPORTS -> time",
+        "IMPORTS -> json",
+        "IMPORTS -> uuid"
+      ],
+      "incoming_callers": []
+    },
+    {
+      "id": 6366,
+      "label": "Module",
+      "name": "modal_worker.py",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "outgoing_calls": [
+        "DEFINES -> get_ffmpeg_binary",
+        "DEFINES -> get_ffprobe_binary",
+        "DEFINES -> is_safe_url",
+        "DEFINES -> resolve_voice",
+        "DEFINES -> format_rate",
+        "DEFINES -> normalize_vietnamese_script",
+        "DEFINES -> detect_video_genre_modal",
+        "DEFINES -> resolve_genre_bgm_modal"
+      ],
+      "incoming_callers": []
+    },
+    {
+      "id": 6367,
+      "label": "Module",
+      "name": "start_render_worker.py",
+      "path": "VisionFlow_Bakend/start_render_worker.py",
+      "outgoing_calls": [
+        "DEFINES -> TeeLogger",
+        "DEFINES -> process_workflow_official",
+        "DEFINES -> run_unified_render_pass",
+        "DEFINES -> run_worker_loop",
+        "IMPORTS -> os",
+        "IMPORTS -> sys",
+        "IMPORTS -> uuid",
+        "IMPORTS -> time"
+      ],
+      "incoming_callers": []
+    },
+    {
+      "id": 6368,
+      "label": "Module",
+      "name": "test_modal_worker_features.py",
+      "path": "VisionFlow_Bakend/test_modal_worker_features.py",
+      "outgoing_calls": [
+        "DEFINES -> TestModalWorkerServices",
+        "IMPORTS -> os",
+        "IMPORTS -> sys",
+        "IMPORTS -> unittest",
+        "IMPORTS -> tempfile",
+        "IMPORTS -> numpy",
+        "IMPORTS -> cv2",
+        "IMPORTS -> detect_smart_text_regions"
+      ],
+      "incoming_callers": []
+    },
+    {
+      "id": 6397,
+      "label": "Function",
+      "name": "get_db_connection",
+      "path": "VisionFlow_Bakend/local_render_daemon.py",
+      "outgoing_calls": [],
+      "incoming_callers": [
+        "CALLS <- poll_and_render_one_job"
+      ]
+    }
+  ]
+}

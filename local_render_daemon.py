@@ -26,14 +26,16 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from modal_worker import render_video_task
+from modal_worker import render_video_task, render_video_task_local
 
 DB_URL = os.environ.get(
     "DATABASE_URL",
-    "postgresql://neondb_owner:npg_TD8BYOyg6AVC@ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+    ""
 )
 
 def get_db_connection():
+    if not DB_URL:
+        raise RuntimeError("DATABASE_URL must be configured; no database credential is embedded in the worker")
     return psycopg2.connect(DB_URL)
 
 def poll_and_render_one_job():
@@ -46,7 +48,10 @@ def poll_and_render_one_job():
         cur.execute("""
             SELECT id, project_id, state, input_payload, prompt_manifest, created_at
             FROM workflow_runs
-            WHERE state = 'QUEUED' OR (state = 'PROCESSING' AND updated_at < NOW() - INTERVAL '3 minutes')
+            WHERE (state = 'QUEUED' OR (state = 'PROCESSING' AND updated_at < NOW() - INTERVAL '3 minutes'))
+              AND NOT (COALESCE(input_payload, '{}'::jsonb) ? 'voice_context')
+              AND UPPER(COALESCE(prompt_manifest->>'render_target', input_payload->>'render_target', 'LOCAL')) NOT IN ('MODAL', 'GITHUB')
+              AND UPPER(COALESCE(prompt_manifest->>'render_mode', input_payload->>'render_mode', '')) != 'TRANSLATE_DUB'
             ORDER BY created_at ASC
             LIMIT 1
             FOR UPDATE SKIP LOCKED
@@ -60,9 +65,8 @@ def poll_and_render_one_job():
 
         wf_id = str(job['id'])
         org_id = "7b91598c-6c3e-4e5d-8247-d3efa203984a"
-        
+
         print("\n" + "=" * 70, flush=True)
-        print(f"⚡ [Local Render Daemon] Picked up QUEUED job: {wf_id}", flush=True)
         print("=" * 70, flush=True)
 
         # Update state to PROCESSING
@@ -101,10 +105,7 @@ def poll_and_render_one_job():
 
         # 2. Execute local render task
         print(f"🎬 [Local Render Daemon] Starting FFmpeg 7.1 Composition for {wf_id}...", flush=True)
-        if hasattr(render_video_task, 'local'):
-            result = render_video_task.local(payload)
-        else:
-            result = render_video_task(payload)
+        result = render_video_task_local(payload)
 
         status = result.get("status", "ERROR")
         if status == "SUCCESS":

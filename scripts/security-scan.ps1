@@ -5,13 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$gitDir = Join-Path $repoRoot ".git2"
-
-if (Test-Path -LiteralPath $gitDir) {
-  $gitArgs = @("--git-dir=$gitDir", "--work-tree=$repoRoot")
-} else {
-  $gitArgs = @("-C", $repoRoot)
-}
+$gitArgs = @("-c", "safe.directory=$($repoRoot.Replace('\', '/'))", "-C", $repoRoot)
 
 if ($StagedOnly) {
   $files = git @gitArgs diff --cached --name-only --diff-filter=ACMRT
@@ -25,6 +19,7 @@ $secretPatterns = [ordered]@{
   "google_oauth_client_secret" = "GOCSPX-[0-9A-Za-z_-]+"
   "google_oauth_access_token" = "ya29\.[0-9A-Za-z_-]+"
   "google_oauth_refresh_token" = "1//[0-9A-Za-z_-]+"
+  "object_storage_literal_credential" = '(?i)(?:aws_access_key_id|aws_secret_access_key|VISIONFLOW_OBJECT_STORE_ACCESS_KEY_ID|VISIONFLOW_OBJECT_STORE_SECRET_ACCESS_KEY)["'']?\s*(?:=|:|,)\s*["''][a-f0-9]{32,64}["'']'
 }
 
 $hits = @()
@@ -35,12 +30,17 @@ foreach ($relativePath in $files) {
   }
 
   $fullPath = Join-Path $repoRoot $relativePath
+  # Token regexes are text checks; random MP4/image bytes produce false positives.
+  # Generated media must separately be excluded from any proposed commit.
+  if ([IO.Path]::GetExtension($relativePath) -match '^\.(mp4|mp3|m4a|png|jpg|jpeg|gif|webp|woff2?|ttf|ico|pdf|zip|exe|dll|pyc)$') {
+    continue
+  }
   if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
     continue
   }
 
   try {
-    $content = Get-Content -LiteralPath $fullPath -Raw -ErrorAction Stop
+    $content = [string](Get-Content -LiteralPath $fullPath -Raw -ErrorAction Stop)
   } catch {
     continue
   }

@@ -28,7 +28,7 @@ FAL_KEY = os.environ.get("FAL_KEY", "").replace('"', '').strip()
 DB_HOST = os.environ.get("DB_HOST", "localhost")
 DB_PORT = int(os.environ.get("DB_PORT", 3306))
 DB_USER = os.environ.get("DB_USER", "root")  # Khớp với cấu hình orchestrator dùng root
-DB_PASSWORD = os.environ.get("DB_PASSWORD", "YOUR_DB_PASSWORD_HERE")
+DB_PASSWORD = os.environ.get("DB_PASSWORD", "")
 DB_NAME = os.environ.get("DB_NAME", "tiktok_agent_automation_db")
 
 # Các thư mục lưu trữ media

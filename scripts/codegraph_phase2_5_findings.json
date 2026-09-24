@@ -1,0 +1,559 @@
+{
+  "embedding_service": [],
+  "source_repository": [
+    {
+      "name": "legacyJobIntakeRepository.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/visionflow/legacyJobIntakeRepository.ts",
+      "label": "File",
+      "matched": [
+        "repository"
+      ]
+    },
+    {
+      "name": "legacyMappingOutboxRepository.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/visionflow/legacyMappingOutboxRepository.ts",
+      "label": "File",
+      "matched": [
+        "repository"
+      ]
+    },
+    {
+      "name": "bootstrap_repository.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/bootstrap_repository.py",
+      "label": "File",
+      "matched": [
+        "repository"
+      ]
+    },
+    {
+      "name": "composition_repository.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/composition_repository.py",
+      "label": "File",
+      "matched": [
+        "repository"
+      ]
+    },
+    {
+      "name": "creative_document_repository.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/creative_document_repository.py",
+      "label": "File",
+      "matched": [
+        "repository"
+      ]
+    },
+    {
+      "name": "creative_draft_repository.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/creative_draft_repository.py",
+      "label": "File",
+      "matched": [
+        "repository"
+      ]
+    },
+    {
+      "name": "creative_session_repository.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/creative_session_repository.py",
+      "label": "File",
+      "matched": [
+        "repository"
+      ]
+    },
+    {
+      "name": "legacy_job_request_repository.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/legacy_job_request_repository.py",
+      "label": "File",
+      "matched": [
+        "repository"
+      ]
+    },
+    {
+      "name": "legacy_mapping_repository.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/legacy_mapping_repository.py",
+      "label": "File",
+      "matched": [
+        "repository"
+      ]
+    },
+    {
+      "name": "local_auth_repository.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/local_auth_repository.py",
+      "label": "File",
+      "matched": [
+        "repository"
+      ]
+    },
+    {
+      "name": "membership_repository.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/membership_repository.py",
+      "label": "File",
+      "matched": [
+        "repository"
+      ]
+    },
+    {
+      "name": "outbox_repository.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/outbox_repository.py",
+      "label": "File",
+      "matched": [
+        "repository"
+      ]
+    },
+    {
+      "name": "prompt_registry_repository.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/prompt_registry_repository.py",
+      "label": "File",
+      "matched": [
+        "repository"
+      ]
+    },
+    {
+      "name": "publisher_oauth_repository.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/publisher_oauth_repository.py",
+      "label": "File",
+      "matched": [
+        "repository"
+      ]
+    },
+    {
+      "name": "workflow_progression_repository.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/workflow_progression_repository.py",
+      "label": "File",
+      "matched": [
+        "repository"
+      ]
+    }
+  ],
+  "source_ingest": [
+    {
+      "name": "secret_fingerprint",
+      "path": "VisionFlow_Bakend/services/control-plane/app/core/credential_cipher.py",
+      "label": "Function",
+      "matched": [
+        "fingerprint"
+      ]
+    },
+    {
+      "name": "_fingerprint",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/legacy_job_request_repository.py",
+      "label": "Function",
+      "matched": [
+        "fingerprint"
+      ]
+    }
+  ],
+  "scene_indexer": [
+    {
+      "name": "20260715102000_seed_short_video_scene_planner",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715102000_seed_short_video_scene_planner",
+      "label": "Folder",
+      "matched": [
+        "scene"
+      ]
+    },
+    {
+      "name": "migration.sql",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715102000_seed_short_video_scene_planner/migration.sql",
+      "label": "File",
+      "matched": [
+        "scene"
+      ]
+    },
+    {
+      "name": "generate_ai_video_scene.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/generate_ai_video_scene.py",
+      "label": "File",
+      "matched": [
+        "scene"
+      ]
+    },
+    {
+      "name": "20260715102000_seed_short_video_scene_planner",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715102000_seed_short_video_scene_planner",
+      "label": "Folder",
+      "matched": [
+        "scene"
+      ]
+    },
+    {
+      "name": "migration.sql",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715102000_seed_short_video_scene_planner/migration.sql",
+      "label": "File",
+      "matched": [
+        "scene"
+      ]
+    },
+    {
+      "name": "render_scene_chunk",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "label": "Function",
+      "matched": [
+        "scene"
+      ]
+    },
+    {
+      "name": "generate_ai_video_scene.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/generate_ai_video_scene.py",
+      "label": "Module",
+      "matched": [
+        "scene"
+      ]
+    },
+    {
+      "name": "GenerateSceneVideoCommand",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/generate_ai_video_scene.py",
+      "label": "Class",
+      "matched": [
+        "scene"
+      ]
+    },
+    {
+      "name": "GenerateSceneVideoResult",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/generate_ai_video_scene.py",
+      "label": "Class",
+      "matched": [
+        "scene"
+      ]
+    },
+    {
+      "name": "GenerateAIVideoScene",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/generate_ai_video_scene.py",
+      "label": "Class",
+      "matched": [
+        "scene"
+      ]
+    },
+    {
+      "name": "SceneCommandPayload",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/record_narration_generated.py",
+      "label": "Class",
+      "matched": [
+        "scene"
+      ]
+    },
+    {
+      "name": "__init__",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/generate_ai_video_scene.py",
+      "label": "Method",
+      "matched": [
+        "scene"
+      ]
+    },
+    {
+      "name": "execute",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/generate_ai_video_scene.py",
+      "label": "Method",
+      "matched": [
+        "scene"
+      ]
+    },
+    {
+      "name": "generate_ai_video_scene.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/generate_ai_video_scene.py",
+      "label": "File",
+      "matched": [
+        "scene"
+      ]
+    },
+    {
+      "name": "render_scene_video",
+      "path": "VisionFlow_Bakend/services/control-plane/app/routers/ai_video.py",
+      "label": "Function",
+      "matched": [
+        "scene"
+      ]
+    }
+  ],
+  "postgres_alembic": [
+    {
+      "name": "alembic",
+      "path": "services/control-plane/alembic",
+      "label": "Folder",
+      "matched": [
+        "alembic"
+      ]
+    },
+    {
+      "name": "versions",
+      "path": "services/control-plane/alembic/versions",
+      "label": "Folder",
+      "matched": [
+        "alembic"
+      ]
+    },
+    {
+      "name": "alembic",
+      "path": "VisionFlow_Bakend/services/control-plane/alembic",
+      "label": "Folder",
+      "matched": [
+        "alembic"
+      ]
+    },
+    {
+      "name": "versions",
+      "path": "VisionFlow_Bakend/services/control-plane/alembic/versions",
+      "label": "Folder",
+      "matched": [
+        "alembic"
+      ]
+    },
+    {
+      "name": "0002-repair-invalid-alembic-revision-0007.md",
+      "path": "VisionFlow_Bakend/docs/adr/0002-repair-invalid-alembic-revision-0007.md",
+      "label": "File",
+      "matched": [
+        "alembic"
+      ]
+    },
+    {
+      "name": "alembic.ini",
+      "path": "VisionFlow_Bakend/services/control-plane/alembic.ini",
+      "label": "File",
+      "matched": [
+        "alembic"
+      ]
+    },
+    {
+      "name": "env.py",
+      "path": "VisionFlow_Bakend/services/control-plane/alembic/env.py",
+      "label": "File",
+      "matched": [
+        "alembic"
+      ]
+    },
+    {
+      "name": "0001_initial_visionflow_v1.py",
+      "path": "VisionFlow_Bakend/services/control-plane/alembic/versions/0001_initial_visionflow_v1.py",
+      "label": "File",
+      "matched": [
+        "alembic"
+      ]
+    },
+    {
+      "name": "0002_local_auth_foundation.py",
+      "path": "VisionFlow_Bakend/services/control-plane/alembic/versions/0002_local_auth_foundation.py",
+      "label": "File",
+      "matched": [
+        "alembic"
+      ]
+    },
+    {
+      "name": "0003_creative_documents.py",
+      "path": "VisionFlow_Bakend/services/control-plane/alembic/versions/0003_creative_documents.py",
+      "label": "File",
+      "matched": [
+        "alembic"
+      ]
+    },
+    {
+      "name": "0004_composition_studio.py",
+      "path": "VisionFlow_Bakend/services/control-plane/alembic/versions/0004_composition_studio.py",
+      "label": "File",
+      "matched": [
+        "alembic"
+      ]
+    },
+    {
+      "name": "0005_command_receipts_and_audit.py",
+      "path": "VisionFlow_Bakend/services/control-plane/alembic/versions/0005_command_receipts_and_audit.py",
+      "label": "File",
+      "matched": [
+        "alembic"
+      ]
+    },
+    {
+      "name": "0006_command_receipts_hardened.py",
+      "path": "VisionFlow_Bakend/services/control-plane/alembic/versions/0006_command_receipts_hardened.py",
+      "label": "File",
+      "matched": [
+        "alembic"
+      ]
+    },
+    {
+      "name": "0007_add_context_fields.py",
+      "path": "VisionFlow_Bakend/services/control-plane/alembic/versions/0007_add_context_fields.py",
+      "label": "File",
+      "matched": [
+        "alembic"
+      ]
+    },
+    {
+      "name": "0008_worker_context_lookup.py",
+      "path": "VisionFlow_Bakend/services/control-plane/alembic/versions/0008_worker_context_lookup.py",
+      "label": "File",
+      "matched": [
+        "alembic"
+      ]
+    }
+  ],
+  "model_routing": [
+    {
+      "name": "GEMINI_MODEL_FIX_SUMMARY.md",
+      "path": "GEMINI_MODEL_FIX_SUMMARY.md",
+      "label": "File",
+      "matched": [
+        "gemini"
+      ]
+    },
+    {
+      "name": "geminiHelper.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/telegram/geminiHelper.ts",
+      "label": "File",
+      "matched": [
+        "gemini"
+      ]
+    },
+    {
+      "name": "test_decrypt_gemini_credentials.py",
+      "path": "VisionFlow_Bakend/scratch/test_decrypt_gemini_credentials.py",
+      "label": "File",
+      "matched": [
+        "gemini"
+      ]
+    },
+    {
+      "name": "gemini_adapter.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/adapters/gemini_adapter.py",
+      "label": "File",
+      "matched": [
+        "gemini"
+      ]
+    },
+    {
+      "name": "gemini_scenic_director_service.py",
+      "path": "VisionFlow_Bakend/worker/services/gemini_scenic_director_service.py",
+      "label": "File",
+      "matched": [
+        "gemini"
+      ]
+    },
+    {
+      "name": ".gemini",
+      "path": ".gemini",
+      "label": "Folder",
+      "matched": [
+        "gemini"
+      ]
+    },
+    {
+      "name": "rules",
+      "path": ".gemini/rules",
+      "label": "Folder",
+      "matched": [
+        "gemini"
+      ]
+    },
+    {
+      "name": "GEMINI_MODEL_FIX_SUMMARY.md",
+      "path": "GEMINI_MODEL_FIX_SUMMARY.md",
+      "label": "File",
+      "matched": [
+        "gemini"
+      ]
+    },
+    {
+      "name": "codegraph_mandate.md",
+      "path": ".gemini/rules/codegraph_mandate.md",
+      "label": "File",
+      "matched": [
+        "gemini"
+      ]
+    },
+    {
+      "name": "geminiHelper.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/telegram/geminiHelper.ts",
+      "label": "File",
+      "matched": [
+        "gemini"
+      ]
+    },
+    {
+      "name": "getGeminiGenerationConfig",
+      "path": "VisionFlow_Bakend/orchestrator/src/telegram/bot.ts",
+      "label": "Function",
+      "matched": [
+        "gemini"
+      ]
+    },
+    {
+      "name": "generateContentWithFallback",
+      "path": "VisionFlow_Bakend/orchestrator/src/telegram/geminiHelper.ts",
+      "label": "Function",
+      "matched": [
+        "gemini"
+      ]
+    },
+    {
+      "name": "callGroqFallback",
+      "path": "VisionFlow_Bakend/orchestrator/src/telegram/geminiHelper.ts",
+      "label": "Function",
+      "matched": [
+        "gemini"
+      ]
+    },
+    {
+      "name": "callOpenRouterFallback",
+      "path": "VisionFlow_Bakend/orchestrator/src/telegram/geminiHelper.ts",
+      "label": "Function",
+      "matched": [
+        "gemini"
+      ]
+    },
+    {
+      "name": "cleanAndParseJson",
+      "path": "VisionFlow_Bakend/orchestrator/src/telegram/geminiHelper.ts",
+      "label": "Function",
+      "matched": [
+        "gemini"
+      ]
+    }
+  ],
+  "perceptual_hash": [
+    {
+      "name": "argon2",
+      "path": "argon2.PasswordHasher",
+      "label": "ExternalModule",
+      "matched": [
+        "dhash"
+      ]
+    },
+    {
+      "name": "PasswordHasher",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/local_auth.py",
+      "label": "Class",
+      "matched": [
+        "dhash"
+      ]
+    },
+    {
+      "name": "secret_fingerprint",
+      "path": "VisionFlow_Bakend/services/control-plane/app/core/credential_cipher.py",
+      "label": "Function",
+      "matched": [
+        "fingerprint"
+      ]
+    },
+    {
+      "name": "_fingerprint",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/legacy_job_request_repository.py",
+      "label": "Function",
+      "matched": [
+        "fingerprint"
+      ]
+    },
+    {
+      "name": "PasswordHasher",
+      "path": "VisionFlow_Bakend/services/control-plane/app/core/passwords.py",
+      "label": "Class",
+      "matched": [
+        "dhash"
+      ]
+    },
+    {
+      "name": "Argon2idPasswordHasher",
+      "path": "VisionFlow_Bakend/services/control-plane/app/core/passwords.py",
+      "label": "Class",
+      "matched": [
+        "dhash"
+      ]
+    }
+  ]
+}

@@ -15,7 +15,9 @@ from sqlalchemy.orm import Session
 from app.infrastructure.models import PublisherConnection
 from app.core.publisher_token_cipher import PublisherTokenCipher
 
-raw_token = "1//0gU-SXCjyXVyDCgYIARAAGBASNwF-L9IrCAPLR7IGNBtpyoLB3HvL7AKi7C7GPIf2jsuLcO2iBD5pXq7q9zXfyORWVcFuPKh_Dio"
+raw_token = os.environ["YOUTUBE_REFRESH_TOKEN"]
+if not raw_token.strip():
+    raise RuntimeError("YOUTUBE_REFRESH_TOKEN is required")
 cipher = PublisherTokenCipher.from_env()
 encrypted = cipher.encrypt(raw_token)
 

@@ -8,8 +8,13 @@ from worker.domain.render_workspace import RenderWorkspace
 VOICE_PRESET_MAP: dict[str, str] = {
     # Vietnamese (Hot Trend 2026)
     "edge-nam-minh":      "vi-VN-NamMinhNeural",
+    "edge-vi-namminh":     "vi-VN-NamMinhNeural",
     "edge-nu-hoai-my":     "vi-VN-HoaiMyNeural",
+    "edge-vi-hoaimy":      "vi-VN-HoaiMyNeural",
     "edge-nu-hoai-an":     "vi-VN-HoaiMyNeural",
+    "edge-vi-dalat":       "vi-VN-DaLatNeural",
+    "edge-vi-huunghi":     "vi-VN-HuuNghiNeural",
+    "edge-hoai-bao":       "vi-VN-HuuNghiNeural",
     "edge-vi-andrew":      "en-US-AndrewMultilingualNeural",
     "edge-vi-ava":         "en-US-AvaMultilingualNeural",
 
@@ -17,23 +22,27 @@ VOICE_PRESET_MAP: dict[str, str] = {
     "adam":               "pNInz6obpgDQGcFmaJgB",
     "edge-en-andrew":      "en-US-AndrewNeural",
     "edge-en-ava":         "en-US-AvaNeural",
+    "edge-en-ana":         "en-US-AnaNeural",
+    "edge-en-jenny":       "en-US-JennyNeural",
     "edge-en-christopher": "en-US-ChristopherNeural",
     "edge-en-ryan":        "en-GB-RyanNeural",
+    "edge-en-sonia":       "en-GB-SoniaNeural",
 }
 
-def resolve_voice(voice_code: str) -> str:
-    """Map preset name → valid edge-tts or ElevenLabs voice. Falls back to HoaiMyNeural."""
+def resolve_voice(voice_code: str, language: str = "vi") -> str:
+    """Map preset name → valid edge-tts or ElevenLabs voice. Falls back based on language."""
+    fallback = "en-US-ChristopherNeural" if str(language or "").lower().startswith("en") else "vi-VN-HoaiMyNeural"
     if not voice_code:
-        return "vi-VN-HoaiMyNeural"
-    lower_code = voice_code.lower()
+        return fallback
+    lower_code = voice_code.strip().lower()
     if "adam" in lower_code:
         if "eleven" in lower_code:
             return "pNInz6obpgDQGcFmaJgB"
         return "en-US-ChristopherNeural"
-    # Already a valid IETF voice name (e.g. vi-VN-HoaiMyNeural)
-    if "-" in voice_code and "Neural" in voice_code:
+    # Already a valid IETF voice name (e.g. vi-VN-HoaiMyNeural, en-US-ChristopherNeural)
+    if "-" in voice_code and "neural" in lower_code:
         return voice_code
-    return VOICE_PRESET_MAP.get(voice_code, "vi-VN-HoaiMyNeural")
+    return VOICE_PRESET_MAP.get(lower_code, VOICE_PRESET_MAP.get(voice_code, fallback))
 
 
 def detect_genre_from_script(script: str) -> str:
@@ -101,9 +110,9 @@ class VisionFlowSpeech:
     word_timestamps: list[dict]
 
 class VisionFlowTts:
-    def synthesize(self, script: str, voice_code: str, workspace: RenderWorkspace, voice_rate: float = 1.12) -> VisionFlowSpeech:
+    def synthesize(self, script: str, voice_code: str, workspace: RenderWorkspace, voice_rate: float = 1.12, language: str = "vi") -> VisionFlowSpeech:
         from worker.services.tts_service import TTSService
-        resolved_voice = resolve_voice(voice_code)
+        resolved_voice = resolve_voice(voice_code, language=language)
         rate_percent = int((voice_rate - 1.0) * 100)
         rate_str = f"+{rate_percent}%" if rate_percent >= 0 else f"{rate_percent}%"
         workspace.create()

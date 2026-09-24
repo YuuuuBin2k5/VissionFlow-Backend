@@ -1,7 +1,7 @@
 import unittest
 
 import edge_tts
-from modal_worker import resolve_voice
+from modal_worker import normalize_psycopg_dsn, resolve_voice
 
 
 class ModalVoiceTests(unittest.TestCase):
@@ -26,3 +26,14 @@ class ModalVoiceTests(unittest.TestCase):
     def test_invalid_nested_voice_type_is_rejected(self):
         with self.assertRaises(ValueError):
             resolve_voice({'voice_code':{'unexpected':'vi-VN-HoaiMyNeural'}})
+
+    def test_sqlalchemy_postgres_url_is_normalized_for_psycopg(self):
+        url = 'postgresql+psycopg://visionflow_app:secret@127.0.0.1:55432/visionflow?sslmode=disable'
+        self.assertEqual(
+            'postgresql://visionflow_app:secret@127.0.0.1:55432/visionflow?sslmode=disable',
+            normalize_psycopg_dsn(url),
+        )
+
+    def test_standard_postgres_url_is_unchanged(self):
+        url = 'postgresql://visionflow_app:secret@127.0.0.1:55432/visionflow'
+        self.assertEqual(url, normalize_psycopg_dsn(url))

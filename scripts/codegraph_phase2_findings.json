@@ -1,0 +1,1496 @@
+{
+  "media_download": [
+    {
+      "id": 919,
+      "label": "File",
+      "name": "force_trigger_publish_tiktok.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/force_trigger_publish_tiktok.ts",
+      "matched_keywords": [
+        "tiktok"
+      ]
+    },
+    {
+      "id": 1348,
+      "label": "File",
+      "name": "check_r2_download.py",
+      "path": "VisionFlow_Bakend/scratch/check_r2_download.py",
+      "matched_keywords": [
+        "download"
+      ]
+    },
+    {
+      "id": 1358,
+      "label": "File",
+      "name": "test_douyin_extract.py",
+      "path": "VisionFlow_Bakend/scratch/test_douyin_extract.py",
+      "matched_keywords": [
+        "douyin"
+      ]
+    },
+    {
+      "id": 2825,
+      "label": "File",
+      "name": "douyin_client.py",
+      "path": "VisionFlow_Bakend/worker/infrastructure/douyin_client.py",
+      "matched_keywords": [
+        "douyin"
+      ]
+    },
+    {
+      "id": 3341,
+      "label": "File",
+      "name": "test_douyin_note.py",
+      "path": "VisionFlow_Bakend/worker/scratch/test_douyin_note.py",
+      "matched_keywords": [
+        "douyin"
+      ]
+    },
+    {
+      "id": 3343,
+      "label": "File",
+      "name": "test_headful_cookies_download.py",
+      "path": "VisionFlow_Bakend/worker/scratch/test_headful_cookies_download.py",
+      "matched_keywords": [
+        "download"
+      ]
+    },
+    {
+      "id": 3344,
+      "label": "File",
+      "name": "test_playwright_douyin.py",
+      "path": "VisionFlow_Bakend/worker/scratch/test_playwright_douyin.py",
+      "matched_keywords": [
+        "douyin"
+      ]
+    },
+    {
+      "id": 3351,
+      "label": "File",
+      "name": "test_ytdlp.py",
+      "path": "VisionFlow_Bakend/worker/scratch/test_ytdlp.py",
+      "matched_keywords": [
+        "ytdl"
+      ]
+    },
+    {
+      "id": 3352,
+      "label": "File",
+      "name": "test_ytdlp_download.py",
+      "path": "VisionFlow_Bakend/worker/scratch/test_ytdlp_download.py",
+      "matched_keywords": [
+        "download",
+        "ytdl"
+      ]
+    },
+    {
+      "id": 3623,
+      "label": "File",
+      "name": "tiktok_publisher.py",
+      "path": "VisionFlow_Bakend/worker/services/publishers/tiktok_publisher.py",
+      "matched_keywords": [
+        "tiktok"
+      ]
+    },
+    {
+      "id": 6034,
+      "label": "ExternalModule",
+      "name": "yt_dlp",
+      "path": "yt_dlp",
+      "matched_keywords": [
+        "yt_dlp"
+      ]
+    },
+    {
+      "id": 6330,
+      "label": "File",
+      "name": "force_trigger_publish_tiktok.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/force_trigger_publish_tiktok.ts",
+      "matched_keywords": [
+        "tiktok"
+      ]
+    },
+    {
+      "id": 6380,
+      "label": "Module",
+      "name": "force_trigger_publish_tiktok.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/force_trigger_publish_tiktok.ts",
+      "matched_keywords": [
+        "tiktok"
+      ]
+    },
+    {
+      "id": 6477,
+      "label": "Function",
+      "name": "main",
+      "path": "VisionFlow_Bakend/orchestrator/src/force_trigger_publish_tiktok.ts",
+      "matched_keywords": [
+        "tiktok"
+      ]
+    },
+    {
+      "id": 6478,
+      "label": "Function",
+      "name": "anonymous_64_8",
+      "path": "VisionFlow_Bakend/orchestrator/src/force_trigger_publish_tiktok.ts",
+      "matched_keywords": [
+        "tiktok"
+      ]
+    }
+  ],
+  "storage_r2_s3": [
+    {
+      "id": 78,
+      "label": "Folder",
+      "name": "user_uploads",
+      "path": "VisionFlow_Bakend/shared/user_uploads",
+      "matched_keywords": [
+        "upload"
+      ]
+    },
+    {
+      "id": 79,
+      "label": "Folder",
+      "name": "bottom_layers",
+      "path": "VisionFlow_Bakend/shared/user_uploads/bottom_layers",
+      "matched_keywords": [
+        "upload"
+      ]
+    },
+    {
+      "id": 80,
+      "label": "Folder",
+      "name": "top_layers",
+      "path": "VisionFlow_Bakend/shared/user_uploads/top_layers",
+      "matched_keywords": [
+        "upload"
+      ]
+    },
+    {
+      "id": 931,
+      "label": "File",
+      "name": "trigger_youtube_upload.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/trigger_youtube_upload.ts",
+      "matched_keywords": [
+        "upload"
+      ]
+    },
+    {
+      "id": 1344,
+      "label": "File",
+      "name": "audit_r2_vs_db.py",
+      "path": "VisionFlow_Bakend/scratch/audit_r2_vs_db.py",
+      "matched_keywords": [
+        "r2"
+      ]
+    },
+    {
+      "id": 1348,
+      "label": "File",
+      "name": "check_r2_download.py",
+      "path": "VisionFlow_Bakend/scratch/check_r2_download.py",
+      "matched_keywords": [
+        "r2"
+      ]
+    },
+    {
+      "id": 1349,
+      "label": "File",
+      "name": "check_wf_r2.py",
+      "path": "VisionFlow_Bakend/scratch/check_wf_r2.py",
+      "matched_keywords": [
+        "r2"
+      ]
+    },
+    {
+      "id": 1354,
+      "label": "File",
+      "name": "list_r2_structure.py",
+      "path": "VisionFlow_Bakend/scratch/list_r2_structure.py",
+      "matched_keywords": [
+        "r2"
+      ]
+    },
+    {
+      "id": 1393,
+      "label": "File",
+      "name": "0014_publication_uploading_is_active.py",
+      "path": "VisionFlow_Bakend/services/control-plane/alembic/versions/0014_publication_uploading_is_active.py",
+      "matched_keywords": [
+        "upload"
+      ]
+    },
+    {
+      "id": 1432,
+      "label": "File",
+      "name": "youtube_resumable_uploader.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/core/youtube_resumable_uploader.py",
+      "matched_keywords": [
+        "upload"
+      ]
+    },
+    {
+      "id": 1454,
+      "label": "File",
+      "name": "overlay_uploads.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/overlay_uploads.py",
+      "matched_keywords": [
+        "upload"
+      ]
+    },
+    {
+      "id": 2018,
+      "label": "ExternalPackage",
+      "name": "boto3",
+      "path": "",
+      "matched_keywords": [
+        "boto3"
+      ]
+    },
+    {
+      "id": 2716,
+      "label": "File",
+      "name": "smoke_overlay_upload.py",
+      "path": "VisionFlow_Bakend/services/control-plane/scripts/smoke_overlay_upload.py",
+      "matched_keywords": [
+        "upload"
+      ]
+    },
+    {
+      "id": 2742,
+      "label": "File",
+      "name": "test_overlay_uploads.py",
+      "path": "VisionFlow_Bakend/services/control-plane/tests/test_overlay_uploads.py",
+      "matched_keywords": [
+        "upload"
+      ]
+    },
+    {
+      "id": 3614,
+      "label": "File",
+      "name": "visionflow_object_storage.py",
+      "path": "VisionFlow_Bakend/worker/services/visionflow_object_storage.py",
+      "matched_keywords": [
+        "storage",
+        "visionflow_object_storage"
+      ]
+    }
+  ],
+  "temp_media": [
+    {
+      "id": 82,
+      "label": "Folder",
+      "name": "tmp_pip",
+      "path": "VisionFlow_Bakend/tmp_pip",
+      "matched_keywords": [
+        "tmp"
+      ]
+    },
+    {
+      "id": 83,
+      "label": "Folder",
+      "name": "pip-build-tracker-iy5gjcs_",
+      "path": "VisionFlow_Bakend/tmp_pip/pip-build-tracker-iy5gjcs_",
+      "matched_keywords": [
+        "tmp"
+      ]
+    },
+    {
+      "id": 84,
+      "label": "Folder",
+      "name": "pip-cache",
+      "path": "VisionFlow_Bakend/tmp_pip/pip-cache",
+      "matched_keywords": [
+        "tmp"
+      ]
+    },
+    {
+      "id": 85,
+      "label": "Folder",
+      "name": "http-v2",
+      "path": "VisionFlow_Bakend/tmp_pip/pip-cache/http-v2",
+      "matched_keywords": [
+        "tmp"
+      ]
+    },
+    {
+      "id": 86,
+      "label": "Folder",
+      "name": "7",
+      "path": "VisionFlow_Bakend/tmp_pip/pip-cache/http-v2/7",
+      "matched_keywords": [
+        "tmp"
+      ]
+    },
+    {
+      "id": 87,
+      "label": "Folder",
+      "name": "b",
+      "path": "VisionFlow_Bakend/tmp_pip/pip-cache/http-v2/7/b",
+      "matched_keywords": [
+        "tmp"
+      ]
+    },
+    {
+      "id": 88,
+      "label": "Folder",
+      "name": "6",
+      "path": "VisionFlow_Bakend/tmp_pip/pip-cache/http-v2/7/b/6",
+      "matched_keywords": [
+        "tmp"
+      ]
+    },
+    {
+      "id": 89,
+      "label": "Folder",
+      "name": "7",
+      "path": "VisionFlow_Bakend/tmp_pip/pip-cache/http-v2/7/b/6/7",
+      "matched_keywords": [
+        "tmp"
+      ]
+    },
+    {
+      "id": 90,
+      "label": "Folder",
+      "name": "0",
+      "path": "VisionFlow_Bakend/tmp_pip/pip-cache/http-v2/7/b/6/7/0",
+      "matched_keywords": [
+        "tmp"
+      ]
+    },
+    {
+      "id": 91,
+      "label": "Folder",
+      "name": "a",
+      "path": "VisionFlow_Bakend/tmp_pip/pip-cache/http-v2/a",
+      "matched_keywords": [
+        "tmp"
+      ]
+    },
+    {
+      "id": 92,
+      "label": "Folder",
+      "name": "1",
+      "path": "VisionFlow_Bakend/tmp_pip/pip-cache/http-v2/a/1",
+      "matched_keywords": [
+        "tmp"
+      ]
+    },
+    {
+      "id": 93,
+      "label": "Folder",
+      "name": "9",
+      "path": "VisionFlow_Bakend/tmp_pip/pip-cache/http-v2/a/1/9",
+      "matched_keywords": [
+        "tmp"
+      ]
+    },
+    {
+      "id": 94,
+      "label": "Folder",
+      "name": "5",
+      "path": "VisionFlow_Bakend/tmp_pip/pip-cache/http-v2/a/1/9/5",
+      "matched_keywords": [
+        "tmp"
+      ]
+    },
+    {
+      "id": 95,
+      "label": "Folder",
+      "name": "3",
+      "path": "VisionFlow_Bakend/tmp_pip/pip-cache/http-v2/a/1/9/5/3",
+      "matched_keywords": [
+        "tmp"
+      ]
+    },
+    {
+      "id": 96,
+      "label": "Folder",
+      "name": "selfcheck",
+      "path": "VisionFlow_Bakend/tmp_pip/pip-cache/selfcheck",
+      "matched_keywords": [
+        "tmp"
+      ]
+    }
+  ],
+  "ffprobe": [
+    {
+      "id": 913,
+      "label": "File",
+      "name": "probe-visionflow-legacy-intake.js",
+      "path": "VisionFlow_Bakend/orchestrator/scripts/probe-visionflow-legacy-intake.js",
+      "matched_keywords": [
+        "probe"
+      ]
+    },
+    {
+      "id": 6324,
+      "label": "File",
+      "name": "probe-visionflow-legacy-intake.js",
+      "path": "VisionFlow_Bakend/orchestrator/scripts/probe-visionflow-legacy-intake.js",
+      "matched_keywords": [
+        "probe"
+      ]
+    },
+    {
+      "id": 6375,
+      "label": "Module",
+      "name": "probe-visionflow-legacy-intake.js",
+      "path": "VisionFlow_Bakend/orchestrator/scripts/probe-visionflow-legacy-intake.js",
+      "matched_keywords": [
+        "probe"
+      ]
+    },
+    {
+      "id": 6401,
+      "label": "Function",
+      "name": "get_ffprobe_binary",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "matched_keywords": [
+        "ffprobe",
+        "probe"
+      ]
+    },
+    {
+      "id": 6456,
+      "label": "Function",
+      "name": "iife_arrow_6_1",
+      "path": "VisionFlow_Bakend/orchestrator/scripts/probe-visionflow-legacy-intake.js",
+      "matched_keywords": [
+        "probe"
+      ]
+    },
+    {
+      "id": 6457,
+      "label": "Function",
+      "name": "anonymous_19_11",
+      "path": "VisionFlow_Bakend/orchestrator/scripts/probe-visionflow-legacy-intake.js",
+      "matched_keywords": [
+        "probe"
+      ]
+    },
+    {
+      "id": 8747,
+      "label": "Function",
+      "name": "resolve_ffprobe_exe",
+      "path": "VisionFlow_Bakend/worker/config/render_profile.py",
+      "matched_keywords": [
+        "ffprobe",
+        "probe"
+      ]
+    },
+    {
+      "id": 9266,
+      "label": "Function",
+      "name": "get_video_info",
+      "path": "VisionFlow_Bakend/worker/scratch/test_split_screen_verified.py",
+      "matched_keywords": [
+        "video_info"
+      ]
+    },
+    {
+      "id": 9613,
+      "label": "Method",
+      "name": "_probe_video",
+      "path": "VisionFlow_Bakend/worker/services/local_asset_library_service.py",
+      "matched_keywords": [
+        "probe"
+      ]
+    },
+    {
+      "id": 9700,
+      "label": "Method",
+      "name": "_ffprobe_path",
+      "path": "VisionFlow_Bakend/worker/services/quality_gate_service.py",
+      "matched_keywords": [
+        "ffprobe",
+        "probe"
+      ]
+    },
+    {
+      "id": 9701,
+      "label": "Method",
+      "name": "probe_duration",
+      "path": "VisionFlow_Bakend/worker/services/quality_gate_service.py",
+      "matched_keywords": [
+        "probe"
+      ]
+    },
+    {
+      "id": 9867,
+      "label": "Function",
+      "name": "_get_ffprobe_exe",
+      "path": "VisionFlow_Bakend/worker/services/dubbing_service.py",
+      "matched_keywords": [
+        "ffprobe",
+        "probe"
+      ]
+    },
+    {
+      "id": 10096,
+      "label": "Class",
+      "name": "FfprobeMediaInspector",
+      "path": "VisionFlow_Bakend/worker/services/visionflow_media_inspector.py",
+      "matched_keywords": [
+        "ffprobe",
+        "probe"
+      ]
+    },
+    {
+      "id": 10353,
+      "label": "Method",
+      "name": "test_parses_real_qa_fields_from_ffprobe_json",
+      "path": "VisionFlow_Bakend/worker/tests/test_visionflow_media_inspector.py",
+      "matched_keywords": [
+        "ffprobe",
+        "probe"
+      ]
+    }
+  ],
+  "ffmpeg": [
+    {
+      "id": 3122,
+      "label": "ExternalPackage",
+      "name": "imageio-ffmpeg",
+      "path": "",
+      "matched_keywords": [
+        "ffmpeg"
+      ]
+    },
+    {
+      "id": 5950,
+      "label": "ExternalModule",
+      "name": "imageio_ffmpeg",
+      "path": "imageio_ffmpeg",
+      "matched_keywords": [
+        "ffmpeg"
+      ]
+    },
+    {
+      "id": 6400,
+      "label": "Function",
+      "name": "get_ffmpeg_binary",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "matched_keywords": [
+        "ffmpeg"
+      ]
+    },
+    {
+      "id": 7701,
+      "label": "Function",
+      "name": "build_high_converting_description",
+      "path": "VisionFlow_Bakend/services/control-plane/app/core/caption_policy.py",
+      "matched_keywords": [
+        "convert"
+      ]
+    },
+    {
+      "id": 8324,
+      "label": "Method",
+      "name": "test_ffmpeg_filter_complex_with_subtitle_blur",
+      "path": "VisionFlow_Bakend/services/control-plane/tests/test_auto_dubbing_studio.py",
+      "matched_keywords": [
+        "ffmpeg"
+      ]
+    },
+    {
+      "id": 8746,
+      "label": "Function",
+      "name": "resolve_ffmpeg_exe",
+      "path": "VisionFlow_Bakend/worker/config/render_profile.py",
+      "matched_keywords": [
+        "ffmpeg"
+      ]
+    },
+    {
+      "id": 8748,
+      "label": "Function",
+      "name": "build_unified_ffmpeg_args",
+      "path": "VisionFlow_Bakend/worker/config/render_profile.py",
+      "matched_keywords": [
+        "ffmpeg"
+      ]
+    },
+    {
+      "id": 8756,
+      "label": "Function",
+      "name": "build_high_converting_description",
+      "path": "VisionFlow_Bakend/worker/domain/caption_policy.py",
+      "matched_keywords": [
+        "convert"
+      ]
+    },
+    {
+      "id": 9458,
+      "label": "Class",
+      "name": "FfmpegCaptionCompositor",
+      "path": "VisionFlow_Bakend/worker/services/composition_caption_compositor.py",
+      "matched_keywords": [
+        "ffmpeg"
+      ]
+    },
+    {
+      "id": 9463,
+      "label": "Class",
+      "name": "FfmpegOverlayCompositor",
+      "path": "VisionFlow_Bakend/worker/services/composition_overlay_compositor.py",
+      "matched_keywords": [
+        "ffmpeg"
+      ]
+    },
+    {
+      "id": 9513,
+      "label": "Method",
+      "name": "_convert_photo_to_ken_burns_video",
+      "path": "VisionFlow_Bakend/worker/services/asset_service.py",
+      "matched_keywords": [
+        "convert"
+      ]
+    },
+    {
+      "id": 9526,
+      "label": "Method",
+      "name": "mix_viral_audio_ffmpeg",
+      "path": "VisionFlow_Bakend/worker/services/audio_mixer.py",
+      "matched_keywords": [
+        "ffmpeg"
+      ]
+    },
+    {
+      "id": 9531,
+      "label": "Method",
+      "name": "extract_audio_reactive_data",
+      "path": "VisionFlow_Bakend/worker/services/audio_signal_service.py",
+      "matched_keywords": [
+        "extract_audio"
+      ]
+    },
+    {
+      "id": 9542,
+      "label": "Method",
+      "name": "_ffmpeg_path",
+      "path": "VisionFlow_Bakend/worker/services/browser_render_service.py",
+      "matched_keywords": [
+        "ffmpeg"
+      ]
+    },
+    {
+      "id": 9549,
+      "label": "Method",
+      "name": "preprocess_ffmpeg_loop_concat",
+      "path": "VisionFlow_Bakend/worker/services/clip_composer.py",
+      "matched_keywords": [
+        "ffmpeg"
+      ]
+    }
+  ],
+  "transcription": [
+    {
+      "id": 3130,
+      "label": "ExternalPackage",
+      "name": "faster-whisper",
+      "path": "",
+      "matched_keywords": [
+        "whisper"
+      ]
+    },
+    {
+      "id": 3353,
+      "label": "File",
+      "name": "transcribe_test_125.py",
+      "path": "VisionFlow_Bakend/worker/scratch/transcribe_test_125.py",
+      "matched_keywords": [
+        "transcribe"
+      ]
+    },
+    {
+      "id": 6055,
+      "label": "ExternalModule",
+      "name": "whisper",
+      "path": "whisper",
+      "matched_keywords": [
+        "whisper"
+      ]
+    },
+    {
+      "id": 6056,
+      "label": "ExternalModule",
+      "name": "faster_whisper",
+      "path": "faster_whisper.WhisperModel",
+      "matched_keywords": [
+        "whisper",
+        "faster_whisper"
+      ]
+    },
+    {
+      "id": 6677,
+      "label": "Function",
+      "name": "postTemplateKeyboard",
+      "path": "VisionFlow_Bakend/orchestrator/src/telegram/bot.ts",
+      "matched_keywords": [
+        "stt"
+      ]
+    },
+    {
+      "id": 6862,
+      "label": "Function",
+      "name": "postTemplateKeyboard",
+      "path": "VisionFlow_Bakend/orchestrator/src/telegram/youtubeBot.ts",
+      "matched_keywords": [
+        "stt"
+      ]
+    },
+    {
+      "id": 6982,
+      "label": "Function",
+      "name": "postTemplateKeyboard",
+      "path": "VisionFlow_Bakend/orchestrator/src/telegram/youtubeSecondBot.ts",
+      "matched_keywords": [
+        "stt"
+      ]
+    },
+    {
+      "id": 9409,
+      "label": "Module",
+      "name": "transcribe_test_125.py",
+      "path": "VisionFlow_Bakend/worker/scratch/transcribe_test_125.py",
+      "matched_keywords": [
+        "transcribe"
+      ]
+    },
+    {
+      "id": 9562,
+      "label": "Method",
+      "name": "transcribe_audio",
+      "path": "VisionFlow_Bakend/worker/services/dubbing_service.py",
+      "matched_keywords": [
+        "transcribe"
+      ]
+    },
+    {
+      "id": 9618,
+      "label": "Method",
+      "name": "transcribe_lyrics",
+      "path": "VisionFlow_Bakend/worker/services/lyric_transcription_service.py",
+      "matched_keywords": [
+        "transcribe"
+      ]
+    },
+    {
+      "id": 9619,
+      "label": "Method",
+      "name": "_transcribe_with_faster_whisper",
+      "path": "VisionFlow_Bakend/worker/services/lyric_transcription_service.py",
+      "matched_keywords": [
+        "whisper",
+        "faster_whisper",
+        "transcribe"
+      ]
+    },
+    {
+      "id": 9620,
+      "label": "Method",
+      "name": "_transcribe_with_openai_whisper",
+      "path": "VisionFlow_Bakend/worker/services/lyric_transcription_service.py",
+      "matched_keywords": [
+        "whisper",
+        "transcribe"
+      ]
+    },
+    {
+      "id": 9621,
+      "label": "Method",
+      "name": "_transcribe_with_groq_whisper",
+      "path": "VisionFlow_Bakend/worker/services/lyric_transcription_service.py",
+      "matched_keywords": [
+        "whisper",
+        "transcribe"
+      ]
+    },
+    {
+      "id": 9622,
+      "label": "Method",
+      "name": "_transcribe_with_gemini",
+      "path": "VisionFlow_Bakend/worker/services/lyric_transcription_service.py",
+      "matched_keywords": [
+        "transcribe"
+      ]
+    },
+    {
+      "id": 9791,
+      "label": "File",
+      "name": "transcribe_test_125.py",
+      "path": "VisionFlow_Bakend/worker/scratch/transcribe_test_125.py",
+      "matched_keywords": [
+        "transcribe"
+      ]
+    }
+  ],
+  "scene_splitting": [
+    {
+      "id": 41,
+      "label": "Folder",
+      "name": "20260715102000_seed_short_video_scene_planner",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715102000_seed_short_video_scene_planner",
+      "matched_keywords": [
+        "scene"
+      ]
+    },
+    {
+      "id": 905,
+      "label": "File",
+      "name": "migration.sql",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715102000_seed_short_video_scene_planner/migration.sql",
+      "matched_keywords": [
+        "scene"
+      ]
+    },
+    {
+      "id": 1406,
+      "label": "File",
+      "name": "generate_ai_video_scene.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/generate_ai_video_scene.py",
+      "matched_keywords": [
+        "scene"
+      ]
+    },
+    {
+      "id": 2727,
+      "label": "File",
+      "name": "test_composition_snapshot_api.py",
+      "path": "VisionFlow_Bakend/services/control-plane/tests/test_composition_snapshot_api.py",
+      "matched_keywords": [
+        "shot"
+      ]
+    },
+    {
+      "id": 3347,
+      "label": "File",
+      "name": "test_split_screen_render.py",
+      "path": "VisionFlow_Bakend/worker/scratch/test_split_screen_render.py",
+      "matched_keywords": [
+        "split"
+      ]
+    },
+    {
+      "id": 3348,
+      "label": "File",
+      "name": "test_split_screen_verified.py",
+      "path": "VisionFlow_Bakend/worker/scratch/test_split_screen_verified.py",
+      "matched_keywords": [
+        "split"
+      ]
+    },
+    {
+      "id": 3349,
+      "label": "File",
+      "name": "test_splitscreen_mode.py",
+      "path": "VisionFlow_Bakend/worker/scratch/test_splitscreen_mode.py",
+      "matched_keywords": [
+        "split"
+      ]
+    },
+    {
+      "id": 3600,
+      "label": "File",
+      "name": "split_screen_renderer.py",
+      "path": "VisionFlow_Bakend/worker/services/split_screen_renderer.py",
+      "matched_keywords": [
+        "split"
+      ]
+    },
+    {
+      "id": 6128,
+      "label": "Folder",
+      "name": "20260715102000_seed_short_video_scene_planner",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715102000_seed_short_video_scene_planner",
+      "matched_keywords": [
+        "scene"
+      ]
+    },
+    {
+      "id": 6316,
+      "label": "File",
+      "name": "migration.sql",
+      "path": "VisionFlow_Bakend/orchestrator/prisma/migrations/20260715102000_seed_short_video_scene_planner/migration.sql",
+      "matched_keywords": [
+        "scene"
+      ]
+    },
+    {
+      "id": 6411,
+      "label": "Function",
+      "name": "build_split_screen_filter",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "matched_keywords": [
+        "split"
+      ]
+    },
+    {
+      "id": 6429,
+      "label": "Function",
+      "name": "render_scene_chunk",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "matched_keywords": [
+        "scene"
+      ]
+    },
+    {
+      "id": 6556,
+      "label": "Method",
+      "name": "test_2_unit_split_screen_filter",
+      "path": "VisionFlow_Bakend/test_modal_worker_features.py",
+      "matched_keywords": [
+        "split"
+      ]
+    },
+    {
+      "id": 6831,
+      "label": "Function",
+      "name": "detectSplitScreenFormat",
+      "path": "VisionFlow_Bakend/orchestrator/src/telegram/intentRouter.ts",
+      "matched_keywords": [
+        "split"
+      ]
+    },
+    {
+      "id": 7301,
+      "label": "Module",
+      "name": "generate_ai_video_scene.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/generate_ai_video_scene.py",
+      "matched_keywords": [
+        "scene"
+      ]
+    }
+  ],
+  "asset_matcher": [
+    {
+      "id": 11815,
+      "label": "Function",
+      "name": "resolveDynamicVideoForScene",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts",
+      "matched_keywords": [
+        "assetMatcher"
+      ]
+    },
+    {
+      "id": 11816,
+      "label": "Function",
+      "name": "resolveSmartVideoForScene",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts",
+      "matched_keywords": [
+        "assetMatcher"
+      ]
+    },
+    {
+      "id": 11817,
+      "label": "Function",
+      "name": "anonymous_109_24",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts",
+      "matched_keywords": [
+        "assetMatcher"
+      ]
+    },
+    {
+      "id": 11818,
+      "label": "Function",
+      "name": "anonymous_111_34",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts",
+      "matched_keywords": [
+        "assetMatcher"
+      ]
+    },
+    {
+      "id": 11819,
+      "label": "Function",
+      "name": "anonymous_226_32",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts",
+      "matched_keywords": [
+        "assetMatcher"
+      ]
+    },
+    {
+      "id": 11859,
+      "label": "Class",
+      "name": "PexelsLiveSearchProvider",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts",
+      "matched_keywords": [
+        "assetMatcher"
+      ]
+    },
+    {
+      "id": 11860,
+      "label": "Class",
+      "name": "AssetMatcherOrchestrator",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts",
+      "matched_keywords": [
+        "assetMatcher"
+      ]
+    },
+    {
+      "id": 11871,
+      "label": "File",
+      "name": "assetMatcher.ts",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts",
+      "matched_keywords": [
+        "assetMatcher"
+      ]
+    },
+    {
+      "id": 11883,
+      "label": "Module",
+      "name": "assetMatcher.ts",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts",
+      "matched_keywords": [
+        "assetMatcher"
+      ]
+    },
+    {
+      "id": 11897,
+      "label": "Interface",
+      "name": "SceneScriptInput",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts",
+      "matched_keywords": [
+        "assetMatcher"
+      ]
+    },
+    {
+      "id": 11898,
+      "label": "Interface",
+      "name": "VideoSearchResult",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts",
+      "matched_keywords": [
+        "assetMatcher"
+      ]
+    },
+    {
+      "id": 11909,
+      "label": "Method",
+      "name": "searchVideos",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts",
+      "matched_keywords": [
+        "assetMatcher"
+      ]
+    },
+    {
+      "id": 11910,
+      "label": "Method",
+      "name": "matchAssetsForScript",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts",
+      "matched_keywords": [
+        "assetMatcher"
+      ]
+    }
+  ],
+  "pexels": [
+    {
+      "id": 6417,
+      "label": "Function",
+      "name": "fetch_pexels_video_for_keyword",
+      "path": "VisionFlow_Bakend/modal_worker.py",
+      "matched_keywords": [
+        "pexels"
+      ]
+    },
+    {
+      "id": 7440,
+      "label": "Method",
+      "name": "check_stock_media_active",
+      "path": "VisionFlow_Bakend/services/control-plane/app/application/get_short_form_readiness.py",
+      "matched_keywords": [
+        "stock"
+      ]
+    },
+    {
+      "id": 8130,
+      "label": "Method",
+      "name": "check_stock_media_active",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/repositories.py",
+      "matched_keywords": [
+        "stock"
+      ]
+    },
+    {
+      "id": 8871,
+      "label": "Method",
+      "name": "test_repository_checks_stock_media_active",
+      "path": "VisionFlow_Bakend/services/control-plane/tests/test_readiness.py",
+      "matched_keywords": [
+        "stock"
+      ]
+    },
+    {
+      "id": 9450,
+      "label": "Class",
+      "name": "StockVideoCandidate",
+      "path": "VisionFlow_Bakend/worker/services/asset_service.py",
+      "matched_keywords": [
+        "stock"
+      ]
+    },
+    {
+      "id": 9503,
+      "label": "Method",
+      "name": "_search_pexels_video",
+      "path": "VisionFlow_Bakend/worker/services/asset_service.py",
+      "matched_keywords": [
+        "pexels",
+        "search_pexels"
+      ]
+    },
+    {
+      "id": 9504,
+      "label": "Method",
+      "name": "_search_pexels_videos",
+      "path": "VisionFlow_Bakend/worker/services/asset_service.py",
+      "matched_keywords": [
+        "pexels",
+        "search_pexels"
+      ]
+    },
+    {
+      "id": 9507,
+      "label": "Method",
+      "name": "_search_pexels_candidates",
+      "path": "VisionFlow_Bakend/worker/services/asset_service.py",
+      "matched_keywords": [
+        "pexels",
+        "search_pexels"
+      ]
+    },
+    {
+      "id": 9511,
+      "label": "Method",
+      "name": "_choose_best_pexels_file",
+      "path": "VisionFlow_Bakend/worker/services/asset_service.py",
+      "matched_keywords": [
+        "pexels"
+      ]
+    },
+    {
+      "id": 9512,
+      "label": "Method",
+      "name": "_score_stock_candidate",
+      "path": "VisionFlow_Bakend/worker/services/asset_service.py",
+      "matched_keywords": [
+        "stock"
+      ]
+    },
+    {
+      "id": 9515,
+      "label": "Method",
+      "name": "_search_pexels_image",
+      "path": "VisionFlow_Bakend/worker/services/asset_service.py",
+      "matched_keywords": [
+        "pexels",
+        "search_pexels"
+      ]
+    },
+    {
+      "id": 9833,
+      "label": "Function",
+      "name": "test_pexels_scanned_search",
+      "path": "VisionFlow_Bakend/worker/scratch/test_splitscreen_mode.py",
+      "matched_keywords": [
+        "pexels"
+      ]
+    },
+    {
+      "id": 10086,
+      "label": "Class",
+      "name": "StockAssetDownloader",
+      "path": "VisionFlow_Bakend/worker/services/visionflow_asset_preparer.py",
+      "matched_keywords": [
+        "stock"
+      ]
+    },
+    {
+      "id": 11859,
+      "label": "Class",
+      "name": "PexelsLiveSearchProvider",
+      "path": "VisionFlow_Client/src/modules/opencut/engine/assetMatcher.ts",
+      "matched_keywords": [
+        "pexels"
+      ]
+    }
+  ],
+  "db_repository": [
+    {
+      "id": 14,
+      "label": "Folder",
+      "name": "alembic",
+      "path": "services/control-plane/alembic",
+      "matched_keywords": [
+        "alembic"
+      ]
+    },
+    {
+      "id": 15,
+      "label": "Folder",
+      "name": "versions",
+      "path": "services/control-plane/alembic/versions",
+      "matched_keywords": [
+        "alembic"
+      ]
+    },
+    {
+      "id": 47,
+      "label": "Folder",
+      "name": "database",
+      "path": "VisionFlow_Bakend/orchestrator/src/database",
+      "matched_keywords": [
+        "database",
+        "Base"
+      ]
+    },
+    {
+      "id": 68,
+      "label": "Folder",
+      "name": "alembic",
+      "path": "VisionFlow_Bakend/services/control-plane/alembic",
+      "matched_keywords": [
+        "alembic"
+      ]
+    },
+    {
+      "id": 69,
+      "label": "Folder",
+      "name": "versions",
+      "path": "VisionFlow_Bakend/services/control-plane/alembic/versions",
+      "matched_keywords": [
+        "alembic"
+      ]
+    },
+    {
+      "id": 880,
+      "label": "File",
+      "name": "03_DATABASE_SCHEMA_VA_BAO_MAT_VAULT.md",
+      "path": "VisionFlow_Bakend/docs/03_DATABASE_SCHEMA_VA_BAO_MAT_VAULT.md",
+      "matched_keywords": [
+        "database",
+        "Base"
+      ]
+    },
+    {
+      "id": 886,
+      "label": "File",
+      "name": "0002-repair-invalid-alembic-revision-0007.md",
+      "path": "VisionFlow_Bakend/docs/adr/0002-repair-invalid-alembic-revision-0007.md",
+      "matched_keywords": [
+        "alembic"
+      ]
+    },
+    {
+      "id": 933,
+      "label": "File",
+      "name": "db.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/database/db.ts",
+      "matched_keywords": [
+        "database",
+        "Base"
+      ]
+    },
+    {
+      "id": 934,
+      "label": "File",
+      "name": "publishTargetRepo.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/database/publishTargetRepo.ts",
+      "matched_keywords": [
+        "database",
+        "Base"
+      ]
+    },
+    {
+      "id": 935,
+      "label": "File",
+      "name": "userConnectionRepo.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/database/userConnectionRepo.ts",
+      "matched_keywords": [
+        "database",
+        "Base"
+      ]
+    },
+    {
+      "id": 936,
+      "label": "File",
+      "name": "videoJobSchema.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/database/videoJobSchema.ts",
+      "matched_keywords": [
+        "database",
+        "Base"
+      ]
+    },
+    {
+      "id": 1340,
+      "label": "File",
+      "name": "legacyJobIntakeRepository.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/visionflow/legacyJobIntakeRepository.ts",
+      "matched_keywords": [
+        "repository"
+      ]
+    },
+    {
+      "id": 1342,
+      "label": "File",
+      "name": "legacyMappingOutboxRepository.ts",
+      "path": "VisionFlow_Bakend/orchestrator/src/visionflow/legacyMappingOutboxRepository.ts",
+      "matched_keywords": [
+        "repository"
+      ]
+    },
+    {
+      "id": 1347,
+      "label": "File",
+      "name": "check_openrouter_models.py",
+      "path": "VisionFlow_Bakend/scratch/check_openrouter_models.py",
+      "matched_keywords": [
+        "models"
+      ]
+    },
+    {
+      "id": 1374,
+      "label": "File",
+      "name": "alembic.ini",
+      "path": "VisionFlow_Bakend/services/control-plane/alembic.ini",
+      "matched_keywords": [
+        "alembic"
+      ]
+    }
+  ],
+  "opencut_contracts": [
+    {
+      "id": 83,
+      "label": "Folder",
+      "name": "pip-build-tracker-iy5gjcs_",
+      "path": "VisionFlow_Bakend/tmp_pip/pip-build-tracker-iy5gjcs_",
+      "matched_keywords": [
+        "track"
+      ]
+    },
+    {
+      "id": 1383,
+      "label": "File",
+      "name": "0004_composition_studio.py",
+      "path": "VisionFlow_Bakend/services/control-plane/alembic/versions/0004_composition_studio.py",
+      "matched_keywords": [
+        "composition"
+      ]
+    },
+    {
+      "id": 1436,
+      "label": "File",
+      "name": "composition.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/domain/composition.py",
+      "matched_keywords": [
+        "composition"
+      ]
+    },
+    {
+      "id": 1443,
+      "label": "File",
+      "name": "composition_repository.py",
+      "path": "VisionFlow_Bakend/services/control-plane/app/infrastructure/composition_repository.py",
+      "matched_keywords": [
+        "composition"
+      ]
+    },
+    {
+      "id": 2727,
+      "label": "File",
+      "name": "test_composition_snapshot_api.py",
+      "path": "VisionFlow_Bakend/services/control-plane/tests/test_composition_snapshot_api.py",
+      "matched_keywords": [
+        "composition"
+      ]
+    },
+    {
+      "id": 2728,
+      "label": "File",
+      "name": "test_composition_validation.py",
+      "path": "VisionFlow_Bakend/services/control-plane/tests/test_composition_validation.py",
+      "matched_keywords": [
+        "composition"
+      ]
+    },
+    {
+      "id": 2814,
+      "label": "File",
+      "name": "composition_render_plan.py",
+      "path": "VisionFlow_Bakend/worker/domain/composition_render_plan.py",
+      "matched_keywords": [
+        "composition"
+      ]
+    },
+    {
+      "id": 3577,
+      "label": "File",
+      "name": "composition_caption_compositor.py",
+      "path": "VisionFlow_Bakend/worker/services/composition_caption_compositor.py",
+      "matched_keywords": [
+        "composition"
+      ]
+    },
+    {
+      "id": 3578,
+      "label": "File",
+      "name": "composition_overlay_compositor.py",
+      "path": "VisionFlow_Bakend/worker/services/composition_overlay_compositor.py",
+      "matched_keywords": [
+        "composition"
+      ]
+    },
+    {
+      "id": 3631,
+      "label": "File",
+      "name": "test_composition_caption_compositor.py",
+      "path": "VisionFlow_Bakend/worker/tests/test_composition_caption_compositor.py",
+      "matched_keywords": [
+        "composition"
+      ]
+    },
+    {
+      "id": 3632,
+      "label": "File",
+      "name": "test_composition_compositor_integration.py",
+      "path": "VisionFlow_Bakend/worker/tests/test_composition_compositor_integration.py",
+      "matched_keywords": [
+        "composition"
+      ]
+    },
+    {
+      "id": 3633,
+      "label": "File",
+      "name": "test_composition_frame_effects.py",
+      "path": "VisionFlow_Bakend/worker/tests/test_composition_frame_effects.py",
+      "matched_keywords": [
+        "composition"
+      ]
+    },
+    {
+      "id": 3634,
+      "label": "File",
+      "name": "test_composition_overlay_compositor.py",
+      "path": "VisionFlow_Bakend/worker/tests/test_composition_overlay_compositor.py",
+      "matched_keywords": [
+        "composition"
+      ]
+    },
+    {
+      "id": 3635,
+      "label": "File",
+      "name": "test_composition_render_plan.py",
+      "path": "VisionFlow_Bakend/worker/tests/test_composition_render_plan.py",
+      "matched_keywords": [
+        "composition"
+      ]
+    },
+    {
+      "id": 4982,
+      "label": "File",
+      "name": "CompositionStudio.tsx",
+      "path": "VisionFlow_Client/src/components/CompositionStudio.tsx",
+      "matched_keywords": [
+        "composition"
+      ]
+    }
+  ]
+}

@@ -1,18 +1,133 @@
 #!/bin/sh
+set -eu
 
+TAILSCALE_SOCKET=/tmp/visionflow-tailscaled.sock
+TAILSCALE_HOME=${TAILSCALE_HOME:-/tmp/visionflow-tailscale}
+TAILSCALE_STATE=${TAILSCALE_STATE_PATH:-mem:}
+PORT="${PORT:-8000}"
+
+mkdir -p "$TAILSCALE_HOME"
+export HOME="$TAILSCALE_HOME"
+if [ "$TAILSCALE_STATE" != "mem:" ]; then
+    mkdir -p "$(dirname "$TAILSCALE_STATE")"
+fi
+
+cleanup() {
+    [ -n "${UVICORN_PID:-}" ] && kill "$UVICORN_PID" 2>/dev/null || true
+    [ -n "${BRIDGE_PID:-}" ] && kill "$BRIDGE_PID" 2>/dev/null || true
+    [ -n "${TAILSCALED_PID:-}" ] && kill "$TAILSCALED_PID" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 1: Start uvicorn IMMEDIATELY so Render health checks pass right away.
+# The /health endpoint is pure in-memory — no DB needed.
+# ─────────────────────────────────────────────────────────────────────────────
+echo "==> Starting control-plane server (pre-migration)..."
+uvicorn app.main:app --host 0.0.0.0 --port "$PORT" &
+UVICORN_PID=$!
+
+# Give uvicorn 3 seconds to bind the port
+sleep 3
+if ! kill -0 "$UVICORN_PID" 2>/dev/null; then
+    echo "ERROR: uvicorn failed to start."
+    exit 1
+fi
+echo "==> uvicorn is up on port $PORT (PID $UVICORN_PID). Health checks will pass."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 2: Tailscale + DB tunnel (if enabled)
+# ─────────────────────────────────────────────────────────────────────────────
+if [ "${VISIONFLOW_TAILSCALE_ENABLED:-false}" = "true" ]; then
+    : "${TAILSCALE_AUTHKEY:?TAILSCALE_AUTHKEY is required when VISIONFLOW_TAILSCALE_ENABLED=true}"
+    : "${VISIONFLOW_TAILSCALE_DB_HOST:?VISIONFLOW_TAILSCALE_DB_HOST is required when Tailscale is enabled}"
+
+    echo "==> Starting Tailscale userspace network..."
+    tailscaled \
+        --tun=userspace-networking \
+        --socks5-server=127.0.0.1:1055 \
+        --state="$TAILSCALE_STATE" \
+        --socket="$TAILSCALE_SOCKET" &
+    TAILSCALED_PID=$!
+
+    attempts=0
+    while [ ! -S "$TAILSCALE_SOCKET" ]; do
+        attempts=$((attempts + 1))
+        if [ "$attempts" -ge 30 ]; then
+            echo "ERROR: Tailscale daemon did not become ready."
+            exit 1
+        fi
+        sleep 1
+    done
+
+    tailscale --socket="$TAILSCALE_SOCKET" up \
+        --auth-key="$TAILSCALE_AUTHKEY" \
+        --hostname="${TAILSCALE_HOSTNAME:-visionflow-render}" \
+        --advertise-tags="${TAILSCALE_TAGS:-tag:visionflow-render}"
+
+    LOG_LEVEL=DEBUG python -u scripts/tailscale_tcp_bridge.py &
+    BRIDGE_PID=$!
+    echo "==> Tailscale database tunnel process started."
+
+    # Wait until the TCP bridge is actually listening on its local port
+    BRIDGE_LISTEN_PORT="${VISIONFLOW_DB_PROXY_LISTEN_PORT:-15432}"
+    bridge_ready=0
+    bridge_attempts=0
+    echo "==> Waiting for TCP bridge to bind on port ${BRIDGE_LISTEN_PORT}..."
+    while [ "$bridge_attempts" -lt 30 ]; do
+        bridge_attempts=$((bridge_attempts + 1))
+        if python -c "import socket, sys; s=socket.socket(); s.settimeout(1); r=s.connect_ex(('127.0.0.1', ${BRIDGE_LISTEN_PORT})); s.close(); sys.exit(0 if r==0 else 1)" 2>/dev/null; then
+            bridge_ready=1
+            break
+        fi
+        if ! kill -0 "$BRIDGE_PID" 2>/dev/null; then
+            echo "ERROR: TCP bridge process exited unexpectedly."
+            exit 1
+        fi
+        sleep 1
+    done
+    if [ "$bridge_ready" -ne 1 ]; then
+        echo "ERROR: TCP bridge did not bind on port ${BRIDGE_LISTEN_PORT} within 30 seconds."
+        exit 1
+    fi
+    echo "==> TCP bridge is ready on port ${BRIDGE_LISTEN_PORT}."
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 3: Database migrations
+# ─────────────────────────────────────────────────────────────────────────────
 echo "==> Checking MIGRATION_DATABASE_URL..."
-if [ -z "$MIGRATION_DATABASE_URL" ]; then
+if [ -z "${MIGRATION_DATABASE_URL:-}" ]; then
     echo "WARN: MIGRATION_DATABASE_URL is not set — skipping alembic migration."
     echo "     Set MIGRATION_DATABASE_URL on Render to enable automatic migrations."
 else
+    echo "==> Waiting for PostgreSQL through the Tailscale tunnel..."
+    python scripts/wait_for_database.py \
+        --url-env MIGRATION_DATABASE_URL \
+        --timeout "${VISIONFLOW_DB_STARTUP_TIMEOUT_SECONDS:-180}"
+
     echo "==> Running database migrations (alembic upgrade head)..."
-    alembic upgrade head
-    if [ $? -ne 0 ]; then
-        echo "ERROR: alembic upgrade head failed. Check MIGRATION_DATABASE_URL and DB connectivity."
-        exit 1
-    fi
+    migration_attempt=1
+    migration_max_attempts=${VISIONFLOW_MIGRATION_MAX_ATTEMPTS:-5}
+    until alembic upgrade head; do
+        if [ "$migration_attempt" -ge "$migration_max_attempts" ]; then
+            echo "ERROR: Database migration failed after $migration_attempt attempts."
+            exit 1
+        fi
+        migration_delay=$((migration_attempt * 3))
+        echo "WARN: Migration attempt $migration_attempt failed; retrying in ${migration_delay}s."
+        sleep "$migration_delay"
+        python scripts/wait_for_database.py \
+            --url-env MIGRATION_DATABASE_URL \
+            --timeout "${VISIONFLOW_DB_RETRY_TIMEOUT_SECONDS:-60}"
+        migration_attempt=$((migration_attempt + 1))
+    done
     echo "==> Migrations complete."
 fi
 
-echo "==> Starting control-plane server..."
-exec uvicorn app.main:app --host 0.0.0.0 --port 8000
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 4: Wait for uvicorn to exit (it's the main process now)
+# ─────────────────────────────────────────────────────────────────────────────
+echo "==> Startup complete. uvicorn PID $UVICORN_PID is serving traffic."
+trap - EXIT INT TERM
+wait "$UVICORN_PID"

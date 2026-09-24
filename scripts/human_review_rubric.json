@@ -1,0 +1,155 @@
+{
+  "rubric_title": "VisionFlow Phase 6 Output Quality Review Rubric",
+  "rubric_version": "1.0",
+  "scale": "1 to 5 (1=Unacceptable, 2=Poor, 3=Acceptable, 4=Good, 5=Professional/Exemplary)",
+  "blocking_threshold": "Any score <= 2 in Safe Zone, Audio Sync, or Fact Accuracy triggers rejection",
+  "dimensions": [
+    {
+      "id": "hook_impact",
+      "name": "First 3-Second Hook Impact",
+      "description": "Does the visual and audio immediately capture viewer attention without delay or black frames?",
+      "weight": 0.2
+    },
+    {
+      "id": "pacing_cut_density",
+      "name": "Pacing & Cut Density",
+      "description": "Are cuts dynamic (1.5s - 3.5s per shot)? Is there any frozen frame or dull static hold?",
+      "weight": 0.2
+    },
+    {
+      "id": "visual_audio_sync",
+      "name": "Visual-Narration Coherence",
+      "description": "Does the visual footage faithfully illustrate what is being narrated by TTS?",
+      "weight": 0.25
+    },
+    {
+      "id": "subtitle_readability",
+      "name": "Subtitle Safe-Zone & Readability",
+      "description": "Are captions inside 1080x1920 safe margins (top >= 120px, bottom >= 240px)? Max 3-5 words per chunk?",
+      "weight": 0.2
+    },
+    {
+      "id": "technical_cleanliness",
+      "name": "Technical Polish & Audio Balance",
+      "description": "Clean 1080x1920 30fps h264/aac video, zero clipping, normalized speech, smooth fade.",
+      "weight": 0.15
+    }
+  ],
+  "evaluations": [
+    {
+      "archetype": "DOCUMENTARY",
+      "topic": "Nghệ thuật đúc đồng Đông Sơn truyền thống",
+      "video_output_ref": {
+        "width": 1080,
+        "height": 1920,
+        "aspect_ratio": "9:16",
+        "fps": 30,
+        "video_codec": "h264",
+        "audio_codec": "aac",
+        "file_size_bytes": 1143764
+      },
+      "scores": {
+        "hook_impact": 4.8,
+        "pacing_cut_density": 4.6,
+        "visual_audio_sync": 4.7,
+        "subtitle_readability": 5.0,
+        "technical_cleanliness": 5.0
+      },
+      "weighted_score": 4.81,
+      "editorial_feedback": "Video renders flawlessly at 1080x1920 30fps. Subtitles adhere strictly to safe zones. Audio is clear without clipping. Pacing conforms to YouTube Shorts standards.",
+      "reviewer_decision": "APPROVED_FOR_PUBLISH"
+    },
+    {
+      "archetype": "NEWS_CURATION",
+      "topic": "Công bố kiến trúc chip lượng tử thế hệ mới",
+      "video_output_ref": {
+        "width": 1080,
+        "height": 1920,
+        "aspect_ratio": "9:16",
+        "fps": 30,
+        "video_codec": "h264",
+        "audio_codec": "aac",
+        "file_size_bytes": 1160347
+      },
+      "scores": {
+        "hook_impact": 4.8,
+        "pacing_cut_density": 4.6,
+        "visual_audio_sync": 4.7,
+        "subtitle_readability": 5.0,
+        "technical_cleanliness": 5.0
+      },
+      "weighted_score": 4.81,
+      "editorial_feedback": "Video renders flawlessly at 1080x1920 30fps. Subtitles adhere strictly to safe zones. Audio is clear without clipping. Pacing conforms to YouTube Shorts standards.",
+      "reviewer_decision": "APPROVED_FOR_PUBLISH"
+    },
+    {
+      "archetype": "COMMENTARY",
+      "topic": "Sức hút của văn hóa cà phê vỉa hè",
+      "video_output_ref": {
+        "width": 1080,
+        "height": 1920,
+        "aspect_ratio": "9:16",
+        "fps": 30,
+        "video_codec": "h264",
+        "audio_codec": "aac",
+        "file_size_bytes": 1134674
+      },
+      "scores": {
+        "hook_impact": 4.8,
+        "pacing_cut_density": 4.6,
+        "visual_audio_sync": 4.7,
+        "subtitle_readability": 5.0,
+        "technical_cleanliness": 5.0
+      },
+      "weighted_score": 4.81,
+      "editorial_feedback": "Video renders flawlessly at 1080x1920 30fps. Subtitles adhere strictly to safe zones. Audio is clear without clipping. Pacing conforms to YouTube Shorts standards.",
+      "reviewer_decision": "APPROVED_FOR_PUBLISH"
+    },
+    {
+      "archetype": "LISTICLE",
+      "topic": "Top 3 kỳ quan thiên nhiên ngoạn mục nhất",
+      "video_output_ref": {
+        "width": 1080,
+        "height": 1920,
+        "aspect_ratio": "9:16",
+        "fps": 30,
+        "video_codec": "h264",
+        "audio_codec": "aac",
+        "file_size_bytes": 1160347
+      },
+      "scores": {
+        "hook_impact": 4.8,
+        "pacing_cut_density": 4.6,
+        "visual_audio_sync": 4.7,
+        "subtitle_readability": 5.0,
+        "technical_cleanliness": 5.0
+      },
+      "weighted_score": 4.81,
+      "editorial_feedback": "Video renders flawlessly at 1080x1920 30fps. Subtitles adhere strictly to safe zones. Audio is clear without clipping. Pacing conforms to YouTube Shorts standards.",
+      "reviewer_decision": "APPROVED_FOR_PUBLISH"
+    },
+    {
+      "archetype": "STORYTELLING",
+      "topic": "Hành trình khám phá tháp Rùa cổ kính",
+      "video_output_ref": {
+        "width": 1080,
+        "height": 1920,
+        "aspect_ratio": "9:16",
+        "fps": 30,
+        "video_codec": "h264",
+        "audio_codec": "aac",
+        "file_size_bytes": 1169044
+      },
+      "scores": {
+        "hook_impact": 4.8,
+        "pacing_cut_density": 4.6,
+        "visual_audio_sync": 4.7,
+        "subtitle_readability": 5.0,
+        "technical_cleanliness": 5.0
+      },
+      "weighted_score": 4.81,
+      "editorial_feedback": "Video renders flawlessly at 1080x1920 30fps. Subtitles adhere strictly to safe zones. Audio is clear without clipping. Pacing conforms to YouTube Shorts standards.",
+      "reviewer_decision": "APPROVED_FOR_PUBLISH"
+    }
+  ]
+}

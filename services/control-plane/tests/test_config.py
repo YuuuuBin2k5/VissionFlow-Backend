@@ -43,3 +43,22 @@ class SettingsTests(unittest.TestCase):
         with patch.dict(os.environ, {"DATABASE_URL": "postgresql+psycopg://app:secret@db.example/visionflow"}, clear=True):
             with self.assertRaises(ConfigurationError):
                 Settings.from_env()
+
+    def test_accepts_explicit_local_tailscale_proxy_without_database_tls(self) -> None:
+        env = {
+            "DATABASE_URL": "postgresql+psycopg://app:secret@127.0.0.1:15432/visionflow",
+            "MIGRATION_DATABASE_URL": "postgresql+psycopg://migrator:secret@localhost:15432/visionflow",
+            "VISIONFLOW_TRUST_LOCAL_DB_PROXY": "true",
+        }
+        with patch.dict(os.environ, env, clear=True):
+            settings = Settings.from_env(require_migration_url=True)
+        self.assertEqual(settings.database_url, env["DATABASE_URL"])
+
+    def test_local_proxy_opt_in_never_weakens_remote_database_tls(self) -> None:
+        env = {
+            "DATABASE_URL": "postgresql+psycopg://app:secret@db.example/visionflow",
+            "VISIONFLOW_TRUST_LOCAL_DB_PROXY": "true",
+        }
+        with patch.dict(os.environ, env, clear=True):
+            with self.assertRaises(ConfigurationError):
+                Settings.from_env()

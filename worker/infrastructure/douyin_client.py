@@ -589,7 +589,8 @@ async def download_video_link(job_id: int, url: str, output_dir: str) -> tuple:
     cmd = _get_ytdlp_cmd() + [
         "--no-warnings",
         "--paths", f"temp:{output_dir}",
-        "-f", "mp4",
+        "-f", "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b",
+        "--merge-output-format", "mp4",
         "-o", output_path
     ]
 

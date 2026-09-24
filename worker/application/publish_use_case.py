@@ -16,7 +16,13 @@ from __future__ import annotations
 import json
 import os
 
-from worker.domain.caption_policy import extract_publish_music_metadata, build_high_converting_description, build_publish_caption_and_hashtags, build_topic_hashtags
+from worker.domain.caption_policy import (
+    extract_publish_music_metadata,
+    build_high_converting_description,
+    build_high_converting_tiktok_caption,
+    build_publish_caption_and_hashtags,
+    build_topic_hashtags,
+)
 from worker.domain.publish_metadata import append_required_attribution, resolve_publish_metadata
 from worker.domain.job_metadata import parse_job_metadata
 from worker.infrastructure.database import log_realtime_progress
@@ -99,6 +105,19 @@ def handle_publish(
             user_metadata = {platform: user_platform}
 
     content_metadata = metadata.get("publish_metadata") or seo_data.get("publish_metadata")
+    prompt_manifest = job.get("prompt_manifest") if isinstance(job.get("prompt_manifest"), dict) else {}
+    input_payload = job.get("input_payload") if isinstance(job.get("input_payload"), dict) else {}
+    content_metadata = (
+        metadata.get("publish_metadata")
+        or seo_data.get("publish_metadata")
+        or job.get("publish_metadata")
+        or prompt_manifest.get("publish_metadata")
+        or input_payload.get("publish_metadata")
+    )
+    if not isinstance(content_metadata, dict) and seo_data:
+        from worker.domain.publish_metadata import legacy_seo_to_publish_metadata
+        content_metadata = legacy_seo_to_publish_metadata(seo_data)
+
     fallback_title = job.get("video_title_idea") or legacy_title or "Video mới"
     fallback = {platform: {"title": fallback_title, "hashtags": legacy_hashtags}}
     resolved = resolve_publish_metadata(
@@ -109,21 +128,55 @@ def handle_publish(
     )
     description_or_caption = resolved.description if platform == "youtube" else resolved.caption
     if description_or_caption is None:
-        fallback_text = build_high_converting_description(
-            title=fallback_title,
-            script=job.get("script") or job.get("full_voice_script") or "",
-            seo_data=seo_data,
-            language="en" if str(job.get("video_language") or "vi").lower().startswith("en") else "vi",
-        ) if platform == "youtube" else legacy_title
+        scenes_data = (
+            job.get("scenes")
+            or prompt_manifest.get("scenes")
+            or input_payload.get("scenes")
+            or (metadata.get("scenes") if isinstance(metadata.get("scenes"), list) else None)
+        )
+        brief_data = job.get("brief") or prompt_manifest.get("brief") or input_payload.get("brief")
+        genre_data = job.get("genre") or prompt_manifest.get("genre") or input_payload.get("genre") or "triết lý - chiêm nghiệm cuộc sống"
+        handle_data = metadata.get("channel_handle") or seo_data.get("channel_handle") or "@GocChiemNghiem"
+        raw_script = job.get("script") or job.get("full_voice_script") or ""
+        lang_detected = "en" if str(job.get("video_language") or "vi").lower().startswith("en") else "vi"
+
+        if platform == "youtube":
+            fallback_text = build_high_converting_description(
+                title=fallback_title,
+                script=raw_script,
+                seo_data=seo_data,
+                language=lang_detected,
+                scenes=scenes_data if isinstance(scenes_data, list) else None,
+                brief=brief_data,
+                channel_handle=handle_data,
+            )
+        else:
+            fallback_text = build_high_converting_tiktok_caption(
+                title=fallback_title,
+                script=raw_script,
+                genre=genre_data,
+                channel_handle=handle_data,
+            )
+
         resolved = resolve_publish_metadata(
             content_metadata=content_metadata,
             user_metadata=user_metadata,
-            fallback={platform: {"title": fallback_title, "description" if platform == "youtube" else "caption": fallback_text, "hashtags": build_topic_hashtags(fallback_title, "", seo_data)}},
+            fallback={
+                platform: {
+                    "title": fallback_title,
+                    "description" if platform == "youtube" else "caption": fallback_text,
+                    "hashtags": build_topic_hashtags(fallback_title, raw_script, seo_data, lang_detected),
+                }
+            },
             platform=platform,
         )
         description_or_caption = resolved.description if platform == "youtube" else resolved.caption
     target_title = resolved.title.value if resolved.title else fallback_title
     target_description = description_or_caption.value if description_or_caption else ""
+    if platform == "youtube" and resolved.hashtags and resolved.hashtags.value:
+        tags_to_append = [t for t in resolved.hashtags.value if t.lower() not in target_description.lower()]
+        if tags_to_append:
+            target_description = f"{target_description.rstrip()}\n\n{' '.join(tags_to_append)}" if target_description else " ".join(tags_to_append)
     target_description, _ = append_required_attribution(target_description, seo_data.get("music_attribution") or seo_data.get("bgm_info") or seo_data.get("selected_music"))
     hashtags = resolved.hashtags.value if resolved.hashtags else []
     target_tags = resolved.tags.value if resolved.tags else []

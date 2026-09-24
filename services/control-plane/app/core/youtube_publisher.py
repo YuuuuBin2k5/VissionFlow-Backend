@@ -24,7 +24,6 @@ class YouTubePublisherSettings:
         client_secret = (
             os.getenv("VISIONFLOW_YOUTUBE_CLIENT_SECRET", "").strip()
             or os.getenv("YOUTUBE_CLIENT_SECRET", "").strip()
-            or "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"
         )
         redirect_uri = (
             os.getenv("VISIONFLOW_YOUTUBE_REDIRECT_URI", "").strip()
@@ -34,9 +33,10 @@ class YouTubePublisherSettings:
         oauth_state_key = (
             os.getenv("VISIONFLOW_YOUTUBE_OAUTH_STATE_KEY", "").strip()
             or os.getenv("YOUTUBE_OAUTH_STATE_KEY", "").strip()
-            or "dmlzaW9uZmxvd19vYXV0aF9zdGF0ZV9rZXlfc2VjcmV0XzMyYnl0ZXM="
         )
 
+        if not client_secret:
+            raise ConfigurationError("VISIONFLOW_YOUTUBE_CLIENT_SECRET or YOUTUBE_CLIENT_SECRET is required")
         if not redirect_uri.startswith("https://") and not redirect_uri.startswith("http://"):
             redirect_uri = "https://" + redirect_uri
         try:

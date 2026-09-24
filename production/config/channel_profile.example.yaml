@@ -1,0 +1,44 @@
+id: knowledge_vn
+name: Knowledge VN
+language: vi
+
+default_format: short
+default_duration_sec: 55
+
+editorial:
+  tone: curiosity
+  style: clear_fast_explanatory
+  avoid:
+    - exaggerated_clickbait
+    - unsupported_numbers
+    - overdramatic_voice
+  preferred_hook:
+    - visual_reveal
+    - surprising_process
+    - question_with_payoff
+
+voice:
+  provider_profile: default_vi
+  rate: 1.08
+  emotion: neutral_engaging
+
+captions:
+  preset: dynamic_bold
+  karaoke: true
+  words_per_chunk: [3, 5]
+
+visual:
+  source_priority:
+    - user_provided
+    - approved_scene_library
+    - approved_stock
+  allow_generated_media: false
+  max_same_source_consecutive: 2
+  prefer_real_footage: true
+
+review:
+  mode: final_only
+  auto_publish: false
+
+quality:
+  profile: strict_short

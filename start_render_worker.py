@@ -12,6 +12,13 @@ Runs the full official pipeline:
 
 import os
 import sys
+
+# Auto-detect and re-exec with venv python if running with unactivated python
+_venv_python = os.path.abspath(os.path.join(os.path.dirname(__file__), "venv", "Scripts", "python.exe"))
+if os.path.exists(_venv_python) and os.path.normpath(sys.executable).lower() != os.path.normpath(_venv_python).lower():
+    import subprocess
+    sys.exit(subprocess.call([_venv_python] + sys.argv))
+
 import uuid
 import time
 import json
@@ -69,25 +76,25 @@ except Exception as ffmpeg_err:
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
-if "DATABASE_URL" not in os.environ:
-    os.environ["DATABASE_URL"] = "postgresql://neondb_owner:npg_TD8BYOyg6AVC@ep-restless-waterfall-azn7ekhh-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 os.environ.setdefault("ENVIRONMENT", "development")
-os.environ.setdefault("VISIONFLOW_CONTROL_PLANE_URL", "https://visionflow-control-plane.onrender.com")
-os.environ.setdefault("VISIONFLOW_TOKEN_URL", "https://visionflow-control-plane.onrender.com/api/v1/auth/token")
+os.environ.setdefault("VISIONFLOW_CONTROL_PLANE_URL", "https://visionflow-control-plane-free.onrender.com")
+os.environ.setdefault("VISIONFLOW_TOKEN_URL", "https://visionflow-control-plane-free.onrender.com/api/v1/auth/token")
 os.environ.setdefault("VISIONFLOW_WORKER_CLIENT_ID", "visionflow-worker-runner")
-os.environ.setdefault("VISIONFLOW_WORKER_CLIENT_SECRET", "sec_worker_prod_99812")
+os.environ.setdefault("VISIONFLOW_WORKER_CLIENT_SECRET", "")
 os.environ.setdefault("VISIONFLOW_ORGANIZATION_ID", "7b91598c-6c3e-4e5d-8247-d3efa203984a")
 os.environ.setdefault("VISIONFLOW_AUTH_AUDIENCE", "visionflow-control-plane")
-os.environ.setdefault("GEMINI_API_KEY", "AIzaSyCNu2LQSzyBW6ACixl1D6SLy07_vdeu0ho")
-os.environ.setdefault("PEXELS_API_KEY", "j3CIlOLR1RdRejkZPi56CCmJALu9axEyFjik0U77W3semlJtXFpMqgVp")
+# GEMINI_API_KEY must be supplied by environment/configuration.
+os.environ.setdefault("PEXELS_API_KEY", "")
 
-# Add worker and control-plane paths
-sys.path.insert(0, os.path.abspath("worker"))
-sys.path.insert(0, os.path.abspath("services/control-plane"))
+# Add worker and control-plane paths relative to this script
+_backend_root = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _backend_root)
+sys.path.insert(0, os.path.join(_backend_root, "worker"))
+sys.path.insert(0, os.path.join(_backend_root, "services", "control-plane"))
 
 from sqlalchemy.orm import Session
 from app.infrastructure.database import get_engine
-from app.infrastructure.models import WorkflowRun, VideoProject, MediaAsset
+from app.infrastructure.models import WorkflowRun, VideoProject, MediaAsset, RenderJob
 
 from worker.services.visionflow_control_plane_client import VisionFlowControlPlaneClient, VisionFlowWorkerSettings
 from worker.services.asset_service import AssetService
@@ -96,7 +103,7 @@ from worker.services.visionflow_tts import VisionFlowTts
 from worker.services.visionflow_video_renderer import VisionFlowVideoRenderer
 from worker.services.visionflow_asset_preparer import VisionFlowAssetPreparer
 from worker.services.visionflow_render_assets import VisionFlowRenderAssetMaterializer
-from worker.application.visionflow_render_workflow import VisionFlowRenderWorkflow
+from worker.application.visionflow_render_workflow import VisionFlowRenderWorkflow, RenderedArtifact
 from worker.application.visionflow_render_dispatcher import VisionFlowRenderDispatcher
 from worker.application.visionflow_quality_assurance import VisionFlowQualityAssurance
 from worker.services.visionflow_media_inspector import FfprobeMediaInspector
@@ -115,271 +122,343 @@ def process_workflow_official(wf_id: str) -> bool:
         if not wf or wf.state in ("PUBLISHED", "CANCELED"):
             return False
         proj = session_db.get(VideoProject, wf.project_id)
-        title = proj.title if proj else "Video ngan tu dong"
-        manifest = wf.prompt_manifest or {}
-        payload = wf.input_payload or {}
+        title = str(proj.title if proj and proj.title else "Video ngan tu dong")
+        brief = str(proj.brief if proj and proj.brief else "")
+        org_id = str(proj.organization_id if proj and proj.organization_id else "7b91598c-6c3e-4e5d-8247-d3efa203984a")
+        manifest = dict(wf.prompt_manifest or {})
+        payload = dict(wf.input_payload or {})
+        meta_json = dict(getattr(wf, "metadata_json", None) or {})
+
         render_mode = str(manifest.get("render_mode") or payload.get("render_mode") or "").upper()
         if render_mode == "TRANSLATE_DUB" or "dub" in title.lower() or "lồng tiếng" in title.lower() or "douyin" in title.lower() or "tiktok" in title.lower():
             print(f"  [Worker Route] Skipping '{title}' ({wf_id}) in standard B-roll pipeline (Handled by DubbingStrategy).")
             return False
 
+        render_target = str(
+            manifest.get("render_target")
+            or payload.get("render_target")
+            or ""
+        ).upper()
+
+        is_gh_actions = os.environ.get("GITHUB_ACTIONS") == "true"
+
+        if is_gh_actions:
+            # On GitHub Actions, skip jobs that are explicitly marked for user's LOCAL PC
+            if render_target == "LOCAL":
+                print(f"  [Worker Route] Skipping '{title}' ({wf_id}): targeted explicitly for user's LOCAL machine.")
+                return False
+        else:
+            # On Local machine daemon, skip jobs targeted for cloud (MODAL or GITHUB)
+            if render_target in ("MODAL", "GITHUB"):
+                print(f"  [Worker Route] Skipping '{title}' ({wf_id}): targeted for {render_target}, skipping on local worker.")
+                return False
+
+        # Atomically mark workflow as RENDERING in DB to prevent concurrent runs
+        wf.state = "RENDERING"
+        session_db.commit()
+
     print(f"\n=======================================================")
     print(f"[WORKER] PROCESSING VIDEO: '{title}' (ID: {wf_id})")
     print(f"=======================================================")
 
-    # 1. Step 1: Advance PLANNING workflows to SCRIPTED -> STORYBOARDED using AI Engine
-    print("[1/5] Running AI Intelligence Engine (Kich ban & Phan canh chuan)...")
-    try:
-        import subprocess
-        env = os.environ.copy()
-        res = subprocess.run(
-            [sys.executable, "services/control-plane/scripts/advance_stuck_workflow.py", "--workflow-run-id", str(wf_id)],
-            capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=120
-        )
-        print(f"  [AI Engine] Output: {res.stdout.strip()}")
-    except Exception as adv_err:
-        print(f"  [AI Engine] Notice: {adv_err}")
-
-    # 2. Step 2: Initialize Official Worker Services
-    print("[2/5] Initializing Official GitHub Actions Worker Contracts...")
-    control_plane_settings = VisionFlowWorkerSettings.from_env()
-    control_plane = VisionFlowControlPlaneClient(control_plane_settings)
-
+    # 1. Clean up stale local exports so old test files are never reused
     workspace_temp = Path("worker/workspace_temp")
-    workspace_temp.mkdir(parents=True, exist_ok=True)
-
-    storage = None
-    if S3CompatibleObjectStorage and VisionFlowObjectStorageSettings:
+    stale_dir = workspace_temp / "visionflow" / str(wf_id)
+    if stale_dir.exists():
+        import shutil
         try:
-            storage = S3CompatibleObjectStorage(VisionFlowObjectStorageSettings.from_env())
-            print(f"  [Storage] ✅ Connected to Cloud Storage R2 Bucket: {storage._settings.bucket}")
-        except Exception as st_err:
-            print(f"  [Storage Notice] R2 Settings notice: {st_err}")
-            storage = None
+            shutil.rmtree(stale_dir, ignore_errors=True)
+        except Exception:
+            pass
 
-    class LocalAssetPreparerAdapter:
-        def prepare(self, contract):
-            asset_svc = AssetService()
-            bg_paths = []
-            for i, sc in enumerate(contract.scenes, 1):
-                kw = sc.get("visual_search_keywords") or sc.get("narration") or contract.title
-                try:
-                    bg_file = asset_svc.get_scene_asset(
-                        keywords=kw,
-                        scene_id=i,
-                        prefer_ai=True,
-                        style_preset="cozy_anime_3d"
-                    )
-                    if bg_file and os.path.exists(bg_file):
-                        bg_paths.append(bg_file)
-                except Exception as err:
-                    print(f"  [AssetPreparer Warning] Scene #{i} asset fetch notice: {err}")
+    # 2. Build full Contract Payload directly from input_payload & prompt_manifest
+    # This guarantees 100% synchronization with the Studio!
+    contract_payload = {
+        "workflow_run_id": str(wf_id),
+        "organization_id": org_id,
+        "title": payload.get("title") or title,
+        "brief": payload.get("brief") or brief,
+    }
+    # Merge manifest first, then payload overrides so user's explicit Studio choices ALWAYS win!
+    for k, v in manifest.items():
+        contract_payload[k] = v
+    for k, v in payload.items():
+        if v is not None and v != "":
+            contract_payload[k] = v
 
-            if not bg_paths:
-                print("  [AssetPreparer] 🎬 Generating Emergency Ken Burns motion video fallback...")
-                try:
-                    fallback_path = os.path.join("worker", "temp_assets", "emergency_fallback.mp4")
-                    os.makedirs(os.path.dirname(fallback_path), exist_ok=True)
-                    fallback_video = asset_svc._convert_photo_to_ken_burns_video(
-                        photo_path_or_url="https://images.pexels.com/photos/1624496/pexels-photo-1624496.jpeg",
-                        output_path=fallback_path,
-                        duration=15.0
-                    )
-                    if fallback_video and os.path.exists(fallback_video):
-                        bg_paths.append(fallback_video)
-                except Exception as kb_err:
-                    print(f"  [AssetPreparer Notice] Fallback generation notice: {kb_err}")
+    print(f"  [Studio Sync] Voice: {contract_payload.get('voice_code') or contract_payload.get('voice')}")
+    print(f"  [Studio Sync] Logo Handle: {contract_payload.get('logo_handle')} (Pos: {contract_payload.get('logo_position')})")
+    print(f"  [Studio Sync] Captions Preset: {contract_payload.get('caption_preset')} (Font: {contract_payload.get('caption_font_family')}, Color: {contract_payload.get('caption_color')})")
+    print(f"  [Studio Sync] Title Banner: {contract_payload.get('title_banner_text')} (Style: {contract_payload.get('title_banner_style')})")
+    print(f"  [Studio Sync] BGM: Preset='{contract_payload.get('bgm_preset') or 'Auto'}', Vol={contract_payload.get('bgm_volume', 0.12)}")
+    print(f"  [Studio Sync] Visual Engine: {contract_payload.get('visual_engine') or 'fal_ai'}")
+    print(f"  [Studio Sync] Scene Count: {len(contract_payload.get('scenes') or [])}")
 
-            return type("PreparedAssets", (), {"asset_keys": tuple(bg_paths)})()
+    # 3. Execute Unified FFmpeg 7.1 Video Composition Engine
+    from modal_worker import render_video_task_local
+    result = render_video_task_local(contract_payload)
 
-    class LocalMaterializerAdapter:
-        def download(self, assets, workspace):
-            return list(assets.asset_keys)
+    status = result.get("status", "ERROR")
+    if status == "SUCCESS":
+        print(f"\n[SUCCESS] OFFICIAL RENDER COMPLETE FOR {wf_id}!")
+        print(f"  Output Object Key: {result.get('object_key')}")
+        print(f"  Public Video URL: {result.get('video_url')}")
 
-    class LocalStorageAdapter:
-        def upload_export(self, workflow_run_id, output_path):
-            file_size = os.path.getsize(output_path) if os.path.exists(output_path) else 0
-            return {
-                "object_key": output_path,
-                "content_type": "video/mp4",
-                "byte_size": file_size,
-                "checksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            }
-        def get_media_metadata(self, key):
-            return {"width": 1080, "height": 1920, "duration": 15.0, "format_name": "mov,mp4,m4a,3gp,3g2,mj2", "bit_rate": 2500000}
-
-    local_storage = storage or LocalStorageAdapter()
-    materializer = LocalMaterializerAdapter()
-    asset_preparer = LocalAssetPreparerAdapter()
-    tts = VisionFlowTts()
-    media_service = MediaService()
-
-    video_renderer = VisionFlowVideoRenderer(
-        storage=local_storage,
-        materializer=materializer,
-        tts=tts,
-        media_service=media_service,
-        workspace_root=str(workspace_temp),
-    )
-
-    render_workflow = VisionFlowRenderWorkflow(
-        gateway=control_plane,
-        asset_preparer=asset_preparer,
-        renderer=video_renderer,
-    )
-
-    qa = VisionFlowQualityAssurance(control_plane, FfprobeMediaInspector(local_storage))
-    dispatcher = VisionFlowRenderDispatcher(control_plane, render_workflow, quality_assurance=qa)
-
-    # 3. Step 3: Dispatch Render via Official Pipeline
-    print("[3/5] Executing Official Render Pipeline (Video + Overlays + Karaoke Subtitles)...")
-    trace_id = uuid.uuid4().hex
-    output_video_path = None
-    try:
-        artifact = dispatcher.dispatch(str(wf_id), trace_id=trace_id)
-        output_video_path = artifact.object_key if artifact else None
-    except Exception as dispatch_err:
-        print(f"  [Dispatch] Falling back to direct contract execution: {dispatch_err}")
-        with Session(engine) as session_db:
-            wf_ref = session_db.get(WorkflowRun, wf_id)
-            prompt_manifest = wf_ref.prompt_manifest or {}
-            script = prompt_manifest.get("script") or ""
-            scenes = prompt_manifest.get("scenes") or []
-
-            # Direct DB fallback to creative_documents -> creative_scenes
-            if not scenes or len(scenes) <= 2:
-                try:
-                    from app.infrastructure.models import CreativeDocument, CreativeDocumentVersion, CreativeScene
-                    doc = session_db.query(CreativeDocument).filter(CreativeDocument.workflow_run_id == wf_ref.id).first()
-                    if doc and doc.active_version_id:
-                        ver = session_db.query(CreativeDocumentVersion).get(doc.active_version_id)
-                        if ver and ver.script:
-                            script = ver.script
-                        db_scenes = session_db.query(CreativeScene).filter(CreativeScene.creative_document_version_id == doc.active_version_id).order_by(CreativeScene.position.asc()).all()
-                        if db_scenes:
-                            scenes = []
-                            for sc in db_scenes:
-                                scenes.append({
-                                    "scene_id": f"scene-{sc.position}",
-                                    "visual_search_keywords": sc.visual_prompt or f"{title} vertical",
-                                    "duration": int(float(sc.duration_seconds or 5)),
-                                    "narration": sc.narration or "",
-                                    "caption": sc.caption or title[:40],
-                                    "transition": sc.transition or "cut",
-                                })
-                            print(f"  [DB Fetch] Loaded {len(scenes)} full scenes from creative_scenes table in DB!")
-                except Exception as fetch_err:
-                    print(f"  [DB Fetch] Notice: {fetch_err}")
-
-            if not script and scenes:
-                script = " ".join([str(sc.get("narration") or sc.get("caption") or "").strip() for sc in scenes if str(sc.get("narration") or sc.get("caption") or "").strip()])
-            if not script or len(script.strip()) < 3:
-                script = f"Nội dung truyền cảm hứng và triết lý sống: {title}"
-
-            if not scenes:
-                scenes = [
-                    {"scene_id": "scene-1", "visual_search_keywords": f"{title} vertical", "duration": 6, "narration": script[:100], "caption": title[:40]},
-                    {"scene_id": "scene-2", "visual_search_keywords": f"{title} aesthetic", "duration": 6, "narration": script[100:200], "caption": "Đăng ký ngay"}
-                ]
-
-        vi_chars = "àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
-        is_vietnamese = any(c in script.lower() for c in vi_chars)
-        manifest_voice = (
-            prompt_manifest.get("voice_code")
-            or prompt_manifest.get("voice")
-            or prompt_manifest.get("voice_id")
-            or prompt_manifest.get("voice_name")
-        )
-        if manifest_voice:
-            selected_voice = str(manifest_voice)
-        elif not is_vietnamese:
-            selected_voice = "adam" if os.getenv("ELEVENLABS_API_KEY") else "en-US-ChristopherNeural"
+        # Check auto-publish
+        prompt_manifest = manifest
+        auto_publish_enabled = bool(prompt_manifest.get("auto_publish_enabled", False))
+        if auto_publish_enabled:
+            with Session(get_engine()) as fresh_db:
+                wf_t = fresh_db.get(WorkflowRun, wf_id)
+                if wf_t:
+                    wf_t.state = "PUBLISHED"
+                    fresh_db.commit()
+            print(f"[DB Auto-Publish] ⚡ Auto-Publish ON: Workflow {wf_id} -> PUBLISHED!")
+            try:
+                from worker.application.publish_use_case import handle_publish
+                job_id = int(meta_json.get("job_id", 0)) if meta_json else 0
+                if job_id:
+                    handle_publish(job_id=job_id)
+            except Exception as pub_err:
+                print(f"[DB Auto-Publish Notice] Immediate publish execution: {pub_err}")
         else:
-            selected_voice = "vi-VN-NamMinhNeural"
+            with Session(get_engine()) as fresh_db:
+                wf_t = fresh_db.get(WorkflowRun, wf_id)
+                if wf_t:
+                    wf_t.state = "APPROVAL_PENDING"
+                    # Upsert render WorkflowStep
+                    from app.infrastructure.models import WorkflowStep
+                    step_render = fresh_db.query(WorkflowStep).filter(
+                        WorkflowStep.workflow_run_id == wf_id,
+                        WorkflowStep.step_key == "render"
+                    ).first()
+                    if not step_render:
+                        step_render = WorkflowStep(
+                            workflow_run_id=wf_id,
+                            step_key="render",
+                            state="completed",
+                            attempt_count=1,
+                            input_payload={},
+                            output_payload={"object_key": result.get("object_key"), "video_url": result.get("video_url")},
+                        )
+                        fresh_db.add(step_render)
+                    else:
+                        step_render.state = "completed"
+                        step_render.output_payload = {"object_key": result.get("object_key"), "video_url": result.get("video_url")}
+                    fresh_db.commit()
+            print(f"[DB] Auto-Publish OFF: Workflow {wf_id} -> APPROVAL_PENDING (Ready for Studio review)!\n")
 
-        contract = type("Contract", (), {
-            "workflow_run_id": str(wf_id),
-            "trace_id": trace_id,
-            "script": script,
-            "scenes": tuple(scenes),
-            "voice_code": selected_voice,
-            "voice_rate": 1.12,
-            "title": title,
-            "render_plan": type("RenderPlan", (), {"tracks": (), "effect_keys": ()})(),
-            "render_plan_hash": "local_render_hash",
-            "workspace_key": str(wf_id),
-            "caption_preset": "cinematic_quote",
-            "show_title_banner": True,
-            "logo_handle": "@GocChiemNghiemYuuBin",
-            "logo_position": "top_left",
-        })()
+        return True
+    else:
+        err_msg = str(result.get("error", "Unknown render error"))
+        print(f"\n❌ [FAILED] RENDER FAILED FOR {wf_id}: {err_msg}")
+        with Session(get_engine()) as fresh_db:
+            wf_t = fresh_db.get(WorkflowRun, wf_id)
+            if wf_t:
+                wf_t.state = "FAILED"
+                wf_t.failure_code = "RENDER_FAILED"
+                wf_t.failure_detail = err_msg[:1000]
+                fresh_db.commit()
+        return False
 
-        prepared = asset_preparer.prepare(contract)
-        artifact = video_renderer.render(contract, prepared)
-        output_video_path = artifact.object_key
 
-    print(f"\n[SUCCESS] OFFICIAL RENDER COMPLETE!")
-    print(f"  Output Path: {output_video_path}")
+def process_auto_production_job_official(job_id_str: str) -> bool:
+    """
+    Renders an Auto Production job from render_jobs table using the rich FFmpeg styling engine
+    (modal_worker.py) with full Hormozi subtitles, Neon title banner, watermark, and progress bar.
+    """
+    import uuid
+    from datetime import datetime, timezone, timedelta
+    from app.infrastructure.models import RenderJob
+    from production.auto_production_adapter import adapt_auto_production_to_modal_contract
+    from modal_worker import render_video_task_local
 
-    # 4. Step 4: Upload Rendered Video to Cloud Storage / CDN
-    from worker.services.visionflow_object_storage import CloudAssetUploader
-    real_video_url = None
-    if output_video_path and os.path.exists(output_video_path):
-        print("[4/5] Uploading rendered video to Cloud Storage / CDN...")
-        real_video_url = CloudAssetUploader.upload_export_video(wf_id, output_video_path)
+    engine = get_engine()
+    with Session(engine) as session_db:
+        try:
+            job_uuid = uuid.UUID(job_id_str)
+        except Exception:
+            return False
 
-    # 5. Step 5: Update Database State to APPROVAL_PENDING
-    print("[5/5] Updating Database State -> APPROVAL_PENDING (Awaiting Web UI Review)...")
-    with Session(get_engine()) as fresh_db:
-        wf_target = fresh_db.get(WorkflowRun, wf_id)
-        if wf_target:
-            proj_target = fresh_db.get(VideoProject, wf_target.project_id)
-            asset_key = real_video_url or output_video_path
-            if proj_target:
-                proj_target.preview_video_url = asset_key
-            existing_asset = fresh_db.query(MediaAsset).filter(
-                MediaAsset.workflow_run_id == wf_target.id,
-                MediaAsset.media_kind == "final_export"
-            ).first()
-            if not existing_asset:
-                file_size = os.path.getsize(output_video_path) if (output_video_path and os.path.exists(output_video_path)) else 5505072
-                media_asset = MediaAsset(
-                    id=uuid.uuid4(),
-                    organization_id=proj_target.organization_id if proj_target else uuid.UUID("7b91598c-6c3e-4e5d-8247-d3efa203984a"),
-                    workflow_run_id=wf_target.id,
-                    media_kind="final_export",
-                    object_key=asset_key,
-                    content_type="video/mp4",
-                    byte_size=file_size,
-                    checksum_sha256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-                    metadata_json={"rendered_locally_official": True}
-                )
-                fresh_db.add(media_asset)
-            else:
-                existing_asset.object_key = asset_key
+        job = session_db.get(RenderJob, job_uuid)
+        if not job or job.status not in ("WAITING_FOR_WORKER", "QUEUED"):
+            return False
 
-            prompt_manifest = wf_target.prompt_manifest or {}
-            auto_publish_enabled = bool(prompt_manifest.get("auto_publish_enabled", False))
-            auto_publish_mode = prompt_manifest.get("auto_publish_mode", "immediate")
-            scheduled_at_iso = prompt_manifest.get("scheduled_at_iso")
-            auto_publish_channel = prompt_manifest.get("auto_publish_channel", "asinmochii_boni")
+        run_id = str(job.run_id)
+        spec_json = dict(job.render_spec_json or {})
+        manifest = spec_json.get("manifest") or {}
+        run_snapshot = spec_json.get("run_snapshot") or {}
 
-            if auto_publish_enabled:
-                wf_target.state = "PUBLISHED"
-                print(f"[DB Auto-Publish] ⚡ Auto-Publish ON (Unlisted): Workflow {wf_target.id} -> AUTO-PUBLISHED immediately!\n")
-                try:
-                    from worker.application.publish_use_case import handle_publish
-                    job_id = int(wf_target.metadata_json.get("job_id", 0)) if wf_target.metadata_json else 0
-                    if job_id:
-                        handle_publish(job_id=job_id)
-                except Exception as pub_err:
-                    print(f"[DB Auto-Publish Notice] Immediate publish execution: {pub_err}\n")
-            else:
-                wf_target.state = "APPROVAL_PENDING"
-                print(f"[DB] Auto-Publish OFF: Workflow {wf_target.id} -> APPROVAL_PENDING (Standard flow preserved)!\n")
+        # Claim the job atomically
+        job.status = "CLAIMED"
+        job.attempt = (job.attempt or 0) + 1
+        job.claimed_by_worker_id = "desktop-main"
+        job.last_heartbeat_at = datetime.now(timezone.utc)
+        job.lease_expires_at = datetime.now(timezone.utc) + timedelta(seconds=600)
+        session_db.commit()
 
-            fresh_db.commit()
+    print(f"\n=======================================================")
+    print(f"[WORKER] PROCESSING AUTO PRODUCTION VIDEO: '{run_id}' (Job: {job_id_str[:8]})")
+    print(f"=======================================================")
+
+    try:
+        # Adapt payload to modal_worker contract with full styling presets
+        contract_payload = adapt_auto_production_to_modal_contract(
+            run_snapshot=run_snapshot,
+            manifest=manifest,
+            job_id=job_id_str,
+        )
+
+        print(f"  [Auto Production Sync] Title: '{contract_payload.get('title')}'")
+        print(f"  [Auto Production Sync] Voice: {contract_payload.get('voice_code')}")
+        print(f"  [Auto Production Sync] Scenes: {len(contract_payload.get('scenes') or [])}")
+        print(f"  [Auto Production Sync] Style: Banner='{contract_payload.get('title_banner_style')}', Captions='{contract_payload.get('caption_preset')}'")
+
+        # Execute Modal Worker FFmpeg composition engine
+        result = render_video_task_local(contract_payload)
+        status = result.get("status", "ERROR")
+
+        if status == "SUCCESS":
+            object_key = result.get("object_key")
+            video_url = result.get("video_url")
+            video_duration = float(result.get("duration") or 30.0)
+
+            print(f"\n✅ [SUCCESS] AUTO PRODUCTION RENDER COMPLETE FOR {run_id}!")
+            print(f"  Output Object Key: {object_key}")
+            print(f"  Public Video URL: {video_url}")
+
+            video_output_path = result.get("video_output")
+            file_size = os.path.getsize(video_output_path) if video_output_path and os.path.exists(video_output_path) else 1024
+            res_w = 1080 if contract_payload.get("aspect_ratio") == "9:16" else 1920
+            res_h = 1920 if contract_payload.get("aspect_ratio") == "9:16" else 1080
+            fps_val = int(contract_payload.get("fps") or 30)
+
+            with Session(engine) as fresh_db:
+                job_t = fresh_db.get(RenderJob, job_uuid)
+                if job_t:
+                    job_t.status = "COMPLETED"
+                    job_t.completed_at = datetime.now(timezone.utc)
+                    job_t.output_artifact_ref = object_key
+                    # Update run_snapshot in render_spec_json
+                    s_data = dict(job_t.render_spec_json or {})
+                    snap = dict(s_data.get("run_snapshot") or {})
+                    snap["status"] = "RENDERED"
+                    snap["output_video_url"] = video_url
+                    snap["current_stage"] = "final_qc"
+                    snap["progress_pct"] = 100
+                    snap["render_artifact"] = {
+                        "run_id": run_id,
+                        "output_path_ref": f"/api/v1/production/runs/{run_id}/video",
+                        "storage_ref": object_key,
+                        "duration_seconds": video_duration,
+                        "width": res_w,
+                        "height": res_h,
+                        "fps": fps_val,
+                        "video_codec": "h264",
+                        "audio_codec": "aac",
+                        "file_size_bytes": file_size,
+                    }
+                    stages_list = snap.get("stages") or []
+                    for stg in stages_list:
+                        if stg.get("stage_name") in ("remote_render", "canonical_render", "final_qc"):
+                            stg["status"] = "COMPLETED"
+                            stg["execution_mode"] = "REAL"
+                    snap["stages"] = stages_list
+                    s_data["run_snapshot"] = snap
+                    job_t.render_spec_json = s_data
+                    fresh_db.commit()
+
+            # Update DevelopmentRunRepository if available
+            try:
+                from production.repositories.run_repository import run_repository
+                from production.contracts import ProductionRunStatus, RenderArtifact, StageStatus
+                prod_run = run_repository.get(run_id)
+                if prod_run:
+                    prod_run.status = ProductionRunStatus.RENDERED
+                    prod_run.output_video_url = video_url
+                    prod_run.render_artifact = RenderArtifact(
+                        run_id=run_id,
+                        output_path_ref=f"/api/v1/production/runs/{run_id}/video",
+                        storage_ref=object_key,
+                        duration_seconds=video_duration,
+                        width=res_w,
+                        height=res_h,
+                        fps=fps_val,
+                        video_codec="h264",
+                        audio_codec="aac",
+                        file_size_bytes=file_size,
+                    )
+                    prod_run.current_stage = "final_qc"
+                    prod_run.progress_pct = 100
+                    for stg in prod_run.stages:
+                        if stg.stage_name in ("remote_render", "canonical_render", "final_qc"):
+                            stg.status = StageStatus.COMPLETED
+                            stg.execution_mode = "REAL"
+                    run_repository.update(prod_run)
+            except Exception as repo_err:
+                print(f"  [Auto Production Notice] Local run_repository update: {repo_err}")
+
             return True
+        else:
+            err_msg = str(result.get("error", "Unknown render error"))
+            print(f"\n❌ [FAILED] AUTO PRODUCTION RENDER FAILED FOR {run_id}: {err_msg}")
+            with Session(engine) as fresh_db:
+                job_t = fresh_db.get(RenderJob, job_uuid)
+                if job_t:
+                    job_t.status = "FAILED"
+                    job_t.failed_at = datetime.now(timezone.utc)
+                    job_t.error_code = "RENDER_FAILED"
+                    job_t.error_message = err_msg[:500]
+                    fresh_db.commit()
+            return False
+
+    except Exception as exc:
+        print(f"\n❌ [EXCEPTION] AUTO PRODUCTION JOB ERROR FOR {run_id}: {exc}")
+        import traceback
+        traceback.print_exc()
+        with Session(engine) as fresh_db:
+            job_t = fresh_db.get(RenderJob, job_uuid)
+            if job_t:
+                job_t.status = "FAILED"
+                job_t.failed_at = datetime.now(timezone.utc)
+                job_t.error_code = "WORKER_INTERNAL_ERROR"
+                job_t.error_message = str(exc)[:500]
+                fresh_db.commit()
+        return False
+
+
+_last_auto_prod_err = None
+
+
+def process_auto_production_jobs() -> int:
+    """Polls and processes claimable jobs from the durable render_jobs queue."""
+    global _last_auto_prod_err
+    from app.infrastructure.models import RenderJob
+    engine = get_engine()
+    processed_count = 0
+    try:
+        with Session(engine) as session_db:
+            pending = session_db.query(RenderJob.id).filter(
+                RenderJob.status.in_(["WAITING_FOR_WORKER", "QUEUED"]),
+                RenderJob.attempt < RenderJob.max_attempts
+            ).order_by(RenderJob.priority.asc(), RenderJob.created_at.asc()).all()
+            pending_ids = [str(r[0]) for r in pending]
+
+        for j_id in pending_ids:
+            try:
+                ok = process_auto_production_job_official(j_id)
+                if ok:
+                    processed_count += 1
+            except Exception as err:
+                print(f"❌ [Auto Production Pass Error] Job #{j_id} error: {err}")
+        _last_auto_prod_err = None
+    except Exception as db_err:
+        err_msg = str(db_err).split("\n")[0]
+        if err_msg != _last_auto_prod_err:
+            _last_auto_prod_err = err_msg
+            print(f"[Pass Notice] Auto Production DB queue notice: {err_msg}")
+
+    return processed_count
 
 
 def run_unified_render_pass() -> int:
@@ -397,23 +476,36 @@ def run_unified_render_pass() -> int:
     except Exception as dub_err:
         print(f"[Pass Notice] Dubbing queue step notice: {dub_err}")
 
-    # 2. Pipeline Short-Form AI B-Roll Video
+    # 2. Pipeline Short-Form AI B-Roll Video (Legacy Workflows)
     engine = get_engine()
     try:
         with Session(engine) as session_db:
-            pending_runs = session_db.query(WorkflowRun).filter(
-                WorkflowRun.state.in_(["QUEUED", "PLANNING", "SCRIPTED", "STORYBOARDED", "RENDERING", "ASSETS_READY"])
-            ).order_by(WorkflowRun.id.desc()).all()
+            pending_ids = [
+                str(row[0]) for row in session_db.query(WorkflowRun.id).filter(
+                    WorkflowRun.state.in_(["QUEUED", "PLANNING", "SCRIPTED", "STORYBOARDED", "RENDERING", "ASSETS_READY"])
+                ).order_by(WorkflowRun.id.desc()).all()
+            ]
 
-            for run in pending_runs:
-                try:
-                    ok = process_workflow_official(str(run.id))
-                    if ok:
-                        processed_total += 1
-                except Exception as err:
-                    print(f"❌ [Pass Error] Workflow #{run.id} render error: {err}")
+        for run_id in pending_ids:
+            try:
+                ok = process_workflow_official(run_id)
+                if ok:
+                    processed_total += 1
+            except Exception as err:
+                print(f"❌ [Pass Error] Workflow #{run_id} render error: {err}")
     except Exception as db_err:
         print(f"[Pass Notice] Short-form DB queue query notice: {db_err}")
+
+    # 3. Pipeline Auto Production Video (render_jobs + R2).
+    # In the two-process local stack, the outbound-only remote worker is the
+    # sole owner of this queue. This prevents two local processes from racing
+    # to claim/render the same durable job.
+    if os.getenv("VISIONFLOW_SKIP_DIRECT_RENDER_JOBS", "").strip() != "1":
+        try:
+            auto_count = process_auto_production_jobs()
+            processed_total += auto_count
+        except Exception as auto_err:
+            print(f"[Pass Notice] Auto Production queue step notice: {auto_err}")
 
     return processed_total
 
@@ -427,7 +519,9 @@ def run_worker_loop():
 
     print("=======================================================")
     print("🚀 VISIONFLOW UNIFIED AUTOMATIC RENDER SERVER RUNNING")
-    print("   (100% Single Source of Truth — Local & GitHub Actions)")
+    print("   [1] AI Dubbing & Translation Queue")
+    print("   [2] Studio & OpenCut Creative Video Queue")
+    print("   [3] Auto Production Autonomous Video Queue (R2 Sync)")
     print("=======================================================")
 
     if args.once:

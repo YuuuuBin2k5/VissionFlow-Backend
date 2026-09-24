@@ -5,9 +5,9 @@ if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 
 os.environ["ENVIRONMENT"] = "development"
-os.environ["DATABASE_URL"] = "postgresql://neondb_owner:npg_Di3nJLmsh5cB@ep-green-salad-aoq7advi-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
-os.environ["GEMINI_API_KEY"] = "AIzaSyCNu2LQSzyBW6ACixl1D6SLy07_vdeu0ho"
-os.environ["PEXELS_API_KEY"] = "j3CIlOLR1RdRejkZPi56CCmJALu9axEyFjik0U77W3semlJtXFpMqgVp"
+assert os.environ.get("DATABASE_URL"), "DATABASE_URL is required"
+assert os.environ.get("GEMINI_API_KEY"), "GEMINI_API_KEY is required"
+assert os.environ.get("PEXELS_API_KEY"), "PEXELS_API_KEY is required"
 
 sys.path.insert(0, os.path.abspath("worker"))
 sys.path.insert(0, os.path.abspath("services/control-plane"))

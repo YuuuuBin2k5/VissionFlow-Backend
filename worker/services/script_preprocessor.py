@@ -104,11 +104,29 @@ def _replace_number_str(num_str: str) -> str:
         return num_str
 
 
-def normalize_numbers_and_symbols(text: str) -> str:
+def normalize_numbers_and_symbols(text: str, language: str = "vi") -> str:
     """
     Bước 1: Thay thế đơn vị + ký hiệu đặc biệt.
-    Bước 2: Thay thế số thuần túy còn lại thành chữ.
+    Bước 2: Thay thế số thuần túy còn lại thành chữ (tiếng Việt) hoặc chuẩn hóa đọc (tiếng Anh).
     """
+    is_english = str(language or "").lower().startswith("en")
+
+    if is_english:
+        # English normalization
+        text = re.sub(r"\$(\d+(?:[,\.]\d+)*)", r"\1 dollars", text)
+        text = re.sub(r"(\d+(?:[,\.]\d+)*)\s*USD\b", r"\1 US dollars", text, flags=re.IGNORECASE)
+        text = re.sub(r"(\d+(?:[,\.]\d+)*)\s*%", r"\1 percent", text)
+        text = re.sub(r"(\d+(?:[,\.]\d+)*)\s*km\b", r"\1 kilometers", text, flags=re.IGNORECASE)
+        text = re.sub(r"(\d+(?:[,\.]\d+)*)\s*kg\b", r"\1 kilograms", text, flags=re.IGNORECASE)
+        text = re.sub(r"(\d+(?:[,\.]\d+)*)\s*m\b", r"\1 meters", text, flags=re.IGNORECASE)
+        text = re.sub(r"(\d+(?:[,\.]\d+)*)\s*cm\b", r"\1 centimeters", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bCtrl\+Z\b", "Control Z", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bCtrl\+C\b", "Control C", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bCtrl\+V\b", "Control V", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s+&\s+", " and ", text)
+        # TTS engines handle raw numbers natively in English; do not replace with Vietnamese text.
+        return text
+
     # 1. Đơn vị tiền tệ
     text = re.sub(r"\$(\d+(?:[,\.]\d+)*)", lambda m: f"{_replace_number_str(m.group(1))} đô la", text)
     text = re.sub(r"(\d+(?:[,\.]\d+)*)\s*USD\b", lambda m: f"{_replace_number_str(m.group(1))} đô la", text, flags=re.IGNORECASE)
@@ -223,9 +241,12 @@ def inject_ssml_breaks_v2(text: str) -> str:
 def inject_v3_emotion_tags(text: str) -> str:
     """
     Chèn emotion tags [dramatic], [excited], [whispers], [sighs] cho Eleven v3.
-    Nguồn: ElevenLabs v3 Prompting & Audio Tags Best Practices.
+    Nguồn: ElevenLabs v3 Prompting & Audio Tags Best Practices. Hỗ trợ song ngữ VI/EN.
     """
-    whisper_triggers = ["bí mật", "thầm thì", "không ai biết", "chỉ một mình", "lén lút"]
+    whisper_triggers = [
+        "bí mật", "thầm thì", "không ai biết", "chỉ một mình", "lén lút",
+        "secret", "whisper", "nobody knows", "quietly"
+    ]
     for trigger in whisper_triggers:
         if trigger.lower() in text.lower():
             text = re.sub(
@@ -236,7 +257,10 @@ def inject_v3_emotion_tags(text: str) -> str:
                 count=1,
             )
 
-    dramatic_triggers = ["thất bại", "sụp đổ", "phá sản", "khủng hoảng", "cú sốc", "bất ngờ", "kinh hoàng", "lịch sử"]
+    dramatic_triggers = [
+        "thất bại", "sụp đổ", "phá sản", "khủng hoảng", "cú sốc", "bất ngờ", "kinh hoàng", "lịch sử",
+        "collapse", "bankrupt", "disaster", "crisis", "shocking", "tragic", "historical failure"
+    ]
     for trigger in dramatic_triggers:
         if trigger.lower() in text.lower():
             text = re.sub(
@@ -247,7 +271,10 @@ def inject_v3_emotion_tags(text: str) -> str:
                 count=1,
             )
 
-    excited_triggers = ["thành công", "tuyệt vời", "kỳ diệu", "triệu đô", "tỷ đô", "bứt phá", "kỷ lục"]
+    excited_triggers = [
+        "thành công", "tuyệt vời", "kỳ diệu", "triệu đô", "tỷ đô", "bứt phá", "kỷ lục",
+        "success", "incredible", "amazing", "breakthrough", "record-breaking", "unbelievable"
+    ]
     for trigger in excited_triggers:
         if trigger.lower() in text.lower():
             text = re.sub(
@@ -300,15 +327,16 @@ def preprocess_for_elevenlabs(
     text: str,
     model_id: str = "eleven_v3",
     apply_emotional_tags: bool = True,
+    language: str = "vi",
 ) -> list[str]:
     """
     Pipeline tiền xử lý đầy đủ trước khi gửi đến ElevenLabs API.
     Nguồn: ToiUuGiongDocAI.docx — Chiến thuật Định dạng Văn bản.
     """
-    print(f"[ScriptPreprocessor] Bắt đầu tiền xử lý. Model={model_id}, chars={len(text)}")
+    print(f"[ScriptPreprocessor] Bắt đầu tiền xử lý. Model={model_id}, lang={language}, chars={len(text)}")
 
-    text = normalize_numbers_and_symbols(text)
-    print(f"[ScriptPreprocessor] ✅ Bước 1: Chuẩn hóa số/ký tự → {len(text)} chars")
+    text = normalize_numbers_and_symbols(text, language=language)
+    print(f"[ScriptPreprocessor] ✅ Bước 1: Chuẩn hóa số/ký tự ({language}) → {len(text)} chars")
 
     text = apply_dramatic_caps(text)
     print(f"[ScriptPreprocessor] ✅ Bước 2: Viết hoa từ khóa kịch tính")

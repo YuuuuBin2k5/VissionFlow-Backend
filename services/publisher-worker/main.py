@@ -40,8 +40,11 @@ def _upload_manifest(session: requests.Session, manifest: dict[str, object]) -> 
 
         raw_desc = str(manifest.get("description") or "").strip()
         if not raw_desc:
-            from worker.domain.caption_policy import build_high_converting_description
-            description = build_high_converting_description(title=raw_title)
+            hashtags = [str(h) for h in manifest.get("hashtags", []) if isinstance(h, str) and str(h).strip()]
+            if hashtags:
+                description = f"{raw_title}\n\n{' '.join(hashtags)}"
+            else:
+                description = raw_title
         else:
             description = raw_desc
 
