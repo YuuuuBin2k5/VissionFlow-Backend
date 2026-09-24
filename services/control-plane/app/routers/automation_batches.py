@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import datetime, timedelta, timezone
 import uuid
 from typing import Any, Literal
+
+logger = logging.getLogger("visionflow.automation_batches")
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -270,8 +273,19 @@ def _reconcile(session: Session, batch: AutomationBatch) -> list[tuple[Automatio
         projections.append((job, progress, stage))
 
     states = {job.state for job in jobs}
-    if jobs and states <= TERMINAL_STATES:
-        batch.state = "FAILED" if states == {"FAILED"} else "COMPLETED"
+    if not jobs:
+        pass  # Empty batch: keep existing state
+    elif batch.state == "CANCELLED":
+        pass  # Batch explicitly cancelled — never override with COMPLETED/FAILED
+    elif states <= TERMINAL_STATES:
+        if states == {"FAILED"}:
+            batch.state = "FAILED"
+        elif states == {"CANCELLED"} or states <= {"CANCELLED", "FAILED"}:
+            # All terminal but some/all cancelled — batch stays CANCELLED
+            batch.state = "CANCELLED"
+        else:
+            # Mix of COMPLETED (+possibly FAILED/CANCELLED) → COMPLETED
+            batch.state = "COMPLETED"
     elif "FAILED" in states:
         batch.state = "PARTIAL_FAILURE"
     elif any(state not in {"QUEUED"} for state in states):
@@ -434,11 +448,18 @@ async def cancel_automation_batch(
     jobs = list(session.scalars(select(AutomationJob).where(AutomationJob.batch_id == batch.id)))
     for job in jobs:
         if job.production_run_id and job.state not in TERMINAL_STATES:
-            await orchestrator.cancel_run(job.production_run_id)
+            try:
+                await orchestrator.cancel_run(job.production_run_id)
+            except Exception as exc:  # noqa: BLE001
+                # cancel_run may fail for Studio WorkflowRun IDs — log and continue
+                logger.warning(
+                    "cancel_run failed for job %s (run_id=%s): %s",
+                    job.id, job.production_run_id, exc,
+                )
             job.state = "CANCELLED"
     batch.state = "CANCELLED"
     session.commit()
-    return _response(batch, [(job, 0, None) for job in jobs])
+    return _response(batch, [(job, 0, "Đã hủy") for job in jobs])
 
 
 @router.post("/organizations/{organization_id}/automation-batches/{batch_id}/jobs/{job_id}/retry", response_model=AutomationBatchResponse)
