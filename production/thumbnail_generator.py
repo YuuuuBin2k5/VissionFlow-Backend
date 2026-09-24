@@ -186,12 +186,12 @@ class ThumbnailGenerator:
 
             client = genai.Client(api_key=api_key)
 
-            # Gemini image generation models (replacing deprecated Imagen 3 models)
-            # Primary: gemini-2.0-flash-preview-image-generation
-            # Fallback: gemini-2.0-flash-exp (also supports image output)
+            # Gemini image generation models ("Nano Banana" series, Sep 2026)
+            # Docs: https://ai.google.dev/gemini-api/docs/image-generation
+            # Primary: gemini-3.1-flash-image | Fallback: gemini-3.1-flash-lite-image
             GEMINI_IMAGE_MODELS = [
-                os.getenv("VISIONFLOW_IMAGEN_MODEL", "gemini-2.0-flash-preview-image-generation"),
-                "gemini-2.0-flash-exp",
+                os.getenv("VISIONFLOW_IMAGEN_MODEL", "gemini-3.1-flash-image"),
+                "gemini-3.1-flash-lite-image",
             ]
 
             # Determine aspect ratio hint for prompt
@@ -213,7 +213,7 @@ class ThumbnailGenerator:
                             model=model_name,
                             contents=prompt_text,
                             config=types.GenerateContentConfig(
-                                response_modalities=["IMAGE", "TEXT"],
+                                response_modalities=[types.Modality.IMAGE, types.Modality.TEXT],
                             ),
                         )
 
