@@ -159,14 +159,24 @@ class ThumbnailGenerator:
         Generates thumbnails using Pollinations.ai (FLUX model) — completely free, no API key.
         API: https://image.pollinations.ai/prompt/{encoded_prompt}?width=W&height=H&model=flux&nologo=true
         Returns list of uploaded URLs (empty list on complete failure).
+        Includes retry with exponential backoff for 429 rate-limit responses.
         """
+        import urllib.error
+
         is_vertical = aspect_ratio.startswith("9") or aspect_ratio == "9:16"
         width, height = (720, 1280) if is_vertical else (1280, 720)
 
         generated_urls: List[str] = []
         base_url = os.getenv("VISIONFLOW_POLLINATIONS_BASE", "https://image.pollinations.ai")
+        # Spacing between requests to avoid rate-limiting from same IP
+        inter_request_delay = float(os.getenv("VISIONFLOW_POLLINATIONS_DELAY", "2.0"))
+        max_retries = int(os.getenv("VISIONFLOW_POLLINATIONS_RETRIES", "3"))
 
         for i, p_info in enumerate(prompts_to_use):
+            # Stagger requests: wait before each (except the first)
+            if i > 0:
+                time.sleep(inter_request_delay)
+
             prompt_text = p_info["prompt"]
             # Pollinations works best with concise prompts — trim to 500 chars
             prompt_short = prompt_text[:500]
@@ -176,26 +186,68 @@ class ThumbnailGenerator:
                 f"{base_url}/prompt/{encoded}"
                 f"?width={width}&height={height}&model=flux&nologo=true&seed={seed}&enhance=true"
             )
-            try:
-                logger.info(
-                    "Generating thumbnail candidate %d/%d via Pollinations.ai (FLUX) — style: %s",
-                    i + 1, len(prompts_to_use), p_info["style_label"],
+
+            image_bytes: Optional[bytes] = None
+            for attempt in range(1, max_retries + 1):
+                try:
+                    logger.info(
+                        "Generating thumbnail candidate %d/%d via Pollinations.ai (FLUX) "
+                        "— style: %s (attempt %d/%d)",
+                        i + 1, len(prompts_to_use), p_info["style_label"], attempt, max_retries,
+                    )
+                    req = urllib.request.Request(
+                        url,
+                        headers={
+                            "User-Agent": "VisionFlow-ThumbnailBot/1.0",
+                            "Accept": "image/jpeg,image/png,image/*",
+                        },
+                    )
+                    with urllib.request.urlopen(req, timeout=90) as resp:
+                        image_bytes = resp.read()
+                    break  # success
+
+                except urllib.error.HTTPError as http_err:
+                    if http_err.code == 429:
+                        retry_after = int(http_err.headers.get("Retry-After", str(attempt * 4)))
+                        logger.warning(
+                            "Pollinations.ai rate-limited (429) for candidate %d — "
+                            "waiting %ds before retry %d/%d",
+                            i + 1, retry_after, attempt, max_retries,
+                        )
+                        if attempt < max_retries:
+                            time.sleep(retry_after)
+                        else:
+                            logger.warning(
+                                "Pollinations.ai: all %d retries exhausted for candidate %d (429)",
+                                max_retries, i + 1,
+                            )
+                    else:
+                        logger.warning(
+                            "Pollinations.ai HTTP %s for candidate %d: %s",
+                            http_err.code, i + 1, http_err,
+                        )
+                        break  # non-retryable HTTP error
+
+                except Exception as err:
+                    logger.warning(
+                        "Pollinations.ai error for candidate %d (attempt %d/%d): %s",
+                        i + 1, attempt, max_retries, err,
+                    )
+                    if attempt < max_retries:
+                        time.sleep(attempt * 2)
+
+            if image_bytes and len(image_bytes) > 1024:  # sanity: at least 1 KB
+                uploaded_url = self._upload_thumbnail(image_bytes, active_run_id, i + 1)
+                generated_urls.append(uploaded_url)
+                logger.info("Thumbnail candidate %d uploaded: %s", i + 1, uploaded_url)
+            else:
+                logger.warning(
+                    "Pollinations.ai: no valid image for candidate %d — will use SVG fallback",
+                    i + 1,
                 )
-                req = urllib.request.Request(url, headers={"User-Agent": "VisionFlow-ThumbnailBot/1.0"})
-                with urllib.request.urlopen(req, timeout=60) as resp:
-                    image_bytes = resp.read()
-
-                if image_bytes and len(image_bytes) > 1024:  # sanity: at least 1 KB
-                    uploaded_url = self._upload_thumbnail(image_bytes, active_run_id, i + 1)
-                    generated_urls.append(uploaded_url)
-                    logger.info("Thumbnail candidate %d uploaded: %s", i + 1, uploaded_url)
-                else:
-                    logger.warning("Pollinations returned empty/tiny response for candidate %d", i + 1)
-
-            except Exception as err:
-                logger.warning("Pollinations.ai failed for thumbnail candidate %d: %s", i + 1, err)
 
         return generated_urls
+
 
     def generate_thumbnails(
         self,
