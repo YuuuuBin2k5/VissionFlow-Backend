@@ -886,8 +886,26 @@ PostgresEmbeddingRepository = PostgresVectorRepository
 # Default Repository Accessors
 # ---------------------------------------------------------------------------
 
+def _normalize_dsn(url: str | None) -> str | None:
+    """Strip SQLAlchemy driver suffixes so psycopg3 can parse the URL.
+
+    SQLAlchemy uses ``postgresql+psycopg://`` and ``postgresql+psycopg2://``
+    to select a driver, but psycopg3's own ``connect()`` only understands the
+    plain ``postgresql://`` (or ``postgres://``) URI scheme.  Passing the
+    suffixed form directly causes the libpq parser to emit
+    "missing '=' after 'postgresql+psycopg://…'".
+    """
+    if not url:
+        return url
+    url = url.strip()
+    for prefix in ("postgresql+psycopg://", "postgresql+psycopg2://", "postgres+psycopg://"):
+        if url.startswith(prefix):
+            return "postgresql://" + url[len(prefix):]
+    return url
+
+
 _USE_DEV = os.getenv("VISIONFLOW_USE_DEV_REPOSITORIES") == "1"
-_PG_DSN = None if _USE_DEV else (os.getenv("DIRECT_DATABASE_URL") or os.getenv("DATABASE_URL"))
+_PG_DSN = None if _USE_DEV else _normalize_dsn(os.getenv("DIRECT_DATABASE_URL") or os.getenv("DATABASE_URL"))
 
 if _PG_DSN:
     source_repository: SourceRepositoryInterface = PostgresSourceRepository(_PG_DSN)
