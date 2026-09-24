@@ -1002,30 +1002,34 @@ class ManageCreativeSession:
             pub_meta = prop_gen_manifest.get("publish_metadata") or creation_spec.get("publish_metadata")
             if not isinstance(pub_meta, dict) or not pub_meta.get("youtube"):
                 try:
-                    from app.domain.caption_policy import build_publish_caption_and_hashtags
+                    from app.domain.caption_policy import (
+                        build_high_converting_description,
+                        build_high_converting_tiktok_caption,
+                        build_topic_hashtags,
+                    )
                     prop_title = proposal.title or creation_spec.get("title") or creation_spec.get("brief") or "Untitled"
                     prop_script = proposal.script or creation_spec.get("script") or ""
                     prop_scenes = proposal.scenes or []
                     prop_genre = creation_spec.get("video_genre") or creation_spec.get("genre") or "triết lý - chiêm nghiệm cuộc sống"
                     prop_handle = creation_spec.get("logo_handle") or "@GocChiemNghiem"
                     prop_brief = proposal.brief or creation_spec.get("brief") or ""
+                    prop_lang = "vi" if not str(creation_spec.get("language") or "vi").lower().startswith("en") else "en"
 
-                    yt_desc, yt_tags = build_publish_caption_and_hashtags(
+                    yt_desc = build_high_converting_description(
                         title=prop_title,
                         script=prop_script,
-                        platform="youtube",
                         scenes=prop_scenes,
                         brief=prop_brief,
                         channel_handle=prop_handle,
+                        language=prop_lang,
                     )
-                    tt_capt, tt_tags = build_publish_caption_and_hashtags(
+                    yt_tags = build_topic_hashtags(prop_title, prop_script, {}, prop_lang)
+                    tt_capt = build_high_converting_tiktok_caption(
                         title=prop_title,
                         script=prop_script,
-                        platform="tiktok",
-                        scenes=prop_scenes,
-                        genre=prop_genre,
-                        channel_handle=prop_handle,
+                        language=prop_lang,
                     )
+                    tt_tags = yt_tags
                     generated_meta = {
                         "youtube": {
                             "title": prop_title[:100],
