@@ -1,7 +1,10 @@
 """
 AI Thumbnail Generation Service for VisionFlow Auto Production System.
-Generates 3 distinct high-CTR, dramatic, viral thumbnail candidates using Google GenAI (Imagen 3).
+Generates 3 distinct high-CTR, dramatic, viral thumbnail candidates using Google GenAI (Gemini Image Generation).
 Uploads generated thumbnails to Cloudflare R2 / S3 or fallback storage, and returns public URLs.
+
+NOTE: Legacy Imagen 3 models (imagen-3.0-generate-002, imagen-3.0-fast-generate-001) are deprecated.
+This module uses Gemini generate_content with response_modalities=["IMAGE"] instead.
 """
 
 from __future__ import annotations
@@ -183,57 +186,83 @@ class ThumbnailGenerator:
 
             client = genai.Client(api_key=api_key)
 
-            # Map aspect ratio for Imagen (9:16 for vertical shorts, 16:9 for horizontal)
-            target_aspect_ratio = "9:16" if "9" in aspect_ratio or "16" in aspect_ratio and aspect_ratio.startswith("9") else "16:9"
+            # Gemini image generation models (replacing deprecated Imagen 3 models)
+            # Primary: gemini-2.0-flash-preview-image-generation
+            # Fallback: gemini-2.0-flash-exp (also supports image output)
+            GEMINI_IMAGE_MODELS = [
+                os.getenv("VISIONFLOW_IMAGEN_MODEL", "gemini-2.0-flash-preview-image-generation"),
+                "gemini-2.0-flash-exp",
+            ]
+
+            # Determine aspect ratio hint for prompt
+            is_vertical = aspect_ratio.startswith("9") or aspect_ratio == "9:16"
+            aspect_hint = "vertical 9:16 portrait orientation (YouTube Shorts / TikTok)" if is_vertical else "horizontal 16:9 landscape orientation (YouTube standard)"
 
             for i, p_info in enumerate(prompts_to_use):
-                prompt_text = p_info["prompt"]
-                try:
-                    logger.info("Generating thumbnail candidate %d with Imagen 3: %s", i + 1, p_info["style_label"])
-                    config = types.GenerateImagesConfig(
-                        number_of_images=1,
-                        aspect_ratio=target_aspect_ratio,
-                        output_mime_type="image/jpeg",
-                    )
-                    
-                    # Try primary model: imagen-3.0-generate-002
-                    model_name = os.getenv("VISIONFLOW_IMAGEN_MODEL", "imagen-3.0-generate-002")
+                prompt_text = p_info["prompt"] + f" Compose the image in {aspect_hint}."
+                image_bytes: Optional[bytes] = None
+                last_err: Optional[Exception] = None
+
+                for model_name in GEMINI_IMAGE_MODELS:
                     try:
-                        response = client.models.generate_images(
+                        logger.info(
+                            "Generating thumbnail candidate %d/%d using %s — style: %s",
+                            i + 1, len(prompts_to_use), model_name, p_info["style_label"],
+                        )
+                        response = client.models.generate_content(
                             model=model_name,
-                            prompt=prompt_text,
-                            config=config,
+                            contents=prompt_text,
+                            config=types.GenerateContentConfig(
+                                response_modalities=["IMAGE", "TEXT"],
+                            ),
                         )
+
+                        # Extract image bytes from the response parts
+                        for part in (response.candidates[0].content.parts if response.candidates else []):
+                            if hasattr(part, "inline_data") and part.inline_data and part.inline_data.data:
+                                image_bytes = part.inline_data.data
+                                # inline_data.data may already be bytes; decode if str
+                                if isinstance(image_bytes, str):
+                                    import base64
+                                    image_bytes = base64.b64decode(image_bytes)
+                                break
+
+                        if image_bytes:
+                            break  # success, stop trying other models
+                        else:
+                            logger.warning(
+                                "Model %s returned no image data for candidate %d, trying next model",
+                                model_name, i + 1,
+                            )
+                            last_err = ValueError(f"No image data in response from {model_name}")
+
                     except Exception as model_err:
-                        # Fallback to fast model if primary hits quota or not found
-                        logger.warning("Primary Imagen model %s failed (%s), trying imagen-3.0-fast-generate-001", model_name, model_err)
-                        response = client.models.generate_images(
-                            model="imagen-3.0-fast-generate-001",
-                            prompt=prompt_text,
-                            config=config,
+                        err_msg = str(model_err)
+                        logger.warning(
+                            "Model %s failed for thumbnail candidate %d: %s",
+                            model_name, i + 1, model_err,
                         )
+                        # Propagate credential errors immediately — no point retrying
+                        if any(bad in err_msg.upper() for bad in ["403", "PERMISSION_DENIED", "LEAKED", "API_KEY_INVALID", "REVOKED", "DISABLED"]):
+                            try:
+                                from app.core.credential_exceptions import InvalidProviderCredentialError
+                                raise InvalidProviderCredentialError(
+                                    provider="gemini",
+                                    feature_name="Sinh hình thu nhỏ AI (Gemini Image Generation)",
+                                    detail=f"Google Gemini API Key không hợp lệ hoặc bị khóa: {err_msg}",
+                                ) from model_err
+                            except ImportError:
+                                raise model_err from model_err
+                        last_err = model_err
 
-                    if response and response.generated_images:
-                        image_obj = response.generated_images[0].image
-                        if image_obj and image_obj.image_bytes:
-                            url = self._upload_thumbnail(image_obj.image_bytes, active_run_id, i + 1)
-                            generated_urls.append(url)
-                            continue
-
-                    logger.warning("Empty image returned for thumbnail candidate %d", i + 1)
-                except Exception as gen_err:
-                    err_msg = str(gen_err)
-                    logger.error("Failed to generate thumbnail candidate %d: %s", i + 1, gen_err)
-                    if any(bad in err_msg.upper() for bad in ["403", "PERMISSION_DENIED", "LEAKED", "API_KEY_INVALID", "NOT VALID", "REVOKED", "DISABLED"]):
-                        try:
-                            from app.core.credential_exceptions import InvalidProviderCredentialError
-                            raise InvalidProviderCredentialError(
-                                provider="gemini",
-                                feature_name="Sinh hình thu nhỏ AI (Imagen 3)",
-                                detail=f"Google Gemini/Imagen API Key không hợp lệ hoặc bị khóa: {err_msg}",
-                            ) from gen_err
-                        except ImportError:
-                            raise
+                if image_bytes:
+                    url = self._upload_thumbnail(image_bytes, active_run_id, i + 1)
+                    generated_urls.append(url)
+                else:
+                    logger.error(
+                        "All Gemini image models failed for thumbnail candidate %d. Last error: %s",
+                        i + 1, last_err,
+                    )
 
         except Exception as e:
             err_msg = str(e)
@@ -242,8 +271,8 @@ class ThumbnailGenerator:
                     from app.core.credential_exceptions import InvalidProviderCredentialError
                     raise InvalidProviderCredentialError(
                         provider="gemini",
-                        feature_name="Sinh hình thu nhỏ AI (Imagen 3)",
-                        detail=f"Google Gemini/Imagen API Key không hợp lệ hoặc bị khóa: {err_msg}",
+                        feature_name="Sinh hình thu nhỏ AI (Gemini Image Generation)",
+                        detail=f"Google Gemini API Key không hợp lệ hoặc bị khóa: {err_msg}",
                     ) from e
                 except ImportError:
                     pass
