@@ -523,7 +523,8 @@ async def regenerate_job_thumbnails(
     if batch is None or job is None:
         raise HTTPException(status_code=404, detail="Automation batch or job not found")
 
-    from production.thumbnail_generator import thumbnail_generator
+    from production.thumbnail_generator import ThumbnailGenerator
+    generator = ThumbnailGenerator(organization_id=str(organization_id), strict_credential=True)
 
     hook_text = ""
     scenes = job.source_payload.get("scenes", [])
@@ -541,7 +542,7 @@ async def regenerate_job_thumbnails(
 
     run_id = job.production_run_id or f"job_{job.id.hex[:8]}"
     new_urls = await asyncio.to_thread(
-        thumbnail_generator.generate_thumbnails,
+        generator.generate_thumbnails,
         title=job.title,
         hook=hook_text,
         category=cat,
@@ -676,7 +677,45 @@ async def generate_batch_thumbnails(
     session: Session = Depends(get_session),
 ) -> GenerateThumbnailsResponse:
     _authorize(session, identity, organization_id, Permission.WORKFLOW_VIEW)
-    generator = ThumbnailGenerator()
+
+    # 1. Trích xuất API Key Gemini trực tiếp từ bảng provider_credentials trong Database
+    db_gemini_key: str | None = None
+    try:
+        from app.core.credential_cipher import ProviderCredentialCipher
+        from app.infrastructure.models import ProviderCredential
+
+        creds = session.scalars(
+            select(ProviderCredential)
+            .where(
+                ProviderCredential.organization_id == organization_id,
+                ProviderCredential.provider.in_(("gemini", "google")),
+                ProviderCredential.status == "active",
+            )
+            .order_by(ProviderCredential.priority.asc())
+        ).all()
+        for c in creds:
+            try:
+                decrypted = ProviderCredentialCipher.from_env().decrypt(c.secret_ciphertext)
+                if decrypted and decrypted.strip():
+                    db_gemini_key = decrypted.strip()
+                    break
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    if not db_gemini_key:
+        from production.credential_resolver import get_gemini_api_key
+        db_gemini_key = get_gemini_api_key(organization_id=str(organization_id))
+
+    if not db_gemini_key:
+        from app.core.credential_exceptions import MissingProviderCredentialError
+        raise MissingProviderCredentialError(
+            provider="gemini",
+            feature_name="Sinh hình thu nhỏ AI (Imagen 3)",
+        )
+
+    generator = ThumbnailGenerator(api_key=db_gemini_key, organization_id=str(organization_id), strict_credential=True)
     urls = generator.generate_thumbnails(
         title=request.title,
         hook=request.hook,

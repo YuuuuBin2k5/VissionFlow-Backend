@@ -37,6 +37,13 @@ def _build_fernet_ciphers() -> list[Any]:
     except ImportError:
         return ciphers
 
+    # Try official ProviderCredentialCipher first
+    try:
+        from app.core.credential_cipher import ProviderCredentialCipher
+        ciphers.append(ProviderCredentialCipher.from_env()._fernet)
+    except Exception:
+        pass
+
     raw_candidates = [
         os.getenv("VISIONFLOW_CREDENTIAL_ENCRYPTION_KEY", "").strip(),
         DEFAULT_MASTER_KEY,
@@ -80,20 +87,55 @@ def _resolve_from_db(provider: str, organization_id: Optional[str] = None) -> Li
     if os.getenv("VISIONFLOW_USE_DEV_REPOSITORIES") == "1":
         return []
 
-    db_url = os.getenv("DIRECT_DATABASE_URL") or os.getenv("DATABASE_URL")
-    if not db_url:
-        return []
-
     ciphers = _build_fernet_ciphers()
     if not ciphers:
         return []
 
     keys: List[str] = []
+
+    # 1. Primary path: Use SQLAlchemy engine (guaranteed to work across Tailscale/proxy setups)
+    try:
+        from app.infrastructure.database import get_engine
+        from sqlalchemy import text
+        engine = get_engine()
+        with engine.connect() as conn:
+            provider_list = [provider.lower()]
+            if provider.lower() == "gemini":
+                provider_list.append("google")
+
+            if organization_id:
+                stmt = text(
+                    "SELECT secret_ciphertext FROM provider_credentials "
+                    "WHERE provider = ANY(:providers) AND status = 'active' AND organization_id = :org_id "
+                    "ORDER BY priority ASC, created_at ASC"
+                )
+                rows = conn.execute(stmt, {"providers": provider_list, "org_id": organization_id}).fetchall()
+            else:
+                stmt = text(
+                    "SELECT secret_ciphertext FROM provider_credentials "
+                    "WHERE provider = ANY(:providers) AND status = 'active' "
+                    "ORDER BY priority ASC, created_at ASC"
+                )
+                rows = conn.execute(stmt, {"providers": provider_list}).fetchall()
+
+            for r in rows:
+                ct = r[0]
+                decrypted = _decrypt_ciphertext(ct, ciphers)
+                if decrypted and decrypted not in keys:
+                    keys.append(decrypted)
+        if keys:
+            return keys
+    except Exception as sqla_err:
+        logger.debug(f"[CredentialResolver] SQLAlchemy query for {provider} note: {sqla_err}")
+
+    # 2. Secondary fallback: direct psycopg connection if raw db_url is provided
+    db_url = os.getenv("DIRECT_DATABASE_URL") or os.getenv("DATABASE_URL")
+    if not db_url:
+        return keys
+
     conn = None
     try:
-        # Standardize connection string
         conn_str = db_url.replace("postgresql+psycopg://", "postgresql://")
-        # Try psycopg2 or psycopg
         try:
             import psycopg2
             conn = psycopg2.connect(conn_str, connect_timeout=5)
@@ -105,16 +147,15 @@ def _resolve_from_db(provider: str, organization_id: Optional[str] = None) -> Li
             if organization_id:
                 cur.execute(
                     "SELECT secret_ciphertext FROM provider_credentials "
-                    "WHERE provider = %s AND status = 'active' AND organization_id = %s "
+                    "WHERE provider IN ('gemini', 'google') AND status = 'active' AND organization_id = %s "
                     "ORDER BY priority ASC, created_at ASC",
-                    (provider.lower(), organization_id),
+                    (organization_id,),
                 )
             else:
                 cur.execute(
                     "SELECT secret_ciphertext FROM provider_credentials "
-                    "WHERE provider = %s AND status = 'active' "
-                    "ORDER BY priority ASC, created_at ASC",
-                    (provider.lower(),),
+                    "WHERE provider IN ('gemini', 'google') AND status = 'active' "
+                    "ORDER BY priority ASC, created_at ASC"
                 )
 
             rows = cur.fetchall()
@@ -124,7 +165,7 @@ def _resolve_from_db(provider: str, organization_id: Optional[str] = None) -> Li
                 if decrypted and decrypted not in keys:
                     keys.append(decrypted)
     except Exception as exc:
-        logger.debug(f"[CredentialResolver] DB query for {provider} skipped or failed: {exc}")
+        logger.debug(f"[CredentialResolver] Direct DB query for {provider} skipped or failed: {exc}")
     finally:
         if conn:
             try:
@@ -176,9 +217,9 @@ def get_provider_keys(
     bypass_cache: bool = False,
 ) -> List[str]:
     """
-    Returns all active credentials for the given provider in order of priority:
-    1. Active records from Database provider_credentials table
-    2. Environment variable fallbacks
+    Returns active credentials for the given provider:
+    1. Active records from Database provider_credentials table (priority 1)
+    2. Environment variable fallbacks only if DB has no keys
     """
     cache_key = f"{provider.lower()}:{organization_id or 'all'}"
     now = time.time()
@@ -188,22 +229,16 @@ def get_provider_keys(
         if now < expiry:
             return list(cached_keys)
 
-    # 1. DB Vault keys
+    # 1. DB Vault keys (ưu tiên hàng đầu từ database)
     db_keys = _resolve_from_db(provider, organization_id)
+    if db_keys:
+        _CACHE[cache_key] = (now + _CACHE_TTL_SECONDS, db_keys)
+        return list(db_keys)
 
-    # 2. Env keys
+    # 2. Env keys (chỉ fallback nếu database hoàn toàn không có key)
     env_keys = _resolve_from_env(provider)
-
-    # Merge: DB keys first, then Env keys (deduplicated)
-    merged: List[str] = []
-    seen = set()
-    for k in db_keys + env_keys:
-        if k not in seen:
-            merged.append(k)
-            seen.add(k)
-
-    _CACHE[cache_key] = (now + _CACHE_TTL_SECONDS, merged)
-    return merged
+    _CACHE[cache_key] = (now + _CACHE_TTL_SECONDS, env_keys)
+    return list(env_keys)
 
 
 def get_provider_key(
@@ -229,6 +264,24 @@ def get_gemini_api_keys(organization_id: Optional[str] = None) -> List[str]:
 def get_pexels_api_key(organization_id: Optional[str] = None) -> Optional[str]:
     """Convenience helper for primary Pexels API key."""
     return get_provider_key("pexels", organization_id)
+
+
+def require_provider_key(
+    provider: str,
+    feature_name: str,
+    organization_id: Optional[str] = None,
+) -> str:
+    """
+    Returns an active key for the provider, or raises MissingProviderCredentialError if none exists.
+    """
+    key = get_provider_key(provider, organization_id)
+    if not key:
+        try:
+            from app.core.credential_exceptions import MissingProviderCredentialError
+            raise MissingProviderCredentialError(provider=provider, feature_name=feature_name)
+        except ImportError:
+            raise ValueError(f"Thiếu API Key cho nhà cung cấp {provider} (Tính năng: {feature_name})")
+    return key
 
 
 def clear_credential_cache() -> None:

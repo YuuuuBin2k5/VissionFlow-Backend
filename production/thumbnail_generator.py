@@ -26,8 +26,10 @@ THUMBNAIL_LOCAL_DIR.mkdir(parents=True, exist_ok=True)
 class ThumbnailGenerator:
     """Generates dramatic, high-engagement thumbnails for vertical video (Shorts/TikTok) or horizontal video."""
 
-    def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or get_gemini_api_key()
+    def __init__(self, api_key: Optional[str] = None, organization_id: Optional[str] = None, strict_credential: bool = False):
+        self.organization_id = organization_id
+        self.strict_credential = strict_credential
+        self.api_key = api_key or get_gemini_api_key(organization_id=organization_id)
 
     def _build_prompts(
         self,
@@ -159,8 +161,17 @@ class ThumbnailGenerator:
         prompts = self._build_prompts(title=title, hook=hook, tone=tone, category=category)
         prompts_to_use = prompts[:count]
 
-        api_key = self.api_key or get_gemini_api_key()
+        api_key = self.api_key or get_gemini_api_key(organization_id=self.organization_id)
         if not api_key:
+            if self.strict_credential:
+                try:
+                    from app.core.credential_exceptions import MissingProviderCredentialError
+                    raise MissingProviderCredentialError(
+                        provider="gemini",
+                        feature_name="Sinh hình thu nhỏ AI (Imagen 3)",
+                    )
+                except ImportError:
+                    raise ValueError("Thiếu GEMINI_API_KEY để sinh hình thu nhỏ AI.")
             logger.warning("No GEMINI_API_KEY found, creating deterministic placeholder thumbnails.")
             return self._create_fallback_thumbnails(active_run_id, title, count)
 
@@ -211,10 +222,34 @@ class ThumbnailGenerator:
 
                     logger.warning("Empty image returned for thumbnail candidate %d", i + 1)
                 except Exception as gen_err:
+                    err_msg = str(gen_err)
                     logger.error("Failed to generate thumbnail candidate %d: %s", i + 1, gen_err)
+                    if any(bad in err_msg.upper() for bad in ["403", "PERMISSION_DENIED", "LEAKED", "API_KEY_INVALID", "NOT VALID", "REVOKED", "DISABLED"]):
+                        try:
+                            from app.core.credential_exceptions import InvalidProviderCredentialError
+                            raise InvalidProviderCredentialError(
+                                provider="gemini",
+                                feature_name="Sinh hình thu nhỏ AI (Imagen 3)",
+                                detail=f"Google Gemini/Imagen API Key không hợp lệ hoặc bị khóa: {err_msg}",
+                            ) from gen_err
+                        except ImportError:
+                            raise
 
         except Exception as e:
+            err_msg = str(e)
+            if any(bad in err_msg.upper() for bad in ["403", "PERMISSION_DENIED", "LEAKED", "API_KEY_INVALID", "NOT VALID", "REVOKED", "DISABLED"]):
+                try:
+                    from app.core.credential_exceptions import InvalidProviderCredentialError
+                    raise InvalidProviderCredentialError(
+                        provider="gemini",
+                        feature_name="Sinh hình thu nhỏ AI (Imagen 3)",
+                        detail=f"Google Gemini/Imagen API Key không hợp lệ hoặc bị khóa: {err_msg}",
+                    ) from e
+                except ImportError:
+                    pass
             logger.error("Error setting up Google GenAI client for thumbnail generation: %s", e)
+            if self.strict_credential:
+                raise
 
         # If any slots are missing, fill with high-quality styled fallbacks
         if len(generated_urls) < count:

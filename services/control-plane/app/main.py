@@ -240,6 +240,58 @@ def _normalize_trace_id(request_id: str | None) -> str:
     return uuid.uuid4().hex
 
 
+from app.core.credential_exceptions import (
+    MissingProviderCredentialError,
+    InvalidProviderCredentialError,
+)
+
+
+@app.exception_handler(MissingProviderCredentialError)
+async def missing_provider_credential_handler(request, exc: MissingProviderCredentialError):
+    request_id = request.headers.get("X-Request-ID") or request.headers.get("x-request-id")
+    trace_id = _normalize_trace_id(request_id) if request_id else uuid.uuid4().hex
+
+    return JSONResponse(
+        status_code=422,
+        content={
+            "type": "MISSING_PROVIDER_CREDENTIAL",
+            "code": "MISSING_PROVIDER_CREDENTIAL",
+            "title": "Thiếu cấu hình API Key",
+            "detail": exc.detail,
+            "message": exc.detail,
+            "provider": exc.provider,
+            "provider_display_name": exc.provider_display_name,
+            "feature_name": exc.feature_name,
+            "docs_url": exc.docs_url,
+            "action_required": "CONFIGURE_KEY",
+            "trace_id": trace_id,
+        },
+    )
+
+
+@app.exception_handler(InvalidProviderCredentialError)
+async def invalid_provider_credential_handler(request, exc: InvalidProviderCredentialError):
+    request_id = request.headers.get("X-Request-ID") or request.headers.get("x-request-id")
+    trace_id = _normalize_trace_id(request_id) if request_id else uuid.uuid4().hex
+
+    return JSONResponse(
+        status_code=422,
+        content={
+            "type": "INVALID_PROVIDER_CREDENTIAL",
+            "code": "INVALID_PROVIDER_CREDENTIAL",
+            "title": "API Key không hợp lệ hoặc bị khóa",
+            "detail": exc.detail,
+            "message": exc.detail,
+            "provider": exc.provider,
+            "provider_display_name": exc.provider_display_name,
+            "feature_name": exc.feature_name,
+            "docs_url": exc.docs_url,
+            "action_required": "UPDATE_KEY",
+            "trace_id": trace_id,
+        },
+    )
+
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
     request_id = request.headers.get("X-Request-ID") or request.headers.get("x-request-id")
