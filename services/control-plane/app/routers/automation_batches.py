@@ -218,10 +218,15 @@ def _reconcile(session: Session, batch: AutomationBatch) -> list[tuple[Automatio
                     mapped = "RENDERING"
                     stage = "Đang render video qua FFmpeg..."
                     progress = 70
-                elif wf_state in ("RENDERED", "QC_PASSED", "APPROVED"):
+                elif wf_state in ("RENDERED", "QC_PASSED", "APPROVED", "APPROVAL_PENDING"):
                     progress = 100
                     stage = "Video đã render hoàn tất"
-                    mapped = "COMPLETED" if batch.approval_policy == "AUTO_APPROVE" else "REVIEW_PENDING"
+                    if batch.approval_policy == "AUTO_APPROVE":
+                        mapped = "COMPLETED"
+                        if wf_state == "APPROVAL_PENDING":
+                            wf_run.state = "APPROVED"
+                    else:
+                        mapped = "REVIEW_PENDING"
                 elif wf_state == "PUBLISHED":
                     progress = 100
                     stage = "Đã xuất bản video"

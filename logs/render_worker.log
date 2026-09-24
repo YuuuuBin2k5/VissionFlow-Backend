@@ -49179,3 +49179,190 @@ Multiple connection attempts failed. All failures were:
 (Background on this error at: https://sqlalche.me/e/20/e3q8)
 [ProcessQueuedJobs PostgreSQL Error] (psycopg.OperationalError) connection failed: connection to server at "127.0.0.1", port 15432 failed: FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
 (Background on this error at: https://sqlalche.me/e/20/e3q8)
+[FFmpeg] Using modern FFmpeg binary: D:\VisionFlow\VisionFlow_Bakend\venv\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe
+[FFmpeg] Using modern FFmpeg binary: D:\VisionFlow\VisionFlow_Bakend\venv\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe
+=======================================================
+🚀 VISIONFLOW UNIFIED AUTOMATIC RENDER SERVER RUNNING
+   [1] AI Dubbing & Translation Queue
+   [2] Studio & OpenCut Creative Video Queue
+   [3] Auto Production Autonomous Video Queue (R2 Sync)
+=======================================================
+📌 Running Continuous Local Worker Daemon Loop...
+
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'The Metal Detector That Wouldn't Stop Beeping' (ID: 03ee2c14-fd8a-469c-882e-29d8e487f476)
+=======================================================
+  [Studio Sync] Voice: edge-nam-minh
+  [Studio Sync] Logo Handle: @GocChiemNghiemYuuBin (Pos: top_left)
+  [Studio Sync] Captions Preset: hormozi (Font: Montserrat, Color: #FFFF00)
+  [Studio Sync] Title Banner: The Metal Detector That Wouldn't Stop Beeping (Style: neon)
+  [Studio Sync] BGM: Preset='Auto', Vol=0.12
+  [Studio Sync] Visual Engine: fal_ai
+  [Studio Sync] Scene Count: 8
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: 03ee2c14-fd8a-469c-882e-29d8e487f476
+=================================================================
+[Modal] 📜 Normalized Vietnamese script (1295 chars): 'His metal detector found fifteen Roman coins. Then it kept b...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=vi-VN-NamMinhNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (1295 chars -> 1295 chars)
+[FFmpeg] Using modern FFmpeg binary: D:\VisionFlow\VisionFlow_Bakend\venv\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe
+[Modal] 🎯 Extracted 14 word-level timestamps from Edge TTS for Karaoke sync!
+[Modal] 📐 Canvas Format: Aspect=9:16 -> Resolution=1080x1920 @ 60 FPS (CRF 18 Broadcast Profile)
+[Modal] 🟨 Created Pixel-Perfect Title Banner Card (NEON)!
+[Modal] 🟢 Created Pixel-Perfect Logo Pill (@GocChiemNghiemYuuBin) at pos=top_left (18.0%, 6.0%)!
+[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!
+[Modal] 🎬 Created Frosted-Glass Outro Card Overlay for Video Outro!
+[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for 8 visual scenes...
+[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: 78.7s): [4.03, 7.33, 7.33, 12.09, 15.02, 12.45, 9.16, 11.33]
+[MicroWorker 0] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/30166083/12935731_540_...
+[MicroWorker 1] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/7655146/7655146-hd_720...
+[MicroWorker 3] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/12060836/12060836-hd_1...
+[MicroWorker 2] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/15670920/15670920-hd_1...
+[MicroWorker 6] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/5849647/5849647-hd_720...
+[MicroWorker 4] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/3755074/3755074-uhd_14...
+[MicroWorker 5] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/5849643/5849643-uhd_14...
+[MicroWorker 7] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/8369982/8369982-hd_108...
+[FFmpeg] Using modern FFmpeg binary: D:\VisionFlow\VisionFlow_Bakend\venv\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe
+=======================================================
+🚀 VISIONFLOW UNIFIED AUTOMATIC RENDER SERVER RUNNING
+   [1] AI Dubbing & Translation Queue
+   [2] Studio & OpenCut Creative Video Queue
+   [3] Auto Production Autonomous Video Queue (R2 Sync)
+=======================================================
+📌 Running Continuous Local Worker Daemon Loop...
+
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'The Metal Detector That Wouldn't Stop Beeping' (ID: 03ee2c14-fd8a-469c-882e-29d8e487f476)
+=======================================================
+  [Studio Sync] Voice: edge-nam-minh
+  [Studio Sync] Logo Handle: @GocChiemNghiemYuuBin (Pos: top_left)
+  [Studio Sync] Captions Preset: hormozi (Font: Montserrat, Color: #FFFF00)
+  [Studio Sync] Title Banner: The Metal Detector That Wouldn't Stop Beeping (Style: neon)
+  [Studio Sync] BGM: Preset='Auto', Vol=0.12
+  [Studio Sync] Visual Engine: fal_ai
+  [Studio Sync] Scene Count: 8
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: 03ee2c14-fd8a-469c-882e-29d8e487f476
+=================================================================
+[Modal] 📜 Normalized Vietnamese script (1295 chars): 'His metal detector found fifteen Roman coins. Then it kept b...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=vi-VN-NamMinhNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (1295 chars -> 1295 chars)
+[Modal] 🎯 Extracted 14 word-level timestamps from Edge TTS for Karaoke sync!
+[Modal] 📐 Canvas Format: Aspect=9:16 -> Resolution=1080x1920 @ 60 FPS (CRF 18 Broadcast Profile)
+[Modal] 🟨 Created Pixel-Perfect Title Banner Card (NEON)!
+[Modal] 🟢 Created Pixel-Perfect Logo Pill (@GocChiemNghiemYuuBin) at pos=top_left (18.0%, 6.0%)!
+[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!
+[Modal] 🎬 Created Frosted-Glass Outro Card Overlay for Video Outro!
+[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for 8 visual scenes...
+[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: 78.7s): [4.03, 7.33, 7.33, 12.09, 15.02, 12.45, 9.16, 11.33]
+[MicroWorker 0] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/30166083/12935731_540_...[MicroWorker 1] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/7655146/7655146-hd_720...
+
+[MicroWorker 2] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/15670920/15670920-hd_1...
+[MicroWorker 3] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/12060836/12060836-hd_1...
+[MicroWorker 4] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/3755074/3755074-uhd_14...
+[MicroWorker 5] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/5849643/5849643-uhd_14...
+[MicroWorker 6] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/5849647/5849647-hd_720...
+[MicroWorker 7] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/8369982/8369982-hd_108...
+[Modal] ❌ Execution Error: Command '['D:\\VisionFlow\\VisionFlow_Bakend\\venv\\Lib\\site-packages\\imageio_ffmpeg\\binaries\\ffmpeg-win-x86_64-v7.1.exe', '-y', '-stream_loop', '-1', '-i', 'D:/tmp/03ee2c14-fd8a-469c-882e-29d8e487f476/scene_raw_2.mp4', '-ss', '00:00:00.000', '-t', '8.83', '-an', '-vf', 'fps=60,format=yuv420p,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1', '-c:v', 'libx264', '-preset', 'fast', '-profile:v', 'high', '-crf', '18', '-pix_fmt', 'yuv420p', 'D:/tmp/03ee2c14-fd8a-469c-882e-29d8e487f476/scene_chunk_2.mp4']' returned non-zero exit status 3752568763.
+Traceback (most recent call last):
+  File "D:\VisionFlow\VisionFlow_Bakend\modal_worker.py", line 2799, in _render_video_task_impl
+    rendered_chunks = list(executor.map(worker_fn, scene_payloads))
+  File "C:\Python314\Lib\concurrent\futures\_base.py", line 639, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Python314\Lib\concurrent\futures\_base.py", line 311, in _result_or_cancel
+    return fut.result(timeout)
+           ~~~~~~~~~~^^^^^^^^^
+  File "C:\Python314\Lib\concurrent\futures\_base.py", line 443, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Python314\Lib\concurrent\futures\_base.py", line 395, in __get_result
+    raise self._exception
+  File "C:\Python314\Lib\concurrent\futures\thread.py", line 86, in run
+    result = ctx.run(self.task)
+  File "C:\Python314\Lib\concurrent\futures\thread.py", line 73, in run
+    return fn(*args, **kwargs)
+  File "D:\VisionFlow\VisionFlow_Bakend\modal_worker.py", line 2265, in render_scene_chunk
+    return _render_scene_chunk_impl(scene_payload)
+  File "D:\VisionFlow\VisionFlow_Bakend\modal_worker.py", line 2221, in _render_scene_chunk_impl
+    subprocess.run(norm_cmd, check=True)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\subprocess.py", line 577, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['D:\\VisionFlow\\VisionFlow_Bakend\\venv\\Lib\\site-packages\\imageio_ffmpeg\\binaries\\ffmpeg-win-x86_64-v7.1.exe', '-y', '-stream_loop', '-1', '-i', 'D:/tmp/03ee2c14-fd8a-469c-882e-29d8e487f476/scene_raw_2.mp4', '-ss', '00:00:00.000', '-t', '8.83', '-an', '-vf', 'fps=60,format=yuv420p,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1', '-c:v', 'libx264', '-preset', 'fast', '-profile:v', 'high', '-crf', '18', '-pix_fmt', 'yuv420p', 'D:/tmp/03ee2c14-fd8a-469c-882e-29d8e487f476/scene_chunk_2.mp4']' returned non-zero exit status 3752568763.
+[Modal] ⚠️ Recorded FAILED state in DB for workflow 03ee2c14-fd8a-469c-882e-29d8e487f476: Command '['D:\\VisionFlow\\VisionFlow_Bakend\\venv\\Lib\\site-packages\\imageio_ffmpeg\\bi
+
+❌ [FAILED] RENDER FAILED FOR 03ee2c14-fd8a-469c-882e-29d8e487f476: Command '['D:\\VisionFlow\\VisionFlow_Bakend\\venv\\Lib\\site-packages\\imageio_ffmpeg\\binaries\\ffmpeg-win-x86_64-v7.1.exe', '-y', '-stream_loop', '-1', '-i', 'D:/tmp/03ee2c14-fd8a-469c-882e-29d8e487f476/scene_raw_2.mp4', '-ss', '00:00:00.000', '-t', '8.83', '-an', '-vf', 'fps=60,format=yuv420p,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1', '-c:v', 'libx264', '-preset', 'fast', '-profile:v', 'high', '-crf', '18', '-pix_fmt', 'yuv420p', 'D:/tmp/03ee2c14-fd8a-469c-882e-29d8e487f476/scene_chunk_2.mp4']' returned non-zero exit status 3752568763.
+[FFmpeg] Using modern FFmpeg binary: D:\VisionFlow\VisionFlow_Bakend\venv\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe
+[FFmpeg] Using modern FFmpeg binary: D:\VisionFlow\VisionFlow_Bakend\venv\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe
+=======================================================
+🚀 VISIONFLOW UNIFIED AUTOMATIC RENDER SERVER RUNNING
+   [1] AI Dubbing & Translation Queue
+   [2] Studio & OpenCut Creative Video Queue
+   [3] Auto Production Autonomous Video Queue (R2 Sync)
+=======================================================
+📌 Running Continuous Local Worker Daemon Loop...
+
+
+=======================================================
+[WORKER] PROCESSING VIDEO: 'The Metal Detector That Wouldn't Stop Beeping' (ID: 03ee2c14-fd8a-469c-882e-29d8e487f476)
+=======================================================
+  [Studio Sync] Voice: edge-nam-minh
+  [Studio Sync] Logo Handle: @GocChiemNghiemYuuBin (Pos: top_left)
+  [Studio Sync] Captions Preset: hormozi (Font: Montserrat, Color: #FFFF00)
+  [Studio Sync] Title Banner: The Metal Detector That Wouldn't Stop Beeping (Style: neon)
+  [Studio Sync] BGM: Preset='Auto', Vol=0.12
+  [Studio Sync] Visual Engine: fal_ai
+  [Studio Sync] Scene Count: 8
+=================================================================
+🎬 [Modal Serverless Worker] Starting VisionFlow Video Render Job...
+📌 Workflow Run ID: 03ee2c14-fd8a-469c-882e-29d8e487f476
+=================================================================
+[Modal] 📜 Normalized Vietnamese script (1295 chars): 'His metal detector found fifteen Roman coins. Then it kept b...'
+[Modal] 🎙️ Synthesizing Emotion-Dynamic Speech & VTT word timestamps (voice=vi-VN-NamMinhNeural, rate=+12%, pitch=+0Hz)...
+[Modal] 📝 Script preprocessed for Neural TTS breath pauses (1295 chars -> 1295 chars)
+[Modal] 🎯 Extracted 14 word-level timestamps from Edge TTS for Karaoke sync!
+[Modal] 📐 Canvas Format: Aspect=9:16 -> Resolution=1080x1920 @ 60 FPS (CRF 18 Broadcast Profile)
+[Modal] 🟨 Created Pixel-Perfect Title Banner Card (NEON)!
+[Modal] 🟢 Created Pixel-Perfect Logo Pill (@GocChiemNghiemYuuBin) at pos=top_left (18.0%, 6.0%)!
+[Modal] 🚀 Created Glassmorphic Follow CTA Overlay Card for Video Outro!
+[Modal] 🎬 Created Frosted-Glass Outro Card Overlay for Video Outro!
+[Modal] ⚡ Distributed Smart Director: Calculating Voice-Synced Durations for 8 visual scenes...
+[Modal] 🎯 Voice-Synced Scene Durations (Total Audio: 78.7s): [4.03, 7.33, 7.33, 12.09, 15.02, 12.45, 9.16, 11.33]
+[MicroWorker 0] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/30166083/12935731_540_...
+[MicroWorker 1] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/7655146/7655146-hd_720...
+[MicroWorker 2] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/15670920/15670920-hd_1...
+[MicroWorker 3] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/12060836/12060836-hd_1...
+[MicroWorker 4] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/3755074/3755074-uhd_14...
+[MicroWorker 5] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/5849643/5849643-uhd_14...
+[MicroWorker 6] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/5849647/5849647-hd_720...
+[MicroWorker 7] 🌐 Downloaded scene media from URL: https://videos.pexels.com/video-files/8369982/8369982-hd_108...
+[Modal] ⚡ Applied 30+ Cinematic XFade Transitions across 8 scenes with auto SFX sync!
+[Modal] 🎵 Auto-resolving BGM track 'Clean Soul' (ref: bgm_philosophy_clean_soul.mp3) for genre [PHILOSOPHY_LIFE_LESSON]...
+[Modal] ✅ Multi-Tier BGM Active: 'Clean Soul' (12271405 bytes, gain: 0.12)!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'whoosh_fast' (whoosh_fast.mp3) at 3.6s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'swoosh_quick_air' (swoosh_quick_air.mp3) at 10.5s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'whoosh_fast' (whoosh_fast.mp3) at 17.4s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'whoosh_cinematic_deep' (whoosh_cinematic_deep.mp3) at 29.1s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'whoosh_fast' (whoosh_fast.mp3) at 43.7s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'swoosh_quick_air' (swoosh_quick_air.mp3) at 55.7s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'cinematic_hit' (cinematic_hit.mp3) at 64.4s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'pop_accent' (retro_pop_bubble.mp3) at 5.1s!
+[Modal] 🔊 Smart SFX Sound Design: Injected 'pop_accent' (retro_pop_bubble.mp3) at 71.1s!
+[Modal] ✅ Video render complete! Export path: D:/tmp/03ee2c14-fd8a-469c-882e-29d8e487f476/final_output.mp4
+[Modal Quality Gate] Evaluation Result: {'passed': True, 'score': 99, 'metrics': {'size_bytes': 88681672, 'actual_duration': 79.234, 'resolution': '1080x1920', 'fps': 60}}
+[Modal] ☁️ Uploading rendered video to R2 (vision-flow/visionflow/03ee2c14-fd8a-469c-882e-29d8e487f476/exports/final.mp4)...
+[Modal] ✅ R2 Upload complete: vision-flow/visionflow/03ee2c14-fd8a-469c-882e-29d8e487f476/exports/final.mp4
+[Modal] 📸 Uploaded 3D Golden Frame Cover Thumbnail to R2 (https://pub-ec302240fdb8cad9ae6c9b685f14eeec.r2.dev/workflows/03ee2c14-fd8a-469c-882e-29d8e487f476/cover.jpg)!
+[Modal] 💾 Successfully saved MediaAsset & registered APPROVAL_PENDING in DB for workflow 03ee2c14-fd8a-469c-882e-29d8e487f476!
+
+[SUCCESS] OFFICIAL RENDER COMPLETE FOR 03ee2c14-fd8a-469c-882e-29d8e487f476!
+  Output Object Key: visionflow/03ee2c14-fd8a-469c-882e-29d8e487f476/exports/final.mp4
+  Public Video URL: https://ec302240fdb8cad9ae6c9b685f14eeec.r2.cloudflarestorage.com/vision-flow/visionflow/03ee2c14-fd8a-469c-882e-29d8e487f476/exports/final.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fd28f47a855e5f2097d5f8c24c50da70%2F20260924%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260924T164412Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=56c9bb9a3e2ba4e22485534269f35ddbac984c48fb1cc23475a4cd58ce07afcd
+[DB] Auto-Publish OFF: Workflow 03ee2c14-fd8a-469c-882e-29d8e487f476 -> APPROVAL_PENDING (Ready for Studio review)!
+

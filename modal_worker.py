@@ -2209,6 +2209,8 @@ def _render_scene_chunk_impl(scene_payload: dict) -> dict:
                     norm_filter = f"fps={target_fps},format=yuv420p,scale={res_w}:{res_h}:force_original_aspect_ratio=increase,crop={res_w}:{res_h},setsar=1"
                 norm_cmd = [
                     FFMPEG_BIN, "-y",
+                    "-fflags", "+genpts+discardcorrupt",
+                    "-err_detect", "ignore_err",
                     "-stream_loop", "-1",
                     "-i", raw_media_path,
                     "-ss", "00:00:00.000",
@@ -2218,7 +2220,21 @@ def _render_scene_chunk_impl(scene_payload: dict) -> dict:
                     "-c:v", "libx264", "-preset", "fast", "-profile:v", "high", "-crf", "18", "-pix_fmt", "yuv420p",
                     chunk_output
                 ]
-            subprocess.run(norm_cmd, check=True)
+            try:
+                subprocess.run(norm_cmd, check=True)
+            except subprocess.CalledProcessError as _ffmpeg_err:
+                # Source file is corrupt (e.g. non-existing PPS). Fall back to solid-color canvas
+                # so this one bad scene does not abort the entire render job.
+                print(f"[MicroWorker {scene_idx}] ⚠️ FFmpeg norm failed (corrupt source?): {_ffmpeg_err.returncode} — using color fallback", flush=True)
+                fallback_color_cmd = [
+                    FFMPEG_BIN, "-y",
+                    "-f", "lavfi",
+                    "-i", f"color=c=0x0b132b:s={res_w}x{res_h}:d={scene_dur}:r={target_fps}",
+                    "-vf", "format=yuv420p",
+                    "-c:v", "libx264", "-preset", "fast", "-profile:v", "high", "-crf", "18", "-pix_fmt", "yuv420p",
+                    chunk_output
+                ]
+                subprocess.run(fallback_color_cmd, check=True)
             
             # Save to R2 cache asynchronously for future hits
             if s3 and not media_url and os.path.exists(chunk_output):

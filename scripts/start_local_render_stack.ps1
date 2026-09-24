@@ -7,6 +7,15 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $backendDir = Split-Path -Parent $PSScriptRoot
+
+# Guard: prevent running two stacks simultaneously
+$alreadyRunning = @(Get-CimInstance Win32_Process -Filter "Name='python.exe'" |
+    Where-Object { $_.CommandLine -match 'start_render_worker\.py' -or $_.CommandLine -match 'remote_render_worker' })
+if ($alreadyRunning.Count -gt 0) {
+    Write-Warning "Stack da dang chay ($(($alreadyRunning | Select-Object -ExpandProperty ProcessId) -join ', ')). Dung stack cu truoc khi khoi dong lai."
+    Write-Warning "De dung stack cu: Stop-Process -Id $($alreadyRunning[0].ProcessId) -Force"
+    exit 1
+}
 if (-not $PostgresEnvFile) {
     $PostgresEnvFile = Join-Path $backendDir 'deploy\postgres\.env'
 }

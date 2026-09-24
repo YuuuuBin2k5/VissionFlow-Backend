@@ -204,9 +204,24 @@ def process_workflow_official(wf_id: str) -> bool:
         print(f"  Output Object Key: {result.get('object_key')}")
         print(f"  Public Video URL: {result.get('video_url')}")
 
-        # Check auto-publish
+        # Check auto-publish / auto-approve policy
         prompt_manifest = manifest
         auto_publish_enabled = bool(prompt_manifest.get("auto_publish_enabled", False))
+        auto_approved = False
+        try:
+            from app.infrastructure.models import AutomationJob, AutomationBatch
+            with Session(get_engine()) as fresh_db:
+                ajob = fresh_db.query(AutomationJob).filter(AutomationJob.production_run_id == str(wf_id)).first()
+                if ajob:
+                    batch = fresh_db.get(AutomationBatch, ajob.batch_id)
+                    if batch and batch.approval_policy == "AUTO_APPROVE":
+                        auto_approved = True
+                        ajob.state = "COMPLETED"
+                        fresh_db.commit()
+                        print(f"[Automation Batch] ⚡ Auto-Approve policy matched: Workflow {wf_id} marked as APPROVED!")
+        except Exception as ajob_err:
+            print(f"[Automation Notice] Auto-approve check notice: {ajob_err}")
+
         if auto_publish_enabled:
             with Session(get_engine()) as fresh_db:
                 wf_t = fresh_db.get(WorkflowRun, wf_id)
@@ -225,7 +240,7 @@ def process_workflow_official(wf_id: str) -> bool:
             with Session(get_engine()) as fresh_db:
                 wf_t = fresh_db.get(WorkflowRun, wf_id)
                 if wf_t:
-                    wf_t.state = "APPROVAL_PENDING"
+                    wf_t.state = "APPROVED" if auto_approved else "APPROVAL_PENDING"
                     # Upsert render WorkflowStep
                     from app.infrastructure.models import WorkflowStep
                     step_render = fresh_db.query(WorkflowStep).filter(

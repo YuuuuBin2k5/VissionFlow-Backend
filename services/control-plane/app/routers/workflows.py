@@ -1915,9 +1915,34 @@ def _process_publication_attempt_in_background(
             title = publish_manifest.title
             description = publish_manifest.description
 
-            # ---- 7. Upload to YouTube via Resumable API (Always UNLISTED) ----
+            # ---- 7. Upload to YouTube via Resumable API -------------------------
+            # If scheduled_at_iso is in the future (> 10 min from now), use
+            # YouTube's native scheduled-publish: upload as "private" with
+            # publishAt set — YouTube will auto-make it public at that time.
+            # Otherwise publish immediately as "public".
             _publish_at_iso: str | None = None
-            _privacy_status = "unlisted"
+            _privacy_status = "public"
+            if scheduled_at_iso:
+                try:
+                    from datetime import timezone as _tz
+                    _sched_dt = datetime.fromisoformat(scheduled_at_iso.replace("Z", "+00:00"))
+                    _now = datetime.now(_tz.utc)
+                    # Must be at least 10 minutes in the future for YouTube to accept
+                    if (_sched_dt - _now).total_seconds() > 600:
+                        _publish_at_iso = scheduled_at_iso
+                        _privacy_status = "private"
+                        _bg_logger.info(
+                            "YouTube scheduled publish for workflow %s at %s (privacy=private)",
+                            workflow_run_id, scheduled_at_iso,
+                        )
+                    else:
+                        _bg_logger.info(
+                            "scheduled_at_iso %s is too close / in the past; publishing as public immediately",
+                            scheduled_at_iso,
+                        )
+                except Exception as _dt_err:
+                    _bg_logger.warning("Could not parse scheduled_at_iso %r: %s", scheduled_at_iso, _dt_err)
+
             uploader = YouTubeResumableUploader(http_session)
             result = uploader.upload(
                 access_token=token.value,
@@ -1930,7 +1955,7 @@ def _process_publication_attempt_in_background(
                     category_id="28",
                     default_language="vi",
                     self_declared_made_for_kids=False,
-                    publish_at_iso=None,
+                    publish_at_iso=_publish_at_iso,
                     embeddable=True,
                     license="youtube",
                 ),
