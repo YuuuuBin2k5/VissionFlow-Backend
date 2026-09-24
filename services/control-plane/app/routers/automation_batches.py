@@ -65,7 +65,8 @@ async def _launch_job(session: Session, batch: AutomationBatch, job: AutomationJ
     job.error_code = None
     job.error_message = None
     session.commit()
-    await orchestrator.start_run(run.id)
+    # Chạy run ngầm, không khóa session cơ sở dữ liệu
+    asyncio.create_task(orchestrator.start_run(run.id))
 
 
 async def resume_pending_automation_jobs() -> None:
@@ -78,7 +79,8 @@ async def resume_pending_automation_jobs() -> None:
             select(AutomationJob).where(AutomationJob.state.in_(("QUEUED", "PROCESSING")))
         ))
         for job in jobs:
-            if job.production_run_id and run_repository.get(job.production_run_id) is not None:
+            # Nếu job đã có production_run_id (WorkflowRun của Studio hoặc run cũ), KHÔNG chạy lại
+            if job.production_run_id:
                 continue
             batch = session.get(AutomationBatch, job.batch_id)
             if batch is None or batch.state == "CANCELLED" or job.attempt >= job.max_attempts:
