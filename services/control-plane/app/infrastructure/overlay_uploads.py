@@ -168,6 +168,16 @@ class PrivateObjectPreviewIssuer:
         )
         return PrivateObjectPreviewTicket(target_key, url, self._expires_in_seconds)
 
+    def delete_object(self, object_key: str) -> bool:
+        """Delete one private object. S3 deletion is idempotent for missing keys."""
+        if not object_key or object_key.startswith(("http://", "https://")):
+            return False
+        clean_key = object_key.split("?", 1)[0]
+        if "visionflow/" in clean_key:
+            clean_key = "visionflow/" + clean_key.split("visionflow/", 1)[1]
+        self._client.delete_object(Bucket=self._bucket, Key=clean_key)
+        return True
+
 
 def composition_overlay_object_keys(composition: dict[str, object]) -> tuple[str, ...]:
     keys: list[str] = []

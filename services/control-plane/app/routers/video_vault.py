@@ -84,6 +84,11 @@ class BulkDeleteVideoVaultRequest(BaseModel):
     asset_ids: list[uuid.UUID] = Field(min_length=1, max_length=100)
 
 
+class BulkDeleteVideoVaultResponse(BaseModel):
+    deleted_ids: list[uuid.UUID]
+    deleted_count: int
+
+
 def _authorize(session: Session, identity: VerifiedIdentity, organization_id: uuid.UUID, permission: str = Permission.WORKFLOW_VIEW) -> None:
     try:
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
@@ -94,18 +99,10 @@ def _authorize(session: Session, identity: VerifiedIdentity, organization_id: uu
 
 
 def _delete_r2_object(object_key: str) -> None:
-    """Xóa file khỏi Cloud Storage R2/S3 nếu có thể."""
-    if not object_key or object_key.startswith("http://") or object_key.startswith("https://"):
-        return
-    try:
-        issuer = PrivateObjectPreviewIssuer.from_env()
-        clean_key = object_key.split("?")[0]
-        if "visionflow/" in clean_key:
-            clean_key = "visionflow/" + clean_key.split("visionflow/", 1)[1]
-        issuer._client.delete_object(Bucket=issuer._bucket, Key=clean_key)
-        logger.info("Deleted R2 object key: %s", clean_key)
-    except Exception as err:
-        logger.warning("Non-fatal error deleting R2 object key %s: %s", object_key, err)
+    """Delete one R2 object and surface failures so the DB record remains retryable."""
+    deleted = PrivateObjectPreviewIssuer.from_env().delete_object(object_key)
+    if deleted:
+        logger.info("Deleted R2 object key: %s", object_key)
 
 
 @router.get(
@@ -287,6 +284,15 @@ def delete_video_vault_asset(
 
     object_key = asset.object_key
 
+    try:
+        _delete_r2_object(object_key)
+    except Exception as err:
+        logger.exception("Failed to delete R2 object for asset %s", asset_id)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Cloud object could not be deleted; database record was preserved",
+        ) from err
+
     # Xóa các bản ghi liên quan trong publish_approvals để tránh vi phạm khóa ngoại RESTRICT
     session.execute(
         delete(PublishApproval).where(PublishApproval.export_asset_id == asset_id)
@@ -295,22 +301,24 @@ def delete_video_vault_asset(
     session.delete(asset)
     session.commit()
 
-    # Xóa file vật lý trên R2 Cloud Storage
-    _delete_r2_object(object_key)
-
-
 @router.delete(
     "/organizations/{organization_id}/video-vault/bulk",
-    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=BulkDeleteVideoVaultResponse,
 )
 def bulk_delete_video_vault_assets(
     organization_id: uuid.UUID,
     request: BulkDeleteVideoVaultRequest,
     identity: VerifiedIdentity = Depends(require_identity),
     session: Session = Depends(get_session),
-) -> None:
+) -> BulkDeleteVideoVaultResponse:
     """Xóa hàng loạt các video asset được chọn trong Cloud Vault."""
     _authorize(session, identity, organization_id, Permission.WORKFLOW_DELETE)
+
+    if len(set(request.asset_ids)) != len(request.asset_ids):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="asset_ids contains duplicates",
+        )
 
     assets = session.scalars(
         select(MediaAsset).where(
@@ -319,11 +327,26 @@ def bulk_delete_video_vault_assets(
         )
     ).all()
 
-    if not assets:
-        return
+    found_ids = {asset.id for asset in assets}
+    missing_ids = [str(asset_id) for asset_id in request.asset_ids if asset_id not in found_ids]
+    if missing_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"message": "One or more video assets were not found", "missing_ids": missing_ids},
+        )
 
     object_keys = [a.object_key for a in assets]
     asset_ids = [a.id for a in assets]
+
+    try:
+        for key in object_keys:
+            _delete_r2_object(key)
+    except Exception as err:
+        logger.exception("Failed to delete one or more R2 objects for bulk vault deletion")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Cloud objects could not all be deleted; database records were preserved",
+        ) from err
 
     # Xóa các bản ghi liên quan trong publish_approvals trước
     session.execute(
@@ -334,6 +357,4 @@ def bulk_delete_video_vault_assets(
         session.delete(asset)
     session.commit()
 
-    # Xóa các file vật lý trên R2 Cloud Storage
-    for key in object_keys:
-        _delete_r2_object(key)
+    return BulkDeleteVideoVaultResponse(deleted_ids=asset_ids, deleted_count=len(asset_ids))

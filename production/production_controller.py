@@ -332,9 +332,29 @@ async def _handle_upload_source(file: UploadFile = File(...)) -> Dict[str, Any]:
     if not payload:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Uploaded source is empty")
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-    target = UPLOADS_DIR / f"usr_{uuid.uuid4().hex}{suffix}"
+    source_id = f"src_{uuid.uuid4().hex[:12]}"
+    target = UPLOADS_DIR / f"{source_id}{suffix}"
     target.write_bytes(payload)
-    return {"source_id": f"src_{uuid.uuid4().hex[:12]}", "kind": "video", "file_ref": str(target), "rights_state": "UNKNOWN", "provenance": "USER", "filename": filename}
+    return {"source_id": source_id, "kind": "video", "file_ref": str(target), "rights_state": "UNKNOWN", "provenance": "USER", "filename": filename}
+
+
+def _handle_delete_uploaded_source(source_id: str) -> Dict[str, Any]:
+    """Delete a browser upload by its opaque server-issued identifier."""
+    if not source_id.startswith("src_") or len(source_id) != 16 or not all(
+        char in "0123456789abcdef" for char in source_id[4:]
+    ):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid source identifier")
+
+    uploads_root = UPLOADS_DIR.resolve()
+    matches = [path for path in uploads_root.glob(f"{source_id}.*") if path.is_file()]
+    if not matches:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Uploaded source not found")
+    for path in matches:
+        resolved = path.resolve()
+        if resolved.parent != uploads_root:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid upload path")
+        resolved.unlink()
+    return {"source_id": source_id, "deleted": True}
 
 
 class SearchScenesPayload(BaseModel):
@@ -829,6 +849,7 @@ def _handle_observability_metrics() -> Dict[str, Any]:
 # Register Phase 7 Human Review, Publishing, Health & Observability + Pilot Learning API
 for r in [router, auto_production_router]:
     r.add_api_route("/sources/upload", _handle_upload_source, methods=["POST"])
+    r.add_api_route("/sources/upload/{source_id}", _handle_delete_uploaded_source, methods=["DELETE"])
     r.add_api_route("/runs/{run_id}/pilot-summary", _handle_get_pilot_run_summary, methods=["GET"])
     r.add_api_route("/runs/{run_id}/review", _handle_submit_review, methods=["POST"], response_model=HumanReviewRecord)
     r.add_api_route("/runs/{run_id}/review", _handle_get_review, methods=["GET"], response_model=HumanReviewRecord)

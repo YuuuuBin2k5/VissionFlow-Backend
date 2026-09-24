@@ -87,6 +87,7 @@ from app.infrastructure.models import (
     CreativeDocumentVersion,
     MediaAsset,
     OutboxEvent,
+    PublishApproval,
     PublicationAttempt,
     PublisherConnection,
     VideoProject,
@@ -2284,42 +2285,6 @@ def report_workflow_failure(
     )
 
 
-@router.delete(
-    "/workflows/{workflow_run_id}",
-    summary="Admin endpoint: permanently delete a video workflow run and child records",
-)
-def delete_workflow(
-    workflow_run_id: uuid.UUID,
-    organization_id: uuid.UUID = Query(...),
-    identity: VerifiedIdentity = Depends(require_identity),
-    session: Session = Depends(get_session),
-) -> dict[str, Any]:
-    """Admin feature: Permanently hard-delete a workflow run, publication attempts, steps, and media assets."""
-    try:
-        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
-            identity.subject, organization_id, Permission.WORKFLOW_VIEW
-        )
-        wf = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
-        if wf is None:
-            raise LookupError("Workflow run not found")
-
-        # Hard delete child records first in strict foreign-key order
-        session.execute(text("UPDATE creative_sessions SET workflow_run_id = NULL WHERE workflow_run_id = :wfid"), {"wfid": workflow_run_id})
-        session.execute(text("DELETE FROM channel_learning_metrics WHERE publication_attempt_id IN (SELECT id FROM publication_attempts WHERE workflow_run_id = :wfid)"), {"wfid": workflow_run_id})
-        session.execute(text("DELETE FROM publish_approvals WHERE workflow_run_id = :wfid"), {"wfid": workflow_run_id})
-        session.execute(delete(PublicationAttempt).where(PublicationAttempt.workflow_run_id == workflow_run_id))
-        session.execute(delete(WorkflowStep).where(WorkflowStep.workflow_run_id == workflow_run_id))
-        session.execute(delete(MediaAsset).where(MediaAsset.workflow_run_id == workflow_run_id))
-        session.execute(text("DELETE FROM outbox_events WHERE aggregate_id = :wfid"), {"wfid": workflow_run_id})
-        session.delete(wf)
-        session.commit()
-        return {"workflow_run_id": str(workflow_run_id), "status": "deleted", "deleted": True}
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
-    except LookupError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow run not found") from exc
-
-
 @router.post(
     "/workflows/{workflow_run_id}/legacy-job-mapping",
     response_model=RegisterLegacyJobMappingResponse,
@@ -2517,9 +2482,76 @@ class BulkDeleteWorkflowRequest(BaseModel):
     workflow_run_ids: list[uuid.UUID] = Field(min_length=1, max_length=100)
 
 
+class BulkDeleteWorkflowFailure(BaseModel):
+    workflow_run_id: uuid.UUID
+    code: str
+    message: str
+
+
 class BulkDeleteWorkflowResponse(BaseModel):
     deleted_count: int
     failed_ids: list[str]
+    failures: list[BulkDeleteWorkflowFailure] = Field(default_factory=list)
+
+
+_ACTIVE_DELETE_STATES = frozenset({"QUEUED", "PLANNING", "SCRIPT", "COMPOSITING", "RENDERING"})
+
+
+class WorkflowStorageCleanupError(RuntimeError):
+    pass
+
+
+def _get_deletable_workflow(
+    session: Session,
+    *,
+    organization_id: uuid.UUID,
+    workflow_run_id: uuid.UUID,
+) -> WorkflowRun:
+    run = session.scalar(
+        select(WorkflowRun)
+        .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
+        .where(
+            VideoProject.organization_id == organization_id,
+            WorkflowRun.id == workflow_run_id,
+        )
+        .with_for_update()
+    )
+    if run is None:
+        raise LookupError("Workflow run not found")
+    if run.state in _ACTIVE_DELETE_STATES:
+        raise ValueError(
+            f"Cannot delete workflow in active state '{run.state}'. "
+            "Cancel the workflow first before deleting."
+        )
+    return run
+
+
+def _delete_workflow_records(session: Session, run: WorkflowRun) -> None:
+    """Delete one workflow using database cascades as the canonical dependency policy."""
+    assets = session.scalars(select(MediaAsset).where(MediaAsset.workflow_run_id == run.id)).all()
+    object_keys = [
+        asset.object_key
+        for asset in assets
+        if asset.object_key and not asset.object_key.startswith(("http://", "https://"))
+    ]
+    if object_keys:
+        try:
+            object_store = PrivateObjectPreviewIssuer.from_env()
+            for object_key in object_keys:
+                object_store.delete_object(object_key)
+        except Exception as exc:
+            raise WorkflowStorageCleanupError(
+                "Cloud objects could not be deleted; workflow records were preserved"
+            ) from exc
+    session.execute(delete(PublishApproval).where(PublishApproval.workflow_run_id == run.id))
+    session.execute(delete(MediaAsset).where(MediaAsset.workflow_run_id == run.id))
+    session.execute(
+        delete(OutboxEvent).where(
+            OutboxEvent.aggregate_type == "workflow_run",
+            OutboxEvent.aggregate_id == run.id,
+        )
+    )
+    session.delete(run)
 
 
 @router.delete(
@@ -2543,86 +2575,16 @@ def delete_workflow(
     Active workflows (QUEUED, PLANNING, SCRIPT, COMPOSITING) cannot be deleted
     while they are being processed; cancel them first.
     """
-    _ACTIVE_STATES = frozenset({"QUEUED", "PLANNING", "SCRIPT", "COMPOSITING", "RENDERING"})
-
     try:
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
             identity.subject, organization_id, Permission.WORKFLOW_DELETE
         )
-        # Fetch run and verify tenant membership
-        run = session.scalar(
-            select(WorkflowRun)
-            .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
-            .where(
-                VideoProject.organization_id == organization_id,
-                WorkflowRun.id == workflow_run_id,
-            )
+        run = _get_deletable_workflow(
+            session,
+            organization_id=organization_id,
+            workflow_run_id=workflow_run_id,
         )
-        if run is None:
-            raise LookupError("Workflow run not found or not in this organization")
-
-        # Guard: deny deletion of actively running workflows
-        if run.state in _ACTIVE_STATES:
-            raise ValueError(
-                f"Cannot delete workflow in active state '{run.state}'. "
-                "Cancel the workflow first before deleting."
-            )
-
-        # Cascade delete associated records
-        # 1. WorkflowStep
-        steps_to_delete = session.scalars(
-            select(WorkflowStep).where(WorkflowStep.workflow_run_id == run.id)
-        ).all()
-        for step in steps_to_delete:
-            session.delete(step)
-
-        # 2. MediaAsset linked to this workflow run
-        assets_to_delete = session.scalars(
-            select(MediaAsset).where(MediaAsset.workflow_run_id == run.id)
-        ).all()
-        for asset in assets_to_delete:
-            session.delete(asset)
-
-        # 3. OutboxEvent emitted for this workflow run
-        outbox_to_delete = session.scalars(
-            select(OutboxEvent).where(OutboxEvent.workflow_run_id == run.id)
-        ).all()
-        for event in outbox_to_delete:
-            session.delete(event)
-
-        # 4. PublicationAttempt records tied to this run
-        pub_attempts_to_delete = session.scalars(
-            select(PublicationAttempt).where(PublicationAttempt.workflow_run_id == run.id)
-        ).all()
-        for attempt in pub_attempts_to_delete:
-            session.delete(attempt)
-
-        # 5. CreativeDocumentVersion + CreativeDocument
-        creative_docs = session.scalars(
-            select(CreativeDocument).where(CreativeDocument.workflow_run_id == run.id)
-        ).all()
-        for doc in creative_docs:
-            doc_versions = session.scalars(
-                select(CreativeDocumentVersion).where(CreativeDocumentVersion.document_id == doc.id)
-            ).all()
-            for ver in doc_versions:
-                session.delete(ver)
-            session.delete(doc)
-
-        # 6. CompositionDocument + CompositionVersion
-        comp_docs = session.scalars(
-            select(CompositionDocument).where(CompositionDocument.workflow_run_id == run.id)
-        ).all()
-        for comp in comp_docs:
-            comp_versions = session.scalars(
-                select(CompositionVersion).where(CompositionVersion.composition_id == comp.id)
-            ).all()
-            for ver in comp_versions:
-                session.delete(ver)
-            session.delete(comp)
-
-        # 7. Finally, delete the WorkflowRun itself
-        session.delete(run)
+        _delete_workflow_records(session, run)
         session.commit()
 
         _bg_logger.info(
@@ -2637,6 +2599,9 @@ def delete_workflow(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except WorkflowStorageCleanupError as exc:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
     return DeleteWorkflowResponse(workflow_run_id=workflow_run_id, deleted=True)
 
@@ -2657,7 +2622,16 @@ def bulk_delete_workflows(
     Returns the count of successfully deleted runs and a list of IDs that failed.
     Active workflows (still processing) are silently skipped and listed in failed_ids.
     """
-    _ACTIVE_STATES = frozenset({"QUEUED", "PLANNING", "SCRIPT", "COMPOSITING", "RENDERING"})
+    if request.organization_id != organization_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="organization_id in request body must match the URL",
+        )
+    if len(set(request.workflow_run_ids)) != len(request.workflow_run_ids):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="workflow_run_ids contains duplicates",
+        )
 
     try:
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
@@ -2668,44 +2642,52 @@ def bulk_delete_workflows(
 
     deleted_count = 0
     failed_ids: list[str] = []
+    failures: list[BulkDeleteWorkflowFailure] = []
 
     for wf_id in request.workflow_run_ids:
         try:
-            run = session.scalar(
-                select(WorkflowRun)
-                .join(VideoProject, VideoProject.id == WorkflowRun.project_id)
-                .where(
-                    VideoProject.organization_id == organization_id,
-                    WorkflowRun.id == wf_id,
+            with session.begin_nested():
+                run = _get_deletable_workflow(
+                    session,
+                    organization_id=organization_id,
+                    workflow_run_id=wf_id,
                 )
-            )
-            if run is None or run.state in _ACTIVE_STATES:
-                failed_ids.append(str(wf_id))
-                continue
-
-            # Cascade delete
-            for step in session.scalars(select(WorkflowStep).where(WorkflowStep.workflow_run_id == run.id)).all():
-                session.delete(step)
-            for asset in session.scalars(select(MediaAsset).where(MediaAsset.workflow_run_id == run.id)).all():
-                session.delete(asset)
-            for event in session.scalars(select(OutboxEvent).where(OutboxEvent.workflow_run_id == run.id)).all():
-                session.delete(event)
-            for attempt in session.scalars(select(PublicationAttempt).where(PublicationAttempt.workflow_run_id == run.id)).all():
-                session.delete(attempt)
-            for doc in session.scalars(select(CreativeDocument).where(CreativeDocument.workflow_run_id == run.id)).all():
-                for ver in session.scalars(select(CreativeDocumentVersion).where(CreativeDocumentVersion.document_id == doc.id)).all():
-                    session.delete(ver)
-                session.delete(doc)
-            for comp in session.scalars(select(CompositionDocument).where(CompositionDocument.workflow_run_id == run.id)).all():
-                for ver in session.scalars(select(CompositionVersion).where(CompositionVersion.composition_id == comp.id)).all():
-                    session.delete(ver)
-                session.delete(comp)
-
-            session.delete(run)
+                _delete_workflow_records(session, run)
+                session.flush()
             deleted_count += 1
-        except Exception:
-            session.rollback()
+        except LookupError as exc:
             failed_ids.append(str(wf_id))
+            failures.append(BulkDeleteWorkflowFailure(
+                workflow_run_id=wf_id,
+                code="NOT_FOUND",
+                message=str(exc),
+            ))
+        except ValueError as exc:
+            failed_ids.append(str(wf_id))
+            failures.append(BulkDeleteWorkflowFailure(
+                workflow_run_id=wf_id,
+                code="ACTIVE_WORKFLOW",
+                message=str(exc),
+            ))
+        except WorkflowStorageCleanupError as exc:
+            failed_ids.append(str(wf_id))
+            failures.append(BulkDeleteWorkflowFailure(
+                workflow_run_id=wf_id,
+                code="STORAGE_DELETE_FAILED",
+                message=str(exc),
+            ))
+        except Exception:
+            _bg_logger.exception(
+                "[bulk_delete_workflows] Failed to delete workflow %s for org %s",
+                wf_id,
+                organization_id,
+            )
+            failed_ids.append(str(wf_id))
+            failures.append(BulkDeleteWorkflowFailure(
+                workflow_run_id=wf_id,
+                code="DELETE_FAILED",
+                message="Workflow could not be deleted",
+            ))
 
     session.commit()
     _bg_logger.info(
@@ -2713,7 +2695,11 @@ def bulk_delete_workflows(
         deleted_count, len(failed_ids), identity.subject, organization_id,
     )
 
-    return BulkDeleteWorkflowResponse(deleted_count=deleted_count, failed_ids=failed_ids)
+    return BulkDeleteWorkflowResponse(
+        deleted_count=deleted_count,
+        failed_ids=failed_ids,
+        failures=failures,
+    )
 
 
 def _trace_id(request_id: str | None) -> str:
