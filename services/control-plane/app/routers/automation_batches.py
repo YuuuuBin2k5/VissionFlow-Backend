@@ -15,13 +15,14 @@ from app.core.oidc import VerifiedIdentity
 from app.domain.authorization import Permission
 from app.infrastructure.database import get_session
 from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
-from app.infrastructure.models import AutomationBatch, AutomationJob
+from app.infrastructure.models import AutomationBatch, AutomationJob, WorkflowRun
 from app.routers.auth import require_identity
 from production.contracts import ProductionRunStatus, ReviewSource
 from production.human_review import HumanReviewError, human_review_service
 from production.input_normalizer import InputNormalizer
 from production.orchestrator import orchestrator
 from production.repositories.run_repository import run_repository
+from production.thumbnail_generator import ThumbnailGenerator
 
 
 router = APIRouter(tags=["automation_batches"])
@@ -92,8 +93,11 @@ async def resume_pending_automation_jobs() -> None:
 
 
 class AutomationItemRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
     payload: dict[str, Any]
+    workflow_run_id: str | None = None
+    thumbnail_urls: list[str] = Field(default_factory=list)
+    selected_thumbnail_url: str | None = None
 
     @field_validator("payload")
     @classmethod
@@ -191,35 +195,76 @@ def _reconcile(session: Session, batch: AutomationBatch) -> list[tuple[Automatio
         progress = 0
         stage = None
         if job.production_run_id:
-            run = run_repository.get(job.production_run_id)
-            if run is not None:
-                progress = run.progress_pct
-                stage = run.current_stage
-                mapped = _map_run_state(run.status)
+            # 1. Check if production_run_id points to a standard Studio WorkflowRun
+            wf_run: WorkflowRun | None = None
+            try:
+                wf_id = uuid.UUID(job.production_run_id)
+                wf_run = session.get(WorkflowRun, wf_id)
+            except Exception:
+                wf_run = None
 
-                # Sync generated thumbnails from run
-                if run.thumbnail_urls and not job.thumbnail_urls:
-                    job.thumbnail_urls = run.thumbnail_urls
-                if run.selected_thumbnail_url and not job.selected_thumbnail_url:
-                    job.selected_thumbnail_url = run.selected_thumbnail_url
-
-                if mapped == "REVIEW_PENDING" and batch.approval_policy == "AUTO_APPROVE":
-                    try:
-                        human_review_service.submit_review(
-                            run_id=run.id,
-                            reviewer=batch.requested_by_subject,
-                            decision="APPROVED",
-                            notes="Pre-authorized by durable automation batch policy.",
-                            review_source=ReviewSource.REAL_OPERATOR,
-                            client_source="automation_batch",
-                        )
-                        mapped = "COMPLETED"
-                    except HumanReviewError as exc:
-                        job.error_message = str(exc)
+            if wf_run is not None:
+                wf_state = (wf_run.state or "").upper()
+                if wf_state in ("DRAFT", "READY", "QUEUED"):
+                    mapped = "RENDERING"
+                    stage = "Đang đợi Render Worker (CHAY_RENDER_LOCAL.bat / Cloud)"
+                    progress = 30
+                elif wf_state in ("RENDERING", "UPLOADING"):
+                    mapped = "RENDERING"
+                    stage = "Đang render video qua FFmpeg..."
+                    progress = 70
+                elif wf_state in ("RENDERED", "QC_PASSED", "APPROVED"):
+                    progress = 100
+                    stage = "Video đã render hoàn tất"
+                    mapped = "COMPLETED" if batch.approval_policy == "AUTO_APPROVE" else "REVIEW_PENDING"
+                elif wf_state == "PUBLISHED":
+                    progress = 100
+                    stage = "Đã xuất bản video"
+                    mapped = "COMPLETED"
+                elif wf_state in ("FAILED", "RENDER_FAILED"):
+                    mapped = "FAILED"
+                    stage = f"Lỗi render: {wf_run.failure_code or 'Unknown'}"
+                    job.error_code = wf_run.failure_code
+                    job.error_message = wf_run.failure_detail
+                elif wf_state == "CANCELLED":
+                    mapped = "CANCELLED"
+                    stage = "Đã hủy"
+                else:
+                    mapped = "PROCESSING"
+                    stage = f"Workflow: {wf_state}"
+                    progress = 40
                 job.state = mapped
-                if mapped == "FAILED":
-                    job.error_code = run.status.value
-                    job.error_message = run.error_message
+            else:
+                # 2. Fallback to run_repository (legacy/auto_production)
+                run = run_repository.get(job.production_run_id)
+                if run is not None:
+                    progress = run.progress_pct
+                    stage = run.current_stage
+                    mapped = _map_run_state(run.status)
+
+                    # Sync generated thumbnails from run
+                    if run.thumbnail_urls and not job.thumbnail_urls:
+                        job.thumbnail_urls = run.thumbnail_urls
+                    if run.selected_thumbnail_url and not job.selected_thumbnail_url:
+                        job.selected_thumbnail_url = run.selected_thumbnail_url
+
+                    if mapped == "REVIEW_PENDING" and batch.approval_policy == "AUTO_APPROVE":
+                        try:
+                            human_review_service.submit_review(
+                                run_id=run.id,
+                                reviewer=batch.requested_by_subject,
+                                decision="APPROVED",
+                                notes="Pre-authorized by durable automation batch policy.",
+                                review_source=ReviewSource.REAL_OPERATOR,
+                                client_source="automation_batch",
+                            )
+                            mapped = "COMPLETED"
+                        except HumanReviewError as exc:
+                            job.error_message = str(exc)
+                    job.state = mapped
+                    if mapped == "FAILED":
+                        job.error_code = run.status.value
+                        job.error_message = run.error_message
         projections.append((job, progress, stage))
 
     states = {job.state for job in jobs}
@@ -315,22 +360,28 @@ async def create_automation_batch(
             position=position,
             title=str(payload.get("title") or f"Video {position}")[:240],
             source_payload=payload,
+            production_run_id=item.workflow_run_id,
+            thumbnail_urls=item.thumbnail_urls or [],
+            selected_thumbnail_url=item.selected_thumbnail_url,
             scheduled_publish_at=job_sched,
             schedule_platform=request.schedule_platform if request.auto_schedule else None,
             auto_publish_policy="AUTO_SCHEDULE" if request.auto_schedule else "MANUAL",
         )
+        if item.workflow_run_id:
+            job.state = "QUEUED"
         session.add(job)
         jobs.append(job)
     session.commit()
 
     for job in jobs:
-        try:
-            await _launch_job(session, batch, job)
-        except Exception as exc:
-            job.state = "FAILED"
-            job.error_code = type(exc).__name__[:96]
-            job.error_message = str(exc)[:4000]
-            session.commit()
+        if not job.production_run_id:
+            try:
+                await _launch_job(session, batch, job)
+            except Exception as exc:
+                job.state = "FAILED"
+                job.error_code = type(exc).__name__[:96]
+                job.error_message = str(exc)[:4000]
+                session.commit()
 
     return _response(batch, _reconcile(session, batch))
 
@@ -600,3 +651,35 @@ async def batch_schedule_jobs(
 
     session.commit()
     return _response(batch, _reconcile(session, batch))
+
+
+class GenerateThumbnailsRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    title: str = Field(min_length=1, max_length=512)
+    hook: str = Field(default="", max_length=1024)
+    category: str = Field(default="viral", max_length=64)
+    aspect_ratio: str = Field(default="9:16", max_length=16)
+    count: int = Field(default=3, ge=1, le=5)
+
+
+class GenerateThumbnailsResponse(BaseModel):
+    thumbnails: list[str]
+
+
+@router.post("/organizations/{organization_id}/automation-batches/generate-thumbnails", response_model=GenerateThumbnailsResponse)
+async def generate_batch_thumbnails(
+    organization_id: uuid.UUID,
+    request: GenerateThumbnailsRequest,
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+) -> GenerateThumbnailsResponse:
+    _authorize(session, identity, organization_id, Permission.WORKFLOW_VIEW)
+    generator = ThumbnailGenerator()
+    urls = generator.generate_thumbnails(
+        title=request.title,
+        hook=request.hook,
+        category=request.category,
+        aspect_ratio=request.aspect_ratio,
+        count=request.count,
+    )
+    return GenerateThumbnailsResponse(thumbnails=urls)
