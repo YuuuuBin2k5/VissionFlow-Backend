@@ -16,6 +16,51 @@ from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("visionflow.production.adapter")
 
+YUUBIN_PROFILE_ID = "goc_chiem_nghiem_yuubin"
+YUUBIN_VOICE_CODE = "vi-VN-NamMinhNeural"
+YUUBIN_VOICE_RATE = 1.12
+VALID_VIDEO_GENRES = frozenset({
+    "MYSTERY_PARANORMAL_HISTORY",
+    "SCIENCE_TECH_FUTURE",
+    "PHILOSOPHY_LIFE_LESSON",
+    "ANCIENT_STRATEGY_WAR",
+    "WEALTH_FINANCE_MINDSET",
+    "CHILL_LIFESTYLE",
+})
+
+
+def _resolve_renderer_genre(title: str, script: str, explicit_genre: Any) -> str:
+    """Map YuuBin editorial topics to a supported renderer genre."""
+    combined = f"{title} {script}".lower()
+    archaeology_terms = (
+        "khảo cổ", "lịch sử", "lăng mộ", "ngôi mộ", "mai táng", "chôn cất",
+        "cổ vật", "hiện vật", "công trình cổ", "kiến trúc cổ", "bia đá", "văn bia",
+        "chữ khắc", "bằng chứng lịch sử", "bí ẩn cổ đại", "archaeology", "history",
+        "tomb", "burial", "artifact", "ancient structure", "inscription", "ancient mystery",
+    )
+    science_terms = (
+        "cổ sinh", "hóa thạch", "dna", "thiên văn", "địa chất", "ảnh quét",
+        "quét khoa học", "x-quang", "xray", "x-ray", "phép đo", "thiết bị đo",
+        "paleontology", "fossil", "astronomy", "geology", "scientific scan",
+        "instrument measurement",
+    )
+    philosophy_terms = (
+        "triết lý", "bài học cuộc sống", "bài học nhân sinh", "đạo làm người",
+        "chiêm nghiệm cuộc sống", "lời người xưa", "philosophy", "life lesson",
+    )
+
+    if any(term in combined for term in archaeology_terms):
+        return "MYSTERY_PARANORMAL_HISTORY"
+    if any(term in combined for term in science_terms):
+        return "SCIENCE_TECH_FUTURE"
+    if any(term in combined for term in philosophy_terms):
+        return "PHILOSOPHY_LIFE_LESSON"
+
+    explicit = str(explicit_genre or "").strip().upper()
+    if explicit in VALID_VIDEO_GENRES:
+        return explicit
+    return "MYSTERY_PARANORMAL_HISTORY"
+
 
 def adapt_auto_production_to_modal_contract(
     run_snapshot: Dict[str, Any],
@@ -46,11 +91,25 @@ def adapt_auto_production_to_modal_contract(
     )
     brief = request_spec.get("instruction") or title
     script_text = script_plan.get("full_script") or ""
-    voice_code = (
-        overrides.get("voice_code")
-        or request_spec.get("voice")
-        or "vi-VN-HoaiMyNeural"
-    )
+    channel_profile_id = str(
+        request_spec.get("channel_profile_id") or run_snapshot.get("channel_profile_id") or ""
+    ).strip().lower()
+    is_yuubin = channel_profile_id == YUUBIN_PROFILE_ID
+    if is_yuubin:
+        voice_code = YUUBIN_VOICE_CODE
+    else:
+        voice_code = (
+            overrides.get("voice_code")
+            or request_spec.get("voice")
+            or "vi-VN-HoaiMyNeural"
+        )
+    video_genre = None
+    if is_yuubin:
+        video_genre = _resolve_renderer_genre(
+            title,
+            script_text,
+            overrides.get("video_genre") or request_spec.get("video_genre"),
+        )
 
     # Resolve Canvas Dimensions and Aspect Ratio
     manifest_spec = (manifest.get("render_spec") if manifest else None) or {}
@@ -309,5 +368,11 @@ def adapt_auto_production_to_modal_contract(
         "bgm_volume": bgm_volume,
         "visual_engine": "pexels",
     }
+
+    # YuuBin has a production-locked narration profile. Other channels retain
+    # the adapter's previous behavior, including omission of voice_rate.
+    if is_yuubin:
+        contract_payload["video_genre"] = video_genre
+        contract_payload["voice_rate"] = YUUBIN_VOICE_RATE
 
     return contract_payload

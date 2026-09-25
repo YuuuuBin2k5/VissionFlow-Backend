@@ -28,6 +28,7 @@ from production.contracts import (
     ScriptPlan,
     ScriptQualityGateReport,
 )
+from production.retention_lint import retention_lint
 
 
 class ScriptQualityGate:
@@ -49,6 +50,7 @@ class ScriptQualityGate:
         fact_pack: Optional[FactPack] = None,
         target_duration_sec: float = 55.0,
         run_id: Optional[str] = None,
+        enforce_retention: bool = False,
     ) -> ScriptQualityGateReport:
         violations: List[ScriptGateViolation] = []
         metrics: Dict[str, Any] = {}
@@ -295,6 +297,34 @@ class ScriptQualityGate:
                     )
 
         # -------------------------------------------------------------------
+        # Rule 9: Evidence-first retention lint (channel policy, opt-in)
+        # -------------------------------------------------------------------
+        retention_report = None
+        if enforce_retention:
+            retention_report = retention_lint.evaluate(
+                script_plan=script_plan,
+                fact_pack=fact_pack,
+                target_duration_sec=target_duration_sec,
+            )
+            metrics["retention_lint"] = retention_report.model_dump(mode="json", by_alias=True)
+            blocker_codes = {
+                "SETUP_ONLY_FIRST_10_SECONDS",
+                "UNPAID_CURIOSITY_DEBT",
+                "GENERIC_HUMAN_PAYOFF",
+                "WEAK_FIRST_10_INFORMATION_GAIN",
+                "EVIDENCE_TOO_LATE",
+            }
+            for code in retention_report.warnings:
+                violations.append(
+                    ScriptGateViolation(
+                        rule_id=code,
+                        severity="BLOCKER" if code in blocker_codes else "WARNING",
+                        message=f"Retention lint phát hiện lỗi biên tập: {code}.",
+                        details={"first_10s_viability": retention_report.first_10s_viability},
+                    )
+                )
+
+        # -------------------------------------------------------------------
         # Status & Quality Score Calculation
         # -------------------------------------------------------------------
         blockers = [v for v in violations if v.severity == "BLOCKER"]
@@ -319,6 +349,7 @@ class ScriptQualityGate:
             warning_count=len(warnings),
             violations=violations,
             metrics=metrics,
+            retention_lint=retention_report,
         )
 
 

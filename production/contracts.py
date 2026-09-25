@@ -1017,6 +1017,72 @@ class ScriptGateViolation(BaseModel):
     details: Dict[str, Any] = Field(default_factory=dict)
 
 
+class RetentionLintResult(BaseModel):
+    """Internal editorial diagnostics; never part of the renderer payload."""
+    pass_: bool = Field(default=False, alias="pass", serialization_alias="pass")
+    hook_1: str = ""
+    hook_2: str = ""
+    information_gain_10s: str = ""
+    hook_strength: int = Field(default=0, ge=0, le=10)
+    second_hook_strength: int = Field(default=0, ge=0, le=10)
+    first_10s_viability: int = Field(default=0, ge=0, le=10)
+    background_tax: str = "low"
+    curiosity_debt: str = "none"
+    proper_noun_load: str = "low"
+    information_gain_count: int = 0
+    second_reveal_present: bool = False
+    correction_present: bool = False
+    human_payoff_present: bool = False
+    generic_ending: bool = False
+    warnings: List[str] = Field(default_factory=list)
+    checkpoints: Dict[str, List[str]] = Field(default_factory=dict)
+    max_information_gap_sec: float = 0.0
+    hook_1_type: Optional[str] = None
+    hook_2_type: Optional[str] = None
+    estimated_background_entry_second: Optional[float] = None
+    estimated_first_evidence_second: Optional[float] = None
+    estimated_second_information_gain_second: Optional[float] = None
+
+    model_config = {"populate_by_name": True}
+
+
+class EditorialLearningRecord(BaseModel):
+    """Sidecar metadata reserved for later analytics attribution."""
+    content_bucket: Optional[str] = None
+    topic_type: Optional[str] = None
+    physical_evidence_type: Optional[str] = None
+    hook_type: Optional[str] = None
+    second_hook_type: Optional[str] = None
+    first_frame_type: Optional[str] = None
+    reveal_count: int = 0
+    biggest_reveal_position_estimate: Optional[float] = None
+    correction_present: bool = False
+    human_payoff: bool = False
+    estimated_duration: float = 0.0
+    experiment_variable: Optional[str] = None
+    background_tax_level: str = "low"
+    first_10s_viability: int = 0
+    information_gain_count: int = 0
+    hook_1_type: Optional[str] = None
+    hook_2_type: Optional[str] = None
+    background_entry_second: Optional[float] = Field(
+        default=None,
+        description="Estimated pre-TTS second when background/context first enters.",
+    )
+    first_evidence_second: Optional[float] = Field(
+        default=None,
+        description="Estimated pre-TTS second of the first physical evidence beat.",
+    )
+    second_information_gain_second: Optional[float] = Field(
+        default=None,
+        description="Estimated pre-TTS second of the second information gain.",
+    )
+    largest_information_gap_seconds: float = Field(
+        default=0.0,
+        description="Estimated pre-TTS largest gap between information gains.",
+    )
+
+
 class ScriptQualityGateReport(BaseModel):
     report_id: str
     run_id: Optional[str] = None
@@ -1026,6 +1092,7 @@ class ScriptQualityGateReport(BaseModel):
     warning_count: int = 0
     violations: List[ScriptGateViolation] = Field(default_factory=list)
     metrics: Dict[str, Any] = Field(default_factory=dict)
+    retention_lint: Optional[RetentionLintResult] = None
 
 
 
@@ -1206,6 +1273,7 @@ class ProductionRun(BaseModel):
     original_script_plan: Optional[ScriptPlan] = None
     script_plan: Optional[ScriptPlan] = None
     script_gate_report: Optional[ScriptQualityGateReport] = None
+    editorial_learning_record: Optional[EditorialLearningRecord] = None
     visual_plan: Optional[VisualPlan] = None
     resolved_assets: Optional[AssetResolutionResult] = None
     editor_plan: Optional[EditorPlan] = None

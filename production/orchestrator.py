@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional, Set
 from production.contracts import (
     AutoVideoRequest,
     EditorPlan,
+    EditorialLearningRecord,
     InputMode,
     ManualInterventionRecord,
     ManualInterventionType,
@@ -120,6 +121,48 @@ class ProductionOrchestrator:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
+
+    @staticmethod
+    def _retention_policy_enabled(run: ProductionRun) -> bool:
+        """Keep legacy channels stable while enforcing the YuuBin editorial policy."""
+        profile = (run.request.channel_profile_id or run.channel_profile_id or "").strip().lower()
+        override = (run.request.overrides or {}).get("editorial_profile")
+        return profile in {"goc_chiem_nghiem_yuubin", "góc_chiêm_nghiệm_yuubin"} or override == "yuubin_evidence_first"
+
+    @staticmethod
+    def _voice_rate_for_run(run: ProductionRun) -> float:
+        profile = (run.request.channel_profile_id or run.channel_profile_id or "").strip().lower()
+        if profile == "goc_chiem_nghiem_yuubin":
+            return 1.12
+        return 1.0
+
+    @staticmethod
+    def _learning_record_from_gate(run: ProductionRun) -> Optional[EditorialLearningRecord]:
+        report = run.script_gate_report.retention_lint if run.script_gate_report else None
+        if not report:
+            return None
+        return EditorialLearningRecord(
+            content_bucket=(run.request.overrides or {}).get("content_bucket"),
+            topic_type=(run.request.overrides or {}).get("topic_type"),
+            physical_evidence_type=(run.request.overrides or {}).get("physical_evidence_type"),
+            hook_type="evidence" if report.hook_strength >= 6 else "question_or_contradiction",
+            second_hook_type="information_gain" if report.second_hook_strength >= 4 else "weak",
+            first_frame_type=(run.request.overrides or {}).get("first_frame_type"),
+            reveal_count=report.information_gain_count,
+            correction_present=report.correction_present,
+            human_payoff=report.human_payoff_present,
+            estimated_duration=run.script_plan.estimated_total_duration_sec if run.script_plan else 0.0,
+            experiment_variable=(run.request.overrides or {}).get("experiment_variable"),
+            background_tax_level=report.background_tax,
+            first_10s_viability=report.first_10s_viability,
+            information_gain_count=report.information_gain_count,
+            hook_1_type=report.hook_1_type,
+            hook_2_type=report.hook_2_type,
+            background_entry_second=report.estimated_background_entry_second,
+            first_evidence_second=report.estimated_first_evidence_second,
+            second_information_gain_second=report.estimated_second_information_gain_second,
+            largest_information_gap_seconds=report.max_information_gap_sec,
+        )
 
     @staticmethod
     def compute_input_hash(data: Any) -> str:
@@ -421,6 +464,7 @@ class ProductionOrchestrator:
                     fact_pack=None,
                     target_duration_sec=target_dur,
                     run_id=run_id,
+                    enforce_retention=self._retention_policy_enabled(run),
                 )
                 run.script_gate_report = script_gate_report
                 gate_payload = script_gate_report.model_dump(mode="json")
@@ -465,6 +509,7 @@ class ProductionOrchestrator:
                         fact_pack=None,
                         target_duration_sec=target_dur,
                         run_id=run_id,
+                        enforce_retention=self._retention_policy_enabled(run),
                     )
                     run.script_gate_report = script_gate_report
                     gate_payload = script_gate_report.model_dump(mode="json")
@@ -494,28 +539,69 @@ class ProductionOrchestrator:
                 await self._run_stage_idempotent(run_id, "research_story", research_story_payload, 55)
 
                 # 8. Script Generation (REAL)
-                script_plan = script_engine.generate_script_plan(
-                    story_plan=story_plan,
-                    fact_pack=fact_pack,
-                    language=run.request.language or "vi",
-                )
+                enforce_retention = self._retention_policy_enabled(run)
+                script_plan = None
+                script_gate_report = None
+                editorial_feedback: List[str] = []
+                # Initial generation plus at most three rewrite attempts. Providers
+                # receive the same grounded plan; cloud providers may revise, while
+                # deterministic providers fail explicitly instead of leaking bad JSON.
+                for rewrite_attempt in range(4):
+                    script_plan = script_engine.generate_script_plan(
+                        story_plan=story_plan,
+                        fact_pack=fact_pack,
+                        language=run.request.language or "vi",
+                        editorial_feedback=editorial_feedback,
+                    )
+                    script_gate_report = script_quality_gate.evaluate(
+                        script_plan=script_plan,
+                        fact_pack=fact_pack,
+                        target_duration_sec=target_dur,
+                        run_id=run_id,
+                        enforce_retention=enforce_retention,
+                    )
+                    if script_gate_report.status != QualityStatus.FAIL or not enforce_retention:
+                        break
+                    editorial_feedback = [
+                        f"{violation.rule_id}: {violation.message}"
+                        for violation in script_gate_report.violations
+                        if violation.severity == "BLOCKER"
+                    ]
+                    logger.warning(
+                        "Retention validation failed for run %s (rewrite %d/3): %s",
+                        run_id,
+                        rewrite_attempt,
+                        [v.rule_id for v in script_gate_report.violations if v.severity == "BLOCKER"],
+                    )
+
                 run.script_plan = script_plan
                 script_payload = script_plan.model_dump(mode="json")
                 await self._run_stage_idempotent(run_id, "script_generation", script_payload, 60)
 
                 # 9. Script Quality Gate (REAL)
-                script_gate_report = script_quality_gate.evaluate(
-                    script_plan=script_plan,
-                    fact_pack=fact_pack,
-                    target_duration_sec=target_dur,
-                    run_id=run_id,
-                )
                 run.script_gate_report = script_gate_report
                 gate_payload = script_gate_report.model_dump(mode="json")
                 await self._run_stage_idempotent(run_id, "script_quality_gate", gate_payload, 65)
 
             if run.script_plan and run.original_script_plan is None:
                 run.original_script_plan = run.script_plan.model_copy(deep=True)
+
+            run.editorial_learning_record = self._learning_record_from_gate(run)
+            if (
+                self._retention_policy_enabled(run)
+                and run.script_gate_report
+                and run.script_gate_report.status == QualityStatus.FAIL
+            ):
+                blocker_ids = [
+                    violation.rule_id
+                    for violation in run.script_gate_report.violations
+                    if violation.severity == "BLOCKER"
+                ]
+                run_repository.update(run)
+                raise ValueError(
+                    "SCRIPT_RETENTION_VALIDATION_FAILED_AFTER_3_REWRITES: "
+                    + ", ".join(blocker_ids)
+                )
 
             # Save updated run with Phase 3 artifacts
             run_repository.update(run)
@@ -606,6 +692,7 @@ class ProductionOrchestrator:
             tts_results = await tts_service.synthesize_script(
                 scenes=run.script_plan.scenes,
                 voice_code=resolved_voice,
+                voice_rate=self._voice_rate_for_run(run),
                 run_id=run_id,
             )
             tts_providers = {item.provider for item in tts_results}
@@ -962,7 +1049,7 @@ class ProductionOrchestrator:
                     actual_duration_seconds=dur,
                     provider="cached_voice",
                     voice_code="vi-VN-NamMinhNeural",
-                    voice_rate=1.0,
+                    voice_rate=self._voice_rate_for_run(run),
                 )
             )
 
@@ -1027,6 +1114,7 @@ class ProductionOrchestrator:
         fresh_tts_results = await tts_service.synthesize_script(
             scenes=scenes_to_synth,
             voice_code=voice_code,
+            voice_rate=self._voice_rate_for_run(run),
             run_id=run_id,
         )
         tts_map = {r.scene_id: r for r in fresh_tts_results}
@@ -1047,7 +1135,7 @@ class ProductionOrchestrator:
                             actual_duration_seconds=prev_scn.actual_duration_seconds or 4.0,
                             provider="cached_voice",
                             voice_code=voice_code,
-                            voice_rate=1.0,
+                            voice_rate=self._voice_rate_for_run(run),
                         )
                     )
 

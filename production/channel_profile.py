@@ -55,6 +55,7 @@ BUILTIN_CHANNEL_PROFILES: List[ChannelProfile] = [
         title_style="nostalgic",
         title_prefix="Lời Dặn Cổ Xưa",
         voice_code="vi-VN-NamMinhNeural",
+        voice_rate=1.12,
         target_duration_seconds=45,
         archetype_preferences=["DOCUMENTARY", "COMMENTARY"],
         hook_style="story_mystery",

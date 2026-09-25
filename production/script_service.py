@@ -50,6 +50,7 @@ class ScriptProvider(ABC):
         fact_pack: FactPack,
         language: str = "vi",
         target_wps: float = DEFAULT_WORDS_PER_SECOND,
+        editorial_feedback: Optional[List[str]] = None,
     ) -> ScriptPlan:
         pass
 
@@ -73,6 +74,7 @@ class GeminiScriptProvider(ScriptProvider):
         fact_pack: FactPack,
         language: str = "vi",
         target_wps: float = DEFAULT_WORDS_PER_SECOND,
+        editorial_feedback: Optional[List[str]] = None,
     ) -> ScriptPlan:
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY not configured")
@@ -98,6 +100,11 @@ class GeminiScriptProvider(ScriptProvider):
 
         is_en = (language or "vi").strip().lower().startswith("en")
         effective_wps = 2.5 if is_en else target_wps
+        feedback_text = ""
+        if editorial_feedback:
+            feedback_text = "\nFAILED EDITORIAL CHECKS FROM THE PREVIOUS DRAFT:\n" + "\n".join(
+                f"- {item}" for item in editorial_feedback
+            )
 
         if is_en:
             prompt = f"""
@@ -116,6 +123,7 @@ STORY ARCHITECTURE:
 FACTPACK GROUNDING:
 {claims_text}
 {contradictions_text}
+{feedback_text}
 
 MANDATORY RULES:
 1. Write in natural, vivid, idiomatic conversational English (rhythmic, fast-paced, high retention, avoid awkward robotic translation).
@@ -126,6 +134,10 @@ MANDATORY RULES:
 6. If contradictions are listed, qualify the statement (e.g. 'While experts remain divided...') rather than asserting disputed claims as absolute truth.
 7. Do NOT add sound effect descriptions or brackets in the narration field. Put visual notes into 'visual_cue' in English.
 8. Return valid raw JSON matching:
+9. Editorial order: concrete evidence -> contradiction/anomaly -> stronger evidence -> correction -> specific human payoff.
+10. In 0-3s state a physical clue or observable anomaly; in 3-7s add a distinct information gain; by 10s deliver evidence, a meaningful question, or a correction.
+11. Do not front-load dates, institutions, researchers, locations, methodology, or more than one hard-to-remember proper noun.
+12. If you open a curiosity loop, pay it partially within the next 2-4 seconds. End by returning to a concrete object and a specific human detail, never a generic philosophy or CTA.
 {{
   "title": "catchy English video title",
   "scenes": [
@@ -156,6 +168,7 @@ STORY ARCHITECTURE:
 FACTPACK GROUNDING:
 {claims_text}
 {contradictions_text}
+{feedback_text}
 
 MANDATORY RULES:
 1. Write in natural, vivid, conversational Vietnamese (không dịch máy, không văn phong dịch thuật gượng gạo).
@@ -166,6 +179,10 @@ MANDATORY RULES:
 6. If contradictions are listed, qualify the statement (e.g. 'Dù còn nhiều ý kiến trái chiều...') rather than asserting disputed claims as absolute truth.
 7. Do NOT add sound effect descriptions or brackets in the narration field. Put visual notes into 'visual_cue'.
 8. Return valid raw JSON matching:
+9. Editorial order: bằng chứng cụ thể -> mâu thuẫn/bất thường -> bằng chứng mạnh hơn -> diễn giải lại -> giá trị con người cụ thể.
+10. Trong 0-3 giây phải nêu dấu vết vật lý hoặc bất thường quan sát được; 3-7 giây phải thêm thông tin mới; trước giây 10 phải có bằng chứng, câu hỏi có ý nghĩa hoặc correction.
+11. Không đưa ngày tháng, tổ chức, nhà nghiên cứu, địa danh, phương pháp hoặc quá một proper noun khó nhớ lên trước bằng chứng thứ hai.
+12. Nếu mở curiosity loop, phải trả partial payoff trong 2-4 giây tiếp theo. Kết thúc phải quay lại vật thể thật và chi tiết con người cụ thể, không dùng triết lý hay CTA chung chung.
 {{
   "title": "catchy Vietnamese video title",
   "scenes": [
@@ -244,6 +261,7 @@ class LocalScriptProvider(ScriptProvider):
         fact_pack: FactPack,
         language: str = "vi",
         target_wps: float = DEFAULT_WORDS_PER_SECOND,
+        editorial_feedback: Optional[List[str]] = None,
     ) -> ScriptPlan:
         topic = fact_pack.topic
         scenes: List[SceneNarration] = []
@@ -355,6 +373,7 @@ class ScriptEngine:
         fact_pack: FactPack,
         language: str = "vi",
         target_wps: float = DEFAULT_WORDS_PER_SECOND,
+        editorial_feedback: Optional[List[str]] = None,
     ) -> ScriptPlan:
         try:
             return self.provider.generate_script(
@@ -362,6 +381,7 @@ class ScriptEngine:
                 fact_pack=fact_pack,
                 language=language,
                 target_wps=target_wps,
+                editorial_feedback=editorial_feedback,
             )
         except Exception as e:
             logger.warning(f"Primary script provider failed ({e}). Using local fallback.")
@@ -370,6 +390,7 @@ class ScriptEngine:
                 fact_pack=fact_pack,
                 language=language,
                 target_wps=target_wps,
+                editorial_feedback=editorial_feedback,
             )
 
 
