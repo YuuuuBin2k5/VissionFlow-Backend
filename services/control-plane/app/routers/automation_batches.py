@@ -9,7 +9,7 @@ from typing import Any, Literal
 logger = logging.getLogger("visionflow.automation_batches")
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -18,7 +18,7 @@ from app.core.oidc import VerifiedIdentity
 from app.domain.authorization import Permission
 from app.infrastructure.database import get_session
 from app.infrastructure.membership_repository import SqlAlchemyOrganizationMembershipRepository
-from app.infrastructure.models import AutomationBatch, AutomationJob, VideoProject, WorkflowRun
+from app.infrastructure.models import AutomationBatch, AutomationJob, PublisherConnection, VideoProject, WorkflowRun
 from app.routers.auth import require_identity
 from production.contracts import ProductionRunStatus, ReviewSource
 from production.human_review import HumanReviewError, human_review_service
@@ -97,6 +97,104 @@ async def resume_pending_automation_jobs() -> None:
                 session.commit()
 
 
+def dispatch_ready_automation_publications_once(limit: int = 10) -> int:
+    """Dispatch approved scheduled jobs without relying on an open browser tab."""
+    from sqlalchemy.orm import Session as SqlSession
+
+    from app.application.advance_workflow import AdvanceWorkflow
+    from app.application.begin_manual_publish import BeginManualPublish, BeginManualPublishCommand
+    from app.infrastructure.database import get_engine
+    from app.infrastructure.workflow_progression_repository import SqlAlchemyWorkflowProgressionRepository
+    from app.routers.workflows import _process_publication_attempt_in_background
+
+    dispatched: list[tuple[uuid.UUID, uuid.UUID, uuid.UUID, str | None]] = []
+    with SqlSession(get_engine()) as session:
+        rows = session.execute(
+            select(AutomationJob, AutomationBatch)
+            .join(AutomationBatch, AutomationBatch.id == AutomationJob.batch_id)
+            .where(AutomationJob.auto_publish_policy == "AUTO_SCHEDULE")
+            .order_by(AutomationJob.updated_at.asc())
+            .limit(max(limit * 20, 100))
+        ).all()
+        for job, batch in rows:
+            if len(dispatched) >= limit:
+                break
+            try:
+                workflow_id = uuid.UUID(str(job.production_run_id))
+            except (TypeError, ValueError):
+                continue
+            workflow = session.get(WorkflowRun, workflow_id)
+            if workflow is None or workflow.state != "APPROVED":
+                continue
+
+            settings = batch.settings if isinstance(batch.settings, dict) else {}
+            raw_connection_id = settings.get("youtube_publisher_connection_id")
+            try:
+                connection_id = uuid.UUID(str(raw_connection_id))
+            except (TypeError, ValueError):
+                job.error_code = "YOUTUBE_CONNECTION_REQUIRED"
+                job.error_message = "Automation batch has no selected YouTube publisher connection."
+                continue
+            connection = session.scalar(
+                select(PublisherConnection).where(
+                    PublisherConnection.id == connection_id,
+                    PublisherConnection.organization_id == batch.organization_id,
+                    PublisherConnection.provider == "youtube",
+                    PublisherConnection.status == "active",
+                )
+            )
+            if connection is None:
+                job.error_code = "YOUTUBE_CONNECTION_UNAVAILABLE"
+                job.error_message = "Selected YouTube publisher connection is unavailable."
+                continue
+
+            scheduled_at_iso = job.scheduled_publish_at.isoformat() if job.scheduled_publish_at else None
+            organization_id = batch.organization_id
+            selected_connection_id = connection.id
+            try:
+                BeginManualPublish(AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(session))).execute(
+                    BeginManualPublishCommand(
+                        organization_id=batch.organization_id,
+                        workflow_run_id=workflow_id,
+                        publisher_connection_id=connection.id,
+                        publisher_provider=connection.provider,
+                        publisher_account_id=connection.provider_account_id,
+                        requested_by_subject=batch.requested_by_subject,
+                        note=f"[VisionFlow Automation] {job.title}",
+                        scheduled_at_iso=scheduled_at_iso,
+                        trace_id=uuid.uuid4().hex,
+                    )
+                )
+            except Exception as exc:
+                session.rollback()
+                logger.info("Automation publication claim skipped for %s: %s", workflow_id, exc)
+                continue
+            dispatched.append((workflow_id, organization_id, selected_connection_id, scheduled_at_iso))
+
+        session.commit()
+
+    for workflow_id, organization_id, connection_id, scheduled_at_iso in dispatched:
+        _process_publication_attempt_in_background(
+            workflow_id,
+            organization_id,
+            connection_id,
+            scheduled_at_iso=scheduled_at_iso,
+        )
+    return len(dispatched)
+
+
+async def run_automation_publication_dispatcher() -> None:
+    """Continuously recover and dispatch durable automatic publications."""
+    while True:
+        try:
+            await asyncio.to_thread(dispatch_ready_automation_publications_once)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.exception("Automation publication dispatcher failed: %s", exc)
+        await asyncio.sleep(15)
+
+
 class AutomationItemRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
     payload: dict[str, Any]
@@ -130,6 +228,15 @@ class CreateAutomationBatchRequest(BaseModel):
     schedule_platform: Literal["ALL", "TIKTOK", "YOUTUBE", "FACEBOOK"] = "ALL"
     schedule_start_at: str | None = Field(default=None)
     schedule_interval_minutes: int = Field(default=120, ge=15, le=1440)
+    youtube_publisher_connection_id: uuid.UUID | None = None
+
+    @model_validator(mode="after")
+    def validate_auto_publish_platform(self) -> "CreateAutomationBatchRequest":
+        if self.auto_schedule and self.schedule_platform != "YOUTUBE":
+            raise ValueError("Automated publishing currently supports YouTube only")
+        if self.auto_schedule and self.youtube_publisher_connection_id is None:
+            raise ValueError("YouTube publisher connection is required for automated publishing")
+        return self
 
 
 class AutomationJobResponse(BaseModel):
@@ -147,6 +254,7 @@ class AutomationJobResponse(BaseModel):
     scheduled_publish_at: str | None = None
     schedule_platform: str | None = None
     auto_publish_policy: str = "MANUAL"
+    publication_state: Literal["NOT_REQUESTED", "READY", "PUBLISHING", "PUBLISHED", "FAILED"] = "NOT_REQUESTED"
 
 
 class AutomationBatchResponse(BaseModel):
@@ -193,12 +301,13 @@ def _map_run_state(run_status: ProductionRunStatus) -> str:
     return "PROCESSING"
 
 
-def _reconcile(session: Session, batch: AutomationBatch) -> list[tuple[AutomationJob, int, str | None]]:
+def _reconcile(session: Session, batch: AutomationBatch) -> list[tuple[AutomationJob, int, str | None, str]]:
     jobs = list(session.scalars(select(AutomationJob).where(AutomationJob.batch_id == batch.id).order_by(AutomationJob.position)))
-    projections: list[tuple[AutomationJob, int, str | None]] = []
+    projections: list[tuple[AutomationJob, int, str | None, str]] = []
     for job in jobs:
         progress = 0
         stage = None
+        publication_state = "NOT_REQUESTED"
         if job.production_run_id:
             # 1. Check if production_run_id points to a standard Studio WorkflowRun
             wf_run: WorkflowRun | None = None
@@ -221,21 +330,35 @@ def _reconcile(session: Session, batch: AutomationBatch) -> list[tuple[Automatio
                 elif wf_state in ("RENDERED", "QC_PASSED", "APPROVED", "APPROVAL_PENDING"):
                     progress = 100
                     stage = "Video đã render hoàn tất"
-                    if batch.approval_policy == "AUTO_APPROVE":
+                    if wf_state == "APPROVED":
+                        mapped = "COMPLETED"
+                        if job.auto_publish_policy == "AUTO_SCHEDULE":
+                            publication_state = "READY"
+                    elif batch.approval_policy == "AUTO_APPROVE":
                         mapped = "COMPLETED"
                         if wf_state == "APPROVAL_PENDING":
                             wf_run.state = "APPROVED"
+                        if job.auto_publish_policy == "AUTO_SCHEDULE":
+                            publication_state = "READY"
                     else:
                         mapped = "REVIEW_PENDING"
+                elif wf_state == "PUBLISHING":
+                    progress = 100
+                    stage = "Đang tải video lên nền tảng"
+                    mapped = "PUBLISHING"
+                    publication_state = "PUBLISHING"
                 elif wf_state == "PUBLISHED":
                     progress = 100
                     stage = "Đã xuất bản video"
                     mapped = "COMPLETED"
+                    publication_state = "PUBLISHED"
                 elif wf_state in ("FAILED", "RENDER_FAILED"):
                     mapped = "FAILED"
                     stage = f"Lỗi render: {wf_run.failure_code or 'Unknown'}"
                     job.error_code = wf_run.failure_code
                     job.error_message = wf_run.failure_detail
+                    if wf_run.failure_code in {"YOUTUBE_UPLOAD_FAILED", "DATABASE_CONNECTION_LOST"}:
+                        publication_state = "FAILED"
                 elif wf_state == "CANCELLED":
                     mapped = "CANCELLED"
                     stage = "Đã hủy"
@@ -275,7 +398,7 @@ def _reconcile(session: Session, batch: AutomationBatch) -> list[tuple[Automatio
                     if mapped == "FAILED":
                         job.error_code = run.status.value
                         job.error_message = run.error_message
-        projections.append((job, progress, stage))
+        projections.append((job, progress, stage, publication_state))
 
     states = {job.state for job in jobs}
     if not jobs:
@@ -299,7 +422,7 @@ def _reconcile(session: Session, batch: AutomationBatch) -> list[tuple[Automatio
     return projections
 
 
-def _response(batch: AutomationBatch, projections: list[tuple[AutomationJob, int, str | None]]) -> AutomationBatchResponse:
+def _response(batch: AutomationBatch, projections: list[tuple[AutomationJob, int, str | None, str]]) -> AutomationBatchResponse:
     jobs = [
         AutomationJobResponse(
             id=job.id,
@@ -316,8 +439,9 @@ def _response(batch: AutomationBatch, projections: list[tuple[AutomationJob, int
             scheduled_publish_at=job.scheduled_publish_at.isoformat() if job.scheduled_publish_at else None,
             schedule_platform=job.schedule_platform,
             auto_publish_policy=job.auto_publish_policy or "MANUAL",
+            publication_state=publication_state,
         )
-        for job, progress, stage in projections
+        for job, progress, stage, publication_state in projections
     ]
     return AutomationBatchResponse(
         id=batch.id,
@@ -349,6 +473,18 @@ async def create_automation_batch(
     if existing is not None:
         return _response(existing, _reconcile(session, existing))
 
+    if request.auto_schedule:
+        connection = session.scalar(
+            select(PublisherConnection).where(
+                PublisherConnection.id == request.youtube_publisher_connection_id,
+                PublisherConnection.organization_id == organization_id,
+                PublisherConnection.provider == "youtube",
+                PublisherConnection.status == "active",
+            )
+        )
+        if connection is None:
+            raise HTTPException(status_code=422, detail="Selected YouTube publisher connection is unavailable")
+
     batch = AutomationBatch(
         organization_id=organization_id,
         name=request.name.strip(),
@@ -356,7 +492,13 @@ async def create_automation_batch(
         channel_profile_id=request.channel_profile_id,
         requested_by_subject=identity.subject,
         idempotency_key=idempotency_key,
-        settings={"language": request.language, "run_environment": request.run_environment},
+        settings={
+            "language": request.language,
+            "run_environment": request.run_environment,
+            "youtube_publisher_connection_id": (
+                str(request.youtube_publisher_connection_id) if request.youtube_publisher_connection_id else None
+            ),
+        },
     )
     session.add(batch)
     session.flush()
@@ -741,6 +883,8 @@ async def schedule_automation_job(
     ))
     if batch is None or job is None:
         raise HTTPException(status_code=404, detail="Automation batch or job not found")
+    if request.auto_publish_policy == "AUTO_SCHEDULE" and request.schedule_platform != "YOUTUBE":
+        raise HTTPException(status_code=422, detail="Automated publishing currently supports YouTube only")
 
     dt: datetime | None = None
     if request.scheduled_publish_at:
@@ -786,6 +930,8 @@ async def batch_schedule_jobs(
     ))
     if batch is None:
         raise HTTPException(status_code=404, detail="Automation batch not found")
+    if request.platform != "YOUTUBE":
+        raise HTTPException(status_code=422, detail="Automated publishing currently supports YouTube only")
 
     try:
         base_dt = datetime.fromisoformat(request.start_at.replace("Z", "+00:00"))

@@ -2325,6 +2325,8 @@ def begin_manual_publish(
         )
         if connection is None:
             raise LookupError("Active publisher connection not found")
+        if connection.provider.lower() != "youtube":
+            raise ValueError("manual-dispatch only accepts an active YouTube connection")
 
         wf = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
         if wf is None:
@@ -2352,6 +2354,15 @@ def begin_manual_publish(
                 changed=False,
             )
 
+        if wf.state == WorkflowState.PUBLISHING:
+            # Another request, tab, or worker already owns this attempt. Never
+            # start a second upload for the same workflow.
+            return WorkflowTransitionResponse(
+                workflow_run_id=workflow_run_id,
+                state=WorkflowState.PUBLISHING.value,
+                changed=False,
+            )
+
         # Auto-approve if in an earlier post-render state
         if wf.state in (WorkflowState.RENDERED, WorkflowState.QA_PENDING, WorkflowState.APPROVAL_PENDING):
             wf.state = WorkflowState.APPROVED
@@ -2360,7 +2371,10 @@ def begin_manual_publish(
         # Set current timestamp for manual immediate publish if scheduled_at_iso is omitted
         pub_timestamp_iso = request.scheduled_at_iso or datetime.now(UTC).isoformat()
 
-        # If in APPROVED state, execute state transition to PUBLISHING & create initial PublicationAttempt
+        if wf.state != WorkflowState.APPROVED:
+            raise WorkflowStateConflict(f"Workflow state {wf.state} is not publishable")
+
+        # Execute state transition to PUBLISHING & create initial PublicationAttempt.
         if wf.state == WorkflowState.APPROVED:
             BeginManualPublish(AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(session))).execute(
                 BeginManualPublishCommand(
@@ -2375,24 +2389,6 @@ def begin_manual_publish(
                     trace_id=_trace_id(request_id),
                 )
             )
-
-        # If in PUBLISHING state, update dispatch payload
-        elif wf.state == WorkflowState.PUBLISHING:
-            publish_step = session.scalar(
-                select(WorkflowStep).where(
-                    WorkflowStep.workflow_run_id == workflow_run_id,
-                    WorkflowStep.step_key == "publish",
-                )
-            )
-            if publish_step and isinstance(publish_step.output_payload, dict):
-                payload = dict(publish_step.output_payload)
-                payload["publisher_connection_id"] = str(connection.id)
-                payload["publisher_provider"] = connection.provider
-                payload["publisher_account_id"] = connection.provider_account_id
-                payload["scheduled_at_iso"] = pub_timestamp_iso
-                payload["note"] = request.note
-                publish_step.output_payload = payload
-                session.commit()
 
         # Execute publication attempt synchronously in the request cycle
         _process_publication_attempt_in_background(

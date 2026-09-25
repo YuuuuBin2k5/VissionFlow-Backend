@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import uuid
@@ -231,6 +232,22 @@ async def _resume_automation_batches() -> None:
     except Exception as exc:
         # Alembic may intentionally run after app import in maintenance jobs.
         logger.error("automation batch recovery failed (non-fatal): %s", exc, exc_info=True)
+
+    app.state.automation_publication_task = asyncio.create_task(
+        automation_batches.run_automation_publication_dispatcher()
+    )
+
+
+@app.on_event("shutdown")
+async def _stop_automation_publication_dispatcher() -> None:
+    task = getattr(app.state, "automation_publication_task", None)
+    if task is None:
+        return
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
 
 
 def _normalize_trace_id(request_id: str | None) -> str:
