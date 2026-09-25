@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from functools import lru_cache
+import logging
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
+
+
+logger = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=1)
@@ -28,5 +32,14 @@ def get_engine() -> Engine:
 
 
 def get_session():
-    with Session(get_engine()) as session:
+    session = Session(get_engine())
+    try:
         yield session
+    finally:
+        try:
+            session.close()
+        except Exception:
+            # Cleanup must never replace the actual HTTP response/error. This
+            # can happen when PostgreSQL drops an in-flight connection and
+            # SQLAlchemy attempts a final ROLLBACK while closing the session.
+            logger.exception("Database session cleanup failed")

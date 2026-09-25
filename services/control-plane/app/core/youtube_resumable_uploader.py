@@ -117,6 +117,8 @@ class YouTubeResumableUploader:
             return False
 
     def _build_resource(self, metadata: YouTubeUploadMetadata) -> dict:
+        if metadata.privacy_status not in {"unlisted", "private"}:
+            raise ValueError("YouTube uploads must use unlisted or private visibility")
         status: dict = {"privacyStatus": metadata.privacy_status}
         if metadata.publish_at_iso and metadata.privacy_status == "private":
             status["publishAt"] = metadata.publish_at_iso

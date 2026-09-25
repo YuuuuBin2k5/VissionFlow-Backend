@@ -1792,10 +1792,10 @@ def _process_publication_attempt_in_background(
     scheduled_at_iso: str | None = None,
 ) -> None:
     """
-    Background task: authenticate with YouTube, download the exported MP4 from R2,
+    Publication task: authenticate with YouTube, download the exported MP4 from R2,
     upload it via the YouTube Data API v3 resumable upload, then mark the workflow
-    PUBLISHED. On any failure the attempt is marked "failed" and the workflow reverts
-    to APPROVED so the operator can retry.
+    PUBLISHED. On any failure the attempt and workflow are marked FAILED so the
+    scheduler can display the failure and the operator can explicitly retry it.
     """
     session = None
     try:
@@ -1916,12 +1916,11 @@ def _process_publication_attempt_in_background(
             description = publish_manifest.description
 
             # ---- 7. Upload to YouTube via Resumable API -------------------------
-            # If scheduled_at_iso is in the future (> 10 min from now), use
-            # YouTube's native scheduled-publish: upload as "private" with
-            # publishAt set — YouTube will auto-make it public at that time.
-            # Otherwise publish immediately as "public".
+            # A manual upload is always unlisted. If scheduled_at_iso is in
+            # the future (> 10 min from now), use YouTube's native scheduling:
+            # upload as private with publishAt. Never fall back to public.
             _publish_at_iso: str | None = None
-            _privacy_status = "public"
+            _privacy_status = "unlisted"
             if scheduled_at_iso:
                 try:
                     from datetime import timezone as _tz
@@ -1937,7 +1936,7 @@ def _process_publication_attempt_in_background(
                         )
                     else:
                         _bg_logger.info(
-                            "scheduled_at_iso %s is too close / in the past; publishing as public immediately",
+                            "scheduled_at_iso %s is too close / in the past; uploading as unlisted without publishAt",
                             scheduled_at_iso,
                         )
                 except Exception as _dt_err:
@@ -1997,6 +1996,11 @@ def _process_publication_attempt_in_background(
                             _bg_logger.warning("FFmpeg frame extraction returned code %s", sub_res.returncode)
                 except Exception as _ff_err:
                     _bg_logger.warning("FFmpeg frame extraction failed: %s", _ff_err)
+
+            # Do not hold an idle PostgreSQL transaction throughout the
+            # potentially long YouTube upload. A later query will check out a
+            # fresh/pre-pinged connection before persisting the result.
+            session.commit()
 
             uploader = YouTubeResumableUploader(http_session)
             result = uploader.upload(
@@ -2095,8 +2099,29 @@ def _process_publication_attempt_in_background(
                 attempt.state = "failed"
                 attempt.failure_code = f"{type(exc).__name__}: {exc}"[:90]
             wf = fail_session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
-            if wf and wf.state == WorkflowState.PUBLISHING:
-                wf.state = WorkflowState.APPROVED
+            if wf and wf.state == WorkflowState.PUBLISHING.value:
+                failure_detail = f"{type(exc).__name__}: {exc}"
+                failure_code = (
+                    "DATABASE_CONNECTION_LOST"
+                    if "server closed the connection unexpectedly" in str(exc).lower()
+                    or "consuming input failed" in str(exc).lower()
+                    else "YOUTUBE_UPLOAD_FAILED"
+                )
+                AdvanceWorkflow(SqlAlchemyWorkflowProgressionRepository(fail_session)).execute(
+                    AdvanceWorkflowCommand(
+                        organization_id=organization_id,
+                        workflow_run_id=workflow_run_id,
+                        expected_state=WorkflowState.PUBLISHING,
+                        target_state=WorkflowState.FAILED,
+                        output_payload={
+                            "provider": "youtube",
+                            "failure_code": failure_code,
+                        },
+                        trace_id=uuid.uuid4().hex,
+                    )
+                )
+                wf.failure_code = failure_code
+                wf.failure_detail = failure_detail[:2_000]
 
             # Mark connection status as expired if refresh token is invalid or expired
             if "YOUTUBE_SESSION_EXPIRED" in str(exc) or "decrypted" in str(exc) or "invalid_grant" in str(exc):
@@ -2365,7 +2390,6 @@ def begin_manual_publish(
                 payload["publisher_provider"] = connection.provider
                 payload["publisher_account_id"] = connection.provider_account_id
                 payload["scheduled_at_iso"] = pub_timestamp_iso
-                payload["published_at_iso"] = pub_timestamp_iso
                 payload["note"] = request.note
                 publish_step.output_payload = payload
                 session.commit()
