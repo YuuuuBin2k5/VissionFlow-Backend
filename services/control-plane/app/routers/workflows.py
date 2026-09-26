@@ -743,30 +743,25 @@ def lock_creative_document(
     session: Session = Depends(get_session),
 ) -> CreativeDocumentResponse:
     try:
-        snapshot = SqlAlchemyCreativeDocumentRepository(session).lock(
+        AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(
+            identity.subject, request.organization_id, Permission.WORKFLOW_CREATE
+        )
+        repository = SqlAlchemyCreativeDocumentRepository(session)
+        snapshot = repository.lock(
             organization_id=request.organization_id,
             workflow_run_id=workflow_run_id,
             expected_revision=request.expected_revision,
         )
         return _creative_document_response(snapshot)
     except (CreativeDocumentConflict, ValueError):
-        snapshot = SqlAlchemyCreativeDocumentRepository(session).get_latest(
-            organization_id=request.organization_id,
-            workflow_run_id=workflow_run_id,
-        )
+        snapshot = SqlAlchemyCreativeDocumentRepository(session).read(request.organization_id, workflow_run_id)
         if snapshot:
             return _creative_document_response(snapshot)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Creative document not found")
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    except PermissionError:
-        snapshot = SqlAlchemyCreativeDocumentRepository(session).get_latest(
-            organization_id=request.organization_id,
-            workflow_run_id=workflow_run_id,
-        )
-        if snapshot:
-            return _creative_document_response(snapshot)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Creative document not found")
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Organization permission denied") from exc
 
 
 @router.get("/workflows/{workflow_run_id}/composition", response_model=dict[str, Any])
@@ -1502,7 +1497,13 @@ def list_publication_attempts(organization_id: uuid.UUID, limit: int = Query(def
 
 
 @router.post("/workflows/{workflow_run_id}/publication-attempts", response_model=PublicationAttemptResponse)
-def create_publication_attempt(workflow_run_id: uuid.UUID, request: CreatePublicationAttemptRequest, identity: VerifiedIdentity = Depends(require_identity), session: Session = Depends(get_session)) -> PublicationAttemptResponse:
+def create_publication_attempt(
+    workflow_run_id: uuid.UUID,
+    request: CreatePublicationAttemptRequest,
+    identity: VerifiedIdentity = Depends(require_identity),
+    session: Session = Depends(get_session),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+) -> PublicationAttemptResponse:
     try:
         AuthorizeOrganization(SqlAlchemyOrganizationMembershipRepository(session)).require(identity.subject, request.organization_id, Permission.PUBLISH_EXECUTE)
         workflow = session.scalar(select(WorkflowRun).join(VideoProject).where(WorkflowRun.id == workflow_run_id, VideoProject.organization_id == request.organization_id).with_for_update())
@@ -1510,17 +1511,41 @@ def create_publication_attempt(workflow_run_id: uuid.UUID, request: CreatePublic
         failure = session.scalar(select(WorkflowStep).where(WorkflowStep.workflow_run_id == workflow_run_id, WorkflowStep.step_key == "failure"))
         if workflow is None or connection is None or workflow.state != WorkflowState.FAILED.value or not _is_youtube_publish_failure(failure): raise LookupError()
         active_attempt = session.scalar(
-            select(PublicationAttempt.id).where(
+            select(PublicationAttempt).where(
                 PublicationAttempt.workflow_run_id == workflow_run_id,
-                PublicationAttempt.state.in_(("requested", "claimed", "uploading")),
+                PublicationAttempt.state.in_(("pending", "requested", "claimed", "uploading")),
             )
+            .order_by(PublicationAttempt.attempt_number.desc())
         )
         if active_attempt is not None:
+            if active_attempt.state == "pending":
+                background_tasks.add_task(
+                    _process_publication_attempt_in_background,
+                    workflow_run_id,
+                    request.organization_id,
+                    active_attempt.publisher_connection_id,
+                )
+                return PublicationAttemptResponse(
+                    id=active_attempt.id,
+                    workflow_run_id=active_attempt.workflow_run_id,
+                    publisher_connection_id=active_attempt.publisher_connection_id,
+                    attempt_number=active_attempt.attempt_number,
+                    state=active_attempt.state,
+                    failure_code=active_attempt.failure_code,
+                    external_url=active_attempt.external_url,
+                    external_video_id=active_attempt.external_video_id,
+                )
             raise ActivePublicationAttemptError()
         number = len(list(session.scalars(select(PublicationAttempt).where(PublicationAttempt.workflow_run_id == workflow_run_id)))) + 1
         attempt = PublicationAttempt(workflow_run_id=workflow_run_id, publisher_connection_id=connection.id, attempt_number=number, state="pending", requested_by_subject=identity.subject)
         session.add(attempt); session.flush()
         session.add(OutboxEvent(aggregate_type="publication_attempt", aggregate_id=attempt.id, event_type="visionflow.publication_attempt.requested.v1", payload={"publication_attempt_id": str(attempt.id), "workflow_run_id": str(workflow_run_id), "organization_id": str(request.organization_id), "publisher_connection_id": str(connection.id)}, trace_id=uuid.uuid4().hex)); session.commit()
+        background_tasks.add_task(
+            _process_publication_attempt_in_background,
+            workflow_run_id,
+            request.organization_id,
+            connection.id,
+        )
     except PermissionError as exc: raise HTTPException(status_code=403, detail="Organization permission denied") from exc
     except LookupError as exc: raise HTTPException(status_code=404, detail="Failed publish handoff or active channel not found") from exc
     except ActivePublicationAttemptError as exc: raise HTTPException(status_code=409, detail="PUBLICATION_ATTEMPT_ALREADY_ACTIVE") from exc
@@ -1818,11 +1843,12 @@ def _process_publication_attempt_in_background(
             select(PublicationAttempt)
             .where(PublicationAttempt.workflow_run_id == workflow_run_id)
             .order_by(PublicationAttempt.attempt_number.desc())
+            .with_for_update()
         )
-        if not attempt or attempt.state in ("succeeded", "published", "completed"):
+        if not attempt or attempt.state not in ("pending", "requested"):
             _bg_logger.info(
-                "Publication attempt for %s already done or missing; skipping.",
-                workflow_run_id,
+                "Publication attempt for %s is missing or already owned/finalized; skipping (state=%s).",
+                workflow_run_id, attempt.state if attempt else "missing",
             )
             return
 
@@ -2036,8 +2062,8 @@ def _process_publication_attempt_in_background(
         session.flush()
 
         wf = session.scalar(select(WorkflowRun).where(WorkflowRun.id == workflow_run_id))
-        if wf and wf.state == WorkflowState.PUBLISHING:
-            wf.state = WorkflowState.PUBLISHED
+        if wf:
+            _mark_workflow_publication_succeeded(wf)
 
         publish_step = session.scalar(
             select(WorkflowStep).where(
@@ -2146,6 +2172,15 @@ def _process_publication_attempt_in_background(
                 session.close()
             except Exception:
                 pass
+
+
+def _mark_workflow_publication_succeeded(workflow: WorkflowRun) -> None:
+    """Finalize either an initial publish or a retry of a YouTube-only failure."""
+    if workflow.state not in (WorkflowState.PUBLISHING.value, WorkflowState.FAILED.value):
+        return
+    workflow.state = WorkflowState.PUBLISHED.value
+    workflow.failure_code = None
+    workflow.failure_detail = None
 
 
 class SetYouTubeThumbnailRequest(BaseModel):

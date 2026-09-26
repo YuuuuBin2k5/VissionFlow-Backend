@@ -136,6 +136,22 @@ class ReviewQueueApiTests(unittest.TestCase):
         )
         self.assertFalse(_is_youtube_publish_failure(None))
 
+    def test_successful_retry_recovers_failed_workflow_as_published(self) -> None:
+        with patch.dict(os.environ, self.environment, clear=True):
+            from app.routers.workflows import _mark_workflow_publication_succeeded
+
+        workflow = SimpleNamespace(
+            state="FAILED",
+            failure_code="YOUTUBE_UPLOAD_FAILED",
+            failure_detail="provider error",
+        )
+
+        _mark_workflow_publication_succeeded(workflow)
+
+        self.assertEqual("PUBLISHED", workflow.state)
+        self.assertIsNone(workflow.failure_code)
+        self.assertIsNone(workflow.failure_detail)
+
     def test_rejects_a_second_retry_while_the_first_is_active(self) -> None:
         with patch.dict(os.environ, self.environment, clear=True):
             from app.core.oidc import VerifiedIdentity
@@ -146,7 +162,7 @@ class ReviewQueueApiTests(unittest.TestCase):
         workflow = SimpleNamespace(state=WorkflowState.FAILED.value)
         connection = SimpleNamespace(id=uuid.uuid4())
         failure = SimpleNamespace(output_payload={"provider": "youtube", "failure_code": "UPLOAD_FAILED"})
-        active_attempt = SimpleNamespace(id=uuid.uuid4())
+        active_attempt = SimpleNamespace(id=uuid.uuid4(), state="claimed")
         session = MagicMock()
         session.scalar.side_effect = [workflow, connection, failure, active_attempt]
 
@@ -166,6 +182,88 @@ class ReviewQueueApiTests(unittest.TestCase):
         self.assertEqual("PUBLICATION_ATTEMPT_ALREADY_ACTIVE", raised.exception.detail)
         session.add.assert_not_called()
 
+    def test_reactivates_an_existing_pending_retry_without_creating_a_duplicate(self) -> None:
+        with patch.dict(os.environ, self.environment, clear=True):
+            from app.core.oidc import VerifiedIdentity
+            from app.domain.workflow import WorkflowState
+            from app.routers.workflows import CreatePublicationAttemptRequest, create_publication_attempt
+            from fastapi import BackgroundTasks
+
+        connection = SimpleNamespace(id=uuid.uuid4())
+        pending_attempt = SimpleNamespace(
+            id=uuid.uuid4(),
+            workflow_run_id=self.workflow_run_id,
+            publisher_connection_id=connection.id,
+            attempt_number=2,
+            state="pending",
+            failure_code=None,
+            external_url=None,
+            external_video_id=None,
+        )
+        session = MagicMock()
+        session.scalar.side_effect = [
+            SimpleNamespace(state=WorkflowState.FAILED.value),
+            connection,
+            SimpleNamespace(output_payload={"provider": "youtube", "failure_code": "UPLOAD_FAILED"}),
+            pending_attempt,
+        ]
+        background_tasks = BackgroundTasks()
+
+        with patch("app.routers.workflows.AuthorizeOrganization"):
+            response = create_publication_attempt(
+                self.workflow_run_id,
+                CreatePublicationAttemptRequest(
+                    organization_id=self.organization_id,
+                    publisher_connection_id=connection.id,
+                ),
+                VerifiedIdentity("local|operator", None, None),
+                session,
+                background_tasks,
+            )
+
+        self.assertEqual(pending_attempt.id, response.id)
+        self.assertEqual("pending", response.state)
+        self.assertEqual(1, len(background_tasks.tasks))
+        session.add.assert_not_called()
+
+    def test_new_retry_is_scheduled_for_control_plane_background_execution(self) -> None:
+        with patch.dict(os.environ, self.environment, clear=True):
+            from app.core.oidc import VerifiedIdentity
+            from app.domain.workflow import WorkflowState
+            from app.routers.workflows import CreatePublicationAttemptRequest, create_publication_attempt
+            from fastapi import BackgroundTasks
+
+        connection = SimpleNamespace(id=uuid.uuid4())
+        session = MagicMock()
+        session.scalar.side_effect = [
+            SimpleNamespace(state=WorkflowState.FAILED.value),
+            connection,
+            SimpleNamespace(output_payload={"provider": "youtube", "failure_code": "UPLOAD_FAILED"}),
+            None,
+        ]
+        session.scalars.return_value = []
+        def assign_id(row: object) -> None:
+            if getattr(row, "id", None) is None:
+                row.id = uuid.uuid4()
+        session.add.side_effect = assign_id
+        background_tasks = BackgroundTasks()
+
+        with patch("app.routers.workflows.AuthorizeOrganization"):
+            response = create_publication_attempt(
+                self.workflow_run_id,
+                CreatePublicationAttemptRequest(
+                    organization_id=self.organization_id,
+                    publisher_connection_id=connection.id,
+                ),
+                VerifiedIdentity("local|operator", None, None),
+                session,
+                background_tasks,
+            )
+
+        self.assertEqual("pending", response.state)
+        self.assertEqual(1, len(background_tasks.tasks))
+        session.commit.assert_called_once()
+
     def test_rejects_retry_while_the_previous_upload_outcome_is_unknown(self) -> None:
         with patch.dict(os.environ, self.environment, clear=True):
             from app.core.oidc import VerifiedIdentity
@@ -179,7 +277,7 @@ class ReviewQueueApiTests(unittest.TestCase):
             SimpleNamespace(state=WorkflowState.FAILED.value),
             connection,
             SimpleNamespace(output_payload={"provider": "youtube", "failure_code": "UPLOAD_FAILED"}),
-            SimpleNamespace(id=uuid.uuid4()),
+            SimpleNamespace(id=uuid.uuid4(), state="uploading"),
         ]
         with patch("app.routers.workflows.AuthorizeOrganization"):
             with self.assertRaises(HTTPException) as raised:
