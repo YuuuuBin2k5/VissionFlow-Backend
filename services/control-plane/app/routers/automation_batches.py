@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 logger = logging.getLogger("visionflow.automation_batches")
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -742,6 +742,7 @@ async def retry_automation_job(
     organization_id: uuid.UUID,
     batch_id: uuid.UUID,
     job_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     identity: VerifiedIdentity = Depends(require_identity),
     session: Session = Depends(get_session),
 ) -> AutomationBatchResponse:
@@ -760,6 +761,40 @@ async def retry_automation_job(
             job.state = "FAILED"
     if job.state not in {"FAILED", "CANCELLED"}:
         raise HTTPException(status_code=409, detail=f"Chỉ có thể thử lại video ở trạng thái thất bại hoặc đã hủy (hiện tại: {job.state})")
+
+    # A publish failure already has a valid rendered artifact. Retrying the
+    # production pipeline creates a new run but no claimable render job, which
+    # leaves the operator seeing a successful retry request followed by 204
+    # worker claims. Retry the publication handoff on the original workflow and
+    # preserve the YouTube connection selected for this automation batch.
+    if job.error_code == "YOUTUBE_UPLOAD_FAILED" and job.production_run_id:
+        settings = batch.settings if isinstance(batch.settings, dict) else {}
+        raw_connection_id = settings.get("youtube_publisher_connection_id")
+        try:
+            workflow_run_id = uuid.UUID(str(job.production_run_id))
+            publisher_connection_id = uuid.UUID(str(raw_connection_id))
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="Automation batch không có kênh YouTube hợp lệ để thử đăng lại",
+            ) from exc
+
+        from app.routers.workflows import CreatePublicationAttemptRequest, create_publication_attempt
+
+        create_publication_attempt(
+            workflow_run_id=workflow_run_id,
+            request=CreatePublicationAttemptRequest(
+                organization_id=organization_id,
+                publisher_connection_id=publisher_connection_id,
+            ),
+            identity=identity,
+            session=session,
+            background_tasks=background_tasks,
+        )
+        batch.state = "RUNNING"
+        session.commit()
+        return _response(batch, _reconcile(session, batch))
+
     if job.attempt >= job.max_attempts:
         job.max_attempts = job.attempt + 3  # Allow operator manual override
     batch.state = "RUNNING"

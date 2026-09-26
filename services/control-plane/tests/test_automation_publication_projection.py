@@ -4,6 +4,7 @@ import os
 import sys
 import unittest
 import uuid
+from fastapi import BackgroundTasks
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -98,6 +99,66 @@ class AutomationPublicationProjectionTests(unittest.TestCase):
                 auto_schedule=True,
                 schedule_platform="TIKTOK",
             )
+
+
+class AutomationPublicationRetryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_youtube_failure_retries_publication_without_launching_new_production_run(self) -> None:
+        environment = {
+            "DATABASE_URL": "postgresql+psycopg://placeholder:placeholder@localhost:5432/visionflow?sslmode=require"
+        }
+        with patch.dict(os.environ, environment, clear=True):
+            from app.routers.automation_batches import retry_automation_job
+
+        organization_id = uuid.uuid4()
+        batch_id = uuid.uuid4()
+        job_id = uuid.uuid4()
+        workflow_run_id = uuid.uuid4()
+        connection_id = uuid.uuid4()
+        batch = SimpleNamespace(
+            id=batch_id,
+            organization_id=organization_id,
+            state="FAILED",
+            settings={"youtube_publisher_connection_id": str(connection_id)},
+        )
+        job = SimpleNamespace(
+            id=job_id,
+            batch_id=batch_id,
+            production_run_id=str(workflow_run_id),
+            state="FAILED",
+            error_code="YOUTUBE_UPLOAD_FAILED",
+            attempt=1,
+            max_attempts=3,
+        )
+        session = MagicMock()
+        session.scalar.side_effect = [batch, job]
+        identity = SimpleNamespace(subject="operator", email="operator@example.com")
+        expected_response = object()
+
+        with (
+            patch("app.routers.automation_batches._authorize"),
+            patch("app.routers.automation_batches.run_repository.get", return_value=None),
+            patch("app.routers.automation_batches._launch_job") as launch_job,
+            patch("app.routers.automation_batches._reconcile", return_value=[]) as reconcile,
+            patch("app.routers.automation_batches._response", return_value=expected_response),
+            patch("app.routers.workflows.create_publication_attempt") as create_attempt,
+        ):
+            response = await retry_automation_job(
+                organization_id=organization_id,
+                batch_id=batch_id,
+                job_id=job_id,
+                background_tasks=BackgroundTasks(),
+                identity=identity,
+                session=session,
+            )
+
+        self.assertIs(response, expected_response)
+        launch_job.assert_not_called()
+        create_attempt.assert_called_once()
+        call = create_attempt.call_args.kwargs
+        self.assertEqual(workflow_run_id, call["workflow_run_id"])
+        self.assertEqual(connection_id, call["request"].publisher_connection_id)
+        self.assertEqual(organization_id, call["request"].organization_id)
+        reconcile.assert_called_once_with(session, batch)
 
 
 if __name__ == "__main__":
